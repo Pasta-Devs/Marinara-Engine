@@ -169,18 +169,21 @@ test("Ctrl+J in a chat with existing Mari history appends the arrival instead of
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().setOmnibarOpen(false);
-      useUIStore.getState().setSettingsTab("advanced");
+      useUIStore.getState().setSettingsTab("general");
       useUIStore.getState().openRightPanel("settings");
     });
     await expect(page.locator('[data-component="GlobalOmnibar"]')).toBeHidden();
-    const settings = page.locator('[data-component="SettingsPanel"]');
+    const settings = page.locator(".mari-settings-panel-chrome");
     await expect(settings).toBeVisible();
     await settings.click({ position: { x: 20, y: 100 } });
     await page.keyboard.press("Control+j");
     await expect(appended).toContainText("You're in Settings");
     await page.screenshot({ path: "test-results/mari-settings-before-new-chat.png" });
     for (let restart = 0; restart < 2; restart += 1) {
-      await mariPane.getByRole("button", { name: "New chat", exact: true }).click();
+      await page
+        .locator('[data-component="GlobalOmnibar"]')
+        .getByRole("button", { name: "New chat", exact: true })
+        .click();
       await expect(mariPane.locator('[data-component="HomeProfessorMariChat.Arrival"]')).toBeVisible();
       await expect(appended).toHaveCount(0);
       await expect(mariPane.locator(".mari-arrival")).toHaveCount(1);

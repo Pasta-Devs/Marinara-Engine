@@ -2182,6 +2182,8 @@ export function HomeProfessorMariChat({
   const handleRestart = useCallback(async () => {
     const chat = await startMariThread(arrivalThreadRef.current ?? null);
     await api.post("/professor-mari/workspace/reset", { clearHistory: true });
+    setArrivalChoiceChatId(null);
+    setAppendedArrival(null);
     setMessages([]);
     setLoadedMessagesChatId(chat.id);
     setDraft("");
