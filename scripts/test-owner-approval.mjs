@@ -15,10 +15,19 @@ function createMock({
   reviews = [],
   reviewsError,
   statusFailures = 0,
+  signalRuns = [],
 }) {
   const statuses = [];
   let statusAttempts = 0;
+  let signalListings = 0;
   const request = async ({ token, method = "GET", path, body }) => {
+    if (path.includes("/actions/workflows/")) {
+      assert.equal(path, "/repos/Pasta-Devs/Marinara-Engine/actions/workflows/77/runs?per_page=100");
+      signalListings += 1;
+      const runs = typeof signalRuns === "function" ? signalRuns(signalListings) : signalRuns;
+      if (runs instanceof Error) throw runs;
+      return { workflow_runs: runs };
+    }
     if (method === "POST" && path.endsWith("/statuses/head-sha")) {
       assert.equal(token, "github-token");
       statusAttempts += 1;
@@ -40,7 +49,7 @@ function createMock({
     }
     throw new Error(`Unexpected request: ${method} ${path}`);
   };
-  return { request, statuses, getStatusAttempts: () => statusAttempts };
+  return { request, statuses, getStatusAttempts: () => statusAttempts, getSignalListings: () => signalListings };
 }
 
 async function evaluateCase(options, env = {}) {
@@ -213,6 +222,77 @@ async function runCase(options, env = {}) {
   });
   assert.equal(status.state, "success");
   assert.equal(getStatusAttempts(), 2);
+}
+
+// The review evaluator answers one review signal. A newer signal for the same pull request supersedes it: the run ends
+// without publishing, and the newer signal's run publishes. Without SIGNAL_RUN_ID (the triage job) nothing is listed.
+{
+  const { getSignalListings } = await runCase({
+    pullRequest: { ...basePullRequest, user: { login: "MemberDeveloper" } },
+    membership: { state: "active", role: "member" },
+    signalRuns: [{ id: 2000, head_sha: "head-sha", pull_requests: [{ number: 42 }] }],
+  });
+  assert.equal(getSignalListings(), 0);
+}
+
+const signal = { SIGNAL_RUN_ID: "1000", SIGNAL_WORKFLOW_ID: "77", SIGNAL_HEAD_SHA: "reviewed-sha" };
+const member = {
+  pullRequest: { ...basePullRequest, user: { login: "MemberDeveloper" } },
+  membership: { state: "active", role: "member" },
+};
+
+for (const newer of [
+  { id: 1001, head_sha: "later-sha", pull_requests: [{ number: 42 }] },
+  // A fork's signal lists no pull requests; its head names the pull request.
+  { id: 1001, head_sha: "head-sha", pull_requests: [] },
+  { id: 1001, head_sha: "reviewed-sha", pull_requests: [] },
+  { id: 1001, status: "queued", conclusion: null, head_sha: "head-sha", pull_requests: [] },
+]) {
+  const { result, statuses } = await evaluateCase({ ...member, signalRuns: [newer] }, signal);
+  assert.equal(result.superseded, true, JSON.stringify(newer));
+  assert.equal(statuses.length, 0, JSON.stringify(newer));
+}
+
+{
+  const { status, getSignalListings } = await runCase(
+    {
+      ...member,
+      signalRuns: [
+        // Another pull request's newer signal, a newer one still waiting for approval to run, this run's own signal
+        // and an older one: none of them supersedes this run.
+        { id: 1003, head_sha: "other-sha", pull_requests: [{ number: 7 }] },
+        { id: 1002, conclusion: "action_required", head_sha: "head-sha", pull_requests: [] },
+        { id: 1000, head_sha: "reviewed-sha", pull_requests: [{ number: 42 }] },
+        { id: 999, head_sha: "head-sha", pull_requests: [{ number: 42 }] },
+      ],
+    },
+    signal,
+  );
+  assert.equal(status.state, "success");
+  assert.equal(getSignalListings(), 2, "checked before the evaluation and again before publishing");
+}
+
+{
+  // A review submitted while this run evaluates: the older run must not write after the newer one.
+  const { result, statuses } = await evaluateCase(
+    {
+      ...member,
+      signalRuns: (listing) =>
+        listing === 1 ? [] : [{ id: 1001, head_sha: "head-sha", pull_requests: [{ number: 42 }] }],
+    },
+    signal,
+  );
+  assert.equal(result.superseded, true);
+  assert.equal(statuses.length, 0);
+}
+
+{
+  // Listing the signals failed: publish rather than risk that no run publishes.
+  const { status } = await runCase(
+    { ...member, signalRuns: Object.assign(new Error("Server error"), { status: 502 }) },
+    signal,
+  );
+  assert.equal(status.state, "success");
 }
 
 console.info("Owner approval evaluator tests passed.");
