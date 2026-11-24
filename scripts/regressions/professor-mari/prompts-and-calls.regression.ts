@@ -946,6 +946,16 @@ const cases: RegressionCase[] = [
           assert.equal(offline.entry.id, "blackjack");
           assert.equal(offline.package, undefined);
         }
+
+        // Offline ambiguous candidates are sorted deterministically by name, then id (not section order).
+        const offlineAmbiguous = await lookupOfficialAgentCatalogPackage("o");
+        assert.equal(offlineAmbiguous.found, false);
+        if (!offlineAmbiguous.found) {
+          assert.equal(offlineAmbiguous.ambiguous, true);
+          const candidateNames = offlineAmbiguous.candidates.map((candidate) => candidate.name);
+          assert.ok(candidateNames.indexOf("Background") >= 0);
+          assert.ok(candidateNames.indexOf("Noodle") > candidateNames.indexOf("Background"));
+        }
       } finally {
         resetOfficialAgentCatalogCacheForTests();
       }

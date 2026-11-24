@@ -707,7 +707,11 @@ function singleOrAmbiguous(
 ): { matched: OfficialAgentKnowledgeEntry | null; candidates: readonly OfficialAgentKnowledgeEntry[] } | null {
   const [first, second] = matches;
   if (!first) return null;
-  return second ? { matched: null, candidates: matches } : { matched: first, candidates: [] };
+  if (!second) return { matched: first, candidates: [] };
+  const sorted = [...matches].sort(
+    (left, right) => compareCodeUnit(left.name, right.name) || compareCodeUnit(left.id, right.id),
+  );
+  return { matched: null, candidates: sorted };
 }
 
 function matchOfficialCatalogEntries(
