@@ -65,6 +65,7 @@ import {
   READABLE_TEXT_CONTRAST,
 } from "./lib/css-colors";
 import { normalizeThemeCss } from "./lib/theme-css";
+import { consumeChatLaunchParam, openLaunchedChat } from "./lib/chat-insights";
 import {
   CHAT_WIDGET_COLOR_PROPERTIES,
   getChatWidgetColorRoles,
@@ -684,6 +685,13 @@ export function App() {
   useEffect(() => {
     if (!isLite) void fetchSidecarStatus();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A tapped push notification opens Marinara at `/?chat=<id>`: open that chat once (#9752). The parameter
+  // is taken during the first render, before any child effect can push a history entry that copies it.
+  const [launchChatId] = useState(consumeChatLaunchParam);
+  useEffect(() => {
+    if (launchChatId) void openLaunchedChat(launchChatId);
+  }, [launchChatId]);
 
   // Apply theme + font size to the document root whenever they change
   useEffect(() => {

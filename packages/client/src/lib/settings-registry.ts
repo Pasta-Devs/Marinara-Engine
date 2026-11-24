@@ -463,6 +463,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "push-notifications",
+    sectionId: "notifications",
+    labelKey: "settings.search.pushNotifications.label",
+    label: "Push notifications",
+    description: "Get notifications on your phone through ntfy while Marinara is closed.",
+    descriptionKey: "settings.search.pushNotifications.description",
+    aliases: ["ntfy", "push", "phone", "android", "closed", "unifiedpush"],
+    keywords: ["push notification", "phone alert", "notify when closed"],
+    kind: "Toggle",
+  },
+  {
     id: "enable-streaming",
     sectionId: "responses",
     labelKey: "settings.controls.enableStreaming.label",
