@@ -444,12 +444,13 @@ export function screenList(ids) {
       run: open.chat(ids.roleplayChat),
       then: async (page) => {
         await page
-          .locator('button[aria-haspopup="dialog"][aria-label*="odel"]')
+          // Phones open the half sheet from the chat's model button; computers the window.
+          .locator('[data-quick-switcher-trigger], button[aria-haspopup="dialog"][aria-label*="odel"]')
           .filter({ visible: true })
           .first()
           .click({ timeout: 10_000 });
       },
-      ready: "[data-quick-connection-menu] [data-connection-switcher]",
+      ready: "[data-quick-connection-menu] [data-connection-switcher], [data-quick-switcher-mobile-menu]",
     },
     {
       id: "roleplay-chat-settings",

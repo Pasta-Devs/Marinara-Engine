@@ -285,7 +285,7 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
       <table className="ov-table ov-conn-card__table">
         <thead>
           <tr>
-            <th scope="col">
+            <th scope="col" className="ov-table__name">
               <div className="ov-conn-card__head">
                 <span className="ov-conn-card__name">
                   <b>{t("connections.accounts.section.device")}</b>
@@ -788,7 +788,7 @@ export function ConnectionsLanding() {
         <table className="ov-table ov-conn-card__table">
           <thead>
             <tr>
-              <th scope="col">
+              <th scope="col" className="ov-table__name">
                 <div className="ov-conn-card__head">
                   <ProviderIcon
                     provider={account.provider}
@@ -963,7 +963,7 @@ export function ConnectionsLanding() {
         <table className="ov-table ov-conn-card__table">
           <thead>
             <tr>
-              <th scope="col">
+              <th scope="col" className="ov-table__name">
                 <div className="ov-conn-card__head">
                   <Folder size={15} aria-hidden="true" />
                   <span className="ov-conn-card__name">
@@ -1116,7 +1116,7 @@ export function ConnectionsLanding() {
                   <table className="ov-table ov-conn-card__table">
                     <thead>
                       <tr>
-                        <th scope="col">
+                        <th scope="col" className="ov-table__name">
                           <div className="ov-conn-card__head">
                             <span className="ov-conn-card__name">
                               <b>{localize("Other models")}</b>
