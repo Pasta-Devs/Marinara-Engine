@@ -1079,6 +1079,11 @@ assert.ok(
 );
 assert.match(artifactPrompt.at(-1)!.content as string, /One\.\n\[ARTIFACT GOES HERE\]\n Two\./u);
 assert.match(artifactPrompt.at(-1)!.content as string, /<request>\na sign\n<\/request>/u);
+const artifactSystemPrompt = artifactPrompt[0]!.content as string;
+assert.match(artifactSystemPrompt, /<recent_messages>.*background context only/u);
+assert.match(artifactSystemPrompt, /Style SVG elements with class rather than #id selectors/u);
+assert.match(artifactSystemPrompt, /form controls.*data-\* attributes/u);
+assert.match(artifactSystemPrompt, /<details> and <summary>/u);
 // The narrator keeps the memory, never the markup; a deleted or failed artifact is gone from it.
 const artifactMessage = (patch: Record<string, unknown>) => ({
   role: "assistant",
