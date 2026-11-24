@@ -211,7 +211,7 @@ assert.doesNotMatch(featureAgentDetailHostSource, /featureagentdetailhost\.featu
   );
   assert.match(
     agentEditorSource,
-    /const saveSnapshotCurrent =\s*activeAgentDetailIdRef\.current === saveAgentDetailId &&\s*portraitRewritePromptRevRef\.current === savePortraitRewritePromptRev &&\s*editRevisionRef\.current === saveEditRevision;[\s\S]*?if \(saveSnapshotCurrent\) \{\s*setDirty\(false\);/u,
-    "AgentEditor handleSave must clear dirty only when agent identity and edit revisions still match",
+    /const saveSnapshotCurrent =\s*activeAgentDetailIdRef\.current === saveAgentDetailId &&\s*portraitRewritePromptRevRef\.current === savePortraitRewritePromptRev &&\s*editRevisionRef\.current === saveEditRevision;[\s\S]*?if \(saveSnapshotCurrent\) \{\s*setDirty\(false\);[\s\S]*?return saveSnapshotCurrent;/u,
+    "AgentEditor handleSave must clear dirty and return saveSnapshotCurrent only when agent identity and edit revisions still match",
   );
 }

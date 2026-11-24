@@ -1943,7 +1943,7 @@ export function AgentEditor() {
         setSavedFlash(true);
         setTimeout(() => setSavedFlash(false), 1500);
       }
-      return true;
+      return saveSnapshotCurrent;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save agent config");
       return false;
