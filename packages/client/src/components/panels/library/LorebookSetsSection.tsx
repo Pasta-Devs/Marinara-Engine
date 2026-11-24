@@ -143,7 +143,7 @@ export function LorebookSetsSection() {
 // row each build on the last one instead of on a list that hasn't refetched yet. Each pick
 // sends only what it adds or removes, so changes made elsewhere (another window, Mari) stay.
 // The name field takes a name changed elsewhere unless someone is typing in it.
-function LorebookSetEditor({ set }: { set: LibraryFolder }) {
+export function LorebookSetEditor({ set }: { set: LibraryFolder }) {
   const { t } = useTranslation();
   const { data: lorebooks } = useLorebooks();
   const updateSet = useUpdateLibraryFolder("lorebook-sets");

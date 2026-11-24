@@ -6873,6 +6873,8 @@
   "lorebook.sets.pick.label": "Lorebook set",
   "lorebook.sets.pick.placeholder": "Use a saved set",
   "lorebook.sets.pick.search": "Search sets",
+  "lorebook.sets.tabBooks": "Books",
+  "lorebook.sets.tabSets": "Sets",
   "lorebook.sets.title": "Lorebook Sets",
   "lorebook.textExport.csv": "CSV",
   "lorebook.textExport.csvDescription": "A spreadsheet with name, keys, content, folder, enabled, constant and probability columns.",

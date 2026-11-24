@@ -16162,6 +16162,58 @@ input.ov-edhead__title:not(#ov-x) {
   height: 1.75rem;
 }
 
+/* Library > Lorebooks > Sets: a dense table; an open set shows its name and lorebooks under its row. */
+.ov-lbsets__name > .ov-table__clip {
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-lbsets__name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.375rem;
+}
+.ov-lbsets__name svg {
+  flex: none;
+  color: var(--ov-accent, currentColor);
+  transition: transform 160ms ease-out;
+}
+.ov-lbsets__name svg.is-open {
+  transform: rotate(90deg);
+}
+.ov-list[data-component="OverhaulLorebookSets"] > .ov-table-wrap {
+  margin-top: 0.75rem;
+}
+.ov-lbsets__detail > td {
+  height: auto;
+  padding: 0.25rem 0.75rem 0.75rem 1.75rem;
+  white-space: normal;
+  cursor: default;
+}
+.ov-lbsets__detail label {
+  display: grid;
+  gap: 0.25rem;
+}
+.ov-lbsets__detail input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.ov-lbsets__foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0.5rem;
+}
+.ov-lbsets__detail:hover > td {
+  background: none;
+}
+.ov-lbsets__empty {
+  max-width: 36rem;
+  padding: 1rem 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--ov-muted, var(--muted-foreground));
+}
+
 /* Backgrounds: Characters-style gallery with wide pictures. */
 .ov-bglib .ov-bglib__grid {
   grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
