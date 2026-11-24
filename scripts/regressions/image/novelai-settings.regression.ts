@@ -629,20 +629,28 @@ try {
 // Precise Reference on V5 (2026-11-24): references fill V5's nearest bucket (cropped, alpha kept) instead of V4.5's
 // padding, "Prefer same outfit" can be turned off, and V5 sends no fidelity.
 {
-  const sent: Array<{ request: Record<string, any>; references: Array<{ width?: number; height?: number; alpha?: boolean }> }> =
-    [];
+  const sent: Array<{
+    request: Record<string, any>;
+    references: Array<{ width?: number; height?: number; alpha?: boolean }>;
+  }> = [];
   const referenceDns = mock.method(dns, "lookup", async () => [{ address: "8.8.8.8", family: 4 }]);
-  const referenceFetch = mock.method(globalThis, "fetch", async (_input: string | URL | Request, init?: RequestInit) => {
-    const form = init?.body;
-    assert.ok(form instanceof FormData, "Precise Reference requests are multipart");
-    const references = [];
-    for (let index = 0; form.has(`director_ref_${index}`); index++) {
-      const meta = await sharp(Buffer.from(await (form.get(`director_ref_${index}`) as Blob).arrayBuffer())).metadata();
-      references.push({ width: meta.width, height: meta.height, alpha: meta.hasAlpha });
-    }
-    sent.push({ request: JSON.parse(await (form.get("request") as Blob).text()), references });
-    return new Response(new Uint8Array(sampleSource), { status: 200, headers: { "content-type": "image/png" } });
-  });
+  const referenceFetch = mock.method(
+    globalThis,
+    "fetch",
+    async (_input: string | URL | Request, init?: RequestInit) => {
+      const form = init?.body;
+      assert.ok(form instanceof FormData, "Precise Reference requests are multipart");
+      const references = [];
+      for (let index = 0; form.has(`director_ref_${index}`); index++) {
+        const meta = await sharp(
+          Buffer.from(await (form.get(`director_ref_${index}`) as Blob).arrayBuffer()),
+        ).metadata();
+        references.push({ width: meta.width, height: meta.height, alpha: meta.hasAlpha });
+      }
+      sent.push({ request: JSON.parse(await (form.get("request") as Blob).text()), references });
+      return new Response(new Uint8Array(sampleSource), { status: 200, headers: { "content-type": "image/png" } });
+    },
+  );
   const picture = async (width: number, height: number, alpha: number) =>
     (
       await sharp({ create: { width, height, channels: 4, background: { r: 200, g: 40, b: 90, alpha } } })
@@ -695,7 +703,11 @@ try {
     assert.deepEqual(styled.director_reference_secondary_strength_values, [0, 0]);
 
     // V4.5 is unchanged: padded to its three sizes, its fidelity kept, no outfit variant.
-    await paint("nai-diffusion-4-5-full", { preferReferenceOutfit: false }, { styleReferenceImage: cutout, styleReferenceFidelity: 0.25 });
+    await paint(
+      "nai-diffusion-4-5-full",
+      { preferReferenceOutfit: false },
+      { styleReferenceImage: cutout, styleReferenceFidelity: 0.25 },
+    );
     const v45 = sent.at(-1)!;
     assert.deepEqual(
       v45.request.parameters.director_reference_descriptions.map((entry: any) => entry.caption.base_caption),

@@ -2800,7 +2800,12 @@ const NOVELAI_DIRECTOR_REFERENCE_SIZES = [
  */
 const NOVELAI_V5_REFERENCE_BUCKETS = Array.from({ length: 49 }, (_, index) => 1024 + index * 64).flatMap((height) => {
   const width = Math.floor((1024 * 1024) / height / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE;
-  return width === height ? [{ width, height }] : [{ width, height }, { width: height, height: width }];
+  return width === height
+    ? [{ width, height }]
+    : [
+        { width, height },
+        { width: height, height: width },
+      ];
 });
 const NOVELAI_REFERENCE_CACHE_HMAC_KEY = randomBytes(32);
 
@@ -3135,7 +3140,8 @@ function selectNovelAiDirectorReferenceSize(width: number, height: number): { wi
 function selectNovelAiV5ReferenceBucket(width: number, height: number): { width: number; height: number } {
   const ratio = Math.log(width / height);
   return NOVELAI_V5_REFERENCE_BUCKETS.reduce((best, candidate) =>
-    Math.abs(ratio - Math.log(candidate.width / candidate.height)) < Math.abs(ratio - Math.log(best.width / best.height))
+    Math.abs(ratio - Math.log(candidate.width / candidate.height)) <
+    Math.abs(ratio - Math.log(best.width / best.height))
       ? candidate
       : best,
   );
