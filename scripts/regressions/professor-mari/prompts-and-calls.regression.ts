@@ -745,6 +745,69 @@ const cases: RegressionCase[] = [
       }
     },
   },
+  {
+    name: "Live catalog loader honors abort signal and deadline without blocking prompt assembly",
+    async run() {
+      resetOfficialAgentCatalogCacheForTests();
+      try {
+        let releaseSlowFetch: (() => void) | undefined;
+        let fetchCount = 0;
+
+        // Pre-aborted signal returns fallback immediately without invoking fetch.
+        const preAborted = new AbortController();
+        preAborted.abort();
+        const immediate = await getOfficialAgentCatalogKnowledge({
+          signal: preAborted.signal,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            return { packages: [] };
+          },
+        });
+        assert.equal(immediate.source, "fallback");
+        assert.equal(fetchCount, 0);
+
+        // In-flight wait stops promptly on signal abort while slow fetch later settles cleanly.
+        const activeController = new AbortController();
+        const abortedWait = getOfficialAgentCatalogKnowledge({
+          signal: activeController.signal,
+          fetchCatalog: () =>
+            new Promise((resolve) => {
+              releaseSlowFetch = () =>
+                resolve({
+                  packages: [
+                    fakeCatalogPackage({
+                      id: "late-pack",
+                      name: "Late Pack",
+                      section: "apps",
+                      tagline: "Loaded late.",
+                      description: "Loaded late.",
+                    }),
+                  ],
+                });
+            }),
+        });
+        activeController.abort();
+        const fromAbort = await abortedWait;
+        assert.equal(fromAbort.source, "fallback");
+        releaseSlowFetch?.();
+
+        // Short timeout returns fallback even when fetch takes longer.
+        resetOfficialAgentCatalogCacheForTests();
+        let releaseTimeoutFetch: (() => void) | undefined;
+        const timedOut = await getOfficialAgentCatalogKnowledge({
+          timeoutMs: 10,
+          fetchCatalog: () =>
+            new Promise((resolve) => {
+              releaseTimeoutFetch = () => resolve({ packages: [] });
+            }),
+        });
+        assert.equal(timedOut.source, "fallback");
+        releaseTimeoutFetch?.();
+      } finally {
+        resetOfficialAgentCatalogCacheForTests();
+      }
+    },
+  },
 ];
 
 await runNamedCases(cases);

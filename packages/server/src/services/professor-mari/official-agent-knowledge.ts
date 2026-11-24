@@ -508,16 +508,57 @@ type CachedCatalogState = {
 let liveCatalogCache: CachedCatalogState | null = null;
 let lastCatalogErrorAt: number | null = null;
 let inFlightCatalogLoad: Promise<OfficialAgentCatalogKnowledgeResult> | null = null;
+let catalogCacheGeneration = 0;
+
+function fallbackCatalogResult(): OfficialAgentCatalogKnowledgeResult {
+  if (liveCatalogCache) {
+    return { entries: liveCatalogCache.entries, block: liveCatalogCache.block, source: "live" };
+  }
+  return {
+    entries: OFFICIAL_AGENT_KNOWLEDGE_ENTRIES,
+    block: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
+    source: "fallback",
+  };
+}
+
+async function awaitCatalogWithinBudget(
+  pending: Promise<OfficialAgentCatalogKnowledgeResult>,
+  signal?: AbortSignal,
+  timeoutMs?: number,
+): Promise<OfficialAgentCatalogKnowledgeResult> {
+  if (signal?.aborted) return fallbackCatalogResult();
+  if (!signal && timeoutMs === undefined) return pending;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const finish = (result: OfficialAgentCatalogKnowledgeResult) => {
+      if (settled) return;
+      settled = true;
+      if (timer !== undefined) clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      resolve(result);
+    };
+    const onAbort = () => finish(fallbackCatalogResult());
+    if (signal) signal.addEventListener("abort", onAbort, { once: true });
+    if (timeoutMs !== undefined) {
+      timer = setTimeout(() => finish(fallbackCatalogResult()), Math.max(0, timeoutMs));
+    }
+    void pending.then(finish, () => finish(fallbackCatalogResult()));
+  });
+}
 
 /**
  * Resolves the current `<official_agent_catalog>` block with an in-memory 15-minute TTL cache,
- * single-flight request deduplication, 60-second error cooldown, and fallback to the last-known
- * live catalog or bundled 46-package snapshot when offline.
+ * single-flight request deduplication, 60-second error cooldown, caller cancellation/deadline bounds,
+ * and fallback to the last-known live catalog or bundled 46-package snapshot when offline.
  */
 export async function getOfficialAgentCatalogKnowledge(options?: {
   fetchCatalog?: () => Promise<Pick<StampedCapabilityCatalog, "packages">>;
   now?: () => number;
   forceRefresh?: boolean;
+  signal?: AbortSignal;
+  timeoutMs?: number;
 }): Promise<OfficialAgentCatalogKnowledgeResult> {
   const now = options?.now ?? Date.now;
   const currentTime = now();
@@ -526,50 +567,46 @@ export async function getOfficialAgentCatalogKnowledge(options?: {
     return { entries: liveCatalogCache.entries, block: liveCatalogCache.block, source: "live" };
   }
 
+  if (options?.signal?.aborted) {
+    return fallbackCatalogResult();
+  }
+
   if (
     !options?.forceRefresh &&
     lastCatalogErrorAt !== null &&
     currentTime - lastCatalogErrorAt < CATALOG_ERROR_COOLDOWN_MS
   ) {
-    if (liveCatalogCache) {
-      return { entries: liveCatalogCache.entries, block: liveCatalogCache.block, source: "live" };
-    }
-    return {
-      entries: OFFICIAL_AGENT_KNOWLEDGE_ENTRIES,
-      block: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
-      source: "fallback",
-    };
+    return fallbackCatalogResult();
   }
 
-  if (inFlightCatalogLoad) return inFlightCatalogLoad;
-
-  const fetchCatalog = options?.fetchCatalog ?? (() => capabilityPackageManager.catalog());
-  inFlightCatalogLoad = (async (): Promise<OfficialAgentCatalogKnowledgeResult> => {
-    try {
-      const catalog = await fetchCatalog();
-      const entries = entriesFromCapabilityCatalog(catalog);
-      if (entries.length === 0) throw new Error("Capability catalog returned zero packages");
-      const block = formatOfficialAgentCatalogBlock(entries);
-      liveCatalogCache = { entries, block, fetchedAt: now() };
-      lastCatalogErrorAt = null;
-      return { entries, block, source: "live" };
-    } catch (error) {
-      lastCatalogErrorAt = now();
-      logger.debug(error, "[mari-catalog] live catalog unavailable; using fallback snapshot");
-      if (liveCatalogCache) {
-        return { entries: liveCatalogCache.entries, block: liveCatalogCache.block, source: "live" };
+  if (!inFlightCatalogLoad) {
+    const generation = catalogCacheGeneration;
+    const fetchCatalog = options?.fetchCatalog ?? (() => capabilityPackageManager.catalog());
+    inFlightCatalogLoad = (async (): Promise<OfficialAgentCatalogKnowledgeResult> => {
+      try {
+        const catalog = await fetchCatalog();
+        const entries = entriesFromCapabilityCatalog(catalog);
+        if (entries.length === 0) throw new Error("Capability catalog returned zero packages");
+        const block = formatOfficialAgentCatalogBlock(entries);
+        if (generation !== catalogCacheGeneration) return fallbackCatalogResult();
+        liveCatalogCache = { entries, block, fetchedAt: now() };
+        lastCatalogErrorAt = null;
+        return { entries, block, source: "live" };
+      } catch (error) {
+        if (generation === catalogCacheGeneration) {
+          lastCatalogErrorAt = now();
+        }
+        logger.debug(error, "[mari-catalog] live catalog unavailable; using fallback snapshot");
+        return fallbackCatalogResult();
+      } finally {
+        if (generation === catalogCacheGeneration) {
+          inFlightCatalogLoad = null;
+        }
       }
-      return {
-        entries: OFFICIAL_AGENT_KNOWLEDGE_ENTRIES,
-        block: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
-        source: "fallback",
-      };
-    } finally {
-      inFlightCatalogLoad = null;
-    }
-  })();
+    })();
+  }
 
-  return inFlightCatalogLoad;
+  return awaitCatalogWithinBudget(inFlightCatalogLoad, options?.signal, options?.timeoutMs);
 }
 
 /** Returns the cached live catalog entries when loaded, or the bundled snapshot otherwise. */
@@ -583,6 +620,7 @@ export function warmOfficialAgentCatalogKnowledge(): void {
 }
 
 export function resetOfficialAgentCatalogCacheForTests(): void {
+  catalogCacheGeneration += 1;
   liveCatalogCache = null;
   lastCatalogErrorAt = null;
   inFlightCatalogLoad = null;

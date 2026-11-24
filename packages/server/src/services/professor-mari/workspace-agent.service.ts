@@ -5400,7 +5400,7 @@ export class ProfessorMariWorkspaceService {
       ...(MARI_SEASON_FLAVORS.get(seasonalPackId ?? "") ? [MARI_SEASON_FLAVORS.get(seasonalPackId ?? "")!] : []),
       `</workspace_context>`,
     ].join("\n");
-    const { block: agentCatalogBlock } = await getOfficialAgentCatalogKnowledge();
+    const { block: agentCatalogBlock } = await getOfficialAgentCatalogKnowledge({ signal, timeoutMs: 2_000 });
     const messages: ChatMessage[] = [
       { role: "system", content: buildMariSystemPrompt(agentCatalogBlock), contextKind: "prompt" },
       {

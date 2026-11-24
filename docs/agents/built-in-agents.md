@@ -81,7 +81,7 @@ A single-player otome game made from your characters. Love interests remember wh
 
 - **Integration**: App in its own **Otome Hearth** tab in **Home**.
 - **Where it works**: Home.
-- **Availability**: requires Engine **2.5.1+** (below 4.0.0). Permissions: `network`, `routes`, `storage`, `ui`.
+- **Availability**: requires Engine **2.5.1+** (below 4.0.0). Requests access to network connections, server routes, local storage, and a **Home** tab interface.
 - **Key settings**: install it, restart when prompted, then open **Home → Otome Hearth**. Configure character bibles, **Lines & Veils** content limits, and optional **Remind Me** tracking inside the app.
 - **Full guide**: [Otome Hearth package guide](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/otome-forge/README.md).
 
@@ -91,7 +91,7 @@ A virtual pet in **Home → Saucelings** and on Home widgets. Choose one of your
 
 - **Integration**: App in its own **Saucelings** tab and Home widgets in **Home**.
 - **Where it works**: Home.
-- **Availability**: requires Engine **2.5.0+** (below 4.0.0). Permissions: `prompt-context`, `routes`, `storage`, `ui`.
+- **Availability**: requires Engine **2.5.0+** (below 4.0.0). Requests access to chat prompt context, server routes, local storage, and **Home** tab and widget interfaces.
 - **Key settings**: install it, restart when prompted, then open **Home → Saucelings** to manage the pet across **Nook**, **Journal**, **Album**, **Menagerie**, and **Settings**.
 - **Full guide**: [Saucelings package guide](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/saucelings/README.md).
 
