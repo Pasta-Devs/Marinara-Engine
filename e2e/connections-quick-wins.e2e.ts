@@ -291,9 +291,11 @@ test("the chat's model chooser lists this device's recent picks after Starred", 
 });
 
 test("a job keeps its place while its picker is open, then moves and keeps focus", async ({ page, request }, info) => {
-  const previousMain = ((await (await request.get("/api/connections")).json()) as Array<Record<string, unknown>>).find(
-    (row) => row.isDefault === true || row.isDefault === "true",
-  );
+  const before = (await (await request.get("/api/connections")).json()) as Array<Record<string, unknown>>;
+  const isTrue = (value: unknown) => value === true || value === "true";
+  const previousMain = before.find((row) => isTrue(row.isDefault));
+  // Giving the fixture the Images job clears the server's current Images model; it is put back afterwards.
+  const previousImages = before.find((row) => row.provider === "image_generation" && isTrue(row.defaultForAgents));
   await setup(page, request);
   // An account with a chat model (Main) and an image model that no job uses yet.
   const created = (await (
@@ -358,5 +360,7 @@ test("a job keeps its place while its picker is open, then moves and keeps focus
     await request.delete(`/api/connections/${created.connectionId}`);
     await request.delete(`/api/connection-accounts/${created.account.id}`);
     if (previousMain) await request.patch(`/api/connections/${previousMain.id}`, { data: { isDefault: true } });
+    if (previousImages)
+      await request.patch(`/api/connections/${previousImages.id}`, { data: { defaultForAgents: true } });
   }
 });
