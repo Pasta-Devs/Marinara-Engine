@@ -2,6 +2,7 @@
 // Connection Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { isModelAddressPathValue } from "../utils/model-address.js";
 import {
   DECISION_SOURCES,
   GENERATIVE_AUDIO_SOURCES,
@@ -155,8 +156,15 @@ export const createConnectionSchema = z.object({
   cachingAtDepth: z.number().int().min(0).default(5),
   embeddingModel: z.string().default(""),
   embeddingBaseUrl: z.string().url().or(z.literal("")).default(""),
-  /** This Model's own address on its Connection's server; "" = the Connection's address. */
-  modelBaseUrl: z.string().trim().url().or(z.literal("")).default(""),
+  /** This Model's own address on its Connection's server: a full address, or only a path ("/proxy/zai") read
+   *  against that server; "" = the Connection's address. */
+  modelBaseUrl: z
+    .string()
+    .trim()
+    .url()
+    .or(z.literal(""))
+    .or(z.string().trim().refine(isModelAddressPathValue, "Invalid URL or path"))
+    .default(""),
   embeddingConnectionId: z.string().nullable().default(null),
   openrouterProvider: z.string().nullable().default(null),
   imageGenerationSource: z.string().nullable().default(null),

@@ -48,12 +48,7 @@ import { setConnectionBudgetScope, setAccountRateLimit } from "../llm/connection
 import { setAccountParallelLimit } from "../llm/account-budget.js";
 import { logger } from "../../lib/logger.js";
 // A cycle with connections.storage, safe: the functions are only called at request time.
-import {
-  catalogOf,
-  readAccountCatalogs,
-  readSavedModelList,
-  withAccountCatalog,
-} from "./connections.storage.js";
+import { catalogOf, readAccountCatalogs, readSavedModelList, withAccountCatalog } from "./connections.storage.js";
 
 export type ConnectionRow = typeof apiConnections.$inferSelect;
 export type ConnectionAccountRow = typeof connectionAccounts.$inferSelect;

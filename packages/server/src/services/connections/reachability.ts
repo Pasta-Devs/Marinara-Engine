@@ -90,7 +90,9 @@ export function waitingUnreachable(
 /** What the Connections page shows: the failure, however long ago it began, until a fetch succeeds. */
 export function unreachableOf(key: string | null, address: string | null | undefined): Unreachable | null {
   const entry = key ? entries.get(key) : undefined;
-  return entry && entry.origin === originOf(address) ? { reason: entry.reason, since: entry.since, error: entry.error } : null;
+  return entry && entry.origin === originOf(address)
+    ? { reason: entry.reason, since: entry.since, error: entry.error }
+    : null;
 }
 
 /** For tests. */

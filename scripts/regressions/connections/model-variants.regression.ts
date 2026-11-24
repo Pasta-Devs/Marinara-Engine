@@ -41,7 +41,10 @@ assert.deepEqual(
 );
 
 // A route letter "-r" folds only when the list has the model without it; "command-r" alone stays a model.
-const routed = groupModelVariants(["claude-opus-5-r", "claude-opus-5", "command-r", "[SP]claude-sonnet-5-5-r"], (id) => id);
+const routed = groupModelVariants(
+  ["claude-opus-5-r", "claude-opus-5", "command-r", "[SP]claude-sonnet-5-5-r"],
+  (id) => id,
+);
 assert.deepEqual(
   routed.map((group) => [group.base, group.items.length]),
   [

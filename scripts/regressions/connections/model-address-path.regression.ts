@@ -9,8 +9,14 @@ const { resolveModelAddress, isModelAddressPath, modelAddressPathOf } =
 const base = "https://img-ala.trycloudflare.com/proxy/google-ai";
 assert.equal(resolveModelAddress("/proxy/zai", base), "https://img-ala.trycloudflare.com/proxy/zai");
 assert.equal(resolveModelAddress("proxy/zai", base), "https://img-ala.trycloudflare.com/proxy/zai");
-assert.equal(resolveModelAddress(" /proxy/moonshot-ai/v1 ", base), "https://img-ala.trycloudflare.com/proxy/moonshot-ai/v1");
-assert.equal(resolveModelAddress("https://img-ala.trycloudflare.com/proxy/xai", base), "https://img-ala.trycloudflare.com/proxy/xai");
+assert.equal(
+  resolveModelAddress(" /proxy/moonshot-ai/v1 ", base),
+  "https://img-ala.trycloudflare.com/proxy/moonshot-ai/v1",
+);
+assert.equal(
+  resolveModelAddress("https://img-ala.trycloudflare.com/proxy/xai", base),
+  "https://img-ala.trycloudflare.com/proxy/xai",
+);
 assert.equal(resolveModelAddress("", base), null);
 assert.equal(resolveModelAddress("/proxy/zai", ""), null);
 

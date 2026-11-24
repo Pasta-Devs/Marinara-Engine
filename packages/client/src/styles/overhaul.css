@@ -18325,8 +18325,8 @@ button.ov-conn-card__name:hover b {
   padding: 0;
   background: var(--ov-panel, var(--card));
 }
+/* Centred like every Library table's headings (Nov 19). */
 .ov-model-sheet .ov-field-card__table th {
-  text-align: start;
   border-start-start-radius: inherit;
   border-start-end-radius: inherit;
 }
@@ -18334,7 +18334,7 @@ button.ov-conn-card__name:hover b {
   display: flex;
   min-height: 2.375rem;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 0.5rem;
   padding: 0 0.75rem;
   color: var(--ov-accent-text);

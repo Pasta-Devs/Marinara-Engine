@@ -9,6 +9,12 @@
 /** Only path characters: no "//host", "\host", "user@", spaces or a scheme can sneak another server in. */
 const PATH_ONLY = /^\/?(?!\/)[A-Za-z0-9._~%+\-/]*$/u;
 
+/** Whether the value is a path the field can store ("/proxy/zai"), checked before any server is known. */
+export function isModelAddressPathValue(value: string): boolean {
+  const trimmed = value.trim();
+  return isModelAddressPath(trimmed) && PATH_ONLY.test(trimmed) && /[A-Za-z0-9]/u.test(trimmed);
+}
+
 /** Whether the value is the path form (not a full address). */
 export function isModelAddressPath(value: string | null | undefined): boolean {
   const trimmed = value?.trim() ?? "";
