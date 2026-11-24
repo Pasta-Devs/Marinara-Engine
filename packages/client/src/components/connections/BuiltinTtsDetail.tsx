@@ -583,7 +583,7 @@ export function BuiltinTtsDetail() {
 
   return (
     <div className="flex flex-col gap-3" data-component="BuiltinTtsDetail">
-      <DetailHero icon={<ProviderIcon provider="builtin-tts" size="lg" />} title={t("connections.builtinTts.name")}>
+      <DetailHero icon={<ProviderIcon provider="builtin-tts" size="lg" />} title={t("connections.device.role.voice")}>
         {engine ? <StateWord tone={engine.tone} label={engine.state} /> : null}
         <span>· {t("connections.accounts.section.device")}</span>
       </DetailHero>

@@ -668,6 +668,24 @@ const MODEL_LIST_TTL = 6 * 60 * 60_000;
 const connectionModelsPath = (id: string, refresh = false) =>
   `/connections/${encodeURIComponent(id)}/models${refresh ? "?refresh=true" : ""}`;
 
+/** The server got no answer from the provider (address gone, refused, timed out). */
+const isUnreachable = (error: unknown) =>
+  error instanceof ApiError && !!(error.payload as { unreachable?: unknown } | undefined)?.unreachable;
+
+/** A list load that found the server unreachable, or reached it again, changes what the Connections page shows. */
+function loadModelList(qc: ReturnType<typeof useQueryClient>, id: string, refresh = false) {
+  return api.get<ConnectionModelList>(connectionModelsPath(id, refresh)).then(
+    (list) => {
+      if (refresh) void qc.invalidateQueries({ queryKey: connectionAccountKeys.list() });
+      return list;
+    },
+    (error: unknown) => {
+      if (isUnreachable(error)) void qc.invalidateQueries({ queryKey: connectionAccountKeys.list() });
+      throw error;
+    },
+  );
+}
+
 /** 409: the connection's provider, address or key changed while its list loaded, so that list is not kept. */
 const isStaleModelList = (error: unknown) => error instanceof ApiError && error.status === 409;
 
@@ -677,9 +695,10 @@ const isStaleModelList = (error: unknown) => error instanceof ApiError && error.
  * retried each time a picker opens; Refresh asks again.
  */
 export function useConnectionModels(id: string | null | undefined, enabled = true) {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: connectionKeys.models(id ?? ""),
-    queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id ?? "")),
+    queryFn: () => loadModelList(qc, id ?? ""),
     enabled: enabled && !!id && id !== "random",
     staleTime: MODEL_LIST_TTL,
     gcTime: MODEL_LIST_TTL,
@@ -691,10 +710,11 @@ export function useConnectionModels(id: string | null | undefined, enabled = tru
 
 /** The saved model lists of these catalog rows, for counts; the server asks the provider only when none is saved. */
 export function useModelLists(ids: readonly string[]) {
+  const qc = useQueryClient();
   return useQueries({
     queries: ids.map((id) => ({
       queryKey: connectionKeys.models(id),
-      queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id)),
+      queryFn: () => loadModelList(qc, id),
       staleTime: MODEL_LIST_TTL,
       gcTime: MODEL_LIST_TTL,
       retry: false,
@@ -721,7 +741,7 @@ export function useCountConnectionModels() {
 export function useRefreshConnectionModels() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.get<ConnectionModelList>(connectionModelsPath(id, true)),
+    mutationFn: (id: string) => loadModelList(qc, id, true),
     onSuccess: (data, id) => qc.setQueryData(connectionKeys.models(id), data),
     // A refresh made with settings that have since changed is not cached; load the list for the new ones.
     onError: (error, id) => {

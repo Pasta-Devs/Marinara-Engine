@@ -10,6 +10,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Check,
+  ChevronDown,
   ChevronLeft,
   ArrowDown,
   ArrowUp,
@@ -89,6 +90,7 @@ import { ModelRow, ModelTile } from "./ModelRow";
 import { openAddConnection } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { FamilyChips, familyFilterOf } from "./FamilyChips";
+import { groupModelVariants, variantLabel } from "../../lib/model-variants";
 import { reorderStars, starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import { useVoiceRowId } from "../../hooks/use-tts";
 
@@ -133,6 +135,10 @@ type Entry = {
   group?: SwitcherGroup;
   model?: string;
   row?: SwitcherRow;
+  /** A base model's line: its variants ("[free]…", "[SP]…-thinking") open under it. */
+  variants?: { key: string; count: number; open: boolean };
+  /** A variant under its base model's line: its tags are its name, the full id line 2. */
+  variantOf?: string;
 };
 
 /** A long run of model lines draws only the rows in view; a short one renders in full. */
@@ -591,6 +597,8 @@ export function ConnectionSwitcherBody({
   const [drilled, setDrilled] = useState(true);
   // The family chip over the open account's catalog (Claude, DeepSeek …); another account starts on All.
   const [family, setFamily] = useState<string | null>(null);
+  // Base models whose variants are open in the list.
+  const [openVariants, setOpenVariants] = useState<ReadonlySet<string>>(() => new Set());
   useEffect(() => setFamily(null), [pane]);
   const searchRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -891,10 +899,9 @@ export function ConnectionSwitcherBody({
   const builtInName = useSidecarStore((state) => builtInModelName(state.modelDisplayName));
   const localEntry: Entry = {
     key: LOCAL_SIDECAR_CONNECTION_ID,
-    title: t("connections.switcher.localModel"),
-    // The model's own name on line 2, as On this device shows it.
-    subtitle:
-      localModelHint ?? (builtInReady ? (builtInName ?? undefined) : t("connections.builtin.notDownloadedSetUp")),
+    // The model's own name, tagged "On device"; its job's name until a model is downloaded.
+    title: (builtInReady && builtInName) || t("connections.switcher.localModel"),
+    subtitle: localModelHint ?? (builtInReady ? undefined : t("connections.builtin.notDownloadedSetUp")),
     choice: { connectionId: LOCAL_SIDECAR_CONNECTION_ID },
   };
   const nowEntry: Entry | null =
@@ -1214,14 +1221,55 @@ export function ConnectionSwitcherBody({
       away?: boolean;
     } = {},
   ) => {
+    if (rawEntry.variants) {
+      const { key, count, open } = rawEntry.variants;
+      return (
+        <ModelRow
+          key={rawEntry.key}
+          rowProps={{ "data-switcher-row": true, className: "rounded-lg" }}
+          data-switcher-variants={key}
+          aria-expanded={open}
+          onClick={() =>
+            setOpenVariants((current) => {
+              const next = new Set(current);
+              if (next.has(key)) next.delete(key);
+              else next.add(key);
+              return next;
+            })
+          }
+          className="rounded-lg"
+          tile={
+            <span className="flex shrink-0 justify-center">
+              <ModelTile row={undefined} account={rawEntry.group?.account} model={rawEntry.model} />
+            </span>
+          }
+          title={rawEntry.title}
+          roles={[t("connections.variants.count", { count })]}
+          trailing={
+            <ChevronDown
+              size="0.875rem"
+              aria-hidden
+              className={cn("shrink-0 text-foreground/40 transition-transform", open && "rotate-180")}
+            />
+          }
+        />
+      );
+    }
     // The provider's own name when it has one; the id is the second line only when two rows would look the same.
     const ordering = editOrder && order;
     const catalogFacts = rawEntry.group ? catalogOf(rawEntry.group) : undefined;
     const niceName =
       rawEntry.model && rawEntry.title === rawEntry.model ? catalogFacts?.nameOf(rawEntry.model) : undefined;
-    const entry: Entry = { ...rawEntry, ...(niceName ? { title: niceName } : {}) };
+    const entry: Entry = {
+      ...rawEntry,
+      ...(niceName ? { title: niceName } : {}),
+      // Under its base model a variant is named by its tags ("SP · thinking"); its full id is line 2.
+      ...(rawEntry.variantOf && rawEntry.model
+        ? { title: variantLabel(rawEntry.model), subtitle: rawEntry.model }
+        : {}),
+    };
     const sameTitle = rawEntry.group?.rows.some((row) => row.model !== entry.model && rowLabel(row) === entry.title);
-    if (entry.subtitle === entry.model && !sameTitle) entry.subtitle = "";
+    if (entry.subtitle === entry.model && !sameTitle && !entry.variantOf) entry.subtitle = "";
     const via = viaName(rawEntry.group?.account?.provider, entry.model);
     let routeId = via && entry.model !== entry.title ? entry.model : undefined;
     if (rawEntry.group?.account) {
@@ -1305,6 +1353,8 @@ export function ConnectionSwitcherBody({
           // Now and pane rows put the tile in the shared 2rem column; text then starts where Starred and accounts start.
           now && "min-h-0 gap-2 py-1 ps-1.5 max-md:gap-2 max-md:ps-1.5",
           pane && "gap-2 ps-3 max-md:gap-2 max-md:ps-3",
+          // A variant sits under its base model's line.
+          entry.variantOf && "ps-8 max-md:ps-6",
         )}
         tile={
           <span className={cn("flex shrink-0 justify-center", (now || pane) && "w-8")}>
@@ -1329,7 +1379,7 @@ export function ConnectionSwitcherBody({
         routeId={routeId}
         // The Now strip folds its heading into line 2 to stay one compact row.
         subtitle={now ? [nowLabel, entry.subtitle].filter(Boolean).join(" · ") : entry.subtitle}
-        roles={kindLabels.length ? [...roleLabels, ...kindLabels] : roleLabels}
+        roles={[...roleLabels, ...kindLabels, ...(local ? [t("connections.switcher.onDevice")] : [])]}
         status={
           rowStateOf
             ? { label: rowStateOf.label, state: rowStateOf.state, detail: rowStateOf.detail }
@@ -1683,12 +1733,44 @@ export function ConnectionSwitcherBody({
   );
   const restLabel =
     leadCatalog && shownEntries?.lead.length ? leadCatalog.restLabel : t("connections.switcher.allModels");
-  const paneTitle = (title: ReactNode, summary: string) => (
-    <div className="flex min-w-0 shrink-0 items-baseline gap-2.5 px-3.5 pb-1 pt-2.5">
+  // One line per base model: a proxy's variants of it ("[free]…", "[SP]…", "…-thinking") open under that line.
+  // The variants of the model in use start open, so it stays in sight.
+  const withVariants = (entries: readonly Entry[]): Entry[] => {
+    const out: Entry[] = [];
+    for (const group of groupModelVariants(entries, (entry) => entry.model ?? entry.title)) {
+      if (group.items.length === 1) {
+        out.push(group.items[0]!);
+        continue;
+      }
+      const key = `${paneKey}:${group.key}`;
+      const open = openVariants.has(key) || group.items.some((entry) => sameChoice(entry.choice, current));
+      const first = group.items[0]!;
+      out.push({
+        key: `variants:${key}`,
+        title: group.base,
+        choice: first.choice,
+        group: first.group,
+        model: group.base,
+        variants: { key, count: group.items.length, open },
+      });
+      if (open) out.push(...group.items.map((entry) => ({ ...entry, variantOf: group.base })));
+    }
+    return out;
+  };
+  const paneTitle = (title: ReactNode, summary: string, trailing?: ReactNode) => (
+    <div
+      className={cn(
+        "flex min-w-0 shrink-0 gap-2.5 px-3.5 pb-1 pt-2.5",
+        trailing ? "items-center pe-1.5" : "items-baseline",
+      )}
+    >
       <strong className="truncate text-[0.8125rem] font-semibold">{title}</strong>
       <span className="truncate text-[0.6875rem] max-sm:text-[13px] text-foreground/50">{summary}</span>
+      {trailing}
     </div>
   );
+  // With no Starred heading in the list (only starred models show), "Edit order" sits on the pane's title line.
+  const orderOnTitle = !showUnstarred && starredEntries.length > 1;
   // The overview is hidden during search and account browsing; avoid walking every catalog on those renders.
   const unstarredGroups =
     showUnstarred && catalogBrowse && !query.trim() && !searching && !shownGroup && !paneFolder
@@ -1770,6 +1852,7 @@ export function ConnectionSwitcherBody({
             models: t("connections.list.models", { count: starredEntries.length }),
             accounts: t("connections.switcher.accountCount", { count: starredAccounts }),
           }),
+          orderOnTitle && orderToggle,
         )
       )}
       {shownGroup && usageOf(shownGroup)}
@@ -1821,11 +1904,11 @@ export function ConnectionSwitcherBody({
                 />
                 <EntryRows
                   listKey={`rest:${paneKey}:${paneFamilies.active ?? "all"}`}
-                  entries={
+                  entries={withVariants(
                     paneFamilies.active
                       ? shownEntries.catalogRest.filter((entry) => paneFamilies.matches(entry.model ?? ""))
-                      : shownEntries.catalogRest
-                  }
+                      : shownEntries.catalogRest,
+                  )}
                   render={(entry) => renderEntry(entry, { star: "all" })}
                 />
               </section>
@@ -1860,7 +1943,7 @@ export function ConnectionSwitcherBody({
                     starredEntries.length,
                     starredEntries.length > 1 && orderToggle,
                   )
-                : starredEntries.length > 1 && orderToggle}
+                : !orderOnTitle && starredEntries.length > 1 && orderToggle}
               {starredEntries.map((entry) =>
                 renderEntry(entry, { star: "all", away: true, order: starredEntries.length > 1 }),
               )}

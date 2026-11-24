@@ -507,7 +507,7 @@ function LocalModelDetail() {
     <div className="flex flex-col gap-3">
       <DetailHero
         icon={<ProviderIcon provider="local-model" size="lg" />}
-        title={localizeUi("connections.add.device.local_model")}
+        title={localizeUi("connections.device.role.sidecar")}
       >
         <StateWord tone={state.tone} label={state.label} />
         <span>· {localizeUi("connections.accounts.section.device")}</span>

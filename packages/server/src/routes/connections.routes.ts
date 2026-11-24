@@ -165,6 +165,13 @@ import {
 } from "../services/video/video-generation.js";
 import { notFound } from "../utils/not-found.js";
 import { isRecord } from "../utils/large-json.js";
+import {
+  noteReachable,
+  noteUnreachable,
+  reachabilityKey,
+  unreachableReasonOf,
+  waitingUnreachable,
+} from "../services/connections/reachability.js";
 
 const CONNECTION_TEST_ERROR_PREVIEW_CHARS = 2000;
 const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
@@ -1851,15 +1858,20 @@ export async function connectionsRoutes(app: FastifyInstance) {
       const models = normalizeModelsResponse(conn.provider, json);
       return { models };
     } catch (err) {
-      if (conn.id) logger.warn(err, "Model discovery failed for connection %s", conn.id);
-      else logger.debug(err, "Live check: model discovery failed");
       // Node's fetch hides socket/DNS failures in Error.cause. Keep the code
       // visible without exposing provider headers, credentials or response bodies.
       const cause = err instanceof Error ? err.cause : undefined;
       const code = isRecord(cause) && typeof cause.code === "string" ? cause.code : undefined;
       const detail = err instanceof Error ? err.message : "Unknown error";
+      const error = `Failed to fetch models: ${detail}${code && /^[A-Z0-9_]+$/.test(code) ? ` (${code})` : ""}. The connection is made from the Marinara server; check that the provider is reachable there.`;
+      // A saved Connection that gets no answer is marked unreachable (the Connections page says so) and only its
+      // first failure in a row is a warning; repeats until it answers again go to debug, not a log line each time.
+      const key = conn.id && !detail.startsWith("Refused to fetch") ? reachabilityKey(conn) : null;
+      const first = key ? noteUnreachable(key, unreachableReasonOf(err), error).first : true;
+      if (conn.id && first) logger.warn(err, "Model discovery failed for connection %s", conn.id);
+      else logger.debug(err, "Model discovery failed");
       return reply.status(502).send({
-        error: `Failed to fetch models: ${detail}${code && /^[A-Z0-9_]+$/.test(code) ? ` (${code})` : ""}. The connection is made from the Marinara server; check that the provider is reachable there.`,
+        error,
         // Nothing answered: the live check reads this instead of guessing from the text.
         // A policy refusal ("Refused to fetch ...") never left the server, so it is not "no answer".
         ...(detail.startsWith("Refused to fetch") ? { blocked: true } : { unreachable: true }),
@@ -1936,9 +1948,14 @@ export async function connectionsRoutes(app: FastifyInstance) {
       const saved = await storage.readCatalog(conn);
       if (saved) return withCosts(conn, saved);
     }
+    // A server that gave no answer lately is not asked again until its wait is over; Refresh (Retry) asks now.
+    const reachKey = reachabilityKey(conn);
+    const waiting = req.query.refresh === "true" ? null : waitingUnreachable(reachKey);
+    if (waiting) return reply.status(502).send({ error: waiting.error, unreachable: true });
     const discovered = await discoverConnectionModels(conn, reply);
     // FastifyReply is thenable: awaiting a helper that sent it resolves to undefined.
     if (reply.sent || !discovered) return reply;
+    noteReachable(reachKey);
     const { builtIn, ...result } = discovered as Exclude<typeof discovered, FastifyReply>;
     if (!savesList || builtIn) return withCosts(conn, result);
     const saved = await storage.saveModelListIfUnchanged(conn, result.models);
@@ -2113,6 +2130,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
     if (!conn) return { ok: false, error: "The connection is off, under review, or needs an API key." };
     const discovered = await discoverQuietly(conn);
     if (!discovered.ok) return discovered;
+    noteReachable(reachabilityKey(conn));
     if (discovered.builtIn) return { ok: true };
     return (await storage.saveModelListIfUnchanged(conn, discovered.models))
       ? { ok: true }

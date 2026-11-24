@@ -41,7 +41,7 @@ import { ProviderIcon } from "../connections/ProviderIcon";
 import { hostOf } from "../connections/ConnectionGroup";
 import { useConnectionDefaults } from "../connections/ConnectionDefaults";
 import { groupJobs, JOBS_PAGE_ID, listOfJobs, useJobTileClick } from "../connections/JobsPage";
-import { useModelLists } from "../../hooks/use-connections";
+import { useModelLists, useRefreshConnectionModels } from "../../hooks/use-connections";
 import { CardBrowse, changesLine } from "../connections/CardBrowse";
 import { openAddConnection, openAddModels } from "../../lib/add-connection";
 import type { ConnectionRowData } from "../connections/ConnectionRow";
@@ -129,7 +129,7 @@ function MainLine({ connectionsList, onJobs }: { connectionsList: ConnectionRowD
       })
     : t("connections.home.allFollow");
   return (
-    <section className="ov-conn-main" aria-labelledby="ov-conn-main-title" data-conn-main>
+    <section className="ov-table-wrap ov-conn-main" aria-labelledby="ov-conn-main-title" data-conn-main>
       <div className="ov-conn-main__row">
         <span id="ov-conn-main-title" className="ov-conn-main__label">
           {t("connections.home.mainModel")}
@@ -172,6 +172,21 @@ function MainLine({ connectionsList, onJobs }: { connectionsList: ConnectionRowD
   );
 }
 
+/** Quick tunnels (Cloudflare, ngrok, localtunnel) get a new address each run, so an old one stops resolving. */
+function isTunnelHost(baseUrl: string) {
+  return /(\.trycloudflare\.com|\.ngrok(-free)?\.(app|io|dev)|\.loca\.lt)(:\d+)?(\/|$)/i.test(
+    hostOf(baseUrl) ? `${hostOf(baseUrl)}/` : baseUrl,
+  );
+}
+
+/** On this device names an engine by its job; a TTS server of its own keeps its name. */
+const DEVICE_ROLE: Record<string, string> = {
+  "local-model": "connections.device.role.sidecar",
+  "builtin-tts": "connections.device.role.voice",
+  stt: "connections.device.role.dictation",
+  emotions: "connections.device.role.emotions",
+};
+
 /**
  * On this device: the built-in model and the local engines, as one card under the accounts. Engines that are set
  * up (downloaded, or in use) show; the rest wait behind "N more on this device", so a fresh install shows one line.
@@ -192,11 +207,18 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
     !setup["local-model"].setUp &&
     !engines.some((engine) => engine.item === "local-model");
   if (engines.length === 0 && !builtInAvailable && !decision && !embedding) return null;
+  // Each row is named by its job (the card says it is on this device); the model's own name is line 2.
+  const roleOf = (item: string, name: string) => {
+    const key =
+      DEVICE_ROLE[item] ??
+      (item === "tts" && name === t("connections.device.ttsSource.builtin") ? "connections.device.role.voice" : null);
+    return key ? t(key) : name;
+  };
   const rows = builtInFirst(
     [
       ...engines.map((engine) => ({
         item: engine.item,
-        name: engine.name,
+        name: roleOf(engine.item, engine.name),
         detail: [engine.detail, engine.item === "local-model" && usedBy.length ? usedBy.join(", ") : null]
           .filter(Boolean)
           .join(" · "),
@@ -210,7 +232,7 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
         ? [
             {
               item: "local-model" as DeviceItem,
-              name: t("connections.add.device.local_model"),
+              name: t("connections.device.role.sidecar"),
               detail: localize("No account needed"),
               tone: "off" as const,
               state: t("connections.builtin.card.notDownloaded"),
@@ -227,7 +249,7 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
         ? [
             {
               item: "decision" as DeviceItem,
-              name: decision.name,
+              name: t("connections.device.role.decisions"),
               detail: decision.detail,
               tone: decision.tone,
               state: decision.state,
@@ -241,7 +263,7 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
         ? [
             {
               item: "builtin-embedding" as DeviceItem,
-              name: embedding.name,
+              name: t("connections.device.role.embeddings"),
               detail: embedding.detail,
               tone: embedding.tone,
               state: embedding.state,
@@ -259,59 +281,68 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
   const more = rows.filter((row) => !ready.includes(row));
   const shown = showAll ? rows : ready;
   return (
-    <article className="ov-conn-card ov-conn-card--device" data-conn-device>
-      <header className="ov-conn-card__head">
-        <span className="ov-conn-card__name">
-          <b>{t("connections.accounts.section.device")}</b>
-          <span className="ov-conn__dim">{localize("No account needed")}</span>
-        </span>
-      </header>
-      {shown.length ? (
-        <div className="ov-conn-card__rows">
-          {shown.map((row) => (
-            <div
-              key={row.item}
-              className="ov-conn-row ov-conn-row--device"
-              role="button"
-              tabIndex={0}
-              onClick={row.open}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") row.open();
-              }}
-            >
-              <ProviderIcon provider={row.item} size="sm" dim={row.tone !== "ok"} />
-              <span className="ov-conn-row__name">
-                <b>{row.name}</b>
-                {row.detail ? <span className="ov-conn__dim">{row.detail}</span> : null}
-              </span>
-              <span className="ov-conn-row__trail">
-                <span
-                  className={cn(
-                    "ov-conn__status",
-                    row.tone === "ok" ? "is-ok" : row.tone === "warn" ? "is-needs_key" : "is-off",
-                  )}
-                >
-                  <span className="ov-conn__dot" aria-hidden="true" />
-                  {row.state}
+    <article className="ov-table-wrap ov-conn-card ov-conn-card--device" data-conn-device>
+      <table className="ov-table ov-conn-card__table">
+        <thead>
+          <tr>
+            <th scope="col">
+              <div className="ov-conn-card__head">
+                <span className="ov-conn-card__name">
+                  <b>{t("connections.accounts.section.device")}</b>
+                  <span className="ov-conn__dim">{localize("No account needed")}</span>
                 </span>
-                {row.fix ? (
-                  <button
-                    type="button"
-                    className="ov-conn__link"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      row.fix!.run();
-                    }}
-                  >
-                    {row.fix.label}
-                  </button>
-                ) : null}
-                <ChevronRight size={14} className="ov-conn__dim" aria-hidden="true" />
-              </span>
-            </div>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody className="ov-conn-card__rows">
+          {shown.map((row) => (
+            <tr key={row.item}>
+              <td className="ov-table__name">
+                <div
+                  className="ov-conn-row ov-conn-row--device"
+                  role="button"
+                  tabIndex={0}
+                  onClick={row.open}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") row.open();
+                  }}
+                >
+                  <ProviderIcon provider={row.item} size="sm" dim={row.tone !== "ok"} />
+                  <span className="ov-conn-row__name">
+                    <b>{row.name}</b>
+                    {row.detail ? <span className="ov-conn__dim">{row.detail}</span> : null}
+                  </span>
+                  <span className="ov-conn-row__trail">
+                    <span
+                      className={cn(
+                        "ov-conn__status",
+                        row.tone === "ok" ? "is-ok" : row.tone === "warn" ? "is-needs_key" : "is-off",
+                      )}
+                    >
+                      <span className="ov-conn__dot" aria-hidden="true" />
+                      {row.state}
+                    </span>
+                    {row.fix ? (
+                      <button
+                        type="button"
+                        className="ov-conn__link"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          row.fix!.run();
+                        }}
+                      >
+                        {row.fix.label}
+                      </button>
+                    ) : null}
+                    <ChevronRight size={14} className="ov-conn__dim" aria-hidden="true" />
+                  </span>
+                </div>
+              </td>
+            </tr>
           ))}
-        </div>
-      ) : null}
+        </tbody>
+      </table>
       {more.length ? (
         <footer className="ov-conn-card__foot">
           <button
@@ -350,6 +381,7 @@ export function ConnectionsLanding() {
   const [expanded, setExpanded] = useState<string[]>([]);
   // The card whose catalog is open under its models ("Browse 164 ▾"); one at a time keeps the page short.
   const [browsing, setBrowsing] = useState<string | null>(null);
+  const refreshModels = useRefreshConnectionModels();
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   // A11Y3: arrows move through the account menu; Escape closes it and returns to its ⋯.
   const menuKeys = useMenuKeyboard({ open: menu !== null, onClose: () => setMenu(null) });
@@ -684,20 +716,30 @@ export function ConnectionsLanding() {
     const shown = all ? list : list.slice(0, CARD_ROWS);
     return (
       <>
-        {shown.map(render)}
+        {shown.map((row) => (
+          <tr key={row.id}>
+            <td className="ov-table__name">{render(row)}</td>
+          </tr>
+        ))}
         {list.length > CARD_ROWS && !needle ? (
-          <button
-            type="button"
-            className="ov-conn-card__more"
-            aria-expanded={all}
-            onClick={() =>
-              setExpanded((current) =>
-                current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
-              )
-            }
-          >
-            {all ? t("connections.home.showFewer") : t("connections.home.showMore", { count: list.length - CARD_ROWS })}
-          </button>
+          <tr className="ov-conn-card__more-row">
+            <td className="ov-table__name">
+              <button
+                type="button"
+                className="ov-conn-card__more"
+                aria-expanded={all}
+                onClick={() =>
+                  setExpanded((current) =>
+                    current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
+                  )
+                }
+              >
+                {all
+                  ? t("connections.home.showFewer")
+                  : t("connections.home.showMore", { count: list.length - CARD_ROWS })}
+              </button>
+            </td>
+          </tr>
         ) : null}
       </>
     );
@@ -735,54 +777,114 @@ export function ConnectionsLanding() {
     const problem = account.enabled === false || account.state !== "ok";
     const changes = changesLine(catalogChanges(index), t, i18n.language);
     const catalogId = catalogIds[index];
+    // Its server gave no answer lately (an expired tunnel, a server that is off): say why and offer the fixes.
+    const unreachable = !problem ? account.unreachable : undefined;
+    const retryId = catalogId || accountRows[0]?.id;
+    const retrying = refreshModels.isPending && refreshModels.variables === retryId;
     const open = browsing === account.id && !!catalogId;
     const anchor = starAnchorOf(accountRows);
     return (
-      <article key={account.id} className="ov-conn-card" data-connection-account-id={account.id}>
-        <header className="ov-conn-card__head">
-          <ProviderIcon
-            provider={account.provider}
-            baseUrl={account.baseUrl}
-            name={account.name}
-            icon={account.icon}
-            imagePath={account.imagePath}
-            size="sm"
-            dim={account.state !== "ok"}
-          />
-          <button
-            type="button"
-            className="ov-conn-card__name"
-            onClick={() => openConnectionDetail(`${ACCOUNT_PREFIX}${account.id}`)}
-            title={localize("Edit account")}
-          >
-            <b>{account.name}</b>
-            {host && !account.name.includes(host) ? <span className="ov-conn__dim">{host}</span> : null}
-          </button>
-          {/* Status and balance live on the account's page; the card only speaks up when something is wrong. */}
-          {problem ? <AccountStatus account={account} /> : null}
-          {changes && !problem ? (
-            <span className="ov-conn-card__changes" title={changes.title} data-conn-changes>
-              {changes.text}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            className="ov-conn__more"
-            aria-label={localize("Account actions")}
-            aria-haspopup="menu"
-            aria-expanded={menu?.id === account.id}
-            onClick={(event) => openMenu(event, account.id)}
-          >
-            <MoreHorizontal size={15} aria-hidden="true" />
-          </button>
-        </header>
-        <div className="ov-conn-card__rows">
-          {models.length ? (
-            cardRows(account.id, models, (row) => renderModel(row, accountRows))
-          ) : (
-            <p className="ov-conn-card__empty">{localize("No models starred yet.")}</p>
-          )}
-        </div>
+      <article key={account.id} className="ov-table-wrap ov-conn-card" data-connection-account-id={account.id}>
+        <table className="ov-table ov-conn-card__table">
+          <thead>
+            <tr>
+              <th scope="col">
+                <div className="ov-conn-card__head">
+                  <ProviderIcon
+                    provider={account.provider}
+                    baseUrl={account.baseUrl}
+                    name={account.name}
+                    icon={account.icon}
+                    imagePath={account.imagePath}
+                    size="sm"
+                    dim={account.state !== "ok"}
+                  />
+                  <button
+                    type="button"
+                    className="ov-conn-card__name"
+                    onClick={() => openConnectionDetail(`${ACCOUNT_PREFIX}${account.id}`)}
+                    title={localize("Edit account")}
+                  >
+                    <b>{account.name}</b>
+                    {host && !account.name.includes(host) ? <span className="ov-conn__dim">{host}</span> : null}
+                  </button>
+                  {/* Status and balance live on the account's page; the card only speaks up when something is wrong. */}
+                  {problem ? <AccountStatus account={account} /> : null}
+                  {unreachable ? (
+                    <span className="ov-conn__status is-needs_key" data-conn-unreachable>
+                      <span className="ov-conn__dot" aria-hidden="true" />
+                      {t("connections.unreachable.label")}
+                    </span>
+                  ) : null}
+                  {changes && !problem && !unreachable ? (
+                    <span className="ov-conn-card__changes" title={changes.title} data-conn-changes>
+                      {changes.text}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="ov-conn__more"
+                    aria-label={localize("Account actions")}
+                    aria-haspopup="menu"
+                    aria-expanded={menu?.id === account.id}
+                    onClick={(event) => openMenu(event, account.id)}
+                  >
+                    <MoreHorizontal size={15} aria-hidden="true" />
+                  </button>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="ov-conn-card__rows">
+            {unreachable ? (
+              <tr className="ov-conn-card__alert-row">
+                <td className="ov-table__name">
+                  <div className="ov-conn-card__alert" role="status">
+                    <span>
+                      {[
+                        t(`connections.unreachable.${unreachable.reason}`),
+                        unreachable.reason === "not_found" && isTunnelHost(account.baseUrl)
+                          ? t("connections.unreachable.tunnel")
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </span>
+                    <span className="ov-conn-card__alert-actions">
+                      <button
+                        type="button"
+                        className="ov-conn__link"
+                        onClick={() => openConnectionDetail(`${ACCOUNT_PREFIX}${account.id}`)}
+                      >
+                        {t("connections.unreachable.fixAddress")}
+                      </button>
+                      {retryId ? (
+                        <button
+                          type="button"
+                          className="ov-conn__link"
+                          disabled={retrying}
+                          onClick={() => refreshModels.mutate(retryId)}
+                          data-conn-retry
+                        >
+                          {retrying ? t("connections.unreachable.retrying") : t("connections.unreachable.retry")}
+                        </button>
+                      ) : null}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            ) : null}
+            {models.length ? (
+              cardRows(account.id, models, (row) => renderModel(row, accountRows))
+            ) : (
+              <tr>
+                <td className="ov-table__name">
+                  <p className="ov-conn-card__empty">{localize("No models starred yet.")}</p>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
         {open && anchor ? (
           <CardBrowse
             accountId={account.id}
@@ -851,43 +953,51 @@ export function ConnectionsLanding() {
     return sections.map((section) => (
       <article
         key={section.id}
-        className="ov-conn-card"
+        className="ov-table-wrap ov-conn-card"
         onContextMenu={
           section.folder
             ? (event) => modelMenu.openFromEvent(event, section.name, folderActions(section.folder!))
             : undefined
         }
       >
-        <header className="ov-conn-card__head">
-          <Folder size={15} aria-hidden="true" />
-          <span className="ov-conn-card__name">
-            <b title={section.name}>{section.name}</b>
-            <span className="ov-conn__dim">{section.rows.length}</span>
-          </span>
-          {section.folder ? (
-            <button
-              type="button"
-              className="ov-conn__more"
-              aria-label={localize("Folder actions")}
-              aria-haspopup="menu"
-              onClick={(event) =>
-                modelMenu.openFromEvent(event, section.name, folderActions(section.folder!), "button")
-              }
-            >
-              <MoreHorizontal size={15} aria-hidden="true" />
-            </button>
-          ) : null}
-        </header>
-        <div className="ov-conn-card__rows">
-          {cardRows(
-            `folder:${section.id}`,
-            section.rows.map((entry) => entry.row),
-            (row) => {
-              const entry = section.rows.find((item) => item.row === row)!;
-              return renderModel(entry.row, entry.accountRows, entry.via);
-            },
-          )}
-        </div>
+        <table className="ov-table ov-conn-card__table">
+          <thead>
+            <tr>
+              <th scope="col">
+                <div className="ov-conn-card__head">
+                  <Folder size={15} aria-hidden="true" />
+                  <span className="ov-conn-card__name">
+                    <b title={section.name}>{section.name}</b>
+                    <span className="ov-conn__dim">{section.rows.length}</span>
+                  </span>
+                  {section.folder ? (
+                    <button
+                      type="button"
+                      className="ov-conn__more"
+                      aria-label={localize("Folder actions")}
+                      aria-haspopup="menu"
+                      onClick={(event) =>
+                        modelMenu.openFromEvent(event, section.name, folderActions(section.folder!), "button")
+                      }
+                    >
+                      <MoreHorizontal size={15} aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="ov-conn-card__rows">
+            {cardRows(
+              `folder:${section.id}`,
+              section.rows.map((entry) => entry.row),
+              (row) => {
+                const entry = section.rows.find((item) => item.row === row)!;
+                return renderModel(entry.row, entry.accountRows, entry.via);
+              },
+            )}
+          </tbody>
+        </table>
       </article>
     ));
   };
@@ -1002,15 +1112,23 @@ export function ConnectionsLanding() {
             <>
               {visible.groups.map(({ account, rows: models }, index) => renderAccount(account, models, index))}
               {visible.standalone.length ? (
-                <article className="ov-conn-card">
-                  <header className="ov-conn-card__head">
-                    <span className="ov-conn-card__name">
-                      <b>{localize("Other models")}</b>
-                    </span>
-                  </header>
-                  <div className="ov-conn-card__rows">
-                    {cardRows("__other", visible.standalone, (row) => renderModel(row, [row]))}
-                  </div>
+                <article className="ov-table-wrap ov-conn-card">
+                  <table className="ov-table ov-conn-card__table">
+                    <thead>
+                      <tr>
+                        <th scope="col">
+                          <div className="ov-conn-card__head">
+                            <span className="ov-conn-card__name">
+                              <b>{localize("Other models")}</b>
+                            </span>
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="ov-conn-card__rows">
+                      {cardRows("__other", visible.standalone, (row) => renderModel(row, [row]))}
+                    </tbody>
+                  </table>
                 </article>
               ) : null}
             </>

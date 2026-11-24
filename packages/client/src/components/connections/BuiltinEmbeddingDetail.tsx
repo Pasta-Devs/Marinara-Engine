@@ -213,7 +213,7 @@ export function BuiltinEmbeddingDetail() {
     <div className="flex flex-col gap-3" data-component="BuiltinEmbeddingDetail">
       <DetailHero
         icon={<ProviderIcon provider="builtin-embedding" size="lg" />}
-        title={t("connections.builtinEmbedding.name")}
+        title={t("connections.device.role.embeddings")}
       >
         {engine ? <StateWord tone={engine.tone} label={engine.state} /> : null}
         <span>· {t("connections.accounts.section.device")}</span>

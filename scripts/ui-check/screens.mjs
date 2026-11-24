@@ -439,6 +439,19 @@ export function screenList(ids) {
     { id: "conversation-chat", group: "core", run: open.chat(ids.conversationChat) },
     { id: "roleplay-chat", group: "core", run: open.chat(ids.roleplayChat) },
     {
+      // The chat's "Model for this chat" window: dense rows with a mouse, 44px targets on touch.
+      id: "chat-model-window",
+      run: open.chat(ids.roleplayChat),
+      then: async (page) => {
+        await page
+          .locator('button[aria-haspopup="dialog"][aria-label*="odel"]')
+          .filter({ visible: true })
+          .first()
+          .click({ timeout: 10_000 });
+      },
+      ready: "[data-quick-connection-menu] [data-connection-switcher]",
+    },
+    {
       id: "roleplay-chat-settings",
       group: "core",
       // The same request the app makes when it brings Chat settings back after a full-page editor.

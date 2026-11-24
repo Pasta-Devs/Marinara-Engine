@@ -5,13 +5,15 @@
 // ──────────────────────────────────────────────
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Star } from "lucide-react";
+import { ChevronDown, Star } from "lucide-react";
 import { readChatModelOverride, readChatRecentModels } from "@marinara-engine/shared";
 import { useChats } from "../../hooks/use-chats";
 import { useConnectionModels, type ConnectionModelList } from "../../hooks/use-connections";
 import { useModelStar } from "../../hooks/use-model-star";
 import { FamilyChips, familyFilterOf } from "./FamilyChips";
 import { SearchInput } from "../ui/SearchInput";
+import { cn } from "../../lib/utils";
+import { groupModelVariants, variantLabel } from "../../lib/model-variants";
 
 /** Rows shown before "Show more": a 164-model proxy opens fast and stays one scroll long. */
 const BROWSE_ROWS = 40;
@@ -107,6 +109,8 @@ export function CardBrowse({
   const [family, setFamily] = useState<string | null>(null);
   const [shown, setShown] = useState(BROWSE_ROWS);
   const [busy, setBusy] = useState<string | null>(null);
+  // Base models whose variants are open ("[free]…", "[SP]…-thinking" under "claude-fable-5-1").
+  const [openBases, setOpenBases] = useState<ReadonlySet<string>>(() => new Set());
 
   const models = useMemo(() => (list.data?.models ?? []).filter((model) => !saved.has(model.id)), [list.data, saved]);
   const fresh = freshChanges(list.data?.changes);
@@ -159,14 +163,19 @@ export function CardBrowse({
       .finally(() => setBusy(null));
   };
 
-  const row = (id: string, extra?: string) => {
+  // One line per base model while browsing; a search lists every match as it is.
+  const groups = needle
+    ? ordered.map((model) => ({ key: model.id, base: model.id, items: [model] }))
+    : groupModelVariants(ordered, (model) => model.id);
+
+  const row = (id: string, extra?: string, variant = false) => {
     const model = byId.get(id);
-    const label = model?.name && model.name !== id ? model.name : id;
+    const label = variant ? variantLabel(id) : model?.name && model.name !== id ? model.name : id;
     return (
       <button
         key={id}
         type="button"
-        className="ov-conn-browse__row"
+        className={cn("ov-conn-browse__row", variant && "is-variant")}
         disabled={busy === id}
         onClick={() => add(id)}
         title={t("connections.browse.starHint")}
@@ -219,18 +228,53 @@ export function CardBrowse({
             }}
           />
         ) : null}
-        {ordered.length ? (
-          ordered.slice(0, shown).map((model) => row(model.id))
+        {groups.length ? (
+          groups.slice(0, shown).map((group) => {
+            if (group.items.length === 1) return row(group.items[0]!.id);
+            const open = openBases.has(group.key);
+            return (
+              <div key={`base:${group.key}`} className="ov-conn-browse__base">
+                <button
+                  type="button"
+                  className="ov-conn-browse__row is-base"
+                  aria-expanded={open}
+                  onClick={() =>
+                    setOpenBases((current) => {
+                      const next = new Set(current);
+                      if (next.has(group.key)) next.delete(group.key);
+                      else next.add(group.key);
+                      return next;
+                    })
+                  }
+                  data-conn-browse-base={group.key}
+                >
+                  <ChevronDown
+                    size={13}
+                    aria-hidden="true"
+                    className={cn("ov-conn-browse__star", open && "rotate-180")}
+                  />
+                  <span className="ov-conn-browse__name">
+                    <b>{group.base}</b>
+                  </span>
+                  {group.items.some((model) => isNew.has(model.id)) ? (
+                    <span className="ov-conn-browse__new">{t("connections.browse.new")}</span>
+                  ) : null}
+                  <span className="ov-conn__dim">{t("connections.variants.count", { count: group.items.length })}</span>
+                </button>
+                {open ? group.items.map((model) => row(model.id, undefined, true)) : null}
+              </div>
+            );
+          })
         ) : (
           <p className="ov-conn-browse__status">{t("connections.browse.empty")}</p>
         )}
-        {ordered.length > shown ? (
+        {groups.length > shown ? (
           <button
             type="button"
             className="ov-conn-card__more"
             onClick={() => setShown((value) => value + BROWSE_ROWS * 2)}
           >
-            {t("connections.home.showMore", { count: ordered.length - shown })}
+            {t("connections.home.showMore", { count: groups.length - shown })}
           </button>
         ) : null}
       </section>

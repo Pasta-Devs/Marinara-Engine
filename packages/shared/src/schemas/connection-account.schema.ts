@@ -88,6 +88,11 @@ export interface ConnectionAccountListItem {
   profileImportReviewRequired: boolean;
   modelCount: number;
   state: ConnectionAccountState;
+  /**
+   * Its server gave no answer to the last model list fetch, since `since`: `not_found` (the address does not
+   * resolve, such as an expired tunnel), `refused`, `timeout` or `unreachable`. Absent once a fetch succeeds.
+   */
+  unreachable?: { reason: "not_found" | "refused" | "timeout" | "unreachable"; since: string };
   createdAt: string;
   updatedAt: string;
 }

@@ -87,7 +87,7 @@ export function BuiltinDictationDetail({ engine }: { engine?: DeviceEngine }) {
 
   return (
     <div className="flex flex-col gap-3" data-component="BuiltinDictationDetail">
-      <DetailHero icon={<ProviderIcon provider="stt" size="lg" />} title={t("connections.builtinDictation.name")}>
+      <DetailHero icon={<ProviderIcon provider="stt" size="lg" />} title={t("connections.device.role.dictation")}>
         {engine ? <StateWord tone={engine.tone} label={engine.state} /> : null}
         <span>· {t("connections.accounts.section.device")}</span>
       </DetailHero>

@@ -45,6 +45,7 @@ import {
 } from "../services/connections/balance.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { notFound } from "../utils/not-found.js";
+import { unreachableOf } from "../services/connections/reachability.js";
 
 const createAccountBodySchema = createConnectionAccountSchema.partial({ name: true }).extend({
   /** First Model under the new account. Empty keeps the picker open for the client. */
@@ -105,7 +106,12 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     const [rows, counts] = await Promise.all([accounts.list(), modelCounts()]);
     return rows
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
-      .map((account) => toAccountListItem(account, counts.get(account.id) ?? 0));
+      .map((account) => {
+        const item = toAccountListItem(account, counts.get(account.id) ?? 0);
+        // The server gave no answer to its last model list fetch (address gone, refused, timed out).
+        const unreachable = unreachableOf(account.id);
+        return unreachable ? { ...item, unreachable: { reason: unreachable.reason, since: unreachable.since } } : item;
+      });
   });
 
   // Search the saved model lists of enabled accounts. Never calls a provider.

@@ -108,7 +108,7 @@ export function BuiltinEmotionDetail() {
 
   return (
     <div className="flex flex-col gap-3" data-component="BuiltinEmotionDetail">
-      <DetailHero icon={<ProviderIcon provider="emotions" size="lg" />} title={t("connections.builtinEmotion.name")}>
+      <DetailHero icon={<ProviderIcon provider="emotions" size="lg" />} title={t("connections.device.role.emotions")}>
         {engine ? <StateWord tone={engine.tone} label={engine.state} /> : null}
         <span>· {t("connections.accounts.section.device")}</span>
       </DetailHero>
