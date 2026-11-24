@@ -887,9 +887,9 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     finalMessages = [{ role: "user", content: combined }];
   }
 
-  // ── Final: Drop any messages with empty/whitespace-only content ──
+  // ── Final: Drop messages with no text, keeping a turn that is only images or files (#9765) ──
   if (!input.deferMemoryRecall) finalMessages = stripMemoryRecallSlot(finalMessages);
-  finalMessages = finalMessages.filter((m) => m.content?.trim());
+  finalMessages = finalMessages.filter((m) => m.content?.trim() || m.images?.length || m.files?.length);
 
   return {
     messages: finalMessages,

@@ -1150,7 +1150,7 @@ function scopeLorebookPromptMessagesForCharacter(
       }
       return content === message.content ? message : { ...message, content };
     })
-    .filter((message) => message.content.trim().length > 0);
+    .filter((message) => message.content.trim() || message.images?.length || message.files?.length);
 }
 
 const PROFESSOR_MARI_INTERNAL_CHAT_MARKER = "professor-mari";

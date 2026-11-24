@@ -4,6 +4,7 @@ import {
   appendNonLeadingSystemMessagesToLastUser,
   appendReadableAttachmentsToContent,
   appendSeparateAgentInjectionMessage,
+  postProcessMessages,
   shouldEnableAgentsForGeneration,
   shouldInjectIdentityFallback,
   type SimpleMessage,
@@ -693,6 +694,79 @@ const cases: RegressionCase[] = [
           chatPresetChoices: { tone: "casual" },
         }),
         { tone: "formal" },
+      );
+    },
+  },
+  {
+    name: "an earlier turn sent as only images or files keeps them in later prompts (#9765)",
+    async run() {
+      const image = "data:image/png;base64,aW1hZ2U=";
+      const file = { type: "application/pdf", data: "data:application/pdf;base64,cGRm", filename: "notes.pdf" };
+      const result = await assemblePrompt({
+        db: undefined as unknown as DB,
+        // The generation route defers merging to the provider step, so the history reaches it message by message.
+        deferMessagePostProcessing: true,
+        preset: {
+          id: "history-attachments",
+          name: "History attachments",
+          sectionOrder: JSON.stringify(["main", "history"]),
+          groupOrder: "[]",
+          wrapFormat: "xml",
+          parameters: "{}",
+          variableGroups: "[]",
+          variableValues: "{}",
+        },
+        sections: [
+          promptSection({ id: "main", identifier: "main", name: "Main", content: "Stay in character." }),
+          promptSection({
+            id: "history",
+            identifier: "chatHistory",
+            name: "Chat History",
+            isMarker: "true",
+            markerConfig: JSON.stringify({ type: "chat_history" }),
+          }),
+        ],
+        groups: [],
+        choiceBlocks: [],
+        chatChoices: {},
+        chatId: "history-attachments",
+        characterIds: [],
+        personaName: "Mari",
+        personaDescription: "",
+        chatMessages: [
+          { role: "assistant", content: "Show me what you found.", contextKind: "history" },
+          { role: "user", content: "", images: [image], contextKind: "history" },
+          { role: "assistant", content: "A brass key.", contextKind: "history" },
+          { role: "user", content: "", files: [file], contextKind: "history" },
+          { role: "assistant", content: "The notes mention a vault.", contextKind: "history" },
+          { role: "user", content: "  \n ", contextKind: "history" },
+          { role: "user", content: "What did I show you?", contextKind: "history" },
+        ],
+        disableLorebooks: true,
+      });
+
+      assert.deepEqual(
+        result.messages.filter((message) => message.images?.length).map((message) => message.images),
+        [[image]],
+      );
+      assert.deepEqual(
+        result.messages.filter((message) => message.files?.length).map((message) => message.files),
+        [[file]],
+      );
+      // A blank turn with nothing attached is still left out.
+      assert.equal(
+        result.messages.some((message) => !message.content.trim() && !message.images?.length && !message.files?.length),
+        false,
+      );
+
+      const sent = postProcessMessages(result.messages, { strictRoleFormatting: true });
+      assert.deepEqual(
+        sent.flatMap((message) => message.images ?? []),
+        [image],
+      );
+      assert.deepEqual(
+        sent.flatMap((message) => message.files ?? []),
+        [file],
       );
     },
   },
