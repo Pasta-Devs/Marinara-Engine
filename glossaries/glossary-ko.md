@@ -799,3 +799,7 @@ Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.m
 ## Roleplay message box opacity (2026-11-11, #9063)
 
 Precedents from the #9063 sync of `characters/colors-and-stats.md`, "세 가지 색상", against Engine `ced9558565` (merge of #9091): the old sentence saying the slider *replaces* saved transparency is gone. The construction is multiplication, **슬라이더 값을 곱합니다**, and a color's own alpha follows the same verb (**그 알파 값에 슬라이더의 값을 곱한 만큼의 투명도**). *Alpha* is **알파 값**. *Fill* is **채우기** (the noun the pack uses for a filled area), after **Background Color**(배경 색상)는 … 채웁니다 in `appearance/custom-css-themes.md`; *chat widget* is **채팅 위젯**, matching **Chat widget style**(채팅 위젯 스타일). The new paragraph reuses **Apply preset colors**(프리셋 색상 적용) with half-width, tightly attached parentheses and runs the label bare afterwards.
+
+## ntfy push notifications (2026-11-24, #9755)
+
+`ui/ko.json` has no `settings.notifications.push.*` value yet, so the new `settings/settings-overview.md` glosses are coined (recheck when they ship). An ntfy **topic** is **주제** and subscribing is **구독**, the words the ntfy Android app's Korean strings use; ntfy stays Latin and takes 를/는 (vowel-final reading). The server-sent "Marinara test notification" and "Open Marinara to read it." are English-only, so they stay unglossed (§5 rule 7) with a carrier noun (알림, 문구).

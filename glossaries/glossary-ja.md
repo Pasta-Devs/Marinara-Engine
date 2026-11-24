@@ -744,3 +744,7 @@ Precedents from the #9063 sync of `characters/colors-and-stats.md`、「3つの�
 
 - **Voice settings**(音声の設定) and **Who speaks**(話者) are used in `conversation/calls.md` and `media/tts-setup.md`. The audio action **Preview** keeps **(試聴)** from the Character Voice tab ruling.
 - **Public Face**(周囲に知られている情報) follows the card field in `characters/creating-and-editing-characters.md`. Keep **Others' Public Faces**(ほかのキャラクターの公開情報) and **Send Public Faces**(公開情報を送信) distinct. The former applies to other characters in Individual Roleplay, and the latter to Impersonate.
+
+## ntfy push notifications (2026-11-24, #9756)
+
+Push notification is プッシュ通知, an ntfy topic is トピック and subscribing is 購読 (`settings/settings-overview.md`); ntfy stays lowercase Latin. `ui/ja.json` has no ntfy keys, so these glosses are coined here (recheck when they ship): **Push notifications (ntfy)**(ntfyによるプッシュ通知), **Send push notifications**(プッシュ通知を送信), **Topic**(トピック), **Open in ntfy**(ntfyで開く), **Send test notification**(テスト通知を送信), **Show a message preview**(メッセージのプレビューを表示), **Address to open**(チャットを開くアドレス), **New topic**(新しいトピック), **ntfy server**(ntfyサーバー); **Copy**(コピー) is shipped.

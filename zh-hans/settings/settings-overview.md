@@ -68,7 +68,7 @@
 | 部分 | 控制内容 |
 | --- | --- |
 | **App Behavior** | 语言、删除保护、显示和隐藏开关，以及 **Search and Professor Mari settings** 一行。参见[应用行为](#app-behavior)。 |
-| **Notifications** | 通知提示音，以及浏览器和 Android 通知。参见[通知](#notifications)。 |
+| **Notifications** | 通知提示音、浏览器和 Android 通知，以及通过 ntfy 发送的推送通知。参见[通知](#notifications)。 |
 | **Responses** | 流式输出、裁剪和 **Messages per page**(每页消息数)。参见[发送消息与流式输出](../chats/sending-and-streaming.md)。 |
 | **Input & Editing** | **Send on Enter**(按 Enter 发送)、**Quick replies**(快捷回复)，以及滑动和编辑快捷操作。参见[输入与编辑](#input-and-editing)。 |
 | **Text Rules** | 聊天文字的排版规则。参见[文本规则](#text-rules)。 |
@@ -107,6 +107,27 @@ Marinara 为通知播放内置提示音。想使用你自己的声音：
 这个声音会在连接到此服务器的每台设备上播放。你可以预览、替换或删除它。如果无法读取该文件，Marinara 会播放内置提示音。该文件属于备份和档案导出的一部分。
 
 **Background Notifications**(后台通知) 负责角色自行发送的对话消息。**Generation Completion Notifications**(生成完成通知) 负责你在 Conversation、Roleplay 和 Game Mode 中自行发起的回复。两者都在 Marinara 已打开但不在焦点时生效。它们从不显示消息内容。
+
+#### Marinara 关闭时在手机上接收通知
+
+**Push notifications (ntfy)**(ntfy 推送通知) 在所有 Marinara 标签页和 Android 应用都已关闭时，也能送到你的手机上。这些通知由你的 Marinara 服务器通过 ntfy 发出。ntfy 是一项免费的通知服务，提供 Android 和 iPhone 应用。
+
+开始之前，先在手机上安装 ntfy 应用。你需要在运行 Marinara 的那台电脑上打开 Marinara，或者已在这台设备上保存了管理员密钥。参见[远程访问](../REMOTE_ACCESS.md)。
+
+1. 打开 **Settings → General → Notifications**，开启 **Send push notifications**(发送推送通知)。Marinara 会随机生成一个 **Topic**(主题)，也就是你的通知发往的私密频道。
+2. 在手机上点击 **Open in ntfy**(在 ntfy 中打开)，或者点击 **Copy**(复制)，再到 ntfy 应用里订阅这个主题。
+3. 点击 **Send test notification**(发送测试通知)。手机上会显示“Marinara test notification”（Marinara 测试通知）。
+
+两个开关决定哪些内容会通知你：
+
+- **Messages characters send on their own**(角色自行发送的消息)：角色在你没有参与时自己写的 Conversation 消息。即使没有任何设备打开着 Marinara，服务器也会写这类消息。
+- **Replies you started, when you closed Marinara before they finished**(你发起、但完成前关闭了 Marinara 的回复)：只有在回复保存之前你关闭了 Marinara 或离开了页面，这条回复才会发出通知。Marinara 开着的时候，由它自己的通知负责。
+
+通知会显示是谁写的，以及“Open Marinara to read it.”（打开 Marinara 查看）这句话。开启 **Show a message preview**(显示消息预览) 后，通知会改为发送回复的开头，最多 200 个字符。点按通知会用 **Address to open**(打开时使用的地址) 打开聊天，它就是你开启通知时所用的地址。如果你的手机要通过另一个地址访问 Marinara，就改成那个地址。
+
+> **注意：** 使用 `ntfy.sh` 时，通知的标题和预览会经过一台公共服务器，任何知道这个主题的人都能读到它们。如果主题泄露了，点击 **New topic**(新主题)。想让所有内容都留在你自己的机器上，就运行你自己的 ntfy 服务器，并把它的地址填进 **ntfy server**(ntfy 服务器)。局域网里的服务器也可以。
+
+如果测试失败，Marinara 会显示一条提示，说明失败原因。最常见的原因是你的 Marinara 服务器连不上 **ntfy server** 里填写的地址。
 
 ### 输入与编辑
 

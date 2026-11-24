@@ -1194,3 +1194,5 @@ Der #9063-Abgleich von `characters/colors-and-stats.md`, **Die drei Farben**, ge
 - **Public Face** (Öffentliches Profil), in `de/characters/creating-and-editing-characters.md`.
 - **Others' Public Faces** (Öffentliche Profile der anderen), in `de/chats/group-chats.md`.
 - **Send Public Faces** (Öffentliche Profile senden), in `de/chats/guided-and-impersonate.md`.
+
+**Push notifications (2026-11-24, #9756):** *push notification* is **die Push-Benachrichtigung**; an ntfy *topic* is **das Topic** in prose, with **Topic** glossed (Thema) and **New topic** (Neues Thema); **Push notifications (ntfy)** stays bare because its own parentheses would collide with a gloss (`de/settings/settings-overview.md`).

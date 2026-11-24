@@ -595,3 +595,4 @@ Precedents from the #9063 sync of `characters/colors-and-stats.md`, "Los tres co
 - **Public Face** (Imagen pública), in `es/characters/creating-and-editing-characters.md`.
 - **Others' Public Faces** (Imágenes públicas de los demás), in `es/chats/group-chats.md`.
 - **Send Public Faces** (Enviar imágenes públicas), in `es/chats/guided-and-impersonate.md`.
+- 2026-11-24, ntfy push notifications in `es/settings/settings-overview.md`: *push notification* is **notificación push**; the ntfy *topic* is **el tema** (**Topic** (Tema)), even though **tema** also means a theme elsewhere; `ntfy` stays lowercase and undeclined after a carrier noun (`la app de ntfy`, `servidor de ntfy`).

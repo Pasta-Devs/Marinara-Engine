@@ -68,7 +68,7 @@
 | セクション | 制御する内容 |
 | --- | --- |
 | **App Behavior** | 言語、削除時の安全確認、表示と非表示のスイッチ、**Search and Professor Mari settings**の行。[App Behavior](#app-behavior)を参照してください。 |
-| **Notifications** | 通知音、ブラウザーとAndroidの通知。[Notifications](#notifications)を参照してください。 |
+| **Notifications** | 通知音、ブラウザーとAndroidの通知、ntfyによるプッシュ通知。[Notifications](#notifications)を参照してください。 |
 | **Responses** | ストリーミング、トリミング、**Messages per page**。[メッセージの送信とストリーミング](../chats/sending-and-streaming.md)を参照してください。 |
 | **Input & Editing** | **Send on Enter**、**Quick replies**、スワイプと編集のショートカット。[Input and Editing](#input-and-editing)を参照してください。 |
 | **Text Rules** | チャットの文章の整形方法。[Text Rules](#text-rules)を参照してください。 |
@@ -103,6 +103,27 @@ Marinaraは、通知に標準の音を鳴らします。自分の音を使うに
 この音は、このサーバーに接続しているすべてのデバイスで鳴ります。試聴、差し替え、削除ができます。ファイルを読み込めない場合、Marinaraは標準の音を鳴らします。このファイルは、バックアップとプロファイルのエクスポートに含まれます。
 
 **Background Notifications**は、キャラクターが自分から送るConversationのメッセージが対象です。**Generation Completion Notifications**は、Conversation、Roleplay、Game Modeで自分から始めた返信が対象です。どちらも、Marinaraを開いていてもフォーカスが外れているときに動作します。メッセージの中身は表示しません。
+
+#### Marinaraを閉じているときにスマートフォンで通知を受け取る
+
+**Push notifications (ntfy)**(ntfyによるプッシュ通知)は、Marinaraのタブをすべて閉じ、Androidアプリも閉じているときでも、スマートフォンに届きます。通知は、自分のMarinaraサーバーがntfyを通じて送ります。ntfyは無料の通知サービスで、AndroidとiPhone向けのアプリがあります。
+
+始める前に、スマートフォンにntfyアプリをインストールしてください。また、Marinaraを動かしているコンピューターでMarinaraを開くか、このデバイスに管理者用のシークレットを保存しておく必要があります。[リモートアクセス](../REMOTE_ACCESS.md)を参照してください。
+
+1. **Settings → General → Notifications**(設定 → 一般 → 通知)を開き、**Send push notifications**(プッシュ通知を送信)をオンにします。Marinaraがランダムな**Topic**(トピック)を作ります。トピックとは、通知の送り先になる自分専用のチャンネルです。
+2. スマートフォンで**Open in ntfy**(ntfyで開く)をクリックするか、**Copy**(コピー)をクリックしてntfyアプリでそのトピックを購読します。
+3. **Send test notification**(テスト通知を送信)をクリックします。スマートフォンに「Marinara test notification」と表示されます。
+
+何を通知するかは、2つのスイッチで選びます。
+
+- **Messages characters send on their own**(キャラクターが自分から送るメッセージ): 何も送らなくてもキャラクターが書く、Conversationのメッセージです。どのデバイスでもMarinaraを開いていないあいだも、サーバーがこのメッセージを書きます。
+- **Replies you started, when you closed Marinara before they finished**(完了前にMarinaraを閉じた、自分で始めた返信): 返信が保存される前にMarinaraを閉じたか、ページを離れた場合にだけ通知します。Marinaraを開いているあいだは、Marinara自身の通知が知らせます。
+
+通知には、誰が書いたかと「Open Marinara to read it.」が表示されます。**Show a message preview**(メッセージのプレビューを表示)をオンにすると、その代わりに返信の冒頭を最大200文字まで送ります。通知をタップすると、**Address to open**(チャットを開くアドレス)でチャットが開きます。これは、通知をオンにしたときに使っていたアドレスです。スマートフォンから別のアドレスでMarinaraに接続する場合は、このアドレスを変更してください。
+
+> **Note:** `ntfy.sh`では、通知のタイトルとプレビューが公開サーバーを経由するため、トピックを知っている人なら誰でも読めます。トピックが漏れた場合は、**New topic**(新しいトピック)をクリックしてください。すべてを自分のコンピューターの中にとどめるには、自分のntfyサーバーを動かし、そのアドレスを**ntfy server**(ntfyサーバー)に入力します。ローカルネットワーク上のサーバーでも使えます。
+
+テストに失敗すると、Marinaraがその理由をメッセージで表示します。いちばん多い原因は、**ntfy server**のアドレスに、Marinaraのサーバーから接続できないことです。
 
 ### Input and Editing
 
