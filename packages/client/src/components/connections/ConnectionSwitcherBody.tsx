@@ -89,7 +89,8 @@ import { SearchInput } from "../ui/SearchInput";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { openAddConnection } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
-import { FamilyChips, familyFilterOf } from "./FamilyChips";
+import { familyFilterOf } from "./FamilyChips";
+import { familyOf } from "../../lib/model-families";
 import { groupModelVariants, variantLabel } from "../../lib/model-variants";
 import { reorderStars, starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import { useVoiceRowId } from "../../hooks/use-tts";
@@ -139,6 +140,10 @@ type Entry = {
   variants?: { key: string; count: number; open: boolean };
   /** A variant under its base model's line: its tags are its name, the full id line 2. */
   variantOf?: string;
+  /** A model family's line in a long list ("Claude · 38 models"): its models open under it. */
+  family?: { key: string; count: number; open: boolean };
+  /** A line inside an open family, set in one step. */
+  inFamily?: boolean;
 };
 
 /** A long run of model lines draws only the rows in view; a short one renders in full. */
@@ -595,11 +600,9 @@ export function ConnectionSwitcherBody({
   const [pane, setPane] = useState<string | null>(null);
   /** One-pane hosts (phone, Chat Settings) show the right pane; Back shows the account list. */
   const [drilled, setDrilled] = useState(true);
-  // The family chip over the open account's catalog (Claude, DeepSeek …); another account starts on All.
-  const [family, setFamily] = useState<string | null>(null);
-  // Base models whose variants are open in the list.
+  // Base models whose variants are open in the list, and model families open in a long list.
   const [openVariants, setOpenVariants] = useState<ReadonlySet<string>>(() => new Set());
-  useEffect(() => setFamily(null), [pane]);
+  const [openFamilies, setOpenFamilies] = useState<ReadonlySet<string>>(() => new Set());
   const searchRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -899,9 +902,11 @@ export function ConnectionSwitcherBody({
   const builtInName = useSidecarStore((state) => builtInModelName(state.modelDisplayName));
   const localEntry: Entry = {
     key: LOCAL_SIDECAR_CONNECTION_ID,
-    // The model's own name, tagged "On device"; its job's name until a model is downloaded.
-    title: (builtInReady && builtInName) || t("connections.switcher.localModel"),
-    subtitle: localModelHint ?? (builtInReady ? undefined : t("connections.builtin.notDownloadedSetUp")),
+    // Named by its job ("Sidecar", tagged "On device") like the Connections page; the model's own name is line 2.
+    title: t("connections.switcher.localModel"),
+    subtitle: builtInReady
+      ? [builtInName, localModelHint].filter(Boolean).join(" · ") || undefined
+      : (localModelHint ?? t("connections.builtin.notDownloadedSetUp")),
     choice: { connectionId: LOCAL_SIDECAR_CONNECTION_ID },
   };
   const nowEntry: Entry | null =
@@ -1221,6 +1226,40 @@ export function ConnectionSwitcherBody({
       away?: boolean;
     } = {},
   ) => {
+    if (rawEntry.family) {
+      const { key, count, open } = rawEntry.family;
+      return (
+        <ModelRow
+          key={rawEntry.key}
+          rowProps={{ "data-switcher-row": true, className: "rounded-lg" }}
+          data-switcher-family={key}
+          aria-expanded={open}
+          onClick={() =>
+            setOpenFamilies((current) => {
+              const next = new Set(current);
+              if (next.has(key)) next.delete(key);
+              else next.add(key);
+              return next;
+            })
+          }
+          className="rounded-lg"
+          tile={
+            <span className="flex shrink-0 justify-center">
+              <ModelTile row={undefined} account={rawEntry.group?.account} model={rawEntry.model} />
+            </span>
+          }
+          title={rawEntry.title}
+          subtitle={t("connections.families.models", { count })}
+          trailing={
+            <ChevronDown
+              size="0.875rem"
+              aria-hidden
+              className={cn("shrink-0 text-foreground/40 transition-transform", open && "rotate-180")}
+            />
+          }
+        />
+      );
+    }
     if (rawEntry.variants) {
       const { key, count, open } = rawEntry.variants;
       return (
@@ -1237,7 +1276,7 @@ export function ConnectionSwitcherBody({
               return next;
             })
           }
-          className="rounded-lg"
+          className={cn("rounded-lg", rawEntry.inFamily && "ps-6 max-md:ps-5")}
           tile={
             <span className="flex shrink-0 justify-center">
               <ModelTile row={undefined} account={rawEntry.group?.account} model={rawEntry.model} />
@@ -1265,7 +1304,7 @@ export function ConnectionSwitcherBody({
       ...(niceName ? { title: niceName } : {}),
       // Under its base model a variant is named by its tags ("SP · thinking"); its full id is line 2.
       ...(rawEntry.variantOf && rawEntry.model
-        ? { title: variantLabel(rawEntry.model), subtitle: rawEntry.model }
+        ? { title: variantLabel(rawEntry.model, rawEntry.variantOf), subtitle: rawEntry.model }
         : {}),
     };
     const sameTitle = rawEntry.group?.rows.some((row) => row.model !== entry.model && rowLabel(row) === entry.title);
@@ -1354,7 +1393,8 @@ export function ConnectionSwitcherBody({
           now && "min-h-0 gap-2 py-1 ps-1.5 max-md:gap-2 max-md:ps-1.5",
           pane && "gap-2 ps-3 max-md:gap-2 max-md:ps-3",
           // A variant sits under its base model's line.
-          entry.variantOf && "ps-8 max-md:ps-6",
+          entry.variantOf && (entry.inFamily ? "ps-12 max-md:ps-10" : "ps-8 max-md:ps-6"),
+          entry.inFamily && !entry.variantOf && "ps-6 max-md:ps-5",
         )}
         tile={
           <span className={cn("flex shrink-0 justify-center", (now || pane) && "w-8")}>
@@ -1729,7 +1769,7 @@ export function ConnectionSwitcherBody({
   const shownEntries = shownGroup ? paneEntries(shownGroup) : null;
   const paneFamilies = familyFilterOf(
     (shownEntries?.catalogRest ?? []).map((entry) => entry.model ?? ""),
-    family,
+    null,
   );
   const restLabel =
     leadCatalog && shownEntries?.lead.length ? leadCatalog.restLabel : t("connections.switcher.allModels");
@@ -1754,6 +1794,34 @@ export function ConnectionSwitcherBody({
         variants: { key, count: group.items.length, open },
       });
       if (open) out.push(...group.items.map((entry) => ({ ...entry, variantOf: group.base })));
+    }
+    return out;
+  };
+  // A long list with several families (a proxy's 160 models) opens one line per family; a family opens to its
+  // models, one line per base model, whose variants open under it in turn. The family in use starts open.
+  const familyGrouped = paneFamilies.families.length > 0;
+  const withFamilies = (entries: readonly Entry[]): Entry[] => {
+    if (!familyGrouped) return withVariants(entries);
+    const byFamily = new Map<string, Entry[]>();
+    for (const entry of entries) {
+      const key = familyOf(entry.model ?? entry.title).key;
+      byFamily.set(key, [...(byFamily.get(key) ?? []), entry]);
+    }
+    const out: Entry[] = [];
+    for (const family of paneFamilies.families) {
+      const items = byFamily.get(family.key);
+      if (!items?.length) continue;
+      const key = `${paneKey}:${family.key}`;
+      const open = openFamilies.has(key) || items.some((entry) => sameChoice(entry.choice, current));
+      out.push({
+        key: `family:${key}`,
+        title: family.key === "other" ? t("connections.families.other") : family.label,
+        choice: items[0]!.choice,
+        group: items[0]!.group,
+        model: items[0]!.model,
+        family: { key, count: items.length, open },
+      });
+      if (open) out.push(...withVariants(items).map((entry) => ({ ...entry, inFamily: true })));
     }
     return out;
   };
@@ -1895,20 +1963,9 @@ export function ConnectionSwitcherBody({
             {shownEntries.catalogRest.length > 0 && (
               <section data-switcher-section="all" aria-label={restLabel}>
                 {heading(restLabel, shownEntries.catalogRest.length)}
-                <FamilyChips
-                  className="px-2 pb-1.5 pt-0.5"
-                  families={paneFamilies.families}
-                  active={paneFamilies.active}
-                  total={shownEntries.catalogRest.length}
-                  onChange={setFamily}
-                />
                 <EntryRows
-                  listKey={`rest:${paneKey}:${paneFamilies.active ?? "all"}`}
-                  entries={withVariants(
-                    paneFamilies.active
-                      ? shownEntries.catalogRest.filter((entry) => paneFamilies.matches(entry.model ?? ""))
-                      : shownEntries.catalogRest,
-                  )}
+                  listKey={`rest:${paneKey}`}
+                  entries={withFamilies(shownEntries.catalogRest)}
                   render={(entry) => renderEntry(entry, { star: "all" })}
                 />
               </section>

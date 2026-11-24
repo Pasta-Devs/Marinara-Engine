@@ -40,6 +40,9 @@ import {
   type ConnectionAccountListItem,
   type CreateConnectionAccountInput,
   type UpdateConnectionAccountInput,
+  isModelAddressPath,
+  modelAddressPathOf,
+  resolveModelAddress,
 } from "@marinara-engine/shared";
 import { setConnectionBudgetScope, setAccountRateLimit } from "../llm/connection-rate-limit-registry.js";
 import { setAccountParallelLimit } from "../llm/account-budget.js";
@@ -49,7 +52,6 @@ import {
   catalogOf,
   readAccountCatalogs,
   readSavedModelList,
-  sameOriginUrl,
   withAccountCatalog,
 } from "./connections.storage.js";
 
@@ -792,9 +794,13 @@ export function createConnectionAccountsStorage(db: DB) {
             if (input.showUsageWeekly !== undefined) rowSet.showUsageWeekly = updated.showUsageWeekly;
             if (input.treatAsLocalEndpoint !== undefined) rowSet.treatAsLocalEndpoint = updated.treatAsLocalEndpoint;
             if (takesBaseUrl) rowSet.baseUrl = updated.baseUrl;
-            // A Model's own address only counts on its Connection's server; one the address left behind is dropped.
+            // A Model's own address only counts on its Connection's server. A path ("/proxy/zai") moves with it;
+            // a full address the move left behind keeps its path on the new server (a tunnel's new name), or is
+            // dropped when it has none.
             const ownAddress = row.modelBaseUrl?.trim();
-            if (takesBaseUrl && ownAddress && !sameOriginUrl(ownAddress, updated.baseUrl)) rowSet.modelBaseUrl = "";
+            if (takesBaseUrl && ownAddress && !resolveModelAddress(ownAddress, updated.baseUrl)) {
+              rowSet.modelBaseUrl = isModelAddressPath(ownAddress) ? "" : (modelAddressPathOf(ownAddress) ?? "");
+            }
             // A different key or address can serve a different model list.
             if (keyChanged || (takesBaseUrl && baseUrlChanged)) rowSet.savedModels = null;
             // A row with a second endpoint on another origin stays under review.

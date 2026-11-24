@@ -9,6 +9,8 @@ import {
   TTS_REQUEST_TIMEOUT_MS,
   type DecisionSource,
   isChatProvider,
+  isModelAddressPath,
+  resolveModelAddress,
 } from "@marinara-engine/shared";
 import { isConnectionFlagFalse, isLanguageGenerationConnection } from "../../lib/connection-filters";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
@@ -619,7 +621,14 @@ export function ConnectionEditor({
   const accountAddress = linkedAccount?.baseUrl?.trim() ?? "";
   const canOwnAddress =
     !!accountId && !!accountAddress && isChatProvider(localProvider) && localProvider === linkedAccount?.provider;
-  const modelBaseUrlValidation = useMemo(() => {
+  const modelBaseUrlValidation = useMemo((): { value: string; error?: string | null; resolved?: string } => {
+    // Only a path ("/proxy/zai" or "proxy/zai"): read against the Connection's server, and kept as typed so it
+    // moves with that server when its address changes.
+    if (isModelAddressPath(localModelBaseUrl)) {
+      const value = localModelBaseUrl.trim();
+      const resolved = resolveModelAddress(value, accountAddress);
+      return resolved ? { value, resolved } : { value, error: t("connections.ownAddress.badPath") };
+    }
     const checked = normalizeEndpointUrlInput(localModelBaseUrl, t("connections.ownAddress.label"));
     if (checked.error || !checked.value) return checked;
     const origin = (url: string) => {
@@ -3350,10 +3359,14 @@ export function ConnectionEditor({
                   "mari-chrome-field h-11 w-full px-3 font-mono text-xs max-sm:text-base md:h-9",
                   modelBaseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
                 )}
-                placeholder={accountAddress}
+                placeholder={t("connections.ownAddress.placeholder")}
               />
               {modelBaseUrlValidation.error ? (
                 <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{modelBaseUrlValidation.error}</p>
+              ) : modelBaseUrlValidation.resolved ? (
+                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)] [overflow-wrap:anywhere]" data-own-address-resolved>
+                  {t("connections.ownAddress.resolved", { address: modelBaseUrlValidation.resolved })}
+                </p>
               ) : modelBaseUrlValidation.value && modelBaseUrlValidation.value !== localModelBaseUrl.trim() ? (
                 <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                   {localizeUi("ui.connections.connectioneditor.willSaveAs")} {modelBaseUrlValidation.value}

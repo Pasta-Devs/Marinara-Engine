@@ -168,9 +168,10 @@ export function CardBrowse({
     ? ordered.map((model) => ({ key: model.id, base: model.id, items: [model] }))
     : groupModelVariants(ordered, (model) => model.id);
 
-  const row = (id: string, extra?: string, variant = false) => {
+  const row = (id: string, extra?: string, variantOf?: string) => {
+    const variant = !!variantOf;
     const model = byId.get(id);
-    const label = variant ? variantLabel(id) : model?.name && model.name !== id ? model.name : id;
+    const label = variantOf ? variantLabel(id, variantOf) : model?.name && model.name !== id ? model.name : id;
     return (
       <button
         key={id}
@@ -261,7 +262,7 @@ export function CardBrowse({
                   ) : null}
                   <span className="ov-conn__dim">{t("connections.variants.count", { count: group.items.length })}</span>
                 </button>
-                {open ? group.items.map((model) => row(model.id, undefined, true)) : null}
+                {open ? group.items.map((model) => row(model.id, undefined, group.base)) : null}
               </div>
             );
           })

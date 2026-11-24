@@ -18049,6 +18049,9 @@ button.ov-conn-card__name:hover b {
   font-size: 0.875rem;
 }
 .ov-conn-row__name b {
+  /* The name is what the row is; the model id beside it gives way first. */
+  flex: 0 0 auto;
+  max-width: 70%;
   min-width: 0;
   overflow: hidden;
   font-weight: 500;
@@ -18081,6 +18084,8 @@ button.ov-conn-card__name:hover b {
   flex: 1 1 12rem;
 }
 .ov-conn-row--device .ov-conn-row__trail {
+  flex-wrap: wrap;
+  justify-content: flex-end;
   margin-left: auto;
   font-size: 0.8125rem;
 }

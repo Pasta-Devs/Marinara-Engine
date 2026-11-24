@@ -179,6 +179,13 @@ function isTunnelHost(baseUrl: string) {
   );
 }
 
+/** A job's chip text: long names get their short form ("Quick answers" is "QA"); the chip's title keeps the full one. */
+function useShortJobLabel() {
+  const { t } = useTranslation();
+  const quickAnswers = t("connections.defaults.feature.omnibarAsideConnectionId");
+  return (label: string) => (label === quickAnswers ? t("connections.job.short.quickAnswers") : label);
+}
+
 /** On this device names an engine by its job; a TTS server of its own keeps its name. */
 const DEVICE_ROLE: Record<string, string> = {
   "local-model": "connections.device.role.sidecar",
@@ -208,6 +215,7 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
     !engines.some((engine) => engine.item === "local-model");
   if (engines.length === 0 && !builtInAvailable && !decision && !embedding) return null;
   // Each row is named by its job (the card says it is on this device); the model's own name is line 2.
+  const shortJob = useShortJobLabel();
   const roleOf = (item: string, name: string) => {
     const key =
       DEVICE_ROLE[item] ??
@@ -219,9 +227,9 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
       ...engines.map((engine) => ({
         item: engine.item,
         name: roleOf(engine.item, engine.name),
-        detail: [engine.detail, engine.item === "local-model" && usedBy.length ? usedBy.join(", ") : null]
-          .filter(Boolean)
-          .join(" · "),
+        detail: engine.detail,
+        // The jobs it does, as the same chips a cloud Model wears ("Main", "Images").
+        jobs: engine.item === "local-model" ? usedBy : [],
         tone: engine.tone,
         state: engine.state,
         fix: engine.fix,
@@ -234,6 +242,7 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
               item: "local-model" as DeviceItem,
               name: t("connections.device.role.sidecar"),
               detail: localize("No account needed"),
+              jobs: [] as string[],
               tone: "off" as const,
               state: t("connections.builtin.card.notDownloaded"),
               fix: {
@@ -251,6 +260,7 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
               item: "decision" as DeviceItem,
               name: t("connections.device.role.decisions"),
               detail: decision.detail,
+              jobs: [] as string[],
               tone: decision.tone,
               state: decision.state,
               fix: undefined as { label: string; run: () => void } | undefined,
@@ -265,6 +275,7 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
               item: "builtin-embedding" as DeviceItem,
               name: t("connections.device.role.embeddings"),
               detail: embedding.detail,
+              jobs: [] as string[],
               tone: embedding.tone,
               state: embedding.state,
               fix: undefined as { label: string; run: () => void } | undefined,
@@ -314,6 +325,11 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
                     {row.detail ? <span className="ov-conn__dim">{row.detail}</span> : null}
                   </span>
                   <span className="ov-conn-row__trail">
+                    {row.jobs.map((job) => (
+                      <span key={job} className="ov-conn__chip" title={job} data-conn-device-job>
+                        {shortJob(job)}
+                      </span>
+                    ))}
                     <span
                       className={cn(
                         "ov-conn__status",
@@ -410,6 +426,7 @@ export function ConnectionsLanding() {
     [connections, hiddenIds],
   );
   const tiles = useConnectionDefaults(rows);
+  const shortJob = useShortJobLabel();
   const jobsByModel = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const tile of tiles) {
@@ -683,8 +700,12 @@ export function ConnectionsLanding() {
             </span>
           ) : null}
           {jobs.map((job, index) => (
-            <span key={job} className={cn("ov-conn__chip", index === 0 && jobs[0] === tiles[0]?.title && "is-main")}>
-              {job}
+            <span
+              key={job}
+              title={job}
+              className={cn("ov-conn__chip", index === 0 && jobs[0] === tiles[0]?.title && "is-main")}
+            >
+              {shortJob(job)}
             </span>
           ))}
           {context ? (

@@ -109,7 +109,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
       .map((account) => {
         const item = toAccountListItem(account, counts.get(account.id) ?? 0);
         // The server gave no answer to its last model list fetch (address gone, refused, timed out).
-        const unreachable = unreachableOf(account.id);
+        const unreachable = unreachableOf(account.id, account.baseUrl);
         return unreachable ? { ...item, unreachable: { reason: unreachable.reason, since: unreachable.since } } : item;
       });
   });
