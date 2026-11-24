@@ -23,9 +23,28 @@ const Fastify = requireServer("fastify") as typeof import("fastify").default;
 const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
 const { gameRoutes } = await import("../../../packages/server/src/routes/game.routes.js");
 const { avatarsRoutes } = await import("../../../packages/server/src/routes/avatars.routes.js");
-const { buildTrackerPortraitPrompt } = await import("../../../packages/server/src/services/image/tracker-portrait.js");
-const { compileImagePrompt, DEFAULT_IMAGE_STYLE_PROFILES, characterDataSchema, replaceBuiltInAgentDefinitions } =
-  await import("../../../packages/shared/dist/index.js");
+const { buildTrackerPortraitPrompt, generateTrackerPortrait, trackerPortraitRewriteOption } =
+  await import("../../../packages/server/src/services/image/tracker-portrait.js");
+const {
+  buildTrackerPortraitRewriteMessages,
+  cleanRewrittenTrackerPortraitPrompt,
+  isFailedTrackerPortraitRewriteFinishReason,
+  resolveTrackerPortraitRewriteConnection,
+  rewriteTrackerPortraitPrompt,
+} = await import("../../../packages/server/src/services/image/tracker-portrait-rewriter.js");
+const {
+  compileImagePrompt,
+  DEFAULT_IMAGE_STYLE_PROFILES,
+  DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+  LOCAL_SIDECAR_CONNECTION_ID,
+  UTILITY_SIDECAR_CONNECTION_ID,
+  characterDataSchema,
+  isCustomTrackerPortraitRewritePrompt,
+  replaceBuiltInAgentDefinitions,
+  resolveTrackerPortraitRewriteSettings,
+  serializeTrackerPortraitRewriteSettings,
+  shouldShowTrackerPortraitRewriteEditor,
+} = await import("../../../packages/shared/dist/index.js");
 const { createAgentsStorage } = await import("../../../packages/server/src/services/storage/agents.storage.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createGameStateStorage } = await import("../../../packages/server/src/services/storage/game-state.storage.js");
@@ -39,12 +58,65 @@ const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwA
 const imagePrompts: string[] = [];
 const imageRequests: Array<{ url: string; prompt: string; hasReference: boolean }> = [];
 const plannerPrompts: string[] = [];
+const chatCompletionRequests: Array<{ messages: Array<{ role: string; content: string }> }> = [];
 const providerErrors: unknown[] = [];
 let failImages = false;
+let failChatCompletions = false;
+let chatCompletionContent: string | null = null;
 // Holds the next image request open until released, so a test can act while a portrait is being made.
 let expectedImageUrl = "/v1/images/generations";
 let holdImages: { reached: () => void; released: Promise<void> } | null = null;
 const provider = createServer(async (request, response) => {
+  if (request.url === "/v1/chat/completions") {
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk));
+      const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+        messages?: Array<{ role: string; content: string }>;
+      };
+      assert.ok(Array.isArray(body.messages));
+      chatCompletionRequests.push({ messages: body.messages });
+      plannerPrompts.push(body.messages.map((message) => message.content).join("\n"));
+      if (failChatCompletions) {
+        response.writeHead(500, { "content-type": "text/plain" });
+        response.end("Chat completion failed");
+        return;
+      }
+      const content =
+        chatCompletionContent ??
+        JSON.stringify({
+          title: "Garden meeting",
+          keyframes: [
+            {
+              title: "Meeting",
+              narrationBeat: "Macro Mari meets Aster and Boreal.",
+              imagePrompt: "Macro Mari meets Aster and Boreal beside a marble fountain in a quiet sunlit garden.",
+              characters: ["Macro Mari", "Aster", "Boreal"],
+            },
+          ],
+        });
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content,
+              },
+              finish_reason: "stop",
+            },
+          ],
+        }),
+      );
+      return;
+    } catch (error) {
+      providerErrors.push(error);
+      response.writeHead(500);
+      response.end("Unexpected chat fixture error");
+      return;
+    }
+  }
   if (failImages) {
     response.writeHead(500);
     response.end("Image service down");
@@ -57,36 +129,6 @@ const provider = createServer(async (request, response) => {
       prompt?: unknown;
       messages?: Array<{ role: string; content: string }>;
     };
-    if (request.url === "/v1/chat/completions") {
-      assert.ok(Array.isArray(body.messages));
-      plannerPrompts.push(body.messages.map((message) => message.content).join("\n"));
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(
-        JSON.stringify({
-          choices: [
-            {
-              message: {
-                role: "assistant",
-                content: JSON.stringify({
-                  title: "Garden meeting",
-                  keyframes: [
-                    {
-                      title: "Meeting",
-                      narrationBeat: "Macro Mari meets Aster and Boreal.",
-                      imagePrompt:
-                        "Macro Mari meets Aster and Boreal beside a marble fountain in a quiet sunlit garden.",
-                      characters: ["Macro Mari", "Aster", "Boreal"],
-                    },
-                  ],
-                }),
-              },
-              finish_reason: "stop",
-            },
-          ],
-        }),
-      );
-      return;
-    }
     assert.equal(request.url, expectedImageUrl, "the fixture only allows image or planner requests");
     assert.equal(typeof body.prompt, "string");
     const bodyRecord = body as Record<string, unknown>;
@@ -929,11 +971,477 @@ try {
   assert.match(upload1Url, new RegExp(`^/api/avatars/npc/${trackerChat.id}/scene-kitty-pryde-[a-f0-9]{8}\\.png$`));
   assert.notEqual(upload1Url, upload2Url);
 
+  // Optional AI portrait prompt rewriter (#9748): settings resolution, message construction,
+  // cleaning, Illustrator->AgentDefault->Chat->Main fallback priority, and route execution.
+  assert.deepEqual(resolveTrackerPortraitRewriteSettings(null), {
+    enabled: false,
+    prompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+  });
+  assert.deepEqual(
+    resolveTrackerPortraitRewriteSettings({ rewritePortraitPrompts: true, portraitRewritePrompt: "  " }),
+    {
+      enabled: true,
+      prompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+    },
+  );
+  assert.deepEqual(
+    resolveTrackerPortraitRewriteSettings({
+      rewritePortraitPrompts: true,
+      portraitRewritePrompt: "  Custom prompt line  ",
+    }),
+    { enabled: true, prompt: "Custom prompt line" },
+  );
+  assert.equal(isCustomTrackerPortraitRewritePrompt(` ${DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT}\n`), false);
+  assert.equal(isCustomTrackerPortraitRewritePrompt("Custom prompt line"), true);
+  assert.equal(shouldShowTrackerPortraitRewriteEditor({ enabled: true, editing: false, prompt: "" }), true);
+  assert.equal(
+    shouldShowTrackerPortraitRewriteEditor({
+      enabled: false,
+      editing: false,
+      prompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+    }),
+    false,
+  );
+  assert.deepEqual(
+    serializeTrackerPortraitRewriteSettings({
+      enabled: false,
+      prompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+    }),
+    {},
+  );
+  assert.deepEqual(
+    trackerPortraitRewriteOption(
+      { rewritePortraitPrompts: true, portraitRewritePrompt: "Custom" },
+      { illustratorPromptConnectionId: "ill-prompt-1" },
+      "chat-conn-1",
+    ),
+    {
+      enabled: true,
+      prompt: "Custom",
+      chatConnectionId: "chat-conn-1",
+      illustratorPromptConnectionId: "ill-prompt-1",
+    },
+  );
+
+  const builtWithOutfit = buildTrackerPortraitRewriteMessages({
+    systemPrompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+    character: {
+      name: "Kitty Pryde",
+      imageAppearance: "kitty pryde, 1girl, brown hair, smile",
+      appearance: "fair skin, single silver hoop earring",
+      mood: "flustered",
+      outfit: "cream trousers, sleeveless black turtleneck bodysuit",
+    },
+    includeOutfit: true,
+    promptMode: "hybrid",
+    portraitTags: "solo, portrait, upper body, looking at viewer",
+    imagePromptInstructions: "Prefer painterly brushwork over glossy shading.",
+  });
+  assert.equal(builtWithOutfit.preferTags, true);
+  assert.ok(builtWithOutfit.messages[0]!.content.includes("<image_prompting_instructions>"));
+  assert.ok(builtWithOutfit.messages[0]!.content.includes("Prefer painterly brushwork"));
+  const payloadWithOutfit = JSON.parse(builtWithOutfit.messages[1]!.content) as Record<string, unknown>;
+  assert.equal(payloadWithOutfit.mood, "flustered");
+  assert.equal(payloadWithOutfit.outfit, "cream trousers, sleeveless black turtleneck bodysuit");
+  assert.equal(payloadWithOutfit.portraitTags, "solo, portrait, upper body, looking at viewer");
+
+  const builtLookOnly = buildTrackerPortraitRewriteMessages({
+    systemPrompt: "Rewrite concisely.",
+    character: {
+      name: "Brannoc",
+      appearance: "short beard",
+      outfit: "red tunic",
+      mood: "guarded",
+    },
+    includeOutfit: false,
+    promptMode: "natural",
+    portraitTags: "",
+  });
+  assert.equal(builtLookOnly.preferTags, false);
+  const payloadLookOnly = JSON.parse(builtLookOnly.messages[1]!.content) as Record<string, unknown>;
+  assert.equal("outfit" in payloadLookOnly, false, "outfit stays omitted when includeOutfit is false");
+  assert.equal(payloadLookOnly.mood, "guarded");
+
+  assert.equal(
+    cleanRewrittenTrackerPortraitPrompt('```\n"kitty pryde, 1girl,\nflustered, sleeveless black turtleneck,"\n```', {
+      promptMode: "hybrid",
+      preferTags: true,
+    }),
+    "kitty pryde, 1girl, flustered, sleeveless black turtleneck",
+  );
+  assert.equal(
+    cleanRewrittenTrackerPortraitPrompt("Prefer painterly brushwork over glossy shading.", {
+      imagePromptInstructions: "Prefer painterly brushwork over glossy shading.",
+      promptMode: "hybrid",
+      preferTags: false,
+    }),
+    "",
+  );
+
+  // Connection resolution skips image/video and unavailable sidecar connections in priority order.
+  const connStoreRecords = new Map([
+    [
+      "img-conn",
+      {
+        id: "img-conn",
+        provider: "image_generation",
+        model: "dall-e-3",
+        baseUrl: "http://example.invalid",
+        apiKey: "k",
+      },
+    ],
+    [
+      "ill-conn",
+      {
+        id: "ill-conn",
+        provider: "openai_compatible",
+        model: "ill-model",
+        baseUrl: "http://example.invalid/v1",
+        apiKey: "k",
+      },
+    ],
+    [
+      "agent-def",
+      {
+        id: "agent-def",
+        provider: "openai_compatible",
+        model: "def-model",
+        baseUrl: "http://example.invalid/v1",
+        apiKey: "k",
+      },
+    ],
+    [
+      "chat-conn",
+      {
+        id: "chat-conn",
+        provider: "openai_compatible",
+        model: "chat-model",
+        baseUrl: "http://example.invalid/v1",
+        apiKey: "k",
+      },
+    ],
+    [
+      "main-def",
+      {
+        id: "main-def",
+        provider: "openai_compatible",
+        model: "main-model",
+        baseUrl: "http://example.invalid/v1",
+        apiKey: "k",
+      },
+    ],
+  ]);
+  const testConnStore = {
+    getWithKey: async (id: string) => connStoreRecords.get(id) ?? null,
+    getDefault: async () => connStoreRecords.get("main-def") ?? null,
+    getFallbackForAgents: async () => null,
+  };
+  assert.equal(
+    (
+      await resolveTrackerPortraitRewriteConnection({
+        connections: testConnStore,
+        illustratorPromptConnectionId: "img-conn",
+        illustratorConnectionId: "ill-conn",
+        defaultAgentConnectionId: "agent-def",
+        chatConnectionId: "chat-conn",
+        localSidecarAvailable: false,
+      })
+    )?.model,
+    "ill-model",
+    "skips image connection and picks Illustrator LLM",
+  );
+  assert.equal(
+    (
+      await resolveTrackerPortraitRewriteConnection({
+        connections: testConnStore,
+        illustratorConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
+        defaultAgentConnectionId: "agent-def",
+        chatConnectionId: "chat-conn",
+        localSidecarAvailable: false,
+      })
+    )?.model,
+    "def-model",
+    "skips unavailable local sidecar and falls back to Agents default",
+  );
+  assert.equal(
+    (
+      await resolveTrackerPortraitRewriteConnection({
+        connections: testConnStore,
+        illustratorConnectionId: null,
+        defaultAgentConnectionId: null,
+        chatConnectionId: null,
+        localSidecarAvailable: false,
+      })
+    )?.model,
+    "main-model",
+    "falls back through chat connection to Main default",
+  );
+  assert.equal(
+    (
+      await resolveTrackerPortraitRewriteConnection({
+        connections: testConnStore,
+        illustratorConnectionId: null,
+        defaultAgentConnectionId: null,
+        chatConnectionId: "deleted-chat-conn",
+        localSidecarAvailable: false,
+      })
+    )?.model,
+    "main-model",
+    "falls back from an unavailable or deleted chat connection to Main default",
+  );
+  assert.equal(
+    await resolveTrackerPortraitRewriteConnection({
+      connections: {
+        getWithKey: async (id: string) => (id === "img-conn" ? connStoreRecords.get("img-conn")! : null),
+        getDefault: async () => null,
+        getFallbackForAgents: async () => null,
+      },
+      illustratorConnectionId: "img-conn",
+      chatConnectionId: "missing",
+      localSidecarAvailable: false,
+    }),
+    null,
+    "returns null cleanly when no text connection exists",
+  );
+
+  // Utility sidecar slot: uses utility entry when serving "illustrator", skips to next candidate otherwise.
+  let utilityProviderCalls = 0;
+  const fakeUtilityEntry = {
+    connectionId: "utility-sidecar:illustrator",
+    provider: {
+      chatComplete: async () => {
+        utilityProviderCalls += 1;
+        return { content: "utility_rewritten_prompt", finishReason: "stop" };
+      },
+    } as never,
+    model: "utility-sidecar",
+    customParameters: {},
+    temperature: 0,
+    enabledParameters: { temperature: true },
+    suppressModelParameters: false,
+    maxOutputTokens: null,
+    maxParallelJobs: 1,
+    enableCaching: false,
+    anthropicExtendedCacheTtl: false,
+    cachingAtDepth: 5,
+  };
+  const utilityFromIllustrator = await resolveTrackerPortraitRewriteConnection({
+    connections: testConnStore,
+    illustratorConnectionId: UTILITY_SIDECAR_CONNECTION_ID,
+    defaultAgentConnectionId: "agent-def",
+    chatConnectionId: "chat-conn",
+    localSidecarAvailable: false,
+    resolveUtilitySidecarEntry: async (agentType) => (agentType === "illustrator" ? fakeUtilityEntry : null),
+  });
+  assert.equal(utilityFromIllustrator?.connectionId, "utility-sidecar:illustrator");
+  assert.equal(utilityFromIllustrator?.model, "utility-sidecar");
+  const utilityCallResult = await utilityFromIllustrator!.provider.chatComplete(
+    [{ role: "user", content: "test" }],
+    utilityFromIllustrator!.resolveCallOptions([{ role: "user", content: "test" }]),
+  );
+  assert.equal(utilityCallResult.content, "utility_rewritten_prompt");
+  assert.equal(utilityProviderCalls, 1);
+
+  const utilityFromPerChatOverride = await resolveTrackerPortraitRewriteConnection({
+    connections: testConnStore,
+    illustratorPromptConnectionId: UTILITY_SIDECAR_CONNECTION_ID,
+    illustratorConnectionId: "ill-conn",
+    defaultAgentConnectionId: "agent-def",
+    chatConnectionId: "chat-conn",
+    localSidecarAvailable: false,
+    resolveUtilitySidecarEntry: async (agentType) => (agentType === "illustrator" ? fakeUtilityEntry : null),
+  });
+  assert.equal(utilityFromPerChatOverride?.connectionId, "utility-sidecar:illustrator");
+
+  const utilitySkippedWhenOtherAgentServed = await resolveTrackerPortraitRewriteConnection({
+    connections: testConnStore,
+    illustratorConnectionId: UTILITY_SIDECAR_CONNECTION_ID,
+    defaultAgentConnectionId: "agent-def",
+    chatConnectionId: "chat-conn",
+    localSidecarAvailable: false,
+    resolveUtilitySidecarEntry: async (agentType) => (agentType === "lorebook-keeper" ? fakeUtilityEntry : null),
+  });
+  assert.equal(
+    utilitySkippedWhenOtherAgentServed?.model,
+    "def-model",
+    "unserved utility slot skips cleanly to Agents default",
+  );
+
+  assert.equal(isFailedTrackerPortraitRewriteFinishReason("error"), true);
+  assert.equal(isFailedTrackerPortraitRewriteFinishReason("abort"), true);
+  assert.equal(isFailedTrackerPortraitRewriteFinishReason("stop"), false);
+  assert.equal(isFailedTrackerPortraitRewriteFinishReason(undefined), false);
+
+  const mockRewriteInput = {
+    db: {} as never,
+    systemPrompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+    character: {
+      name: "Kitty Pryde",
+      imageAppearance: "kitty pryde, 1girl, brown hair",
+    },
+    includeOutfit: false,
+    promptMode: "danbooru" as const,
+  };
+  const makeMockRuntime = (content: string, finishReason: string) => ({
+    ...fakeUtilityEntry,
+    provider: {
+      chatComplete: async () => ({ content, finishReason }),
+    } as never,
+    resolveCallOptions: () => ({ model: "utility-sidecar", maxTokens: 320 }),
+  });
+  assert.equal(
+    await rewriteTrackerPortraitPrompt({
+      ...mockRewriteInput,
+      runtime: makeMockRuntime("partial_output_before_error", "error") as never,
+    }),
+    null,
+    "error finishReason rejects non-empty partial rewrite text so direct prompt fallback runs",
+  );
+  assert.equal(
+    await rewriteTrackerPortraitPrompt({
+      ...mockRewriteInput,
+      runtime: makeMockRuntime("partial_output_before_abort", "abort") as never,
+    }),
+    null,
+    "abort finishReason rejects non-empty partial rewrite text so direct prompt fallback runs",
+  );
+  assert.equal(
+    await rewriteTrackerPortraitPrompt({
+      ...mockRewriteInput,
+      runtime: makeMockRuntime("1girl, brown hair, portrait", "stop") as never,
+    }),
+    "1girl, brown hair, portrait",
+    "stop finishReason accepts cleaned rewrite text",
+  );
+
+  // Route E2E with rewrite ON: sends Illustrator LLM rewrite to image backend without hardcoded tail,
+  // forwarding Mood, custom system prompt, and fallback on chat completion error.
+  const illustratorTextConn = await createConnectionsStorage(db).create({
+    name: "Illustrator text fixture",
+    provider: "openai_compatible",
+    baseUrl: `http://127.0.0.1:${address.port}/v1`,
+    model: "test-rewriter",
+    apiKey: "fixture",
+  });
+  await createAgentsStorage(db).create({
+    type: "illustrator",
+    name: "Illustrator",
+    phase: "post_processing",
+    connectionId: illustratorTextConn.id,
+    settings: {},
+  });
+  await chats.patchMetadata(trackerChat.id, { imageStyleProfileId: "auto" });
+  await createAgentsStorage(db).update(trackerAgent.id, {
+    settings: { imageConnectionId: connection.id },
+  });
+
+  // Toggle OFF makes no chat completion request even though Illustrator LLM exists.
+  const llmCallsBeforeOff = chatCompletionRequests.length;
+  const rewriteOffRes = await app.inject({
+    method: "POST",
+    url: portraitUrl,
+    payload: {
+      characterId: kittyCard.id,
+      name: "Kitty Pryde",
+      appearance: "fair skin, earring",
+      mood: "flustered",
+      outfit: "cream trousers, sleeveless black turtleneck",
+      includeOutfit: true,
+    },
+  });
+  assert.equal(rewriteOffRes.statusCode, 200, rewriteOffRes.body);
+  assert.equal(chatCompletionRequests.length, llmCallsBeforeOff, "rewriter stays idle when toggle is off");
+  assert.match(imagePrompts.at(-1)!, /Character portrait, head and shoulders, detailed face, high quality/);
+
+  // Toggle ON with custom prompt uses rewritten output and omits hardcoded tail.
+  await createAgentsStorage(db).update(trackerAgent.id, {
+    settings: {
+      imageConnectionId: connection.id,
+      rewritePortraitPrompts: true,
+      portraitRewritePrompt: "Custom system instruction for portrait tags.",
+    },
+  });
+  chatCompletionContent = "kitty_pryde, 1girl, brown hair, flustered, sleeveless black turtleneck";
+  const rewriteOnRes = await app
+    .inject({
+      method: "POST",
+      url: portraitUrl,
+      payload: {
+        characterId: kittyCard.id,
+        name: "Kitty Pryde",
+        appearance: "flushed cheeks, earring",
+        mood: "flustered",
+        outfit: "cream trousers, sleeveless black turtleneck",
+        includeOutfit: true,
+      },
+    })
+    .finally(() => {
+      chatCompletionContent = null;
+    });
+  assert.equal(rewriteOnRes.statusCode, 200, rewriteOnRes.body);
+  assert.equal(chatCompletionRequests.length, llmCallsBeforeOff + 1, "one rewriter LLM request ran");
+  const sentLlmMessages = chatCompletionRequests.at(-1)!.messages;
+  assert.ok(sentLlmMessages[0]!.content.includes("Custom system instruction for portrait tags."));
+  const sentUserJson = JSON.parse(sentLlmMessages[1]!.content) as Record<string, unknown>;
+  assert.equal(sentUserJson.imageAppearance, kittyOverride);
+  assert.equal(sentUserJson.mood, "flustered");
+  assert.equal(sentUserJson.outfit, "cream trousers, sleeveless black turtleneck");
+  const rewrittenImagePrompt = imagePrompts.at(-1)!;
+  assert.ok(rewrittenImagePrompt.includes("kitty_pryde, 1girl, brown hair, flustered, sleeveless black turtleneck"));
+  assert.doesNotMatch(
+    rewrittenImagePrompt,
+    /Character portrait, head and shoulders, detailed face, high quality/,
+    "rewritten prompt omits hardcoded head-and-shoulders tail",
+  );
+  assert.doesNotMatch(rewrittenImagePrompt, /cream trousers/, "rewriter filtered lower-body garments");
+
+  // Rewriter failure falls back cleanly to buildTrackerPortraitPrompt and still saves the portrait.
+  failChatCompletions = true;
+  const rewriteFallbackRes = await app
+    .inject({
+      method: "POST",
+      url: portraitUrl,
+      payload: {
+        characterId: kittyCard.id,
+        name: "Kitty Pryde",
+        appearance: "flushed cheeks",
+        mood: "flustered",
+        outfit: "cream trousers, sleeveless black turtleneck",
+        includeOutfit: true,
+      },
+    })
+    .finally(() => {
+      failChatCompletions = false;
+    });
+  assert.equal(rewriteFallbackRes.statusCode, 200, rewriteFallbackRes.body);
+  assert.match(
+    imagePrompts.at(-1)!,
+    /Character portrait, head and shoulders, detailed face, high quality/,
+    "LLM failure falls back to direct prompt",
+  );
+
+  // Even a throwing custom rewriter falls back cleanly to buildTrackerPortraitPrompt instead of aborting portrait generation.
+  const thrownFallbackUrl = await generateTrackerPortrait({
+    db,
+    connectionId: connection.id,
+    chatId: trackerChat.id,
+    styleProfileId: "auto",
+    character: { name: "Throwing Fallback", appearance: "hazel eyes", outfit: "wool coat" },
+    includeOutfit: true,
+    rewritePrompt: { enabled: true },
+    rewriteFn: async () => {
+      throw new Error("Injected rewriter failure");
+    },
+  });
+  assert.match(thrownFallbackUrl, new RegExp(`^/api/avatars/npc/${trackerChat.id}/throwing-fallback\\.png$`));
+  assert.match(imagePrompts.at(-1)!, /hazel eyes/);
+  assert.match(imagePrompts.at(-1)!, /Character portrait, head and shoulders, detailed face, high quality/);
+
   console.info(
     "Game image appearance route regression passed (5 plain-text and 8 macro preview/dispatch pairs; 2 historical storyboard planner cases).",
   );
   console.info(
-    "Character Tracker portrait regression passed (prompt assembly, card scene portraits, and portrait route).",
+    "Character Tracker portrait regression passed (prompt assembly, card scene portraits, portrait route, and optional AI rewriter).",
   );
 } finally {
   await app.close();

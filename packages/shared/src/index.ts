@@ -175,6 +175,7 @@ export * from "./constants/settings-registry.js";
 // Feature registries
 export * from "./features/agents/agent-manifest.types.js";
 export * from "./features/agents/storyboard-agent-settings.js";
+export * from "./features/agents/tracker-portrait-rewrite-settings.js";
 export * from "./features/agents/writer-reference-settings.js";
 export {
   BUILT_IN_AGENT_MANIFESTS,

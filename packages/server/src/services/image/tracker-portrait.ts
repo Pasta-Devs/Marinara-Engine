@@ -2,10 +2,15 @@
 import { randomUUID } from "crypto";
 import { existsSync, mkdirSync, statSync, writeFileSync } from "fs";
 import { join } from "path";
-import type { ImageGenRequest } from "@marinara-engine/shared";
+import {
+  DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+  findImageStyleProfile,
+  resolveTrackerPortraitRewriteSettings,
+  type ImageGenRequest,
+} from "@marinara-engine/shared";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import type { DB } from "../../db/connection.js";
-import { logDebugOverride } from "../../lib/logger.js";
+import { logDebugOverride, logger } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { resolveInside } from "../../utils/security.js";
 import { npcAvatarSlug } from "../game/npc-avatar-utils.js";
@@ -15,6 +20,7 @@ import { generateImage } from "./image-generation.js";
 import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from "./image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "./image-generation-settings.js";
 import { compileImagePrompt } from "./image-prompt-compiler.js";
+import { rewriteTrackerPortraitPrompt, type RewriteTrackerPortraitPromptArgs } from "./tracker-portrait-rewriter.js";
 
 export interface TrackerPortraitCharacter {
   name: string;
@@ -23,6 +29,7 @@ export interface TrackerPortraitCharacter {
   /** Raw tracker fields (or card fallback): anything but text is left out. */
   appearance?: unknown;
   outfit?: unknown;
+  mood?: unknown;
 }
 
 const clause = (value: unknown) => (typeof value === "string" ? value : "").replace(/\s+/g, " ").trim();
@@ -75,6 +82,28 @@ const savedFileStamp = (path: string) => {
   return `${mtimeMs}:${size}`;
 };
 
+export interface TrackerPortraitRewriteOption {
+  enabled: boolean;
+  prompt?: string;
+  chatConnectionId?: string | null;
+  illustratorPromptConnectionId?: string | null;
+}
+
+/** Builds the `rewritePrompt` option for `generateTrackerPortrait` from Character Tracker settings and chat state. */
+export function trackerPortraitRewriteOption(
+  trackerSettings: Record<string, unknown> | null | undefined,
+  chatMeta: Record<string, unknown> | null | undefined,
+  chatConnectionId: unknown,
+): TrackerPortraitRewriteOption {
+  const illustratorPromptConnectionId =
+    typeof chatMeta?.illustratorPromptConnectionId === "string" ? chatMeta.illustratorPromptConnectionId : null;
+  return {
+    ...resolveTrackerPortraitRewriteSettings(trackerSettings),
+    chatConnectionId: typeof chatConnectionId === "string" ? chatConnectionId : null,
+    illustratorPromptConnectionId,
+  };
+}
+
 /**
  * Generates the portrait and saves it on disk only after the image arrives. Returns its URL path.
  * When `uniqueFilename` is true, writes an immutable per-scene file so earlier swipes/branches stay intact;
@@ -90,6 +119,8 @@ export async function generateTrackerPortrait(args: {
   uniqueFilename?: boolean;
   referenceImage?: string;
   referenceLine?: string | null;
+  rewritePrompt?: TrackerPortraitRewriteOption;
+  rewriteFn?: (args: RewriteTrackerPortraitPromptArgs) => Promise<string | null>;
   debugMode?: boolean;
   onFallback?: ImageGenRequest["onFallback"];
 }): Promise<string> {
@@ -112,9 +143,44 @@ export async function generateTrackerPortrait(args: {
     const model = connection.model || "";
     const imageDefaults = resolveConnectionImageDefaults(connection);
     const imageSettings = await loadImageGenerationUserSettings(args.db);
+    const resolvedStyleProfile = findImageStyleProfile(
+      imageSettings.styleProfiles,
+      args.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
+    );
+
+    let promptToCompile: string | null = null;
+    if (args.rewritePrompt?.enabled) {
+      const rewriter = args.rewriteFn ?? rewriteTrackerPortraitPrompt;
+      try {
+        const rewritten = await rewriter({
+          db: args.db,
+          chatConnectionId: args.rewritePrompt.chatConnectionId ?? null,
+          illustratorPromptConnectionId: args.rewritePrompt.illustratorPromptConnectionId ?? null,
+          systemPrompt: args.rewritePrompt.prompt || DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+          character: args.character,
+          includeOutfit: args.includeOutfit,
+          promptMode: resolvedStyleProfile.promptMode,
+          portraitTags: resolvedStyleProfile.subjectTags.portrait ?? "",
+          imagePromptInstructions: connection.imagePromptInstructions,
+          debugMode: args.debugMode,
+        });
+        if (rewritten) {
+          promptToCompile = [rewritten, clause(args.referenceLine)].filter(Boolean).join("\n");
+        }
+      } catch (err) {
+        logger.warn(
+          err,
+          '[character-tracker/portrait-rewriter] Rewrite failed for "%s"; falling back to direct prompt',
+          args.character.name,
+        );
+      }
+    }
+
     const compiled = compileImagePrompt({
       kind: "portrait",
-      prompt: buildTrackerPortraitPrompt(args.character, args.includeOutfit, { referenceLine: args.referenceLine }),
+      prompt:
+        promptToCompile ??
+        buildTrackerPortraitPrompt(args.character, args.includeOutfit, { referenceLine: args.referenceLine }),
       styleProfiles: imageSettings.styleProfiles,
       styleProfileId: args.styleProfileId,
       imageDefaults,
