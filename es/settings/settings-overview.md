@@ -68,7 +68,7 @@ Cada sección de la pestaña **General** está en **Settings → General**.
 | Sección | Qué controla |
 | --- | --- |
 | **App Behavior** | Idioma, seguridad al borrar, interruptores para mostrar y ocultar, y la fila **Search and Professor Mari settings**. Mira [App Behavior](#app-behavior). |
-| **Notifications** | Sonidos de notificación, y notificaciones del navegador y de Android. Mira [Notifications](#notifications). |
+| **Notifications** | Sonidos de notificación, notificaciones del navegador y de Android, y notificaciones push a través de ntfy. Mira [Notifications](#notifications). |
 | **Responses** | Streaming, recorte y **Messages per page**. Mira [Enviar y transmitir mensajes](../chats/sending-and-streaming.md). |
 | **Input & Editing** | **Send on Enter**, **Quick replies**, atajos de swipe y de edición. Mira [Input and Editing](#input-and-editing). |
 | **Text Rules** | Cómo se da formato al texto del chat. Mira [Text Rules](#text-rules). |
@@ -103,6 +103,27 @@ Marinara reproduce un tono integrado para las notificaciones. Para usar tu propi
 El sonido se reproduce en todos los dispositivos conectados a este servidor. Puedes escucharlo, reemplazarlo o quitarlo. Si no se puede leer el archivo, Marinara reproduce el tono integrado. El archivo forma parte de las copias de seguridad y de las exportaciones de perfil.
 
 Las **Background Notifications** (Notificaciones en segundo plano) cubren los mensajes de Conversation que los personajes envían por su cuenta. Las **Generation Completion Notifications** (Notificaciones de generación completada) cubren las respuestas que inicias tú mismo en Conversation, Roleplay y Game Mode. Ambas funcionan mientras Marinara está abierto pero sin el foco. Nunca muestran el contenido de los mensajes.
+
+#### Recibir notificaciones en tu teléfono con Marinara cerrado
+
+Las **Push notifications (ntfy)** (Notificaciones push con ntfy) llegan a tu teléfono aunque estén cerradas todas las pestañas de Marinara y la app de Android. Tu servidor de Marinara las envía a través de ntfy, un servicio de notificaciones gratuito con app para Android y iPhone.
+
+Antes de empezar, instala la app de ntfy en tu teléfono. Necesitas abrir Marinara en la computadora que lo ejecuta o tener el secreto de administrador en este dispositivo. Mira [Acceso remoto](../REMOTE_ACCESS.md).
+
+1. Abre **Settings → General → Notifications** y activa **Send push notifications** (Enviar notificaciones push). Marinara crea un **Topic** (Tema) aleatorio, el canal privado al que llegan tus notificaciones.
+2. Haz clic en **Open in ntfy** (Abrir en ntfy) desde tu teléfono, o haz clic en **Copy** (Copiar) y suscríbete al tema en la app de ntfy.
+3. Haz clic en **Send test notification** (Enviar notificación de prueba). Tu teléfono muestra "Marinara test notification" (Notificación de prueba de Marinara).
+
+Dos interruptores eligen de qué recibes notificaciones:
+
+- **Messages characters send on their own** (Mensajes que los personajes envían por su cuenta): los mensajes de Conversation que los personajes escriben sin ti. El servidor también los escribe cuando ningún dispositivo tiene Marinara abierto.
+- **Replies you started, when you closed Marinara before they finished** (Respuestas que iniciaste, si cerraste Marinara antes de que terminaran): una respuesta solo genera una notificación si cerraste Marinara o saliste de la página antes de que se guardara. Mientras Marinara está abierto, sus propias notificaciones la cubren.
+
+Una notificación dice quién escribió y "Open Marinara to read it." (Abre Marinara para leerlo). Activa **Show a message preview** (Mostrar una vista previa del mensaje) para enviar en su lugar el comienzo de la respuesta, hasta 200 caracteres. Al tocar una notificación, se abre el chat en **Address to open** (Dirección para abrir), que es la dirección que usaste cuando activaste las notificaciones. Cámbiala si tu teléfono llega a Marinara por otra dirección.
+
+> **Nota:** Con `ntfy.sh`, los títulos y las vistas previas de las notificaciones pasan por un servidor público, y cualquiera que conozca el tema puede leerlos. Haz clic en **New topic** (Nuevo tema) si el tema se filtró. Para mantenerlo todo en tus propios equipos, ejecuta tu propio servidor de ntfy y escribe su dirección en **ntfy server** (Servidor de ntfy). También sirve un servidor en tu red local.
+
+Si la prueba falla, Marinara muestra un mensaje que explica por qué. La causa más común es una dirección en **ntfy server** a la que tu servidor de Marinara no puede llegar.
 
 ### Input and Editing
 

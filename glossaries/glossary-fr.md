@@ -607,3 +607,4 @@ Precedents from the #9063 sync of `characters/colors-and-stats.md`, **Les trois 
 - **Public Face** (image publique), in `fr/characters/creating-and-editing-characters.md`.
 - **Others' Public Faces** (images publiques des autres), in `fr/chats/group-chats.md`.
 - **Send Public Faces** (envoyer les images publiques), in `fr/chats/guided-and-impersonate.md`.
+- 2026-11-24, ntfy push notifications in `fr/settings/settings-overview.md`: *push notification* is **la notification push** (`push` invariable), glossed **Push notifications (ntfy)** (notifications push); the ntfy *topic* is **le sujet** (**Topic** (sujet), **New topic** (nouveau sujet)); ntfy stays lowercase Latin with no article (`via ntfy`, `l'application ntfy`, `serveur ntfy`); the admin secret keeps the pack-wide **secret d'administration**.

@@ -68,7 +68,7 @@
 | 섹션 | 제어하는 내용 |
 | --- | --- |
 | **App Behavior** | 언어, 삭제 안전 장치, 표시/숨김 스위치, **Search and Professor Mari settings** 행. [App Behavior](#app-behavior)를 참고하세요. |
-| **Notifications** | 알림 소리, 브라우저 알림과 Android 알림. [Notifications](#notifications)를 참고하세요. |
+| **Notifications** | 알림 소리, 브라우저 알림과 Android 알림, ntfy를 통한 푸시 알림. [Notifications](#notifications)를 참고하세요. |
 | **Responses** | 스트리밍, 다듬기, **Messages per page**(한 번에 표시할 메시지 수). [메시지 보내기와 스트리밍](../chats/sending-and-streaming.md)을 참고하세요. |
 | **Input & Editing** | **Send on Enter**(엔터 키로 전송), **Quick replies**(퀵 리플라이), 스와이프와 편집 단축키. [Input and Editing](#input-and-editing)을 참고하세요. |
 | **Text Rules** | 채팅 글의 서식 방식. [Text Rules](#text-rules)를 참고하세요. |
@@ -107,6 +107,27 @@ Marinara는 알림에 기본 내장 소리를 재생합니다. 직접 고른 소
 이 소리는 이 서버에 연결된 모든 기기에서 재생됩니다. 미리 듣기, 교체, 제거를 할 수 있습니다. 파일을 읽을 수 없으면 Marinara는 기본 내장 소리를 재생합니다. 이 파일은 백업과 프로필 내보내기에 포함됩니다.
 
 **Background Notifications**(백그라운드 알림)는 캐릭터가 스스로 보내는 Conversation 메시지를 알려 줍니다. **Generation Completion Notifications**(생성 완료 알림)는 Conversation, Roleplay, Game Mode에서 직접 시작한 응답을 알려 줍니다. 둘 다 Marinara를 열어 둔 채 다른 창을 보고 있을 때 작동합니다. 메시지 내용은 절대 표시하지 않습니다.
+
+#### Marinara를 닫아 둔 동안 휴대폰으로 알림 받기
+
+**Push notifications (ntfy)**(푸시 알림, ntfy)는 Marinara 탭을 모두 닫고 Android 앱까지 닫아 둔 상태에서도 휴대폰에 도착합니다. 이 알림은 Marinara 서버가 ntfy를 통해 보냅니다. ntfy는 Android와 iPhone용 앱이 있는 무료 알림 서비스입니다.
+
+시작하기 전에 휴대폰에 ntfy 앱을 설치하세요. 서버를 실행하는 컴퓨터에서 Marinara를 열거나, 이 기기에 관리자 시크릿을 저장해 두어야 합니다. [원격 접근](../REMOTE_ACCESS.md)을 참고하세요.
+
+1. **Settings → General → Notifications**를 열고 **Send push notifications**(푸시 알림 전송)를 켜세요. Marinara가 알림이 전달될 비공개 채널인 **Topic**(주제)을 무작위로 만듭니다.
+2. 휴대폰에서 **Open in ntfy**(ntfy에서 열기)를 클릭하거나, **Copy**(복사)를 클릭한 다음 ntfy 앱에서 그 주제를 구독하세요.
+3. **Send test notification**(테스트 알림 전송)을 클릭하세요. 휴대폰에 "Marinara test notification" 알림이 표시됩니다.
+
+어떤 메시지에 알림을 받을지는 다음 스위치 두 개로 고릅니다.
+
+- **Messages characters send on their own**(캐릭터가 스스로 보내는 메시지): 직접 입력하지 않아도 캐릭터가 쓰는 Conversation 메시지입니다. Marinara를 열어 둔 기기가 하나도 없을 때도 서버가 이 메시지를 씁니다.
+- **Replies you started, when you closed Marinara before they finished**(직접 시작한 응답, 끝나기 전에 Marinara를 닫은 경우): 응답이 저장되기 전에 Marinara를 닫거나 페이지를 떠났을 때만 알림이 옵니다. Marinara가 열려 있을 때는 Marinara 자체 알림이 그 응답을 알려 줍니다.
+
+알림에는 누가 썼는지와 "Open Marinara to read it." 문구가 표시됩니다. **Show a message preview**(메시지 미리보기 표시)를 켜면 이 문구 대신 응답의 앞부분을 최대 200자까지 보냅니다. 알림을 탭하면 **Address to open**(열 주소)으로 그 채팅이 열립니다. 이 주소는 알림을 켤 때 사용한 주소입니다. 휴대폰에서 다른 주소로 Marinara에 접속한다면 이 주소를 바꾸세요.
+
+> **참고:** `ntfy.sh`를 쓰면 알림 제목과 미리보기가 공개 서버를 거치므로, 주제를 아는 사람은 누구나 읽을 수 있습니다. 주제가 유출되었다면 **New topic**(새 주제)을 클릭하세요. 모든 것을 내 기기 안에서만 처리하려면 ntfy 서버를 직접 운영하고 그 주소를 **ntfy server**(ntfy 서버)에 입력하세요. 로컬 네트워크에 있는 서버도 쓸 수 있습니다.
+
+테스트가 실패하면 Marinara가 그 이유를 알려 주는 메시지를 표시합니다. 가장 흔한 원인은 Marinara 서버가 접속할 수 없는 **ntfy server** 주소입니다.
 
 <a id="input-and-editing"></a>
 
