@@ -5,9 +5,16 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+  isCustomTrackerPortraitRewritePrompt,
+  serializeTrackerPortraitRewriteSettings,
+  shouldShowTrackerPortraitRewriteEditor,
+} from "../../../packages/shared/dist/index.js";
+import {
   CUSTOM_AGENT_RESULT_EXAMPLES,
   CUSTOM_AGENT_RESULT_TYPE_IDS,
 } from "../../../packages/client/src/lib/custom-agent-result-examples.js";
+import { rebaseUntouchedKeys } from "../../../packages/client/src/lib/mari-editor-fields.js";
 
 const agentEditorSource = readFileSync(
   new URL("../../../packages/client/src/components/agents/AgentEditor.tsx", import.meta.url),
@@ -81,5 +88,59 @@ assert.doesNotMatch(featureAgentDetailHostSource, /featureagentdetailhost\.featu
     (agentEditorSource.match(/\.\.\.\(localInjectAsSection \? \{ injectAsSection: true \} : \{\}\)/gu)?.length ?? 0) >=
       2,
     "Agent save and export paths must preserve Add as Prompt Section",
+  );
+}
+
+// #9748: Character Tracker portrait rewrite switch sits outside the autoGenerateAvatars gate,
+// keeps stored custom prompts visible for editing/resetting, omits unmodified defaults, and clears cleanly through rebaseUntouchedKeys.
+{
+  const fieldGroupMatch = agentEditorSource.match(
+    /\{\/\* ── NPC Avatar Generation \(Character Tracker only\) ── \*\/\}[\s\S]*?<\/FieldGroup>/u,
+  );
+  assert.ok(fieldGroupMatch, "Character Tracker NPC Avatar FieldGroup must exist");
+  const fieldGroup = fieldGroupMatch[0];
+  assert.match(
+    fieldGroup,
+    /\{localAutoGenerateAvatars && \(\s*<EditorSwitchRow[\s\S]*?localUseCardReferenceInPortraits[\s\S]*?\)\}\s*<div className="grid gap-2">\s*<EditorSwitchRow[\s\S]*?localRewritePortraitPrompts/u,
+    "rewritePortraitPrompts switch must render outside the localAutoGenerateAvatars conditional block",
+  );
+  assert.ok(
+    (agentEditorSource.match(/\.\.\.serializeTrackerPortraitRewriteSettings\(/gu)?.length ?? 0) >= 2,
+    "Agent save and export paths must serialize portrait rewrite settings consistently",
+  );
+
+  // An unmodified copy of the default is not pinned, while modified text persists.
+  assert.equal(isCustomTrackerPortraitRewritePrompt(DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT), false);
+  assert.deepEqual(
+    serializeTrackerPortraitRewriteSettings({
+      enabled: true,
+      prompt: `  ${DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT}  `,
+    }),
+    { rewritePortraitPrompts: true },
+  );
+  assert.deepEqual(serializeTrackerPortraitRewriteSettings({ enabled: true, prompt: "  Use watercolor tags.  " }), {
+    rewritePortraitPrompts: true,
+    portraitRewritePrompt: "Use watercolor tags.",
+  });
+
+  // Turning rewritePortraitPrompts off clears it via rebaseUntouchedKeys while preserving untouched server updates.
+  const loadedSettings = {
+    autoGenerateAvatars: false,
+    rewritePortraitPrompts: true,
+    portraitRewritePrompt: "Use watercolor tags.",
+  };
+  const updatedServerSettings = { ...loadedSettings, imageConnectionId: "img-conn-new" };
+  const toggledOffSent = {
+    ...serializeTrackerPortraitRewriteSettings({ enabled: false, prompt: "Use watercolor tags." }),
+  };
+  const rebasedOff = rebaseUntouchedKeys(toggledOffSent, loadedSettings, loadedSettings, updatedServerSettings);
+  assert.equal("rewritePortraitPrompts" in rebasedOff, false, "disabling rewrite removes rewritePortraitPrompts");
+  assert.equal(rebasedOff.portraitRewritePrompt, "Use watercolor tags.");
+  assert.equal(rebasedOff.imageConnectionId, "img-conn-new", "untouched concurrent settings survive rebase");
+
+  // Stored custom prompt stays visible while the switch and auto-generate avatars are both off.
+  assert.equal(
+    shouldShowTrackerPortraitRewriteEditor({ enabled: false, editing: false, prompt: "Use watercolor tags." }),
+    true,
   );
 }

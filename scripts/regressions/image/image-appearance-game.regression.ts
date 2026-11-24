@@ -35,9 +35,13 @@ const {
   DEFAULT_IMAGE_STYLE_PROFILES,
   DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
   LOCAL_SIDECAR_CONNECTION_ID,
+  UTILITY_SIDECAR_CONNECTION_ID,
   characterDataSchema,
+  isCustomTrackerPortraitRewritePrompt,
   replaceBuiltInAgentDefinitions,
   resolveTrackerPortraitRewriteSettings,
+  serializeTrackerPortraitRewriteSettings,
+  shouldShowTrackerPortraitRewriteEditor,
 } = await import("../../../packages/shared/dist/index.js");
 const { createAgentsStorage } = await import("../../../packages/server/src/services/storage/agents.storage.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
@@ -985,6 +989,24 @@ try {
     }),
     { enabled: true, prompt: "Custom prompt line" },
   );
+  assert.equal(isCustomTrackerPortraitRewritePrompt(` ${DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT}\n`), false);
+  assert.equal(isCustomTrackerPortraitRewritePrompt("Custom prompt line"), true);
+  assert.equal(shouldShowTrackerPortraitRewriteEditor({ enabled: true, editing: false, prompt: "" }), true);
+  assert.equal(
+    shouldShowTrackerPortraitRewriteEditor({
+      enabled: false,
+      editing: false,
+      prompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+    }),
+    false,
+  );
+  assert.deepEqual(
+    serializeTrackerPortraitRewriteSettings({
+      enabled: false,
+      prompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+    }),
+    {},
+  );
   assert.deepEqual(
     trackerPortraitRewriteOption(
       { rewritePortraitPrompts: true, portraitRewritePrompt: "Custom" },
@@ -1178,6 +1200,69 @@ try {
     }),
     null,
     "returns null cleanly when no text connection exists",
+  );
+
+  // Utility sidecar slot: uses utility entry when serving "illustrator", skips to next candidate otherwise.
+  let utilityProviderCalls = 0;
+  const fakeUtilityEntry = {
+    connectionId: "utility-sidecar:illustrator",
+    provider: {
+      chatComplete: async () => {
+        utilityProviderCalls += 1;
+        return { content: "utility_rewritten_prompt", finishReason: "stop" };
+      },
+    } as never,
+    model: "utility-sidecar",
+    customParameters: {},
+    temperature: 0,
+    enabledParameters: { temperature: true },
+    suppressModelParameters: false,
+    maxOutputTokens: null,
+    maxParallelJobs: 1,
+    enableCaching: false,
+    anthropicExtendedCacheTtl: false,
+    cachingAtDepth: 5,
+  };
+  const utilityFromIllustrator = await resolveTrackerPortraitRewriteConnection({
+    connections: testConnStore,
+    illustratorConnectionId: UTILITY_SIDECAR_CONNECTION_ID,
+    defaultAgentConnectionId: "agent-def",
+    chatConnectionId: "chat-conn",
+    localSidecarAvailable: false,
+    resolveUtilitySidecarEntry: async (agentType) => (agentType === "illustrator" ? fakeUtilityEntry : null),
+  });
+  assert.equal(utilityFromIllustrator?.connectionId, "utility-sidecar:illustrator");
+  assert.equal(utilityFromIllustrator?.model, "utility-sidecar");
+  const utilityCallResult = await utilityFromIllustrator!.provider.chatComplete(
+    [{ role: "user", content: "test" }],
+    utilityFromIllustrator!.resolveCallOptions([{ role: "user", content: "test" }]),
+  );
+  assert.equal(utilityCallResult.content, "utility_rewritten_prompt");
+  assert.equal(utilityProviderCalls, 1);
+
+  const utilityFromPerChatOverride = await resolveTrackerPortraitRewriteConnection({
+    connections: testConnStore,
+    illustratorPromptConnectionId: UTILITY_SIDECAR_CONNECTION_ID,
+    illustratorConnectionId: "ill-conn",
+    defaultAgentConnectionId: "agent-def",
+    chatConnectionId: "chat-conn",
+    localSidecarAvailable: false,
+    resolveUtilitySidecarEntry: async (agentType) => (agentType === "illustrator" ? fakeUtilityEntry : null),
+  });
+  assert.equal(utilityFromPerChatOverride?.connectionId, "utility-sidecar:illustrator");
+
+  const utilitySkippedWhenOtherAgentServed = await resolveTrackerPortraitRewriteConnection({
+    connections: testConnStore,
+    illustratorConnectionId: UTILITY_SIDECAR_CONNECTION_ID,
+    defaultAgentConnectionId: "agent-def",
+    chatConnectionId: "chat-conn",
+    localSidecarAvailable: false,
+    resolveUtilitySidecarEntry: async (agentType) => (agentType === "lorebook-keeper" ? fakeUtilityEntry : null),
+  });
+  assert.equal(
+    utilitySkippedWhenOtherAgentServed?.model,
+    "def-model",
+    "unserved utility slot skips cleanly to Agents default",
   );
 
   // Route E2E with rewrite ON: sends Illustrator LLM rewrite to image backend without hardcoded tail,

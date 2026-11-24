@@ -1,6 +1,7 @@
 import {
   DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
   LOCAL_SIDECAR_CONNECTION_ID,
+  UTILITY_SIDECAR_CONNECTION_ID,
   removeCopiedPromptGuidance,
   type ChatOptions,
   type ImagePromptMode,
@@ -21,6 +22,10 @@ import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidec
 import { allowsDefaultChatModel } from "../llm/local-context-limit.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
+import {
+  buildUtilitySidecarEntry,
+  type UtilitySidecarAgentEntry,
+} from "../utility-sidecar/utility-sidecar.provider.js";
 import { createAgentsStorage } from "../storage/agents.storage.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
 import type { TrackerPortraitCharacter } from "./tracker-portrait.js";
@@ -88,6 +93,7 @@ export async function resolveTrackerPortraitRewriteConnection(args: {
   defaultAgentConnectionId?: string | null;
   chatConnectionId?: string | null;
   localSidecarAvailable: boolean;
+  resolveUtilitySidecarEntry?: (agentType: string) => Promise<UtilitySidecarAgentEntry | null>;
   resolveBaseUrl?: (connection: { baseUrl: string | null; provider: string }) => string;
 }): Promise<TrackerPortraitRewriteRuntime | null> {
   const fallbackConnection = (await args.connections.getFallbackForAgents?.()) ?? null;
@@ -119,6 +125,35 @@ export async function resolveTrackerPortraitRewriteConnection(args: {
     });
 
   for (const candidateId of candidates) {
+    if (candidateId === UTILITY_SIDECAR_CONNECTION_ID) {
+      const utilityEntry = await (args.resolveUtilitySidecarEntry ?? buildUtilitySidecarEntry)("illustrator");
+      if (!utilityEntry) {
+        logger.debug(
+          "[character-tracker/portrait-rewriter] Utility sidecar does not serve illustrator; skipping candidate",
+        );
+        continue;
+      }
+      const provider = wrapWithFallback(utilityEntry.provider, utilityEntry.connectionId);
+      return {
+        provider,
+        model: utilityEntry.model,
+        connectionId: utilityEntry.connectionId,
+        suppressModelParameters: utilityEntry.suppressModelParameters,
+        enableCaching: utilityEntry.enableCaching,
+        anthropicExtendedCacheTtl: utilityEntry.anthropicExtendedCacheTtl,
+        resolveCallOptions: (messages) => ({
+          model: utilityEntry.model,
+          maxTokens: resolveAgentCallMaxTokens(provider, {}, REWRITE_VISIBLE_MAX_TOKENS, { messages }),
+          temperature: utilityEntry.temperature,
+          enabledParameters: utilityEntry.enabledParameters,
+          suppressModelParameters: utilityEntry.suppressModelParameters,
+          preserveContext: true,
+          enableCaching: utilityEntry.enableCaching,
+          anthropicExtendedCacheTtl: utilityEntry.anthropicExtendedCacheTtl,
+        }),
+      };
+    }
+
     if (candidateId === LOCAL_SIDECAR_CONNECTION_ID) {
       if (!args.localSidecarAvailable) continue;
       const provider = wrapWithFallback(getLocalSidecarProvider(), candidateId);

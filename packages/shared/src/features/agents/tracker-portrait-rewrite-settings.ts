@@ -21,6 +21,32 @@ export interface TrackerPortraitRewriteSettings {
   prompt: string;
 }
 
+/** True when `value` is non-empty and differs from the built-in default prompt. */
+export function isCustomTrackerPortraitRewritePrompt(value: string): boolean {
+  const trimmed = value.trim();
+  return Boolean(trimmed) && trimmed !== DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT.trim();
+}
+
+/** Keeps the prompt editor visible when the toggle is on, while editing, or when a stored custom prompt exists. */
+export function shouldShowTrackerPortraitRewriteEditor(args: {
+  enabled: boolean;
+  editing: boolean;
+  prompt: string;
+}): boolean {
+  return args.enabled || args.editing || isCustomTrackerPortraitRewritePrompt(args.prompt);
+}
+
+/** Serializes Character Tracker portrait rewrite fields, omitting default/off keys so saved settings stay clean. */
+export function serializeTrackerPortraitRewriteSettings(args: {
+  enabled: boolean;
+  prompt: string;
+}): Record<string, unknown> {
+  return {
+    ...(args.enabled ? { rewritePortraitPrompts: true } : {}),
+    ...(isCustomTrackerPortraitRewritePrompt(args.prompt) ? { portraitRewritePrompt: args.prompt.trim() } : {}),
+  };
+}
+
 export function resolveTrackerPortraitRewriteSettings(
   settings: Record<string, unknown> | null | undefined,
 ): TrackerPortraitRewriteSettings {
