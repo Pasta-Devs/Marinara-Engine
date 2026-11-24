@@ -970,7 +970,12 @@ export function BackgroundPicker({
                   ] as const
                 ).map(([value, key]) => (
                   <option key={value} value={value}>
-                    {sourceCounts[value] !== null ? `${localizeUi(key)} (${sourceCounts[value]})` : localizeUi(key)}
+                    {sourceCounts[value] !== null
+                      ? localizeUi("ui.panels.ttsconfigcard.value1Value2", {
+                          value1: localizeUi(key),
+                          value2: sourceCounts[value],
+                        })
+                      : localizeUi(key)}
                   </option>
                 ))}
               </select>

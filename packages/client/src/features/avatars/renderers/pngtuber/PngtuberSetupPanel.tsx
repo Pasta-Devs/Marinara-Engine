@@ -40,6 +40,12 @@ export const AVATAR_EMOTION_LABEL_KEYS: Readonly<Record<AvatarEmotion, string>> 
   surprised: "avatars.pngtuber.emotionSurprised",
 };
 
+/** Labels of the 29 talking head faces: the six feelings, then the extra ones. */
+export const TALKING_HEAD_FACE_LABEL_KEYS: Readonly<Record<AvatarEmotion | AvatarExtraFeeling, string>> = {
+  ...AVATAR_EMOTION_LABEL_KEYS,
+  ...AVATAR_FEELING_LABEL_KEYS,
+};
+
 const SOURCE_KEYS: Readonly<Record<PngtuberAvatarData["source"], string>> = {
   sprites: "avatars.pngtuber.sourceSprites",
   "pngtuber-plus": "avatars.pngtuber.sourcePlus",

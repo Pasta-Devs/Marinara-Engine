@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, unlinkSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import type { DB } from "../../db/connection.js";
-import { and, eq } from "../../db/file-query.js";
+import { eq } from "../../db/file-query.js";
 import { decodeShardKey, encodeShardKey, isLazyUnitTable, isShardDataFileName } from "../../db/file-backed-store.js";
 import { characterImages, chatImages, chats, globalImages, personaImages } from "../../db/schema/index.js";
 import { logger } from "../../lib/logger.js";
@@ -109,7 +109,7 @@ function peekShardFilePaths(shardFilePath: string): ReadonlySet<string> | null {
             ? candidate.file_path
             : null;
       if (rowPath === null) return null;
-      paths.add(rowPath);
+      paths.add(normalizedGalleryPath(rowPath));
     }
     return paths;
   } catch {
@@ -163,13 +163,20 @@ function residentFingerprint(units: ReadonlySet<string>): string {
  * keeps a file on disk while a false negative would delete a file another
  * chat still shows.
  */
-async function chatImagesReferenceFile(db: DB, filePath: string): Promise<boolean> {
+// Excluding a chat is precise after its gallery has been loaded (as in explicit image deletion).
+// An excluded chat still on disk may conservatively retain a file or legacy copy.
+export async function chatImagesReferenceFile(db: DB, filePath: string, excludedChatId?: string): Promise<boolean> {
+  filePath = normalizedGalleryPath(filePath);
   const store = db._fileStore;
   if (!isLazyUnitTable("chat_images") || store.getFullyResidentLazyTables().has("chat_images")) {
     // Eager mode or an already-leased table: every row is in memory, so the
     // plain query is complete and leases nothing new.
-    const rows = await db.select({ id: chatImages.id }).from(chatImages).where(eq(chatImages.filePath, filePath));
-    return rows.length > 0;
+    const rows = await db.select({ chatId: chatImages.chatId, filePath: chatImages.filePath }).from(chatImages);
+    return rows.some(
+      (row) =>
+        (excludedChatId === undefined || row.chatId !== excludedChatId) &&
+        normalizedGalleryPath(row.filePath) === filePath,
+    );
   }
 
   // A sweep is only sound if no unit LEFT residency while it ran: the disk
@@ -182,7 +189,7 @@ async function chatImagesReferenceFile(db: DB, filePath: string): Promise<boolea
   // rather than a live path; if residency will not hold still, fall back to
   // the safe answer.
   for (let attempt = 0; attempt < 3; attempt++) {
-    const verdict = await sweepChatImagesOnce(db, filePath);
+    const verdict = await sweepChatImagesOnce(db, filePath, excludedChatId);
     if (verdict !== null) return verdict;
   }
   logger.warn(
@@ -196,7 +203,7 @@ async function chatImagesReferenceFile(db: DB, filePath: string): Promise<boolea
  * One full sweep. Returns true/false when the sweep is conclusive, or null
  * when a unit left residency mid-sweep and the result cannot be trusted.
  */
-async function sweepChatImagesOnce(db: DB, filePath: string): Promise<boolean | null> {
+async function sweepChatImagesOnce(db: DB, filePath: string, excludedChatId?: string): Promise<boolean | null> {
   const store = db._fileStore;
   const startResident = store.getResidentChatUnits();
   const tableGeneration = store.getTableWriteGeneration("chat_images");
@@ -281,18 +288,26 @@ async function sweepChatImagesOnce(db: DB, filePath: string): Promise<boolean | 
   // shard does not drag every other untrusted shard into memory.
   for (const unitKey of handoffKeys) {
     const recovered = await db
-      .select({ id: chatImages.id })
+      .select({ chatId: chatImages.chatId, filePath: chatImages.filePath })
       .from(chatImages)
-      .where(and(eq(chatImages.chatId, unitKey), eq(chatImages.filePath, filePath)))
-      .limit(1);
-    if (recovered.length > 0) return true;
+      .where(eq(chatImages.chatId, unitKey));
+    if (
+      recovered.some(
+        (row) =>
+          (excludedChatId === undefined || row.chatId !== excludedChatId) &&
+          normalizedGalleryPath(row.filePath) === filePath,
+      )
+    )
+      return true;
   }
 
   // Memory scan, last: one pass over every in-memory row — the resident
   // units, the handoff loads, stray rows pinned during those loads, and the
   // UNASSIGNED unit's rows whatever their chatId shape.
   for (const row of store.getResidentLazyRows("chat_images")) {
-    if (row.filePath === filePath || row.file_path === filePath) return true;
+    if (excludedChatId !== undefined && (row.chatId ?? row.chat_id) === excludedChatId) continue;
+    const rowPath = row.filePath ?? row.file_path;
+    if (typeof rowPath === "string" && normalizedGalleryPath(rowPath) === filePath) return true;
   }
 
   // Soundness gate: a negative answer is only conclusive if every unit whose

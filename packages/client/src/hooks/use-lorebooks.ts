@@ -275,8 +275,9 @@ export function useDeleteLorebook() {
       // missing this lets the character editor keep rendering stale
       // entries and a broken "Edit embedded lorebook" button.
       qc.invalidateQueries({ queryKey: characterKeys.all });
-      // The server also drops the deleted book from library folders.
+      // The server also drops the deleted book from library folders and saved lorebook sets.
       qc.invalidateQueries({ queryKey: libraryFolderKeys.list("lorebooks") });
+      qc.invalidateQueries({ queryKey: libraryFolderKeys.list("lorebook-sets") });
     },
   });
 }

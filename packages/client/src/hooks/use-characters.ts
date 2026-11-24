@@ -48,6 +48,8 @@ import {
 } from "@marinara-engine/shared";
 import type { CustomTagPatch } from "../lib/custom-emoji";
 import type { GalleryTagKind } from "@marinara-engine/shared";
+import { galleryImageUploadForm, type GalleryImageUploadInput } from "../lib/gallery-image-upload";
+export type { GalleryImageUploadInput, GalleryImageUploadMetadata } from "../lib/gallery-image-upload";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -600,6 +602,10 @@ export interface SpriteCleanupRestoreResult {
 export interface CharacterGalleryImage {
   id: string;
   characterId: string;
+  sourceChatImageId?: string | null;
+  variantGroupId?: string | null;
+  variantSelected?: number;
+  generation?: string | null;
   filePath: string;
   prompt: string;
   provider: string;
@@ -1134,11 +1140,12 @@ export function useUploadCharacterGalleryVideo(characterId: string) {
 export function useUploadCharacterGalleryImage(characterId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (files: File[]) => {
+    mutationFn: async (input: GalleryImageUploadInput) => {
+      const files = Array.isArray(input) ? input : input.files;
+      const metadata = Array.isArray(input) ? undefined : input;
       const uploads = await Promise.allSettled(
         files.map((file) => {
-          const formData = new FormData();
-          formData.append("file", file);
+          const formData = galleryImageUploadForm(file, metadata);
           return api.upload<CharacterGalleryImage>(`/characters/${characterId}/gallery/upload`, formData);
         }),
       );
@@ -1246,6 +1253,10 @@ export function useTagCharacterGalleryImage(characterId: string) {
 export interface PersonaGalleryImage {
   id: string;
   personaId: string;
+  sourceChatImageId?: string | null;
+  variantGroupId?: string | null;
+  variantSelected?: number;
+  generation?: string | null;
   filePath: string;
   prompt: string;
   provider: string;
@@ -1326,11 +1337,12 @@ export function useUploadPersonaGalleryVideo(personaId: string) {
 export function useUploadPersonaGalleryImage(personaId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (files: File[]) => {
+    mutationFn: async (input: GalleryImageUploadInput) => {
+      const files = Array.isArray(input) ? input : input.files;
+      const metadata = Array.isArray(input) ? undefined : input;
       const uploads = await Promise.allSettled(
         files.map((file) => {
-          const formData = new FormData();
-          formData.append("file", file);
+          const formData = galleryImageUploadForm(file, metadata);
           return api.upload<PersonaGalleryImage>(`/characters/personas/${personaId}/gallery/upload`, formData);
         }),
       );

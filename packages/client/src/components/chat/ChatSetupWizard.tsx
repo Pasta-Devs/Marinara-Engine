@@ -3296,6 +3296,8 @@ function RoleplaySetupWizard({
         selectedIds={activeLorebookIds}
         onToggle={toggleLorebook}
         onAdd={addLorebooks}
+        // A saved set fills this chat's lorebooks; changing them here afterwards leaves the set alone.
+        onApplySet={(ids) => updateMeta.mutate({ id: chat.id, activeLorebookIds: ids })}
         triggerClassName={WIZARD_INPUT_CLASS}
       />
     );

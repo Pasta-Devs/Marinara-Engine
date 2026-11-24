@@ -6,6 +6,9 @@ review thread per confirmed defect and the **Dottore Review** commit status. Whe
 and he approves a head he found viable once its checks pass. Everything a maintainer sets lives in repository
 settings (**Settings → Secrets and variables → Actions**) and in `rules.json`; the code names no model and no provider.
 
+CodeRabbit reviews pull requests into staging first. Dottore reviews in its place while CodeRabbit is rate limited, and
+on request (see [CodeRabbit and Dottore](#coderabbit-and-dottore)).
+
 ## Files
 
 | File | What it is |
@@ -19,7 +22,7 @@ settings (**Settings → Secrets and variables → Actions**) and in `rules.json
 | `../workflows/dottore-review-command.yml` | Dispatcher for `/dottore` comments and the autofix tick box (`issue_comment`). |
 | `../workflows/dottore-review-auto.yml` | Dispatcher for pull request events (`pull_request_target`): Dottore's own repair pushes, and every event when `DOTTORE_AUTO_REVIEW` is `true`. |
 | `../workflows/dottore-review-approve.yml` | Dispatcher that re-tries the approval when a listed check workflow finishes on a discharged head. |
-| `../workflows/dottore-coderabbit-fallback.yml` | Sets the Dottore Review status from a CodeRabbit review when Dottore failed on a head (see [When Dottore is down](#when-dottore-is-down)). |
+| `../workflows/coderabbit-review-gate.yml` | Sets the Dottore Review status from CodeRabbit's review, asks Dottore to review while CodeRabbit is rate limited, and keeps CodeRabbit off pull requests into the default branch (see [CodeRabbit and Dottore](#coderabbit-and-dottore)). |
 
 The dispatchers read the event and call `gh workflow run` on the trusted workflow at the pull request's base ref; they
 check out and run no pull request code. The review job checks out the reviewer from the commit of the workflow file
@@ -209,19 +212,43 @@ Allow GitHub Actions to create and approve pull requests**. Without that, the ap
 is unaffected. A repository that calls the shared workflow keeps its own copy of `dottore-review-approve.yml`, listing
 the workflows that report its required checks.
 
-## When Dottore is down
+## CodeRabbit and Dottore
 
-When Dottore cannot finish a review, the **Dottore Review** status on that head is a failure and the pull request
-cannot merge. If `/dottore` does not recover it, a Pasta-Devs owner or member comments `@coderabbitai review`
-(`@coderabbitai full review` when CodeRabbit already reviewed the pull request). When CodeRabbit's `CodeRabbit` check
-succeeds on the same head, `dottore-coderabbit-fallback.yml` sets **Dottore Review** to success, linked to that review.
-Only a request posted after the failure, by someone GitHub shows as the organization's owner or member, counts;
-collaborators and outside contributors ask a maintainer. It replaces only a failure:
-a Dottore pass or a head Dottore never tried is left alone, and a new push needs a new review. A `/dottore` run still in
-progress posts its own result when it ends, replacing the fallback; if that is another failure, ask again with
-`@coderabbitai full review`, since only a request after the newest failure counts. CodeRabbit's inline findings are
-review threads, which the ruleset requires resolved, as it does Dottore's. GitHub runs this `check_run` workflow only
-from the default branch.
+CodeRabbit reviews every ready pull request into staging, then each push to it, reading only the commits since its
+last review (`.coderabbit.yaml`). The **Dottore Review** status is the required review for either reviewer.
+`coderabbit-review-gate.yml` sets it from CodeRabbit's `CodeRabbit` check run on the pull request's current head:
+
+| CodeRabbit on the head | What the gate does |
+| --- | --- |
+| Finished its review | Sets **Dottore Review** to success, linked to that review. |
+| Rate limited, or skipped | Asks Dottore to review the head, from the last head either reviewer passed, and his review sets the status. A head that only merged staging in has nothing new, so he passes it without a model call. |
+| Failed | Nothing. |
+
+Dottore is not asked for a draft, a head that already passed, or a pull request he is already reviewing (unless that
+review failed). CodeRabbit skips a pull request whose description says `@coderabbitai ignore` anywhere, even in prose
+about the keyword, so Dottore reviews such a pull request into staging in its place. A skip also covers a branch cut before
+automatic reviews were turned on: CodeRabbit reads a member's `.coderabbit.yaml` from the pull request's head, so that
+branch still has them off until it merges staging. When Dottore cannot finish a review, he leaves a head CodeRabbit
+already passed as it is.
+
+A review's findings are review threads, which the ruleset requires resolved before the merge, whoever posted them.
+With `DOTTORE_AUTO_REVIEW` off, Dottore reviews only for the gate and on request.
+
+If no review sets the status, comment `@coderabbitai review`; it also passes a head with nothing new to review. An
+owner, member or collaborator can comment `/dottore` instead. If Dottore cannot finish the review he was
+asked for, ask CodeRabbit again once its rate limit resets: the comment says when.
+
+CodeRabbit reviews every pull request into the default branch, whatever its settings say, so the gate adds
+`@coderabbitai ignore` to the description of the ones main accepts: SpicyMarinara's staging promotion or `hotfix/*`
+branch from this repository. It runs when the pull request opens, so put the line in the description when you open a
+promotion or hotfix: CodeRabbit starts within seconds, before the gate can add it. A contributor's pull request opened
+into main by mistake gets no line, so it keeps its review once it is retargeted to staging. A pull request moved
+from main to staging gets a full Dottore review against staging and loses the line the gate added. A `@coderabbitai
+ignore` line you wrote yourself stays, so Dottore keeps reviewing its pushes; delete the line to have CodeRabbit review
+them again.
+
+GitHub runs `check_run` workflows only from the default branch, and `pull_request_target` ones from the base branch, so
+the gate runs from main's copy.
 
 ## Models
 
@@ -308,7 +335,7 @@ These are all of Dottore's repository variables, beside the model settings above
 | Variable | What it sets | Default | Read by |
 | --- | --- | --- | --- |
 | `DOTTORE_AUTO_REVIEW` | `true` reviews a pull request when it opens, is marked ready for review or gets a push (drafts wait until ready). Otherwise a review starts only on request; a repair Dottore pushes is still reviewed | off | the auto dispatcher |
-| `DOTTORE_BASE_REFS` | Comma-separated base branches whose pull requests get reviewed | `refactor,main,staging` | every dispatcher and the review job |
+| `DOTTORE_BASE_REFS` | Comma-separated base branches whose pull requests get reviewed | `refactor,main,staging`; `staging` for the CodeRabbit gate | every dispatcher, the review job and the CodeRabbit gate |
 | `DOTTORE_COST_LIMIT_USD` | Stop a review's model calls once it has spent this many dollars at the price table in `dottore_review.py`; `0` removes the limit | `1.00` | the review job |
 | `DOTTORE_CONCURRENCY` | Scout and checker calls run at once, up to 16; the finders always run all at once, up to 16 | `4` | the review job |
 | `DOTTORE_FINDERS` | Finder copies per packet, `1` or `2`; a second one starts a few seconds later and reuses the cache | `1` | the review job |
@@ -403,7 +430,11 @@ Marinara-Agents runs the same reviewer through a wrapper workflow that calls thi
 passes the same inputs, and passes its own four secrets. Moving to a newer reviewer is a one-line bump of that SHA.
 The calling repository also keeps:
 
-- byte copies of the three dispatcher workflows, with its own workflow list in `dottore-review-approve.yml`;
+- byte copies of the three dispatcher workflows, with its own workflow list in `dottore-review-approve.yml`, and of
+  `coderabbit-review-gate.yml`, on both staging and main;
+- the same `run-name` as `dottore-review.yml` in its wrapper, which the gate reads to see a review already running;
+- its own `.coderabbit.yaml` on staging, with `reviews.auto_review.enabled: true`, `auto_incremental_review: true` and
+  `base_branches: ["^staging$"]`;
 - its own `.github/dottore-review/rules.json`, read from its base branch;
 - its own model variables and secrets, the Dottore App installed there, and `contents: write` granted in the wrapper
   for the repair check.

@@ -24,6 +24,9 @@ import { useKitMenu } from "../overhaul/LibraryKit";
 import { AssetsTitle } from "../overhaul/AssetsTabs";
 import { FileEditorBody, FileEditorModeSwitch, useGameAssetFileEditor } from "./FileEditorModal";
 
+/** The menu arrow after a button label: a symbol, the same in every language. */
+const MENU_CARET = " ▾";
+
 type NewKind = "create-folder" | "new-text-file" | "new-markdown-file";
 
 export function GameAssetsPageHead({
@@ -110,7 +113,7 @@ export function GameAssetsPageHead({
           }
         >
           <Plus size={14} aria-hidden="true" />
-          {mobile ? null : `${localize("New")} ▾`}
+          {mobile ? null : localize("New") + MENU_CARET}
         </button>
         <button type="button" className="ov-btn ov-btn--primary" onClick={onUpload}>
           <Upload size={14} aria-hidden="true" />

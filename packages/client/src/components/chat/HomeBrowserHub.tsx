@@ -56,6 +56,7 @@ import { useCoveredSurfaceFlag } from "../../hooks/use-covered-surface-flag";
 import { useOffscreenFlag } from "../../hooks/use-offscreen-flag";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useMatchMedia } from "../../hooks/use-match-media";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading } from "../../lib/mari-work-animations";
 import { MariHold } from "./mari/MariHold";
@@ -802,27 +803,18 @@ function useHeaderMenuDismiss(
   menuRef: RefObject<HTMLElement | null>,
   triggerRef: RefObject<HTMLElement | null>,
 ) {
-  useEffect(() => {
-    if (!open) return;
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (menuRef.current?.contains(target)) return;
-      if (triggerRef.current?.contains(target)) return;
+  useDismiss(
+    menuRef,
+    open,
+    () => {
+      const focusWasInside = Boolean(menuRef.current?.contains(menuRef.current.ownerDocument.activeElement));
       setOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      const focusWasInside = Boolean(menuRef.current?.contains(document.activeElement));
-      setOpen(false);
-      if (focusWasInside) (triggerRef.current ?? document.getElementById(homeBrowserTabId("home")))?.focus();
-    };
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open, setOpen, menuRef, triggerRef]);
+      if (focusWasInside) {
+        (triggerRef.current ?? menuRef.current?.ownerDocument.getElementById(homeBrowserTabId("home")))?.focus();
+      }
+    },
+    { openerRef: triggerRef },
+  );
 }
 
 function MobileBrowserBookmark({
@@ -1509,7 +1501,12 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     [],
   );
 
-  useHeaderMenuDismiss(mobileBookmarksOpen, setMobileBookmarksOpen, mobileBookmarksRef, mobileBookmarksTriggerRef);
+  useHeaderMenuDismiss(
+    mobileShell && activeTab === "home" && mobileBookmarksOpen,
+    setMobileBookmarksOpen,
+    mobileBookmarksRef,
+    mobileBookmarksTriggerRef,
+  );
   useHeaderMenuDismiss(tabMenuOpen, setTabMenuOpen, tabMenuRef, tabMenuTriggerRef);
 
   // Tabs that do not fit fold into one menu instead of scrolling; Home always stays a tab. Any change to the

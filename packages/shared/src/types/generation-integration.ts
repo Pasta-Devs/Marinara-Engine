@@ -265,7 +265,9 @@ export type ConnectionAdmissionMode =
   | { kind: "none" };
 
 /** Native NovelAI image edit action sent to `/ai/generate-image`. */
-export type NovelAiEditMode = "img2img" | "infill";
+export type ImageEditMode = "img2img" | "infill";
+/** @deprecated Use ImageEditMode for provider-independent editing. */
+export type NovelAiEditMode = ImageEditMode;
 
 /** A looping GIF's timing. The Engine clamps it to 2..12 frames of 20..2000 ms (see resolveOpenAIGifAnimation). */
 export interface ImageAnimation {
@@ -300,13 +302,13 @@ export interface ImageGenRequest {
   /** The reference image already is the requested canvas (an in-place edit such as a blink picture), so
    *  providers must keep its framing rather than compose a new picture around it. */
   referenceIsCanvas?: boolean;
-  /** Native NovelAI img2img / inpainting mode (`action: "img2img" | "infill"`). */
-  editMode?: NovelAiEditMode;
-  /** Base64 or data-URL source canvas for native NovelAI `img2img` / `infill` edits. */
+  /** Explicit canvas edit. Supported operations depend on the selected image connection. */
+  editMode?: ImageEditMode;
+  /** Base64 or data-URL source canvas for img2img / inpainting edits. */
   sourceImage?: string;
-  /** Base64 or data-URL binary mask (white = redraw, black = keep) for native NovelAI `infill`. */
+  /** Base64 or data-URL binary mask (white = redraw, black = keep) for inpainting. */
   maskImage?: string;
-  /** Denoising strength for native NovelAI `img2img` (`0.01..0.99`) or `infill` (`0.01..1`). */
+  /** Denoising strength; each provider validates its supported range. */
   strength?: number;
   /** Extra noise injected before denoising in native NovelAI `img2img` (`0..0.99`). */
   noise?: number;

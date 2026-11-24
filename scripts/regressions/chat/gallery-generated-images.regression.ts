@@ -16,6 +16,15 @@ try {
   const personaRows: Array<Record<string, unknown>> = [];
   const persisted = await persistGeneratedImageToEntityGalleries({
     sourceFilePath: "chat-id/generated.png",
+    generation: {
+      version: 1,
+      prompt: "base scene",
+      connectionId: "images-1",
+      negativePrompt: "low quality",
+      characterPrompts: [],
+      references: { characterIds: [], personaId: null, personaSource: null, locationImageId: null },
+      seed: 123,
+    },
     characterIds: ["character-1", "character-1"],
     personaIds: ["persona-1"],
     characterGallery: {
@@ -40,6 +49,8 @@ try {
   assert.deepEqual(persisted, { characterCount: 1, personaCount: 1 });
   assert.equal(characterRows.length, 1);
   assert.equal(personaRows.length, 1);
+  assert.equal((characterRows[0]!.generation as { seed: number }).seed, 123);
+  assert.deepEqual(characterRows[0]!.generation, personaRows[0]!.generation);
   const characterFile = join(entityGalleryRoot, String(characterRows[0]!.filePath));
   const personaFile = join(entityGalleryRoot, String(personaRows[0]!.filePath));
   assert.equal(characterFile, join(sourceDir, "generated.png"));

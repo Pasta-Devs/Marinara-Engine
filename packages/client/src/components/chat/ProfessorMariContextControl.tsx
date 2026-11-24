@@ -7,6 +7,7 @@ import type { CharacterPreviewModel } from "../../lib/character-preview";
 import type { LorebookPreviewModel } from "../../lib/lorebook-preview";
 import { professorMariContextCount, professorMariContextFacets } from "../../lib/professor-mari-presentation";
 import { cn } from "../../lib/utils";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { CharacterSubject } from "../characters/CharacterSubject";
 import { CommandCenterMedia } from "../command-center/CommandCenterMedia";
 import { LorebookSubject } from "../lorebooks/LorebookSubject";
@@ -118,19 +119,11 @@ export function ProfessorMariContextControl({
   useEffect(() => {
     if (!open) return;
     const trigger = buttonRef.current;
+    const doc = trigger?.ownerDocument ?? document;
     // The desktop panel only mounts once `position` is measured, so focus after that.
     const panel = panelRef.current;
-    if (panel && !panel.contains(document.activeElement)) panel.focus();
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!(event.target instanceof Node)) return;
-      if (buttonRef.current?.contains(event.target) || panelRef.current?.contains(event.target)) return;
-      setOpen(false);
-    };
+    if (panel && !panel.contains(doc.activeElement)) panel.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        return;
-      }
       if (event.key !== "Tab" || !panelRef.current) return;
       const focusable = Array.from(
         panelRef.current.querySelectorAll<HTMLElement>(
@@ -143,23 +136,23 @@ export function ProfessorMariContextControl({
       }
       const first = focusable[0]!;
       const last = focusable[focusable.length - 1]!;
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+      if (event.shiftKey && (doc.activeElement === first || doc.activeElement === panelRef.current)) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && doc.activeElement === last) {
         event.preventDefault();
         first.focus();
       }
     };
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    document.addEventListener("keydown", handleKeyDown);
+    doc.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown, true);
-      document.removeEventListener("keydown", handleKeyDown);
+      doc.removeEventListener("keydown", handleKeyDown);
       if (restoreTriggerFocusRef.current) trigger?.focus();
       restoreTriggerFocusRef.current = true;
     };
   }, [open, panelMounted, setOpen]);
+
+  useDismiss(panelRef, open && panelMounted, () => setOpen(false), { openerRef: buttonRef });
 
   const totalCount = professorMariContextCount(attachedContextCount, context);
   const panel = (
@@ -338,7 +331,7 @@ export function ProfessorMariContextControl({
         {totalCount > 0 && <span className="mari-chrome-muted-badge px-1.5 py-0.5 text-[0.56rem]">{totalCount}</span>}
         {context && <span className="sr-only">{t("ui.chat.homeprofessormarichat.contextControlFocused")}</span>}
       </button>
-      {open && panelMounted && createPortal(panel, document.body)}
+      {open && panelMounted && createPortal(panel, buttonRef.current?.ownerDocument.body ?? document.body)}
     </>
   );
 }

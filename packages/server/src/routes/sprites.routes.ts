@@ -2614,18 +2614,17 @@ export async function spritesRoutes(app: FastifyInstance) {
       plan.promptOverrides.get(sheetPromptId),
       compiledSheetPrompt,
     );
-    const sheetPrompt = withFullBodyCompositionContract(
-      withTalkingHeadFaceContract(
-        withSpriteBackgroundContract(
-          withSpriteSheetLayoutContract(reviewedSheetPrompt.value, plan, {
-            reviewedOverride: reviewedSheetPrompt.overridden,
-          }),
-          plan,
-        ),
-        plan,
-      ),
-      plan.spriteType,
-    );
+    // A reviewed prompt is the preview's text as the user left it, its contracts included, so it is sent as it is:
+    // adding them again would double them and put back words the user took out.
+    const sheetPrompt = reviewedSheetPrompt.overridden
+      ? reviewedSheetPrompt.value
+      : withFullBodyCompositionContract(
+          withTalkingHeadFaceContract(
+            withSpriteBackgroundContract(withSpriteSheetLayoutContract(reviewedSheetPrompt.value, plan), plan),
+            plan,
+          ),
+          plan.spriteType,
+        );
 
     // Parse reference images to raw base64 (supports data URL, raw base64, or local avatar URL)
     const rawRefs = body.referenceImages?.length
@@ -2745,11 +2744,14 @@ export async function spritesRoutes(app: FastifyInstance) {
                   plan.promptOverrides.get(spritePromptReviewId("expression", plan.spriteType, expression)),
                   compiledExpressionPrompt,
                 );
-                const finalExpressionPrompt = withTalkingHeadFaceContract(
-                  withSpriteBackgroundContract(reviewedExpressionPrompt.value, plan),
-                  plan,
-                  [expression],
-                );
+                // A reviewed prompt already has its contracts (see the sheet's prompt).
+                const finalExpressionPrompt = reviewedExpressionPrompt.overridden
+                  ? reviewedExpressionPrompt.value
+                  : withTalkingHeadFaceContract(
+                      withSpriteBackgroundContract(reviewedExpressionPrompt.value, plan),
+                      plan,
+                      [expression],
+                    );
 
                 const targetSize = 1024;
                 const imageResult = await generateImage(imgModel, imgBaseUrl, imgApiKey, imgServiceHint, {

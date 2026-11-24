@@ -26,7 +26,7 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 ## Expected Completion and Authorization
 
 - Carry the requested work through implementation, appropriate validation, review fixes and the authorized publication steps. Do not stop at a plan, a clean local review, or a local commit when the user has asked for a PR.
-- Do not run CodeRabbit locally or upload branch changes to an outside review service. Dottore Review on the pull request is the repository's review.
+- Do not run CodeRabbit locally or upload branch changes to an outside review service. CodeRabbit's review on the pull request is the repository's review; Dottore reviews in its place while CodeRabbit is rate limited. Either sets the required **Dottore Review** status (see [CodeRabbit and Dottore](.github/dottore-review/README.md#coderabbit-and-dottore)).
 - A request to publish or update a PR covers the necessary feature-branch commit/push, PR creation/update and transition to ready for review. Reuse that authorization across turns. Do not infer authorization to merge, promote to `main`, deploy or release.
 - Ask only for missing decisions that materially block the task or for actions outside its authorized scope. A previously agreed phase does not need another phase-approval question. Current maintainer instructions override default workflow or skill guidance within the platform's instruction hierarchy.
 - Report what was completed and verified, link the PR, and identify real remaining blockers. Do not imply that queued, skipped or pending checks passed.
@@ -64,8 +64,9 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 
 - Keep edits non-destructive. Do not revert unrelated work in the tree.
 - Make Marinara Engine changes against `staging` first; do not target `main` directly unless the user or maintainer explicitly asks for a mainline change. See `CONTRIBUTING.md § Branches`.
-- Required checks and Dottore Review must complete before any `staging` merge. PRs from active Pasta-Devs organization members and owners do not require another human approval; outside and first-time contributors require an approving review from `SpicyMarinara`. Organization members with repository merge permission may merge internal PRs after those gates pass.
+- Required checks and the Dottore Review status must pass before any `staging` merge, with every review thread resolved. PRs from active Pasta-Devs organization members and owners do not require another human approval; outside and first-time contributors require an approving review from `SpicyMarinara`. Organization members with repository merge permission may merge internal PRs after those gates pass.
 - Only `SpicyMarinara` may promote the repository's `staging` branch into `main` or merge a same-repository `hotfix/*` branch.
+- Pull requests into `main` get no review. Put `@coderabbitai ignore` in the description when you open a promotion or hotfix PR, because CodeRabbit starts on it within seconds.
 - Prefer focused patches that keep code, docs, and release metadata aligned in the same change.
 - Before proposing a provider integration, follow [CONTRIBUTING.md § AI provider integrations](CONTRIBUTING.md#ai-provider-integrations).
 - Route changes to downloadable agents such as Illustrator, Music DJ, and Lorebook Keeper to [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Agent definitions, default prompts, package-owned runtime code, metadata, artwork/assets, manifests, artifacts, and catalog entries must be fixed and submitted there against its `staging` branch, not in Marinara Engine.
@@ -91,7 +92,7 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 1. Open a draft early while implementation is in progress, so issue ownership and work status are visible.
 2. Finish implementation and the required local checks.
 3. Once implementation and required local validation are complete, **push and mark the PR ready for review in the same workflow without asking again**, except when `.github/agents/chai-workflow.md` requires a maintainer decision first. If the first PR is only being created at that point, create it ready rather than draft. A user request to keep it draft is an exception.
-4. Keep a PR draft only for unfinished implementation, blocked required local validation, a required maintainer decision, or an explicit maintainer instruction. Unchecked human checklist items and documented optional follow-ups are not automatic draft blockers. Pending GitHub CI and Dottore Review are merge gates, not reasons to leave completed local work in draft. If automatic review does not start, follow the [Dottore request fallback](.github/dottore-review/README.md#asking-for-a-review).
+4. Keep a PR draft only for unfinished implementation, blocked required local validation, a required maintainer decision, or an explicit maintainer instruction. Unchecked human checklist items and documented optional follow-ups are not automatic draft blockers. Pending GitHub CI and the Dottore Review status are merge gates, not reasons to leave completed local work in draft. If no review sets that status, follow [CodeRabbit and Dottore](.github/dottore-review/README.md#coderabbit-and-dottore).
 5. Inspect CI/review feedback when preparing a PR for review or shipping it. Address valid failures within scope. Never merge until all repository merge gates pass and merging is authorized.
 
 Use an existing PR rather than creating another for follow-up fixes.

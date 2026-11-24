@@ -927,6 +927,8 @@ export interface UIState {
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
   reduceAmbientEffects: boolean;
+  /** Dice rolls show as a short line of text instead of animated dice (Settings → Appearance → App). */
+  diceRollsAsText: boolean;
   /** User restyling of curated interface regions (Settings → Appearance); persisted and synced. */
   uiStyleOverrides: UiStyleOverrides;
   /** The user's saved style presets (a library that "Reset appearance" keeps); persisted and synced. */
@@ -1596,6 +1598,7 @@ export interface UIState {
   setAppAccentRgbMode: (enabled: boolean) => void;
   setCustomCursorEnabled: (enabled: boolean) => void;
   setReduceAmbientEffects: (enabled: boolean) => void;
+  setDiceRollsAsText: (enabled: boolean) => void;
   setMariPanelSortMode: (mode: MariPanelSortMode) => void;
   setOmnibarAsideEnabled: (enabled: boolean) => void;
   setOmnibarAsideDisclosed: (disclosed: boolean) => void;
@@ -2154,6 +2157,7 @@ export function pickSyncedSettings(state: UIState) {
     a11yColorBlindSafe: state.a11yColorBlindSafe,
     a11yBackdropStrength: state.a11yBackdropStrength,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    diceRollsAsText: state.diceRollsAsText,
     uiStyleOverrides: state.uiStyleOverrides,
     uiStylePresets: state.uiStylePresets,
     chatBackground: state.chatBackground,
@@ -2453,6 +2457,7 @@ export function pickPersistedUIState(state: UIState) {
     appAccentRgbMode: state.appAccentRgbMode,
     customCursorEnabled: state.customCursorEnabled,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    diceRollsAsText: state.diceRollsAsText,
     uiStyleOverrides: state.uiStyleOverrides,
     uiStylePresets: state.uiStylePresets,
     mariPanelSortMode: state.mariPanelSortMode,
@@ -2761,6 +2766,7 @@ export const useUIStore = create<UIState>()(
         appAccentRgbMode: false,
         customCursorEnabled: true,
         reduceAmbientEffects: false,
+        diceRollsAsText: false,
         uiStyleOverrides: {},
         uiStylePresets: [],
         uiStylePickMode: false,
@@ -3297,6 +3303,7 @@ export const useUIStore = create<UIState>()(
         setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
         setCustomCursorEnabled: (enabled) => set({ customCursorEnabled: enabled }),
         setReduceAmbientEffects: (enabled) => set({ reduceAmbientEffects: enabled }),
+        setDiceRollsAsText: (enabled) => set({ diceRollsAsText: enabled }),
         setMariPanelSortMode: (mode) => set({ mariPanelSortMode: mode }),
         setOmnibarAsideEnabled: (enabled) => set({ omnibarAsideEnabled: enabled }),
         setOmnibarAsideDisclosed: (disclosed) => set({ omnibarAsideDisclosed: disclosed }),
@@ -3918,6 +3925,7 @@ export const useUIStore = create<UIState>()(
             appAccentRgbMode: false,
             customCursorEnabled: true,
             reduceAmbientEffects: false,
+            diceRollsAsText: false,
             uiStyleOverrides: {},
             uiStylePreview: null,
             uiStyleSelectedTarget: null,

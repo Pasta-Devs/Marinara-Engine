@@ -11,9 +11,10 @@ process.env.AUTO_CREATE_DEFAULT_CONNECTION = "false";
 
 const { buildApp } = await import("../../packages/server/src/app.js");
 const { closeDB, getDB } = await import("../../packages/server/src/db/connection.js");
-const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
+const { createChatsStorage, withChatMetadataPatchQueue } =
+  await import("../../packages/server/src/services/storage/chats.storage.js");
 const { importSTChat } = await import("../../packages/server/src/services/import/st-chat.importer.js");
-const { messageSwipes } = await import("../../packages/server/src/db/schema/index.js");
+const { messageSwipes, chatImages } = await import("../../packages/server/src/db/schema/index.js");
 const { eq } = await import("../../packages/server/src/db/file-query.js");
 
 type Response = { statusCode: number; body: string };
@@ -136,6 +137,125 @@ try {
       expected.map((swipes) => swipes.map((swipe) => [swipe.index, swipe.content])),
     );
   }
+
+  // Branches own their image stack rows, including versions reachable only through a saved swipe.
+  const { createGalleryStorage } = await import("../../packages/server/src/services/storage/gallery.storage.js");
+  const { groupChatImageVariants } = await import("../../packages/shared/src/utils/chat-image-variants.js");
+  const gallery = createGalleryStorage(db);
+  const firstImage = (await gallery.create({
+    chatId: chat.id,
+    filePath: "shared/branch-first.png",
+    prompt: "first",
+    provider: "fixture",
+    model: "fixture",
+  }))!;
+  const secondImage = (await gallery.create({
+    chatId: chat.id,
+    filePath: "shared/branch-second.png",
+    prompt: "second",
+    provider: "fixture",
+    model: "fixture",
+  }))!;
+  await db
+    .update(chatImages)
+    .set({ variantGroupId: firstImage.id, variantSelected: 1 })
+    .where(eq(chatImages.id, firstImage.id));
+  await db.update(chatImages).set({ variantGroupId: firstImage.id }).where(eq(chatImages.id, secondImage.id));
+  const imageMessage = (await chats.createMessage({
+    chatId: chat.id,
+    role: "assistant",
+    content: "With image",
+    extra: { attachments: [{ type: "image", url: "/first.png", galleryId: firstImage.id }] },
+  }))!;
+  await chats.addSwipe(imageMessage.id, "Without image");
+  await chats.updateMessageExtra(imageMessage.id, { attachments: [] });
+  const imageBranch = JSON.parse(
+    (await injectOk({ method: "POST", url: `/api/chats/${chat.id}/branch`, payload: {} })).body,
+  );
+  const copiedImages = await gallery.listByChatId(imageBranch.id);
+  assert.equal(copiedImages.length, 2);
+  assert.equal(groupChatImageVariants(copiedImages).length, 1);
+  assert.equal(groupChatImageVariants(copiedImages)[0]!.selected.filePath, firstImage.filePath);
+  assert.ok(copiedImages.every((image) => image.id !== firstImage.id && image.id !== secondImage.id));
+  const copiedImageMessage = (await chats.listMessages(imageBranch.id)).find(
+    (message) => message.content === "Without image",
+  )!;
+  assert.deepEqual(JSON.parse(copiedImageMessage.extra).attachments, []);
+  const savedImageSwipe = (await chats.getSwipes(copiedImageMessage.id)).find((swipe) => swipe.index === 0)!;
+  assert.equal(
+    JSON.parse(savedImageSwipe.extra).attachments[0].galleryId,
+    groupChatImageVariants(copiedImages)[0]!.selected.id,
+  );
+
+  const failedSource = (await chats.create({ name: "Failed image branch", mode: "roleplay", characterIds: [] }))!;
+  const failedImage = (await gallery.create({
+    chatId: failedSource.id,
+    filePath: "shared/failed-branch.png",
+    prompt: "preserve source",
+  }))!;
+  await chats.createMessage({
+    chatId: failedSource.id,
+    role: "assistant",
+    content: "Keep this picture",
+    extra: { attachments: [{ type: "image", galleryId: failedImage.id, url: "/failed-branch.png" }] },
+  });
+  const realTransaction = db.transaction.bind(db);
+  let imageCopyAttempts = 0;
+  db.transaction = ((fn: Parameters<typeof realTransaction>[0]) =>
+    realTransaction(async (tx) => {
+      const originalInsert = tx.insert;
+      tx.insert = ((table: Parameters<typeof tx.insert>[0]) => {
+        if (table === chatImages) {
+          imageCopyAttempts++;
+          throw new Error("simulated branch image copy failure");
+        }
+        return originalInsert.call(tx, table);
+      }) as typeof tx.insert;
+      try {
+        return await fn(tx);
+      } finally {
+        tx.insert = originalInsert;
+      }
+    })) as typeof db.transaction;
+  try {
+    const failedBranch = await app.inject({ method: "POST", url: `/api/chats/${failedSource.id}/branch`, payload: {} });
+    assert.equal(failedBranch.statusCode, 500, failedBranch.body);
+  } finally {
+    db.transaction = realTransaction as typeof db.transaction;
+  }
+  assert.equal(imageCopyAttempts, 1);
+  assert.equal((await chats.getById(failedSource.id))!.groupId, null, "failed copying restores an ungrouped source");
+  assert.equal(
+    (await chats.list()).filter((row) => row.name === failedSource.name).length,
+    1,
+    "no failed branch remains",
+  );
+  assert.ok(await gallery.getById(failedImage.id, failedSource.id));
+
+  const concurrentSource = (await chats.create({ name: "Concurrent branches", mode: "roleplay", characterIds: [] }))!;
+  let pendingBranches: Promise<Array<{ groupId: string }>>;
+  await withChatMetadataPatchQueue(concurrentSource.id, async () => {
+    pendingBranches = Promise.all(
+      [0, 1].map(async () =>
+        JSON.parse(
+          (await injectOk({ method: "POST", url: `/api/chats/${concurrentSource.id}/branch`, payload: {} })).body,
+        ),
+      ),
+    );
+    await Promise.race([pendingBranches, new Promise<void>((resolve) => setTimeout(resolve, 100))]);
+    assert.equal(
+      (await chats.getById(concurrentSource.id))!.groupId,
+      null,
+      "group creation waits for the source queue",
+    );
+  });
+  const concurrentBranches = await pendingBranches!;
+  const concurrentGroup = (await chats.getById(concurrentSource.id))!.groupId;
+  assert.ok(concurrentGroup);
+  assert.ok(
+    concurrentBranches.every((branch) => branch.groupId === concurrentGroup),
+    "simultaneous branches share the source's current group",
+  );
 
   // ── A long chat takes a few swipe reads, not one per message ──
   // A bound well below the message count keeps an unrelated read from failing the check.

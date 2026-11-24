@@ -24,7 +24,14 @@ const PNG = Buffer.from(
 );
 
 // A local AUTOMATIC1111 stand-in that records what Marinara sent it.
-const sent: Array<{ url: string; prompt?: string; negative_prompt?: string; width?: number; height?: number }> = [];
+const sent: Array<{
+  url: string;
+  prompt?: string;
+  negative_prompt?: string;
+  width?: number;
+  height?: number;
+  init_images?: string[];
+}> = [];
 const imageServer = createServer((request, response) => {
   let body = "";
   request.on("data", (chunk) => (body += chunk));
@@ -341,11 +348,27 @@ try {
     const loadedSeed = (naiRecordRes.json() as { asset: Asset & { seed?: number } }).asset.seed;
     assert.equal(typeof loadedSeed, "number", "GET /mari-images/assets/:assetId exposes asset seed");
 
-    // 400 validation errors: non-NovelAI connection, stray mask, non-NovelAI reuseSeed, and missing mask on infill.
+    // A1111 now admits source-canvas edits; unsupported providers still fail before any request.
+    const unsupportedConnection = (await createConnectionsStorage(db).create(
+      createConnectionSchema.parse({
+        name: "Unsupported canvas editor",
+        provider: "image_generation",
+        imageService: "openai",
+        baseUrl: imageBaseUrl,
+      }),
+    ))!;
     assert.equal(
-      (await refuse({ prompt: "edit", editMode: "img2img", connectionId: connection.id }, naiOriginal.id)).statusCode,
+      (await refuse({ prompt: "edit", editMode: "img2img", connectionId: unsupportedConnection.id }, naiOriginal.id))
+        .statusCode,
       400,
     );
+    const sdEdit = await refuse({ prompt: "edit", editMode: "img2img", connectionId: connection.id }, naiOriginal.id);
+    assert.equal(sdEdit.statusCode, 200, sdEdit.body);
+    assert.ok(sent.at(-1)?.url.endsWith("/img2img"));
+    const sdSource = sent.at(-1)?.init_images?.[0];
+    assert.ok(sdSource);
+    const sdPixels = await sharp(Buffer.from(sdSource, "base64")).raw().toBuffer();
+    assert.ok(sdPixels.equals(await sharp(naiCanvas).raw().toBuffer()), "A1111 receives the Mari source canvas");
     assert.equal((await refuse({ prompt: "inpaint", editMode: "infill" }, naiOriginal.id)).statusCode, 400);
     assert.equal(
       (

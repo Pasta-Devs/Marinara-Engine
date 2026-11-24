@@ -226,6 +226,28 @@ export async function withChatMetadataPatchQueue<T>(chatId: string, operation: (
   return withPatchQueue(metadataPatchQueues, chatId, operation);
 }
 
+/** Acquire message queues before the transaction, including messages added while waiting. */
+export async function withChatMessagePatchTransaction<T>(
+  db: DB,
+  chatId: string,
+  operation: (tx: DB) => Promise<T>,
+): Promise<T> {
+  for (;;) {
+    const ids = (await db.select({ id: messages.id }).from(messages).where(eq(messages.chatId, chatId))).map(
+      (row) => row.id,
+    );
+    const locked = new Set(ids);
+    const result = await withPatchQueues(messageExtraPatchQueues, ids, () =>
+      db.transaction(async (tx) => {
+        const current = await tx.select({ id: messages.id }).from(messages).where(eq(messages.chatId, chatId));
+        if (current.some((row) => !locked.has(row.id))) return null;
+        return { value: await operation(tx) };
+      }),
+    );
+    if (result) return result.value;
+  }
+}
+
 /**
  * One transaction that rewrites chat metadata, run while every chat's metadata queue is held: a patchMetadata that
  * read a chat before it would otherwise write its stale merge over the rewrite. Queues before the transaction, the

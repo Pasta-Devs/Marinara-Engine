@@ -878,6 +878,7 @@ export function AgentEditor() {
   const [localSourceFileIds, setLocalSourceFileIds] = useState<string[]>([]);
   const [localAutoGenerateAvatars, setLocalAutoGenerateAvatars] = useState(false);
   const [localIncludeOutfitInAvatars, setLocalIncludeOutfitInAvatars] = useState(true);
+  const [localUseCardReferenceInPortraits, setLocalUseCardReferenceInPortraits] = useState(false);
   const [localUseAvatarReferences, setLocalUseAvatarReferences] = useState(false);
   const [localIncludeCharacterAppearance, setLocalIncludeCharacterAppearance] = useState(false);
   const [localReferencePictureTarget, setLocalReferencePictureTarget] = useState<ReferencePictureTarget>("auto");
@@ -1099,6 +1100,7 @@ export function AgentEditor() {
       setLocalSourceFileIds(normalizeStringArray(settings.sourceFileIds));
       setLocalAutoGenerateAvatars(settings.autoGenerateAvatars === true);
       setLocalIncludeOutfitInAvatars(settings.includeOutfitInAvatars !== false);
+      setLocalUseCardReferenceInPortraits(settings.useCardReferenceInPortraits === true);
       setLocalUseAvatarReferences(
         (settings.useAvatarReferences as boolean | undefined) ?? defaultSettings.useAvatarReferences === true,
       );
@@ -1185,6 +1187,7 @@ export function AgentEditor() {
       setLocalSourceFileIds([]);
       setLocalAutoGenerateAvatars(false);
       setLocalIncludeOutfitInAvatars(true);
+      setLocalUseCardReferenceInPortraits(false);
       setLocalUseAvatarReferences(defaultSettings.useAvatarReferences === true);
       setLocalReferencePictureTarget("auto");
       setLocalWriterReferenceInstruction("");
@@ -1261,6 +1264,7 @@ export function AgentEditor() {
       setLocalSourceFileIds([]);
       setLocalAutoGenerateAvatars(false);
       setLocalIncludeOutfitInAvatars(true);
+      setLocalUseCardReferenceInPortraits(false);
       setLocalUseAvatarReferences(false);
       setLocalIncludeCharacterAppearance(false);
       setLocalReferencePictureTarget("auto");
@@ -1690,6 +1694,7 @@ export function AgentEditor() {
         ...(savedImageConnectionId ? { imageConnectionId: savedImageConnectionId } : {}),
         ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
         ...(localIncludeOutfitInAvatars ? {} : { includeOutfitInAvatars: false }),
+        ...(localUseCardReferenceInPortraits ? { useCardReferenceInPortraits: true } : {}),
         ...(supportsImagePromptSettings
           ? {
               useAvatarReferences: localUseAvatarReferences,
@@ -1779,6 +1784,7 @@ export function AgentEditor() {
     localSourceFileIds,
     localAutoGenerateAvatars,
     localIncludeOutfitInAvatars,
+    localUseCardReferenceInPortraits,
     localUseAvatarReferences,
     localIncludeCharacterAppearance,
     localReferencePictureTarget,
@@ -2218,6 +2224,7 @@ export function AgentEditor() {
       ...(agentType !== "background" && localImageConnectionId ? { imageConnectionId: localImageConnectionId } : {}),
       ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
       ...(localIncludeOutfitInAvatars ? {} : { includeOutfitInAvatars: false }),
+      ...(localUseCardReferenceInPortraits ? { useCardReferenceInPortraits: true } : {}),
       ...(supportsImagePromptSettings
         ? {
             useAvatarReferences: localUseAvatarReferences,
@@ -3647,6 +3654,17 @@ export function AgentEditor() {
                 />
               )}
               {localAutoGenerateAvatars && (
+                <EditorSwitchRow
+                  label={localizeUi("ui.agents.agenteditor.useCardReferenceInPortraits")}
+                  description={localizeUi("ui.agents.agenteditor.useCardReferenceInPortraitsDescription")}
+                  checked={localUseCardReferenceInPortraits}
+                  onChange={(checked) => {
+                    setLocalUseCardReferenceInPortraits(checked);
+                    markDirty();
+                  }}
+                />
+              )}
+              {localAutoGenerateAvatars && (
                 <div className="mt-2">
                   <label className="block text-xs text-[var(--muted-foreground)] mb-1">
                     {localizeUi("ui.agents.agenteditor.imageGenerationConnection")}
@@ -4968,6 +4986,10 @@ export function AgentEditor() {
                       }}
                       onAdd={(ids) => {
                         setLocalSourceLorebookIds((prev) => [...prev, ...ids.filter((id) => !prev.includes(id))]);
+                        setDirty(true);
+                      }}
+                      onApplySet={(ids) => {
+                        setLocalSourceLorebookIds(ids);
                         setDirty(true);
                       }}
                       ariaLabel={localizeUi("ui.agents.agenteditor.fixedSourceOverride")}

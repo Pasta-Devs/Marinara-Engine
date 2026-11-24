@@ -2863,6 +2863,13 @@ html[data-marinara-accent-animation] *::after {
   gap: 0.75rem;
 }
 
+/* Without section tabs, the actions get a row of their own on phones, where Save shows its icon only. */
+@media (max-width: 47.999rem) {
+  .mari-editor-header:not(.mari-editor-header--with-nav) .mari-editor-save-label {
+    display: none;
+  }
+}
+
 .mari-editor-header--with-nav {
   flex-wrap: nowrap;
 }
@@ -3746,16 +3753,8 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
     padding-inline: 0.75rem;
   }
 
-  .mari-editor-actions .mari-editor-action--primary {
-    margin-right: auto;
-  }
-
   .mari-editor-action--compact {
     min-height: auto;
-  }
-
-  .mari-editor-actions .mari-editor-action--compact.mari-editor-action--primary {
-    margin-right: 0;
   }
 
   .mari-editor-body {

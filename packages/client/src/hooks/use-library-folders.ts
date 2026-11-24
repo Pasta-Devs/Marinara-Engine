@@ -146,6 +146,8 @@ export function useUpdateLibraryFolder(scope: LibraryFolderScope) {
       itemIds?: string[];
       color?: string | null;
       cover?: string | null;
+      addItemIds?: string[];
+      removeItemIds?: string[];
     }) => {
       return api.patch<LibraryFolder>(`/library-folders/${scope}/${id}`, data);
     },

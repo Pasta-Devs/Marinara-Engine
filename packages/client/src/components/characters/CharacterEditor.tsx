@@ -1,3 +1,4 @@
+import { Images as VersionImagesIcon } from "lucide-react";
 import { CardProseSectionHeader as SectionHeader, CardProseTextarea as TextareaTab } from "../cards/CardProse";
 import { CardImagesTab, SelfieInstructionsField } from "../cards/CardImagesTab";
 import { useCardEditorDraft } from "../../hooks/use-card-editor-draft";
@@ -190,8 +191,10 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { api } from "../../lib/api-client";
 import { downloadSpriteFile } from "../../lib/sprite-download";
 import { downloadUrlToDevice, shouldUseIosImageShare } from "../../lib/file-download";
-import { ImageDownloadButton } from "../ui/ImageDownloadButton";
-import { ImageViewer, VIEWER_BUTTON_CLASS } from "../ui/ImageViewer";
+import { EntityImageLightbox } from "../ui/EntityImageLightbox";
+import { EntityAvatarLightbox } from "../ui/EntityAvatarLightbox";
+import { usePrepareAvatarEdit, type EntityEditableImage } from "../../hooks/use-entity-image-edit";
+import type { GalleryImageUploadMetadata } from "../../hooks/use-characters";
 import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
@@ -542,6 +545,7 @@ export function CharacterEditor() {
   const updateCharacter = useUpdateCharacter();
   const updateSheet = useUpdateCharacter();
   const uploadAvatar = useUploadAvatar();
+  const applyGalleryAvatar = useSetCharacterGalleryImageAsAvatar(characterId ?? "");
   const removeAvatar = useRemoveAvatar();
   const deleteCharacter = useDeleteCharacter();
   const duplicateCharacter = useDuplicateCharacter();
@@ -620,6 +624,29 @@ export function CharacterEditor() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [avatarGeneratorOpen, setAvatarGeneratorOpen] = useState(false);
+  const [avatarEditImage, setAvatarEditImage] = useState<{ ownerId: string; image: EntityEditableImage } | null>(null);
+  const avatarEditSessionRef = useRef(0);
+  useLayoutEffect(() => {
+    setAvatarEditImage(null);
+    return () => {
+      avatarEditSessionRef.current += 1;
+    };
+  }, [characterId]);
+  const prepareAvatarEdit = usePrepareAvatarEdit({ kind: "character", id: characterId ?? "" });
+  const openAvatarEditor = async () => {
+    if (!characterId || prepareAvatarEdit.isPending || avatarUploading || saving) return;
+    const editingOwnerId = characterId;
+    const editingSession = avatarEditSessionRef.current;
+    try {
+      const image = await prepareAvatarEdit.mutateAsync();
+      if (avatarEditSessionRef.current !== editingSession) return;
+      setAvatarEditImage({ ownerId: editingOwnerId, image });
+    } catch (error) {
+      if (avatarEditSessionRef.current !== editingSession) return;
+      toast.error(error instanceof Error ? error.message : localizeUi("images.entity.openFailed"));
+    }
+  };
+
   const [characterSheetGeneratorOpen, setCharacterSheetGeneratorOpen] = useState(false);
   const [galleryCreateOpen, setGalleryCreateOpen] = useState(false);
   const tagGalleryCreation = useTagCharacterGalleryImage(characterId ?? "");
@@ -948,14 +975,14 @@ export function CharacterEditor() {
   );
 
   const handleGeneratedCharacterSheet = useCallback(
-    async (dataUrl: string) => {
+    async (dataUrl: string, metadata?: GalleryImageUploadMetadata) => {
       let file: File;
       try {
         file = dataImageUrlToFile(dataUrl, `${formData?.name || "character"}-sheet`);
       } catch {
         throw new Error(localizeUi("ui.characters.charactersheet.generatedSaveFailed"));
       }
-      const uploaded = await uploadCharacterSheet.mutateAsync([file]);
+      const uploaded = await uploadCharacterSheet.mutateAsync({ files: [file], ...metadata });
       const image = uploaded[0];
       if (!image) throw new Error(localizeUi("ui.characters.charactersheet.generatedSaveFailed"));
       await updateCharacterSheet({ characterSheetImageId: image.id });
@@ -1180,7 +1207,7 @@ export function CharacterEditor() {
   };
 
   const handleGeneratedAvatar = useCallback(
-    async (avatarDataUrl: string) => {
+    async (avatarDataUrl: string, metadata?: GalleryImageUploadMetadata & { sourceImageId?: string }) => {
       if (!characterId) return;
       if (saving) {
         throw new Error("Wait for the current save to finish before uploading an avatar.");
@@ -1205,7 +1232,18 @@ export function CharacterEditor() {
         setDirtyState(true);
       }
       try {
-        await uploadAvatar.mutateAsync({ id: uploadCharacterId, avatar: avatarDataUrl });
+        let sourceImageId = metadata?.sourceImageId;
+        if (!sourceImageId && metadata?.generation) {
+          const [saved] = await uploadCharacterSheet.mutateAsync({
+            files: [dataImageUrlToFile(avatarDataUrl, `character-avatar`)],
+            ...metadata,
+          });
+          if (!saved) throw new Error(localizeUi("images.entity.openFailed"));
+          sourceImageId = saved.id;
+        }
+        if (!isCurrentAvatarUpload(uploadToken, uploadCharacterId)) return;
+        if (sourceImageId) await applyGalleryAvatar.mutateAsync(sourceImageId);
+        else await uploadAvatar.mutateAsync({ id: uploadCharacterId, avatar: avatarDataUrl });
         if (isCurrentAvatarUpload(uploadToken, uploadCharacterId)) {
           toast.success(localizeUi("ui.characters.charactereditor.characterAvatarGenerated"));
         }
@@ -1236,6 +1274,8 @@ export function CharacterEditor() {
       setExtensionValue,
       uploadAvatar,
       localizeUi,
+      applyGalleryAvatar,
+      uploadCharacterSheet,
     ],
   );
 
@@ -1713,6 +1753,15 @@ export function CharacterEditor() {
           onSplitAnyway={() => handleSplitDescription(true)}
           onClose={() => setDescriptionSplitOpen(false)}
         />
+        {avatarEditImage && avatarEditImage.ownerId === characterId && (
+          <EntityAvatarLightbox
+            key={`${characterId}-${avatarEditImage.image.id}`}
+            owner={{ kind: "character", id: characterId! }}
+            image={avatarEditImage.image}
+            onUseAvatar={handleGeneratedAvatar}
+            onClose={() => setAvatarEditImage((current) => (current === avatarEditImage ? null : current))}
+          />
+        )}
         <AvatarGenerationModal
           open={avatarGeneratorOpen}
           title={localizeUi("ui.characters.charactereditor.generateCharacterAvatar")}
@@ -1840,6 +1889,9 @@ export function CharacterEditor() {
               removeAllTags={removeAllTags}
               avatarPreview={avatarPreview}
               onSelectAvatar={() => fileInputRef.current?.click()}
+              onEditAvatar={avatarPreview && characterId ? () => void openAvatarEditor() : undefined}
+              avatarEditPreparing={prepareAvatarEdit.isPending}
+              onOpenGallery={characterId ? () => scrollToSection("gallery") : undefined}
               onGenerateAvatar={() => setAvatarGeneratorOpen(true)}
               imageGenerationAvailable={imageGenerationAvailable}
               avatarUploading={avatarUploading}
@@ -2964,6 +3016,9 @@ function MetadataTab({
   avatarPreview,
   onSelectAvatar,
   onGenerateAvatar,
+  onEditAvatar,
+  avatarEditPreparing,
+  onOpenGallery,
   imageGenerationAvailable,
   avatarUploading,
   onRemoveAvatar,
@@ -2988,6 +3043,9 @@ function MetadataTab({
   avatarPreview: string | null;
   onSelectAvatar: () => void;
   onGenerateAvatar: () => void;
+  onEditAvatar?: () => void;
+  avatarEditPreparing: boolean;
+  onOpenGallery?: () => void;
   imageGenerationAvailable: boolean;
   avatarUploading: boolean;
   onRemoveAvatar: () => void;
@@ -3099,6 +3157,9 @@ function MetadataTab({
               generationAvailable={imageGenerationAvailable}
               onUpload={onSelectAvatar}
               onGenerate={onGenerateAvatar}
+              onEdit={onEditAvatar}
+              editing={avatarEditPreparing}
+              onOpenGallery={onOpenGallery}
             />
           )}
         </div>
@@ -4662,6 +4723,8 @@ function CharacterGalleryTab({
   );
   const {
     lightbox,
+    displayedImages,
+    versionCounts,
     setLightbox,
     selectingImages,
     setSelectingImages,
@@ -4671,7 +4734,6 @@ function CharacterGalleryTab({
     leaveImageSelection,
     toggleImageSelection,
   } = useCardGallerySelection(images);
-  const lightboxIndex = images?.findIndex((item) => item.id === lightbox?.id) ?? -1;
 
   const handleUpload = useCallback(
     (files: File[]) => {
@@ -4695,7 +4757,7 @@ function CharacterGalleryTab({
       }
       try {
         await remove.mutateAsync(image.id);
-        if (lightbox?.id === image.id) setLightbox(null);
+        if (lightbox) setLightbox(null);
       } catch (error) {
         toast.error(
           error instanceof Error
@@ -4704,7 +4766,7 @@ function CharacterGalleryTab({
         );
       }
     },
-    [setLightbox, lightbox?.id, remove, localizeUi],
+    [setLightbox, lightbox, remove, localizeUi],
   );
 
   const handleSetAvatar = useCallback(
@@ -4819,7 +4881,7 @@ function CharacterGalleryTab({
 
       <div className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-1">
         {[
-          { id: "images" as const, label: "Images", icon: Camera, count: images?.length ?? 0 },
+          { id: "images" as const, label: "Images", icon: Camera, count: displayedImages.length },
           { id: "clips" as const, label: "Videos", icon: Film, count: null },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -4865,7 +4927,7 @@ function CharacterGalleryTab({
                 disabled={!images?.length}
                 onClick={() => {
                   setSelectingImages(true);
-                  setSelectedImageIds(new Set(images?.map((image) => image.id) ?? []));
+                  setSelectedImageIds(new Set(displayedImages.map((image) => image.id)));
                 }}
                 className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -4924,7 +4986,7 @@ function CharacterGalleryTab({
             </div>
           ) : images && images.length > 0 ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4">
-              {images.map((image) => (
+              {displayedImages.map((image) => (
                 <div
                   key={image.id}
                   className={cn(
@@ -4934,6 +4996,15 @@ function CharacterGalleryTab({
                       : "border-[var(--border)] hover:border-[var(--primary)]/30",
                   )}
                 >
+                  {(versionCounts.get(image.id) ?? 0) > 1 && (
+                    <span
+                      className="pointer-events-none absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-[var(--sidebar)] px-2 py-1 text-xs text-[var(--foreground)] shadow-sm"
+                      aria-label={localizeUi("chat.imageVersions.count", { count: versionCounts.get(image.id) })}
+                    >
+                      <VersionImagesIcon size="0.875rem" />
+                      {versionCounts.get(image.id)}
+                    </span>
+                  )}
                   {!selectingImages ? (
                     <CustomEmojiTagButton
                       image={image}
@@ -5060,42 +5131,14 @@ function CharacterGalleryTab({
       )}
 
       {lightbox && (
-        <ImageViewer
-          title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
+        <EntityImageLightbox
+          owner={{ kind: "character", id: characterId }}
+          image={lightbox}
+          images={images}
           onClose={() => setLightbox(null)}
-          src={lightbox.url}
-          alt={lightbox.prompt || characterName || "Character image"}
-          items={
-            images && lightboxIndex >= 0 ? images.map((item) => ({ url: item.url, alt: item.prompt || "" })) : undefined
-          }
-          index={lightboxIndex}
-          onIndexChange={(next) => images && setLightbox(images[next]!)}
-          actions={
-            <>
-              <button
-                type="button"
-                onClick={() => void handleSetAvatar(lightbox)}
-                disabled={setAvatar.isPending}
-                className={VIEWER_BUTTON_CLASS}
-                title={localizeUi("ui.characters.charactergallerytab.setAsAvatar")}
-              >
-                {setAvatar.isPending ? <Spinner size="sm" /> : <User size="0.875rem" />}
-              </button>
-              <ImageDownloadButton
-                url={lightbox.url}
-                filename={lightbox.filePath.split(/[\\/]/).pop() || `gallery-${lightbox.id}.png`}
-              />
-              <button
-                type="button"
-                onClick={() => void handleDelete(lightbox)}
-                className={VIEWER_BUTTON_CLASS}
-                title={localizeUi("lorebook.editor.batch.delete")}
-                aria-label={localizeUi("lorebook.editor.batch.delete")}
-              >
-                <Trash2 size="0.875rem" />
-              </button>
-            </>
-          }
+          onUseImage={(image) => void handleSetAvatar(image)}
+          onDelete={(image) => void handleDelete(image)}
+          busy={setAvatar.isPending}
         />
       )}
     </div>

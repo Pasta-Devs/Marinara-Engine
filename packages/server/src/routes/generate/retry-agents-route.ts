@@ -129,6 +129,7 @@ import {
   resolveConnectionImageQuality,
 } from "../../services/image/image-generation-defaults.js";
 import { injectMemoryRecallContext } from "../../services/generation/memory-recall-context.js";
+import { buildCommittedTrackerSections } from "../../services/generation/committed-tracker-context.js";
 import { buildDirectorSecretPlotAgent } from "../../services/generation/director-secret-plot-runtime.js";
 import {
   appendTrackerLorebookBatchContextKey,
@@ -152,6 +153,7 @@ import {
 import { persistGeneratedImageToEntityGalleries } from "../../services/image/generated-image-entity-gallery.js";
 import { describeDrawnBy, describeReviewReferences } from "../../services/image/review-references.js";
 import { resolveImageConnectionFallback } from "../../services/generation/media-connection-fallback.js";
+import { readLorebookReferenceImages } from "../../services/generation/lorebook-image-prompt.js";
 import type { GenerationFallbackNotifier } from "../../services/generation/fallback-notification.js";
 import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { mediaProviderLanesEnabled } from "../../services/image/image-generation-queue.js";
@@ -159,6 +161,7 @@ import { generateIllustratorImageVariants } from "../../services/image/illustrat
 import {
   WRITER_REFERENCE_MEMORY_KEY,
   collectWriterReferencePictures,
+  imageConnectionTakesEntryPictures,
   imageModelGetsReferencePictures,
   readWriterReferenceNames,
   writerVisionKey,
@@ -1538,12 +1541,18 @@ async function buildRetryAgentContext(args: {
     agentContext.memory._writableLorebooks = [...writableLorebooks.values()];
   }
 
+  // The saved tracker state this context reads, located as the turn sees it, and the message it
+  // belongs to (undefined: the latest).
+  let trackerStateRow: Parameters<typeof buildCommittedTrackerSections>[0]["latestGameState"] = null;
+  let trackerStateMessageId: string | undefined;
   if (historicalGameStateAnchor) {
     const snap = await gameStateStore.getByChatAndMessage(
       chatId,
       historicalGameStateAnchor.messageId,
       historicalGameStateAnchor.swipeIndex,
     );
+    trackerStateRow = projectGameSnapshotLocation(snap, retryOwnerSpatialProjection);
+    trackerStateMessageId = historicalGameStateAnchor.messageId;
     if (snap) {
       const parsedGameState = parseGameStateRow(snap as Record<string, unknown>);
       agentContext.gameState =
@@ -1557,12 +1566,31 @@ async function buildRetryAgentContext(args: {
       preferLatestVisible: true,
       visibleAnchor,
     });
+    trackerStateRow = projectGameSnapshotLocation(latestGS, retryOwnerSpatialProjection);
+    trackerStateMessageId = typeof lastAssistant?.id === "string" ? lastAssistant.id : undefined;
     if (latestGS) {
       const parsedGameState = parseGameStateRow(latestGS as Record<string, unknown>);
       agentContext.gameState =
         projectGameSnapshotLocation(parsedGameState, retryOwnerSpatialProjection) ?? parsedGameState;
     }
   }
+  // `{{agent::TYPE}}` in retried templates reads the trackers' state saved on that same message (#9658).
+  const activeTrackerTypes = resolveActiveRetryAgentTypes(chatMode, chatMeta);
+  const readsTrackerState = !!historicalGameStateAnchor || useLatestGameStateFallback;
+  const agentsStore = createAgentsStorage(db);
+  const beholderConfig =
+    readsTrackerState && chatMode === "roleplay" && activeTrackerTypes.has("beholder")
+      ? await agentsStore.getByType("beholder")
+      : null;
+  agentContext.trackerMacroData = buildCommittedTrackerSections({
+    chatEnableAgents: isChatAgentsEnabled(chatMeta),
+    activeAgentIds: activeTrackerTypes,
+    latestGameState: trackerStateRow,
+    beholderState: beholderConfig
+      ? await agentsStore.getPreviousOutput(beholderConfig.id, chatId, trackerStateMessageId)
+      : null,
+    wrapFormat,
+  });
 
   // CYOA re-rolls: inject the previous choices so the agent generates a fresh,
   // meaningfully different set instead of repeating the last batch. Mirrors
@@ -3863,14 +3891,16 @@ async function applyRetryResultEffects(args: {
             // Collect optional character visual context. Prefer avatar portraits
             // for references, then fall back to full-body sprites.
             const subjectOnly = illustratorPromptReviewOverride?.subjectOnly === true;
-            const useAvatarRefs =
-              !subjectOnly &&
-              (usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
+            const avatarReferencesOn =
+              usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
                 ? chatMeta.illustratorUseAvatarReferences
-                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true) &&
-              // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them.
+                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true;
+            // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them.
+            const imageModelGetsReferences =
+              !subjectOnly &&
               (!usesChatIllustratorSettings ||
                 imageModelGetsReferencePictures(chatMeta, imagePromptAgent?.resolved.settings, imgConnFull));
+            const useAvatarRefs = imageModelGetsReferences && avatarReferencesOn;
             const includeCharacterAppearance =
               !subjectOnly &&
               (usesChatIllustratorSettings && typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
@@ -3972,6 +4002,37 @@ async function applyRetryResultEffects(args: {
             if (spatialLocationReferenceImage) {
               fullPrompt += `\n\n${SPATIAL_LOCATION_REFERENCE_PROMPT_LINE}`;
               logger.debug("[retry-agents] Illustrator sending the current Maps location reference image first");
+            }
+            // Activated entries' pictures fill what the cap leaves, when the connection takes them (#9698). The
+            // stored scan does not record which Outlets were used, so Outlet pictures stay out of a retry.
+            // "Reference pictures go to" shows, and holds them back, only with avatar references on.
+            const lorebookReferences =
+              !subjectOnly &&
+              (!avatarReferencesOn || imageModelGetsReferences) &&
+              imageConnectionTakesEntryPictures(imgConnFull)
+                ? await readLorebookReferenceImages(
+                    (
+                      await Promise.all(
+                        (agentContext.activatedLorebookEntries ?? []).map((entry) =>
+                          lorebooksStore.getEntry(entry.id).catch(() => null),
+                        ),
+                      )
+                    ).flatMap((row) => {
+                      const entry = row as unknown as LorebookEntry | null;
+                      return entry?.images?.length ? [{ ...entry, images: entry.images }] : [];
+                    }),
+                    6 - mergedReferenceImages.length,
+                  )
+                : null;
+            assertRetryActive();
+            if (lorebookReferences?.referenceLine) {
+              referenceImages = [...mergedReferenceImages, ...lorebookReferences.images];
+              if (!suppressReferencePromptLine) fullPrompt += `\n\n${lorebookReferences.referenceLine}`;
+              logger.debug(
+                "[retry-agents] Illustrator sending %d lorebook reference(s) for: %s",
+                lorebookReferences.images.length,
+                lorebookReferences.labels.join("; "),
+              );
             }
 
             const compiledPrompt = compileImagePrompt({
@@ -4206,6 +4267,7 @@ async function applyRetryResultEffects(args: {
                   referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
                   referencePersonaId: useAvatarRefs ? referenceResolution.personaId : null,
                   locationImageId: spatialLocationReferenceImage ? retryOwnerSpatialProjection?.referenceImageId : null,
+                  lorebookImagePaths: lorebookReferences?.paths,
                   seed: imageResult.seed,
                 }),
               });
@@ -4214,6 +4276,7 @@ async function applyRetryResultEffects(args: {
                 enabled: imageSettings.autoSaveToGalleries,
                 sourceFilePath: filePath,
                 sourceChatImageId: galleryEntry?.id,
+                generation: galleryEntry?.generation,
                 characterIds: referenceResolution.characterIds,
                 personaIds: referenceResolution.personaId ? [referenceResolution.personaId] : [],
                 characterGallery: createCharacterGalleryStorage(app.db),

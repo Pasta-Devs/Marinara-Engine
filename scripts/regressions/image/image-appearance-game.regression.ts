@@ -2,7 +2,7 @@
 // image appearance into the actual provider prompt, not merely load its record.
 // #7419: Character Tracker portraits carry the tracked outfit to the provider too.
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -30,15 +30,19 @@ const { createAgentsStorage } = await import("../../../packages/server/src/servi
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createGameStateStorage } = await import("../../../packages/server/src/services/storage/game-state.storage.js");
 const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
-const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
-const { createAppSettingsStorage } = await import("../../../packages/server/src/services/storage/app-settings.storage.js");
+const { createConnectionsStorage } =
+  await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createAppSettingsStorage } =
+  await import("../../../packages/server/src/services/storage/app-settings.storage.js");
 
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const imagePrompts: string[] = [];
+const imageRequests: Array<{ url: string; prompt: string; hasReference: boolean }> = [];
 const plannerPrompts: string[] = [];
 const providerErrors: unknown[] = [];
 let failImages = false;
 // Holds the next image request open until released, so a test can act while a portrait is being made.
+let expectedImageUrl = "/v1/images/generations";
 let holdImages: { reached: () => void; released: Promise<void> } | null = null;
 const provider = createServer(async (request, response) => {
   if (failImages) {
@@ -83,9 +87,15 @@ const provider = createServer(async (request, response) => {
       );
       return;
     }
-    assert.equal(request.url, "/v1/images/generations", "the fixture only allows image or planner requests");
+    assert.equal(request.url, expectedImageUrl, "the fixture only allows image or planner requests");
     assert.equal(typeof body.prompt, "string");
+    const bodyRecord = body as Record<string, unknown>;
     imagePrompts.push(body.prompt as string);
+    imageRequests.push({
+      url: request.url,
+      prompt: body.prompt as string,
+      hasReference: Boolean(bodyRecord.image || (Array.isArray(bodyRecord.images) && bodyRecord.images.length > 0)),
+    });
     const hold = holdImages;
     holdImages = null;
     if (hold) {
@@ -738,10 +748,193 @@ try {
   assert.equal(afterwards.statusCode, 200, afterwards.body);
   assert.ok(readFileSync(portraitFile).equals(Buffer.from(png, "base64")), "a later portrait replaces it again");
 
+  // Card-backed tracker scene portraits: override tags verbatim + tracker Look + optional Outfit,
+  // unique per-scene filenames, concurrent 409 lock, and the off-by-default reference image toggle.
+  const avatarsDir = join(fixtureDir, "avatars");
+  mkdirSync(avatarsDir, { recursive: true });
+  writeFileSync(join(avatarsDir, "kitty-ref.png"), Buffer.from(png, "base64"));
+  const kittyOverride = "kitty_pryde, 1girl, brown hair, ponytail, x-men";
+  const kittyCard = await characters.create(
+    characterDataSchema.parse({
+      name: "Kitty Pryde",
+      description: "Phasing mutant.",
+      extensions: {
+        appearance: "Old card prose that override replaces.",
+        imageAppearanceEnabled: true,
+        imageAppearance: kittyOverride,
+      },
+    }),
+    "/api/avatars/file/kitty-ref.png",
+  );
+  assert.ok(kittyCard);
+  const trackerAgent = await createAgentsStorage(db).getByType("character-tracker");
+  assert.ok(trackerAgent);
+
+  // Override ON: override tags verbatim + extra Look scene details, without falling back to card prose.
+  const kittyOverrideWithLook = await app.inject({
+    method: "POST",
+    url: portraitUrl,
+    payload: {
+      characterId: kittyCard.id,
+      name: "Kitty Pryde",
+      appearance: "smudge of dirt on left cheek",
+      outfit: "cream trousers, black sleeveless turtleneck",
+      includeOutfit: true,
+    },
+  });
+  assert.equal(kittyOverrideWithLook.statusCode, 200, kittyOverrideWithLook.body);
+  const firstSceneUrl = kittyOverrideWithLook.json().avatarPath as string;
+  assert.match(firstSceneUrl, new RegExp(`^/api/avatars/npc/${trackerChat.id}/scene-kitty-pryde-[a-f0-9]{8}\\.png$`));
+  const firstScenePrompt = imagePrompts.at(-1)!;
+  assert.ok(firstScenePrompt.includes(kittyOverride), "override tags survive verbatim");
+  assert.ok(firstScenePrompt.includes("smudge of dirt on left cheek"), "extra tracker Look details survive");
+  assert.ok(firstScenePrompt.includes("cream trousers, black sleeveless turtleneck"), "outfit included");
+  assert.ok(!firstScenePrompt.includes("Old card prose"), "card prose stays excluded when override is on");
+
+  // Override ON + empty Look + includeOutfit false: still keeps override and omits card prose and outfit.
+  const kittyOverrideOnly = await app.inject({
+    method: "POST",
+    url: portraitUrl,
+    payload: {
+      characterId: kittyCard.id,
+      name: "Kitty Pryde",
+      appearance: null,
+      outfit: "cream trousers, black sleeveless turtleneck",
+      includeOutfit: false,
+    },
+  });
+  assert.equal(kittyOverrideOnly.statusCode, 200, kittyOverrideOnly.body);
+  const secondSceneUrl = kittyOverrideOnly.json().avatarPath as string;
+  assert.match(secondSceneUrl, new RegExp(`^/api/avatars/npc/${trackerChat.id}/scene-kitty-pryde-[a-f0-9]{8}\\.png$`));
+  assert.notEqual(secondSceneUrl, firstSceneUrl, "each card scene portrait writes a unique file");
+  const firstDiskFile = join(fixtureDir, "avatars", "npc", trackerChat.id, firstSceneUrl.split("/").pop()!);
+  const secondDiskFile = join(fixtureDir, "avatars", "npc", trackerChat.id, secondSceneUrl.split("/").pop()!);
+  assert.ok(existsSync(firstDiskFile) && existsSync(secondDiskFile), "earlier scene portrait stays on disk");
+  const secondScenePrompt = imagePrompts.at(-1)!;
+  assert.ok(secondScenePrompt.includes(kittyOverride));
+  assert.ok(!secondScenePrompt.includes("Old card prose"));
+  assert.ok(!secondScenePrompt.includes("cream trousers"));
+
+  // Concurrent card scene portrait request for the same character still returns 409.
+  let releaseCardHold = () => {};
+  const cardHoldReached = new Promise<void>((reached) => {
+    holdImages = { reached, released: new Promise<void>((release) => (releaseCardHold = release)) };
+  });
+  const pendingCard = Promise.resolve(
+    app.inject({
+      method: "POST",
+      url: portraitUrl,
+      payload: { characterId: kittyCard.id, name: "Kitty Pryde", includeOutfit: true },
+    }),
+  );
+  await cardHoldReached;
+  const busyCard = await app.inject({
+    method: "POST",
+    url: portraitUrl,
+    payload: { characterId: kittyCard.id, name: "Kitty Pryde", includeOutfit: false },
+  });
+  assert.equal(busyCard.statusCode, 409, busyCard.body);
+  releaseCardHold();
+  const settledCard = await pendingCard;
+  assert.equal(settledCard.statusCode, 200, settledCard.body);
+
+  // Missing card id returns 404 instead of falling back to NPC generation.
+  const requestCountBeforeMissing = imageRequests.length;
+  const missingCardResponse = await app.inject({
+    method: "POST",
+    url: portraitUrl,
+    payload: { characterId: "missing-card-id", name: "Alice", includeOutfit: false },
+  });
+  assert.equal(missingCardResponse.statusCode, 404, missingCardResponse.body);
+  assert.equal(imageRequests.length, requestCountBeforeMissing, "missing characterId makes no image call");
+
+  // Override OFF: uses tracker Look, and falls back to card extensions.appearance when tracker Look is empty.
+  const plainCard = await characters.create(
+    characterDataSchema.parse({
+      name: "Plain Card",
+      extensions: { appearance: "Card appearance fallback", imageAppearanceEnabled: false },
+    }),
+  );
+  assert.ok(plainCard);
+  const withLook = await app.inject({
+    method: "POST",
+    url: portraitUrl,
+    payload: { characterId: plainCard.id, name: "Plain Card", appearance: "Tracker look wins", includeOutfit: false },
+  });
+  assert.equal(withLook.statusCode, 200, withLook.body);
+  assert.ok(imagePrompts.at(-1)!.includes("Tracker look wins"));
+  assert.ok(!imagePrompts.at(-1)!.includes("Card appearance fallback"));
+
+  const withFallback = await app.inject({
+    method: "POST",
+    url: portraitUrl,
+    payload: { characterId: plainCard.id, name: "Plain Card", appearance: "  ", includeOutfit: false },
+  });
+  assert.equal(withFallback.statusCode, 200, withFallback.body);
+  assert.ok(imagePrompts.at(-1)!.includes("Card appearance fallback"));
+
+  // Reference image toggle (useCardReferenceInPortraits): off by default, sends reference when enabled.
+  const xaiConn = await createConnectionsStorage(db).create({
+    name: "xAI reference fixture",
+    provider: "image_generation",
+    baseUrl: `http://127.0.0.1:${address.port}/v1`,
+    model: "grok-2-image",
+    imageService: "xai",
+    imageGenerationSource: "xai",
+    apiKey: "fixture",
+  });
+  await createAgentsStorage(db).update(trackerAgent.id, { settings: { imageConnectionId: xaiConn.id } });
+  const refOff = await app.inject({
+    method: "POST",
+    url: portraitUrl,
+    payload: { characterId: kittyCard.id, name: "Kitty Pryde", includeOutfit: false },
+  });
+  assert.equal(refOff.statusCode, 200, refOff.body);
+  assert.equal(imageRequests.at(-1)!.url, "/v1/images/generations");
+  assert.equal(imageRequests.at(-1)!.hasReference, false, "reference stays off when toggle is disabled");
+
+  await createAgentsStorage(db).update(trackerAgent.id, {
+    settings: { imageConnectionId: xaiConn.id, useCardReferenceInPortraits: true },
+  });
+  expectedImageUrl = "/v1/images/edits";
+  const refOn = await app
+    .inject({
+      method: "POST",
+      url: portraitUrl,
+      payload: { characterId: kittyCard.id, name: "Kitty Pryde", includeOutfit: false },
+    })
+    .finally(() => {
+      expectedImageUrl = "/v1/images/generations";
+    });
+  assert.equal(refOn.statusCode, 200, refOn.body);
+  assert.equal(imageRequests.at(-1)!.url, "/v1/images/edits");
+  assert.equal(imageRequests.at(-1)!.hasReference, true, "card avatar reaches provider when toggle is on");
+  assert.ok(imagePrompts.at(-1)!.includes("reference image of Kitty Pryde"), "reference likeness line included");
+
+  // Upload with scenePortrait: true writes distinct immutable filenames.
+  const upload1 = await app.inject({
+    method: "POST",
+    url: `/api/avatars/npc/${trackerChat.id}`,
+    payload: { name: "Kitty Pryde", avatar: `data:image/png;base64,${png}`, scenePortrait: true },
+  });
+  const upload2 = await app.inject({
+    method: "POST",
+    url: `/api/avatars/npc/${trackerChat.id}`,
+    payload: { name: "Kitty Pryde", avatar: `data:image/png;base64,${png}`, scenePortrait: true },
+  });
+  assert.equal(upload1.statusCode, 200, upload1.body);
+  assert.equal(upload2.statusCode, 200, upload2.body);
+  const upload1Url = upload1.json().avatarPath as string;
+  const upload2Url = upload2.json().avatarPath as string;
+  assert.match(upload1Url, new RegExp(`^/api/avatars/npc/${trackerChat.id}/scene-kitty-pryde-[a-f0-9]{8}\\.png$`));
+  assert.notEqual(upload1Url, upload2Url);
+
   console.info(
     "Game image appearance route regression passed (5 plain-text and 8 macro preview/dispatch pairs; 2 historical storyboard planner cases).",
   );
-  console.info("Character Tracker portrait regression passed (prompt assembly and the portrait route).");
+  console.info(
+    "Character Tracker portrait regression passed (prompt assembly, card scene portraits, and portrait route).",
+  );
 } finally {
   await app.close();
   provider.closeAllConnections(); // a failed assertion can leave a held image request open

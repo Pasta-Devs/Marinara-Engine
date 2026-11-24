@@ -167,6 +167,19 @@ try {
   assert.deepEqual(await folders.list("functions"), [], "automation expunge must clear the function folders");
   assert.deepEqual(await folders.list("presets"), presetFolders, "automation expunge must preserve preset folders");
 
+  // Clearing lorebooks clears their library folders and the saved lorebook sets (#9672) together.
+  assert.ok(await folders.create("lorebooks", { name: "Lore folder" }));
+  assert.ok(await folders.create("lorebook-sets", { name: "Lore set" }));
+  const lorebookResponse = await app.inject({
+    method: "POST",
+    url: "/api/admin/expunge",
+    payload: { confirm: true, scopes: ["lorebooks"] },
+  });
+  assert.equal(lorebookResponse.statusCode, 200);
+  assert.deepEqual(await folders.list("lorebooks"), [], "lorebook expunge must clear the lorebook folders");
+  assert.deepEqual(await folders.list("lorebook-sets"), [], "lorebook expunge must clear the saved lorebook sets");
+  assert.deepEqual(await folders.list("presets"), presetFolders, "lorebook expunge must preserve preset folders");
+
   const clearAllRegexId = await createRegexFolderFixture();
   const stockBeforeClearAll = await stockSnapshot();
   const clearAllResponse = await app.inject({

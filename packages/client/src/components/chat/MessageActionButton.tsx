@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { cn } from "../../lib/utils";
+import { useDismiss } from "../../hooks/use-dismiss";
 
 export const MESSAGE_ACTION_ICON_SIZE = "1em";
 
@@ -99,24 +100,21 @@ export function useMessageActionMenu(align: "left" | "right") {
     };
   }, [align, open]);
   useEffect(() => {
-    if (!open) return;
-    menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!buttonRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        buttonRef.current?.focus({ preventScroll: true });
-      }
-    };
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
+    if (open) menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
   }, [open]);
+  // Escape hands focus back to the button; a click elsewhere keeps the focus it moved to.
+  useDismiss(
+    menuRef,
+    open,
+    () => {
+      setOpen(false);
+      const button = buttonRef.current;
+      const active = button?.ownerDocument.activeElement;
+      if (button && (!active || active === button.ownerDocument.body || menuRef.current?.contains(active))) {
+        button.focus({ preventScroll: true });
+      }
+    },
+    { openerRef: buttonRef },
+  );
   return { open, setOpen, buttonRef, menuRef, position };
 }

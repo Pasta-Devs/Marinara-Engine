@@ -17,6 +17,47 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  imageEditValidationError,
+  resolveImageEditCapabilities,
+} from "../../../packages/shared/src/utils/image-edit.js";
+
+// Canvas editing is narrower than reference-picture support, and the UI and server share this decision.
+{
+  const target = (serviceHint: string, baseUrl = "https://images.example.test") => ({
+    source: serviceHint,
+    serviceHint,
+    baseUrl,
+  });
+  const native = target("novelai", "https://image.novelai.net");
+  assert.deepEqual(resolveImageEditCapabilities(native), {
+    img2img: true,
+    inpainting: true,
+    noise: true,
+    reuseSeed: true,
+  });
+  assert.equal(resolveImageEditCapabilities(target("novelai")).img2img, false);
+  assert.equal(resolveImageEditCapabilities(target("openai")).img2img, false);
+  assert.equal(resolveImageEditCapabilities(target("automatic1111")).inpainting, true);
+  assert.deepEqual(resolveImageEditCapabilities(target("drawthings")), {
+    img2img: true,
+    inpainting: false,
+    noise: false,
+    reuseSeed: false,
+  });
+  assert.equal(imageEditValidationError(target("drawthings"), { editMode: "img2img" }), null);
+  assert.match(
+    imageEditValidationError(target("drawthings"), { editMode: "infill", maskImage: "mask" })!,
+    /inpainting/,
+  );
+  assert.match(imageEditValidationError(target("automatic1111"), { editMode: "img2img", noise: 0.2 })!, /noise/);
+  assert.match(imageEditValidationError(native, { editMode: "infill" })!, /painted mask/);
+  assert.match(imageEditValidationError(native, { editMode: "img2img", maskImage: "mask" })!, /only valid/);
+  assert.match(imageEditValidationError(target("automatic1111"), { reuseSeed: true })!, /seed/);
+  assert.equal(imageEditValidationError(target("automatic1111"), { seedOverride: 123 }), null);
+  assert.equal(imageEditValidationError(target("drawthings"), { seedOverride: 123 }), null);
+  assert.match(imageEditValidationError(target("openai"), { seedOverride: 123 })!, /seed/);
+}
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-image-edit-reference-"));
 process.env.DATA_DIR = dataDir;
@@ -214,7 +255,7 @@ const requests: string[] = [];
 /** Each Stability request's multipart body, with its content type, to read back the uploaded picture. */
 const stabilityBodies: Array<{ body: Buffer; type: string }> = [];
 /** Each SD Web UI API request's JSON body, to read back `init_images`. */
-const sdApiBodies: Array<{ init_images?: unknown }> = [];
+const sdApiBodies: Array<Record<string, unknown>> = [];
 const server = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(chunk as Buffer);
@@ -227,9 +268,13 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (url.startsWith("/sd/")) {
-    sdApiBodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8")) as { init_images?: unknown });
+    sdApiBodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>);
     response.setHeader("content-type", "application/json");
-    response.end(JSON.stringify({ images: [picture.toString("base64")] }));
+    response.end(
+      JSON.stringify({
+        images: [(sdApiBodies.at(-1)?.init_images as string[] | undefined)?.[0] ?? picture.toString("base64")],
+      }),
+    );
     return;
   }
   response.setHeader("content-type", "application/json");
@@ -411,6 +456,157 @@ try {
       }
     }
   }
+  // Explicit editing uses the source canvas, not reference images or a stale requested size.
+  for (const service of ["automatic1111", "drawthings"]) {
+    sdApiBodies.length = 0;
+    const result = await generateImage("", `${base}/sd`, "", service, {
+      prompt: "A blue shirt.",
+      sourceImage: dataUrl,
+      editMode: "img2img",
+      strength: 0.42,
+      seedOverride: 123,
+      width: 128,
+      height: 96,
+      referenceImage: "ignored reference",
+      allowLocalUrls: true,
+    });
+    const body = sdApiBodies[0]!;
+    const canvasSize = service === "drawthings" ? 128 : 64;
+    assert.equal(result.width, canvasSize, "saved edit dimensions follow the prepared canvas");
+    assert.equal(result.height, canvasSize);
+    assert.equal(body.denoising_strength, 0.42, `${service}: explicit edit strength`);
+    assert.equal(body.seed, 123, `${service}: explicit fixed seed`);
+    assert.equal(body.width, canvasSize);
+    assert.equal(body.height, canvasSize);
+    assert.equal(body.mask, undefined);
+    assert.equal(service === "drawthings" ? body.cfg_scale : body.guidance_scale, undefined);
+    const sent = await sharp(Buffer.from((body.init_images as string[])[0]!, "base64"))
+      .raw()
+      .toBuffer();
+    assert.ok(
+      sent.equals(await sharp(picture).resize(canvasSize, canvasSize).raw().toBuffer()),
+      `${service}: source canvas pixels`,
+    );
+  }
+
+  // Draw Things converts pixel dimensions into 64px latent blocks and accepts 128..8192.
+  const unaligned = await sharp({ create: { width: 600, height: 904, channels: 3, background: "#123456" } })
+    .png()
+    .toBuffer();
+  sdApiBodies.length = 0;
+  const aligned = await generateImage("", `${base}/sd`, "", "drawthings", {
+    prompt: "A blue shirt.",
+    sourceImage: unaligned.toString("base64"),
+    editMode: "img2img",
+    allowLocalUrls: true,
+  });
+  const alignedBody = sdApiBodies[0]!;
+  assert.equal(alignedBody.width, 576);
+  assert.equal(alignedBody.height, 896);
+  assert.equal(aligned.width, alignedBody.width);
+  assert.equal(aligned.height, alignedBody.height);
+  const alignedSource = await sharp(Buffer.from((alignedBody.init_images as string[])[0]!, "base64")).metadata();
+  assert.equal(alignedSource.width, aligned.width);
+  assert.equal(alignedSource.height, aligned.height);
+  const alignedOutput = await sharp(Buffer.from(aligned.base64, "base64")).metadata();
+  assert.equal(alignedOutput.width, aligned.width);
+  assert.equal(alignedOutput.height, aligned.height);
+
+  const oversized = await sharp({ create: { width: 16384, height: 512, channels: 3, background: "#164e63" } })
+    .png()
+    .toBuffer();
+  const scaled = await generateImage("", `${base}/sd`, "", "drawthings", {
+    prompt: "A blue shirt.",
+    sourceImage: oversized.toString("base64"),
+    editMode: "img2img",
+    allowLocalUrls: true,
+  });
+  assert.equal(scaled.width, 8192);
+  assert.equal(scaled.height, 256, "oversized canvases scale both dimensions before grid alignment");
+
+  const maskPixels = Buffer.alloc(64 * 64);
+  maskPixels[13 * 64 + 17] = 255;
+  const mask = await sharp(maskPixels, { raw: { width: 64, height: 64, channels: 1 } })
+    .png()
+    .toBuffer();
+  sdApiBodies.length = 0;
+  await generateImage("", `${base}/sd`, "", "automatic1111", {
+    prompt: "A blue shirt.",
+    sourceImage: dataUrl,
+    editMode: "infill",
+    maskImage: mask.toString("base64"),
+    strength: 0.6,
+    allowLocalUrls: true,
+  });
+  const body = sdApiBodies[0]!;
+  const sentMask = await sharp(Buffer.from(body.mask as string, "base64"))
+    .greyscale()
+    .raw()
+    .toBuffer();
+  assert.equal(body.inpainting_mask_invert, 0, "white means redraw");
+  assert.equal(body.mask_blur, 0);
+  assert.equal(body.denoising_strength, 0.6);
+  assert.ok(sentMask.equals(maskPixels), "A1111 mask retains single-pixel precision rather than NovelAI's 8x8 blocks");
+
+  for (const [service, extra, message] of [
+    ["drawthings", { editMode: "infill", maskImage: mask.toString("base64") }, /inpainting/],
+    ["automatic1111", { editMode: "img2img", noise: 0.2 }, /noise/],
+    ["openai", { editMode: "img2img" }, /image-to-image/],
+    ["automatic1111", { editMode: "img2img", sourceImage: "" }, /source image/],
+    [
+      "automatic1111",
+      {
+        editMode: "infill",
+        maskImage: (
+          await sharp(Buffer.alloc(64 * 64), { raw: { width: 64, height: 64, channels: 1 } })
+            .png()
+            .toBuffer()
+        ).toString("base64"),
+      },
+      /mask is empty/,
+    ],
+  ] as const) {
+    sdApiBodies.length = 0;
+    await assert.rejects(
+      generateImage("", `${base}/sd`, "", service, {
+        prompt: "Edit",
+        sourceImage: dataUrl,
+        allowLocalUrls: true,
+        ...extra,
+      }),
+      message,
+    );
+    assert.equal(sdApiBodies.length, 0, `${service}: invalid edits make no provider request`);
+  }
+
+  requests.length = 0;
+  await assert.rejects(
+    generateImage("", `${base}/primary`, "", "automatic1111", {
+      prompt: "Edit",
+      sourceImage: dataUrl,
+      editMode: "infill",
+      maskImage: mask.toString("base64"),
+      allowLocalUrls: true,
+      fallback: { ...fallback("drawthings", ""), baseUrl: `${base}/sd` },
+    }),
+    /primary is down/,
+  );
+  assert.ok(
+    !requests.some((url) => url.startsWith("/sd/")),
+    "an inpainting edit never falls back to maskless Draw Things",
+  );
+
+  sdApiBodies.length = 0;
+  await generateImage("", `${base}/primary`, "", "automatic1111", {
+    prompt: "Edit",
+    sourceImage: dataUrl,
+    editMode: "img2img",
+    strength: 0.4,
+    allowLocalUrls: true,
+    fallback: { ...fallback("drawthings", ""), baseUrl: `${base}/sd` },
+    onFallback: async () => {},
+  });
+  assert.equal(sdApiBodies[0]!.denoising_strength, 0.4, "a compatible fallback retains the explicit edit");
 } finally {
   (logger as { warn: unknown }).warn = warn;
   await new Promise<void>((resolve) => server.close(() => resolve()));

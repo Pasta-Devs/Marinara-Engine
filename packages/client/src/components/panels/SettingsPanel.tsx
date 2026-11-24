@@ -3618,6 +3618,8 @@ function AppearanceSettings({
   const setCustomCursorEnabled = useUIStore((s) => s.setCustomCursorEnabled);
   const reduceAmbientEffects = useUIStore((s) => s.reduceAmbientEffects);
   const setReduceAmbientEffects = useUIStore((s) => s.setReduceAmbientEffects);
+  const diceRollsAsText = useUIStore((s) => s.diceRollsAsText);
+  const setDiceRollsAsText = useUIStore((s) => s.setDiceRollsAsText);
   const defaultAppBackgroundColor = getDefaultAppBackgroundColor(theme);
   const displayedAppBackgroundColor =
     appBackgroundColor.trim().toLowerCase() === defaultAppBackgroundColor.toLowerCase() ? "" : appBackgroundColor;
@@ -4629,6 +4631,13 @@ function AppearanceSettings({
                 checked={reduceAmbientEffects}
                 onChange={setReduceAmbientEffects}
                 help={localizeUi("settings.controls.reduceAmbientEffects.help")}
+              />
+              <ToggleSetting
+                anchorId={getSettingsControlAnchorId("dice-rolls-as-text")}
+                label={localizeUi("settings.controls.diceRollsAsText.label")}
+                checked={diceRollsAsText}
+                onChange={setDiceRollsAsText}
+                help={localizeUi("settings.controls.diceRollsAsText.help")}
               />
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("roleplay-reduced-paint-effects")}

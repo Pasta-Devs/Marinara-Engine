@@ -31,7 +31,17 @@ export const folderCoverSchema = z
   .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/, "Use a PNG, JPEG or WebP picture")
   .nullable();
 
-export const libraryFolderScopeSchema = z.enum(["lorebooks", "presets", "agents", "regex", "functions", "profiles"]);
+// "lorebook-sets" rows are saved lorebook sets (#9672): named lists of lorebook ids. Unlike a folder, a lorebook can
+// sit in any number of sets, so nothing moves ids between them.
+export const libraryFolderScopeSchema = z.enum([
+  "lorebooks",
+  "presets",
+  "agents",
+  "regex",
+  "functions",
+  "profiles",
+  "lorebook-sets",
+]);
 
 export const libraryFolderScopeParamsSchema = z.object({
   scope: libraryFolderScopeSchema,
@@ -53,6 +63,9 @@ export const updateLibraryFolderSchema = z.object({
   itemIds: libraryFolderItemIdsSchema.optional(),
   color: folderColorSchema.optional(),
   cover: folderCoverSchema.optional(),
+  // Changes to the stored list, so a client holding an older copy can't drop ids added elsewhere.
+  addItemIds: libraryFolderItemIdsSchema.optional(),
+  removeItemIds: libraryFolderItemIdsSchema.optional(),
 });
 
 export const moveLibraryItemsSchema = z.object({

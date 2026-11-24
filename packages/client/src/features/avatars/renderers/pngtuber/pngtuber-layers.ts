@@ -15,6 +15,7 @@ import {
   detectSpriteFeelingBindings,
   isAvatarExtraFeeling,
   normalizeSpriteExpressionKey,
+  spriteExpressionFacetKey,
   type AvatarEmotion,
   type AvatarExpressionBinding,
   type AvatarExtraFeeling,
@@ -237,6 +238,8 @@ export function pickPngtuberLayerKey(
 export interface TalkingHeadFace {
   key: string;
   emotions: AvatarEmotion[];
+  /** Of `emotions`, the ones with no face of their own, which show this one (the resting face) instead. */
+  borrowed: AvatarEmotion[];
   /** Extra feelings with this face of their own. */
   feelings: AvatarExtraFeeling[];
   set: PngtuberLayerSet;
@@ -263,7 +266,7 @@ export function talkingHeadFaces(
     let face = faces.get(key);
     if (!face) {
       const set = Object.hasOwn(shown.layers, key) ? shown.layers[key]! : fromSprites!.layers[key]!;
-      face = { key, emotions: [], feelings: [], set, label: labelFor(key) };
+      face = { key, emotions: [], borrowed: [], feelings: [], set, label: labelFor(key) };
       faces.set(key, face);
     }
     return face;
@@ -278,10 +281,12 @@ export function talkingHeadFaces(
       ? fresh
       : null;
   for (const emotion of AVATAR_EMOTIONS) {
-    const key =
-      freshFace(shown.expressionMap[emotion], fromSprites?.expressionMap[emotion]?.target) ??
-      pickPngtuberLayerKey(shown, { emotion });
-    if (key) faceFor(key).emotions.push(emotion);
+    const fresh = freshFace(shown.expressionMap[emotion], fromSprites?.expressionMap[emotion]?.target);
+    const key = fresh ?? pickPngtuberLayerKey(shown, { emotion });
+    if (!key) continue;
+    const face = faceFor(key);
+    face.emotions.push(emotion);
+    if (!fresh && key !== emotion && key !== shown.expressionMap[emotion]?.target) face.borrowed.push(emotion);
   }
   for (const feeling of AVATAR_EXTRA_FEELINGS) {
     const binding = shown.feelingMap?.[feeling];
@@ -290,6 +295,57 @@ export function talkingHeadFaces(
     if (key) faceFor(key).feelings.push(feeling);
   }
   return [...faces.values()];
+}
+
+/** The 29 faces the face maker makes for a talking head: the six main faces first, so a run cut short already has
+ *  every face the others fall back to, then the 23 extra feelings. */
+export const TALKING_HEAD_FACE_KEYS: readonly (AvatarEmotion | AvatarExtraFeeling)[] = [
+  ...AVATAR_EMOTIONS,
+  ...AVATAR_EXTRA_FEELINGS,
+];
+
+/** The faces of TALKING_HEAD_FACE_KEYS with no face sprite saved yet, in that order. A portrait sprite in any
+ *  folder is a face's when its name or its file name is the face's, ignoring case and a variant number
+ *  (`Happy`, `happy_2`). Talk, blink and full-body sprites never count, and neither does the face a feeling falls
+ *  back to: a face under another name (`joy`, `smirk`) leaves the feeling missing. */
+export function missingTalkingHeadFaces(sprites: readonly SpriteLike[]): (AvatarEmotion | AvatarExtraFeeling)[] {
+  const saved = new Set(
+    sprites
+      .filter((sprite) => !isFullBodySprite(sprite.expression) && !isSpriteVariant(sprite.label ?? sprite.expression))
+      .flatMap((sprite) => [sprite.label ?? "", sprite.expression].map(spriteExpressionFacetKey)),
+  );
+  return TALKING_HEAD_FACE_KEYS.filter((key) => !saved.has(key));
+}
+
+/** The blink and talk pictures of the faces listed (talkingHeadFaces): saved, still to make (a face with a sprite to
+ *  draw them from) and waiting for a missing face (missingTalkingHeadFaces), the ones blockedFaces names. A missing
+ *  face waits unless a row with a sprite is its own face: a feeling shown by a face of another name (`scared` for
+ *  fear) has that row's pictures, so it isn't counted twice, but one only on the resting face waits, and so does one
+ *  kept after its sprite was deleted. Nothing waits in a PNGTuber Plus import, which sprite faces never join.
+ *  `total` is every picture, so at most 58 while each row is some feeling's own face. */
+export function talkingHeadPictureCoverage<Face extends string>(
+  shown: Pick<PngtuberAvatarData, "source"> | null | undefined,
+  faces: readonly TalkingHeadFace[],
+  missingFaces: readonly Face[],
+  hasPicture: (ref: AvatarImageRef | undefined) => boolean,
+): { saved: number; missing: number; waiting: number; blockedFaces: Face[]; total: number } {
+  const ownOf = (face: TalkingHeadFace): string[] => [
+    ...face.emotions.filter((emotion) => !face.borrowed.includes(emotion)),
+    ...face.feelings,
+  ];
+  const rowOf = (key: string) => faces.find((face) => ownOf(face).includes(key));
+  const blockedFaces = shown?.source === "pngtuber-plus" ? [] : missingFaces.filter((key) => !rowOf(key)?.label);
+  const unlisted = blockedFaces.filter((key) => !rowOf(key)).length;
+  let saved = 0;
+  let missing = 0;
+  let waiting = unlisted * 2;
+  for (const face of faces) {
+    const unsaved = Number(!hasPicture(face.set.eyesClosed)) + Number(!hasPicture(face.set.mouthOpen));
+    saved += 2 - unsaved;
+    if (face.label) missing += unsaved;
+    else if (ownOf(face).some((key) => (blockedFaces as readonly string[]).includes(key))) waiting += unsaved;
+  }
+  return { saved, missing, waiting, blockedFaces, total: (faces.length + unlisted) * 2 };
 }
 
 /** The picture of a layer set for the mouth and eyes right now; a missing variant falls back to one the set

@@ -42,7 +42,25 @@ You can make a generated image again without regenerating the reply it belongs t
 3. Change what you want in the boxes under the picture: **Prompt**, **Negative prompt**, a box for each character under **Character prompts** when the image had them, and the image model.
 4. Click **Generate image**, or **Cancel** to leave the image as it is.
 
-The new image replaces the old one in the message. The old one stays in the Gallery, so you can pin it again. Reference pictures are sent again from the characters' current avatars. Some older images did not save their negative prompt and character prompts; the editor says so when that is the case.
+The new image becomes the selected version in the message. Earlier results stay together in one Gallery tile with a version count. Each version keeps its saved prompt, negative prompt and other saved generation details. Reference pictures are sent again from the characters' current avatars, followed by the lorebook entry pictures the image was first drawn with. Stability AI, Arli AI, SD Web UI and Draw Things get no entry pictures. Some older images did not save their negative prompt and character prompts; the editor says so when that is the case.
+
+### Image versions
+
+Open a stacked image to choose a version. In a Gallery, left/right arrows, arrow keys and horizontal swipes move between tiles. Opening an image from a chat message stays within that image's stack. Up/down controls, arrow keys and vertical swipes on the picture move between versions in the current stack. Zoom out before navigating. Scrolling the prompt does not change versions.
+
+Click the picture, prompt header or collapse button to use Up/Down for versions. Click prompt text or a copy button to use Up/Down for scrolling instead. Version controls also stay visible while regenerating or editing. Apply or clear a painted mask before switching versions; controls pause while generation runs.
+
+The version you choose is saved and shown in the chat, including after a reload. Regenerating or editing an older version adds a new result to the same stack and keeps the later versions too. A branched chat has its own selection.
+
+With **Automatically save generated images to character galleries** enabled, regenerations and edits keep the original image's character and persona gallery destinations. Those galleries group the versions too. Each gallery saves its own selected version, so browsing there does not change the picture selected in chat. Gallery entries share the saved image files; they do not make extra copies. Opening a gallery also restores missing versions from older chat stacks when their original gallery entry still links to the source chat. Versions deleted from an already grouped gallery stay deleted.
+
+In the chat Gallery, use **Delete gallery image** on the tile, or the delete button in the viewer, to choose what to remove:
+
+- **Delete this version** removes the displayed version. If it was selected, the newest remaining version is shown.
+- **Delete other versions** keeps the displayed version and removes the rest.
+- **Delete entire stack** removes every version and its image attachments from the chat.
+
+These choices permanently delete the saved versions. **Cancel** keeps them all.
 
 ## Related guides
 

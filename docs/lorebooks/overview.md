@@ -120,6 +120,25 @@ Each row has **Copy** (duplicates the lorebook) and **Delete** buttons. They app
 
 A category is a label for your library. It does not change when the lorebook activates. The tabs are **All**, **Active** (lorebooks relevant to the open chat), **World**, **Character**, **NPC**, **Spellbook** and **Other**. You can change a lorebook's category on its **Overview** tab, where **Other** is called **Uncategorized**.
 
+### Save a lorebook set
+
+A lorebook set is a named group of lorebooks that you use together, such as the lorebooks for one setting. You pick the whole group at once instead of each lorebook. A set points to your lorebooks and does not copy them.
+
+1. In the **Lorebooks** panel, click **New set**. The new set opens under **Lorebook Sets**.
+2. Type a name in **Set name**.
+3. Click **Choose lorebooks** and tick the lorebooks for the set. Each change saves by itself.
+
+To edit a set later, click it under **Lorebook Sets**. Its **Delete set** button removes the set, and its lorebooks stay in your library. A lorebook you delete leaves every set.
+
+Pick a set in **Use a saved set**, above **Choose lorebooks**. The field appears once you have a set, in these places:
+
+- The **Attach Lorebooks** step of a new roleplay.
+- An agent's fixed source lorebooks, such as Knowledge Router's. See [Knowledge Sources: Retrieval and Router Agents](../agents/knowledge-sources.md#choose-the-sources).
+
+Picking a set replaces the lorebooks picked there. You can then add or remove lorebooks for that chat or agent, and the saved set does not change.
+
+To turn single entries on or off in one chat, open **Chat Settings → Lorebooks** and click the pencil icon (**Edit lorebook entries**) next to a lorebook. Each entry's switch there changes only that chat. Other edits there change the lorebook itself.
+
 ## Related guides
 
 - [Lorebook Entries: Keys, Position, and Timing](entries.md)

@@ -6,11 +6,11 @@ import { mkdir, readFile, readdir, unlink } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import {
   inferImageSource,
+  imageEditValidationError,
   isNativeNovelAiUrl,
   isOpenAIGptImageModel,
   MAX_THEME_META_BYTES,
   themeMetaSchema,
-  resolveImageBackend,
   type ImageGenerationDefaultsProfile,
   type ImagePromptKind,
   type ImageStyleProfileSettings,
@@ -1854,21 +1854,11 @@ export class MariImagesService {
     const imgBaseUrl = connection.baseUrl || "https://image.pollinations.ai";
     const imgSource = connection.imageGenerationSource || imgModel;
     const imgServiceHint = connection.imageService || imgSource;
-    const isNativeNovelAi =
-      resolveImageBackend(imgSource, imgBaseUrl, imgServiceHint, imgModel) === "novelai" &&
-      isNativeNovelAiUrl(imgBaseUrl);
-
-    if (input.editMode) {
-      if (!isNativeNovelAi) {
-        throw new MariImageValidationError("Image-to-image and inpainting edits require a native NovelAI connection.");
-      }
-      if (input.editMode === "infill" && !input.maskImage?.trim()) {
-        throw new MariImageValidationError("Inpainting requires a painted mask.");
-      }
-    }
-    if (input.reuseSeed && !isNativeNovelAi) {
-      throw new MariImageValidationError("Reusing the original seed requires a native NovelAI connection.");
-    }
+    const editError = imageEditValidationError(
+      { source: imgSource, baseUrl: imgBaseUrl, serviceHint: imgServiceHint, model: imgModel },
+      input,
+    );
+    if (editError) throw new MariImageValidationError(editError);
 
     let previewBuffer: Buffer | null = null;
     if (input.editMode || (input.reuseSeed && previous.seed === undefined)) {

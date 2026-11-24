@@ -277,6 +277,9 @@ try {
     label: "data-url",
     original: "2000x1000",
     sent: "1024x512",
+    bytes: Buffer.from(seen.images[0]!.split(",")[1]!, "base64").length,
+    sizeLimited: false,
+    transparency: { present: false, partial: false, previewBackground: null },
   });
   assert.equal(seen.output.looked[1]!.label, `asset:${generated.asset.id}`);
   // Small pictures (stickers, weather sprites) are enlarged so their outlines and edge colours can be judged.
@@ -293,8 +296,73 @@ try {
   mkdirSync(backgroundsDir, { recursive: true });
   writeFileSync(join(backgroundsDir, "glass.png"), transparent);
   const alpha = await look("look", "/api/backgrounds/file/glass.png");
-  assert.match(alpha.images[0]!, /^data:image\/png;base64,/, "a transparent picture stays PNG");
+  assert.match(alpha.images[0]!, /^data:image\/jpeg;base64,/, "transparent previews are compact JPEGs too");
+  assert.deepEqual(alpha.output.looked[0]!.transparency, {
+    present: true,
+    partial: false,
+    previewBackground: "checkerboard",
+  });
   assert.equal(alpha.output.looked[0]!.label, "background:glass.png");
+  assert.deepEqual(readFileSync(join(backgroundsDir, "glass.png")), transparent, "the original alpha stays intact");
+
+  // Fully opaque RGBA must use JPEG; detailed pictures must fit the byte budget after resizing/compression.
+  let seed = 19;
+  const noise = Buffer.alloc(832 * 1216 * 4);
+  for (let offset = 0; offset < noise.length; offset += 4) {
+    for (let channel = 0; channel < 3; channel++) {
+      seed ^= seed << 13;
+      seed ^= seed >>> 17;
+      seed ^= seed << 5;
+      noise[offset + channel] = seed & 255;
+    }
+    noise[offset + 3] = 255;
+  }
+  const detailed = await sharp(noise, { raw: { width: 832, height: 1216, channels: 4 } })
+    .png()
+    .toBuffer();
+  writeFileSync(join(backgroundsDir, "detailed.png"), detailed);
+  const bounded = await look("look", "/api/backgrounds/file/detailed.png", "/api/backgrounds/file/detailed.png");
+  for (const [index, preview] of bounded.images.entries()) {
+    assert.match(preview, /^data:image\/jpeg;base64,/);
+    const bytes = Buffer.from(preview.split(",")[1]!, "base64");
+    assert.ok(bytes.length <= 256 * 1024, `preview uses ${bytes.length} bytes`);
+    assert.equal(bounded.output.looked[index]!.bytes, bytes.length);
+    assert.equal(bounded.output.looked[index]!.sizeLimited, true);
+    assert.deepEqual(bounded.output.looked[index]!.transparency, {
+      present: false,
+      partial: false,
+      previewBackground: null,
+    });
+  }
+
+  // Binary alpha and partial alpha are different facts. The checkerboard is visible only behind transparent pixels.
+  const rgba = Buffer.alloc(64 * 32 * 4);
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 64; x++) {
+      const at = (y * 64 + x) * 4;
+      rgba[at] = 255;
+      rgba[at + 3] = x < 32 ? 0 : x < 48 ? 128 : 255;
+    }
+  }
+  const mixed = await sharp(rgba, { raw: { width: 64, height: 32, channels: 4 } })
+    .png()
+    .toBuffer();
+  writeFileSync(join(backgroundsDir, "mixed.png"), mixed);
+  const mixedLook = await look("look", "/api/backgrounds/file/mixed.png");
+  assert.deepEqual(mixedLook.output.looked[0]!.transparency, {
+    present: true,
+    partial: true,
+    previewBackground: "checkerboard",
+  });
+  assert.match(JSON.stringify(mixedLook.output), /checkerboard.*transparen/i, "explain the preview background");
+  const pixels = await sharp(Buffer.from(mixedLook.images[0]!.split(",")[1]!, "base64"))
+    .removeAlpha()
+    .raw()
+    .toBuffer();
+  const pixel = (x: number, y: number) => [...pixels.subarray((y * 64 + x) * 3, (y * 64 + x) * 3 + 3)];
+  assert.ok(Math.abs(pixel(8, 8)[0]! - pixel(24, 8)[0]!) > 30, "transparent area shows alternating checks");
+  assert.ok(pixel(56, 8)[0]! > 240 && pixel(56, 8)[1]! < 20, "opaque red survives compositing");
+  assert.ok(pixel(40, 8)[0]! > pixel(40, 8)[1]! + 60, "partial red blends over the checks");
   const byTarget = await look("look", "--target", "asset", "--asset", generated.asset.id);
   assert.equal(byTarget.images.length, 1, "--target asset --asset names one picture, not two");
   assert.match(await refused("look"), /Usage: mari images look/);

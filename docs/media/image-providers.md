@@ -66,7 +66,7 @@ Notes for the simple services:
 - **Together AI**: FLUX and other open image models.
 - **OpenRouter Images**: reaches image models through OpenRouter's chat interface, so the models vary by account.
 - **xAI / Grok Imagine**: uses Grok Imagine.
-- **NanoGPT**: an aggregator, so use its model list.
+- **NanoGPT**: an aggregator, so use its model list. Marinara sends each model the sizes NanoGPT lists for it, for example `1.5k` with an aspect ratio instead of `1344x768`, and only as many reference images as the model takes. If a model refuses a negative prompt, Marinara draws the picture without one and logs a warning on the server.
 - **Pollinations**: the fastest way to try image generation. No account needed.
 - **Stable Horde**: a crowdsourced network. A free key gives higher queue priority.
 - **SD Web UI** and **Draw Things**: start the software with its application interface turned on. Marinara treats Draw Things like an AUTOMATIC1111 server (the app runs on macOS or iOS).
@@ -155,6 +155,20 @@ The **ComfyUI workflow (optional)** field can stay empty. Leave it empty to use 
 
 When a service returns a URL instead of image data, Marinara downloads public CDN URLs through its normal outbound-request checks. A private or loopback result URL is accepted only when its scheme, hostname and port exactly match the configured image service. Redirects from that origin cannot jump to another local service. If a local proxy stores results on a different private origin, make it serve those files through the same origin as its image API.
 
+## Edit an existing picture
+
+Open a picture in a gallery and choose **Regenerate image**. For an avatar, choose **Edit avatar** in a character or persona editor. Select an image model, then choose **Edit image**. The controls depend on the selected service:
+
+| Service                           | Whole-image edits | Painted-mask edits |
+| --------------------------------- | ----------------- | ------------------ |
+| Native NovelAI                    | Yes               | Yes                |
+| SD Web UI (AUTOMATIC1111 / Forge) | Yes               | Yes                |
+| Draw Things                       | Yes               | No                 |
+
+Change the prompt and **Strength**, then choose **Apply edit**. Where mask tools are available, paint the area to redraw and choose **Inpaint image**. **Noise** and **Reuse original seed** are available only for native NovelAI. Other services still support ordinary regeneration with a changed prompt.
+
+Edits use the displayed picture as their source canvas. Changing to a service without mask support clears the painted mask. An avatar edit stays a preview until you choose **Use as avatar**.
+
 ## ComfyUI workflow JSON and RunPod
 
 For **ComfyUI**, **SwarmUI** and **RunPod Serverless (ComfyUI)** a **ComfyUI workflow (optional)** or **(required)** field appears. Paste a workflow JSON you exported from ComfyUI with **Save (API Format)**, **Export (API)** or **Export to API**, depending on your ComfyUI version. It is optional for ComfyUI and SwarmUI and required for RunPod, which needs your RunPod API token as the API key, a **RunPod endpoint ID** and the workflow.
@@ -221,7 +235,7 @@ A reference image is an existing picture you send with your prompt, so the new i
 | ChatGPT (Codex login)                           | Up to 16                                                              |
 | NovelAI                                         | Up to 16, V4.5 model only                                             |
 | xAI / Grok Imagine                              | Up to 3                                                               |
-| NanoGPT                                         | Up to 3                                                               |
+| NanoGPT                                         | Up to 3, within the model's limit. None for text-to-image models      |
 | ComfyUI, RunPod Serverless (ComfyUI), SwarmUI   | Up to 4, through workflow placeholders                                |
 | Stability AI, Arli AI, SD Web UI, Draw Things   | First image only, as image to image                                   |
 | Atlas Cloud                                     | First image, for compatible image-to-image, edit or Kontext model IDs |

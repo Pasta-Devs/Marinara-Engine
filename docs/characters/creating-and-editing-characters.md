@@ -96,7 +96,7 @@ The **Card** tab is the main writing workspace. Jump links at the top skip to an
 
 **Public Face** is what the rest of the cast could see or know about the character: looks, manner, role, reputation, and relationships that are no secret. Leave out secrets, inner thoughts, private history and instructions on how to play the character. It is never sent as part of this character's card. A prompt reads it only where you place the `{{publicFace}}` macro, or `{{personaPublicFace}}` for your persona. See [Prompt Macros](../prompts/macros.md#identity-character-and-persona-macros). In an Individual Roleplay group chat, **Others' Public Faces** sends it to the other characters' turns. See [More Individual settings](../chats/group-chats.md#more-individual-settings). An agent whose **Characters** or **Persona** source is set to **Public Face** reads it instead of the card. See [Other settings](../agents/custom-agents.md#other-settings). With **Send Public Faces** on, Impersonate in Roleplay reads it instead of the card. See [The Impersonate settings](../chats/guided-and-impersonate.md#the-impersonate-settings).
 
-**Appearance** has two tabs, **Prose** and **Image tags**. **Prose** is the appearance text itself. **Image tags** holds short tags for image prompts, such as a LoRA trigger word (a keyword that switches on a custom image style). Typing tags ticks **Use for image prompts**, and a dot on the tab shows they are in use. While it is ticked and the tags are filled, image prompts use those tags exactly as written, with the prose kept as background. Untick it to keep the tags without using them: image prompts then fall back to **Prose**. An AI avatar prompt is seeded from the tags too. The narrator always sees the **Prose** text. The **Images** tab links here with **Go to Appearance**.
+**Appearance** has two tabs, **Prose** and **Image tags**. **Prose** is the appearance text itself. **Image tags** holds short tags for image prompts, such as a LoRA trigger word (a keyword that switches on a custom image style). Typing tags ticks **Use for image prompts**, and a dot on the tab shows they are in use. While it is ticked and the tags are filled, image prompts use those tags exactly as written, with the prose kept as background. Untick it to keep the tags without using them: image prompts then fall back to **Prose**. An AI avatar prompt is seeded from the tags too. The narrator always sees the **Prose** text. The **Images** tab links here with **Go to Appearance**. The tab has its own wand. See [Image tags from the wand](#image-tags-from-the-wand).
 
 The **Dialogue & Greetings** section sets how a chat opens and how the character sounds:
 
@@ -114,18 +114,29 @@ Greetings and example messages can show images from the character's Gallery. See
 
 ### Write a card field with the wand
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Public Face**, **Example Dialogue**, **First Message** and each **Alternate Greeting** have an icon-only wand button above the field. Its tooltip names the field it writes.
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance** (both its tabs), **Scenario**, **Public Face**, **Example Dialogue**, **First Message** and each **Alternate Greeting** have an icon-only wand button above the field. Its tooltip names the field it writes.
 
 Before you start: set up a working text connection. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
 1. Write any ideas you want to keep in the field, such as `smart, scientist, handsome`, or leave it empty.
 2. Fill in any other card fields you want the AI to use as reference. You do not need to save first.
-3. Click the field's wand. Marinara asks for 100–300 words for that field, using your text as the starting details. Example Dialogue asks for sample exchanges. **First Message** and each **Alternate Greeting** ask for one opening message that leaves your reply open. **Public Face** has no word range: its wand rewrites the rest of the card without the private parts, so the length follows your card.
+3. Click the field's wand. Marinara asks for 100–300 words for that field, using your text as the starting details. Example Dialogue asks for sample exchanges. **First Message** and each **Alternate Greeting** ask for one opening message that leaves your reply open. **Public Face** has no word range: its wand rewrites the rest of the card without the private parts, so the length follows your card. On the **Image tags** tab of **Appearance**, the wand turns the card's appearance into one line of image tags instead. See [Image tags from the wand](#image-tags-from-the-wand).
 4. Edit the result, then click **Save**.
 
 The wand uses your default agent text connection, or your default text connection if there is none. A configured agent fallback connection still applies.
 
 The wand replaces only the chosen field in your unsaved draft. If generation fails, your text stays. If you edit that field while waiting, or switch to another card, a late result does not overwrite your work. You do not need Professor Mari to use the wand.
+
+#### Image tags from the wand
+
+The wand on the **Image tags** tab of **Appearance** writes the tags from your card's appearance text, mainly **Appearance** itself. It ticks **Use for image prompts**.
+
+- Tags already in the box that your appearance text doesn't explain, such as a LoRA trigger word, stay exactly as you wrote them, at the start of the line.
+- After them come the new tags: `1girl`, `1boy` or `1other`, then lasting traits: body, hair, eyes, skin, face and markings. With no tags kept, the line starts with `1girl`, `1boy` or `1other`.
+- The new tags are in English, lowercase, in the style image models know from Danbooru (an anime image site whose tags many models learned), separated by commas.
+- The new tags use only traits your card states. Clothing, expressions, poses and places are left out, because they change from scene to scene.
+
+The tags come from the model, not from a list of real Danbooru tags, so a tag can be worded in a way your image model doesn't know. Check the line and edit it before you save.
 
 ## Add an avatar
 
@@ -188,7 +199,7 @@ Rules:
 - A chat can use only one alternative per field. Ticking a chat in another alternative, or picking another one in Chat Settings, moves it there.
 - With no chats ticked, the alternative stays inactive for later.
 - An empty alternative clears that field in its chats.
-- An **Appearance** alternative has its own **Prose** and **Image tags** tabs. In its chats, its tags replace the card's. With its tags empty or unticked, image prompts use the alternative's prose, never the card's tags. A new alternative copies the card's tags too.
+- An **Appearance** alternative has its own **Prose** and **Image tags** tabs. In its chats, its tags replace the card's. With its tags empty or unticked, image prompts use the alternative's prose, never the card's tags. A new alternative copies the card's tags too. Its **Image tags** tab has its own wand, which reads the alternative's prose and tags.
 - Chat-specific scenario and image appearance overrides still win.
 - **Summary** alternatives stay metadata and are not sent to the AI.
 - If the character leaves a chat, its assignment pauses and resumes when you add the character again.

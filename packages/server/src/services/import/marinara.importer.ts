@@ -7,7 +7,12 @@ import {
 // ──────────────────────────────────────────────
 // Import: Marinara Engine native format (.marinara.json)
 // ──────────────────────────────────────────────
-import { normalizeGalleryDescription, type GalleryTagKind } from "@marinara-engine/shared";
+import {
+  parseChatImageGenerationRecord,
+  normalizeGalleryDescription,
+  type ChatImageGenerationRecord,
+  type GalleryTagKind,
+} from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { readGalleryTagPayload } from "../image/gallery-tag-payload.js";
 import { inArray } from "../../db/file-query.js";
@@ -288,6 +293,10 @@ async function restoreOwnerGallery(
   createImage: (input: {
     filePath: string;
     prompt: string;
+    generation?: ChatImageGenerationRecord | null;
+    variantGroupId?: string | null;
+    variantSelected?: number;
+    createdAt?: string;
     provider: string;
     model: string;
     width?: number;
@@ -351,6 +360,13 @@ async function restoreOwnerGallery(
       const restored = await createImage({
         filePath: `${ownerFolder}/${ownerId}/${safeFilename}`,
         prompt: typeof entry.prompt === "string" ? entry.prompt : "",
+        generation: parseChatImageGenerationRecord(entry.generation),
+        variantGroupId: typeof entry.variantGroupId === "string" ? entry.variantGroupId : null,
+        variantSelected: entry.variantSelected === 1 ? 1 : 0,
+        createdAt:
+          typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))
+            ? entry.createdAt
+            : undefined,
         provider: typeof entry.provider === "string" ? entry.provider : "",
         model: typeof entry.model === "string" ? entry.model : "",
         width: typeof entry.width === "number" ? entry.width : undefined,

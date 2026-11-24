@@ -420,7 +420,12 @@ export function BackgroundsPage() {
             ] as const
           ).map(([value, key]) => (
             <option key={value} value={value}>
-              {sourceCounts[value] !== null ? `${t(key)} (${sourceCounts[value]})` : t(key)}
+              {sourceCounts[value] !== null
+                ? t("ui.layout.personalextensiontopbarbuttons.value1Value2", {
+                    value1: t(key),
+                    value2: sourceCounts[value],
+                  })
+                : t(key)}
             </option>
           ))}
         </select>
@@ -808,7 +813,10 @@ function BackgroundDetail({
               : "ui.panels.backgroundpicker.myUpload",
           )}
           {background.folderId
-            ? ` · ${library.folders.find((folder) => folder.id === background.folderId)?.name ?? ""}`
+            ? " " +
+              t("ui.characters.characterversionhistorypanel.value1", {
+                value1: library.folders.find((folder) => folder.id === background.folderId)?.name ?? "",
+              })
             : ""}
         </p>
         {editable ? (

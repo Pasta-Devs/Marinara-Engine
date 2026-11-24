@@ -1,10 +1,9 @@
 import { useState, type ChangeEventHandler, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { ArrowDown, ArrowUp, MoreHorizontal, Save, User } from "lucide-react";
+import { ArrowDown, ArrowUp, MoreHorizontal, User } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { EditorTabNavigation, type EditorTabItem } from "../ui/EditorTabNavigation";
 import { useTranslation } from "react-i18next";
-import { SurfaceBackButton } from "../ui/SurfaceBackButton";
-import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
+import { EditorHeader, EditorSaveButton } from "../ui/EditorHeader";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 
 interface CardEditorProps<T extends string> {
@@ -115,21 +114,16 @@ export function CardEditor<T extends string>({
 
   return (
     <>
-      <div
+      <EditorHeader
+        onBack={onBack}
+        busy={busy}
         className={cn(
-          "mari-editor-header mari-editor-header--with-nav mari-editor-header--card",
+          "mari-editor-header--card",
           variant === "character" && "mari-editor-header--dense",
           hideHeader && "!hidden",
         )}
-      >
-        <div className="mari-editor-header-main mari-editor-header-main--identity">
-          <SurfaceBackButton
-            onClick={onBack}
-            disabled={busy}
-            className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
-          />
-
-          {/* Avatar */}
+        mainClassName="mari-editor-header-main--identity"
+        tile={
           <div
             className={cn(
               "mari-editor-avatar-tile group relative",
@@ -168,7 +162,8 @@ export function CardEditor<T extends string>({
               onChange={onAvatarFileChange}
             />
           </div>
-
+        }
+        title={
           <div className="min-w-0 flex-1">
             <div className="mari-editor-title-line">
               <input
@@ -201,53 +196,47 @@ export function CardEditor<T extends string>({
               />
             </div>
           </div>
-        </div>
-
-        <EditorTabNavigation tabs={tabs} activeId={activeTab} onChange={onTabChange} />
-
-        <div className="mari-editor-actions flex">
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={saveDisabled}
-            className={saveButtonClassName}
-            aria-label={saveLabel}
-            title={saveLabel}
-          >
-            <Save size="0.9375rem" />
-            <span className="mari-editor-save-label">{saveLabel}</span>
-          </button>
-          {actionsSlot}
-          {menuItems && menuItems.length > 0 && (
-            <button
-              type="button"
-              onClick={(event) => {
-                const rect = event.currentTarget.getBoundingClientRect();
-                setActionsMenu({ x: rect.right, y: rect.bottom + 4, keyboard: event.detail === 0 });
-              }}
-              className="mari-editor-action inline-flex"
-              title={moreLabel}
-              aria-label={moreLabel}
-              aria-haspopup="menu"
-              aria-expanded={!!actionsMenu}
-              data-card-editor-more
-            >
-              <MoreHorizontal size="1rem" />
-            </button>
-          )}
-          {actionsMenu && menuItems && (
-            <ContextMenu
-              x={actionsMenu.x}
-              y={actionsMenu.y}
-              autoFocus={actionsMenu.keyboard}
-              align="end"
-              items={menuItems}
-              onClose={() => setActionsMenu(null)}
+        }
+        nav={<EditorTabNavigation tabs={tabs} activeId={activeTab} onChange={onTabChange} />}
+        actions={
+          <>
+            <EditorSaveButton
+              label={saveLabel}
+              onClick={onSave}
+              disabled={saveDisabled}
+              className={saveButtonClassName}
             />
-          )}
-        </div>
-        <SurfaceCloseButton disabled={busy} dividerClassName="" />
-      </div>
+            {actionsSlot}
+            {menuItems && menuItems.length > 0 && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  setActionsMenu({ x: rect.right, y: rect.bottom + 4, keyboard: event.detail === 0 });
+                }}
+                className="mari-editor-action inline-flex"
+                title={moreLabel}
+                aria-label={moreLabel}
+                aria-haspopup="menu"
+                aria-expanded={!!actionsMenu}
+                data-card-editor-more
+              >
+                <MoreHorizontal size="1rem" />
+              </button>
+            )}
+            {actionsMenu && menuItems && (
+              <ContextMenu
+                x={actionsMenu.x}
+                y={actionsMenu.y}
+                autoFocus={actionsMenu.keyboard}
+                align="end"
+                items={menuItems}
+                onClose={() => setActionsMenu(null)}
+              />
+            )}
+          </>
+        }
+      />
 
       {/* Body */}
       {(wrapBody ?? ((body: ReactNode) => body))(

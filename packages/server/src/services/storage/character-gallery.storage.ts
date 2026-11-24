@@ -2,7 +2,7 @@
 // Storage: Character Gallery Images
 // ──────────────────────────────────────────────
 import { and, desc, eq, gte, isNull, lte } from "../../db/file-query.js";
-import type { GalleryTagKind } from "@marinara-engine/shared";
+import type { ChatImageGenerationRecord, GalleryTagKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { characterImages } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -10,8 +10,13 @@ import { newId, now } from "../../utils/id-generator.js";
 export interface CreateCharacterImageInput {
   characterId: string;
   sourceChatImageId?: string | null;
+  variantGroupId?: string | null;
+  variantSelected?: number;
+  variantHistoryRecovered?: number;
+  createdAt?: string;
   filePath: string;
   prompt?: string;
+  generation?: ChatImageGenerationRecord | null;
   provider?: string;
   model?: string;
   width?: number;
@@ -87,8 +92,12 @@ export function createCharacterGalleryStorage(db: DB) {
         id,
         characterId: input.characterId,
         sourceChatImageId: input.sourceChatImageId ?? null,
+        variantGroupId: input.variantGroupId ?? null,
+        variantSelected: input.variantSelected ?? 0,
+        variantHistoryRecovered: input.variantHistoryRecovered ?? 0,
         filePath: input.filePath,
         prompt: input.prompt ?? "",
+        generation: input.generation ? JSON.stringify(input.generation) : null,
         provider: input.provider ?? "",
         model: input.model ?? "",
         width: input.width ?? null,
@@ -96,7 +105,7 @@ export function createCharacterGalleryStorage(db: DB) {
         customKind: input.customKind ?? null,
         customName: input.customKind ? (input.customName ?? null) : null,
         description: input.description ?? null,
-        createdAt: now(),
+        createdAt: input.createdAt ?? now(),
       });
       return this.getById(id);
     },
@@ -110,6 +119,14 @@ export function createCharacterGalleryStorage(db: DB) {
       await db
         .update(characterImages)
         .set({ filePath: patch.filePath, width: patch.width, height: patch.height })
+        .where(eq(characterImages.id, id));
+      return this.getById(id);
+    },
+
+    async setGeneration(id: string, generation: ChatImageGenerationRecord) {
+      await db
+        .update(characterImages)
+        .set({ generation: JSON.stringify(generation) })
         .where(eq(characterImages.id, id));
       return this.getById(id);
     },
