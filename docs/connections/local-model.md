@@ -11,7 +11,7 @@ If the **Built-in model** card is missing, you have a "Lite" install, a slimmed-
 Before you start, make sure you have free disk space and memory (RAM) for the model. The sizes are in the table below.
 
 1. Click **Connections** in the top bar.
-2. Find the **Built-in model** card under the **Jobs** box. It says **Not downloaded**.
+2. Find the **Built-in model** card under the **Jobs** summary. It says **Not downloaded**.
 3. Click the card, or click its **Download** button. A window titled **Built-in model** opens.
 4. Under **Which model?**, pick a model. **Gemma 4 E2B — Q8 (Best Quality)** is tagged **Recommended**. If your computer has little memory, pick **Q4_K_M**. It needs about 3.4 GB of RAM instead of 5.4 GB.
 5. Click the **Download** button at the bottom. It shows the model size, for example **Download 5.0 GB**.

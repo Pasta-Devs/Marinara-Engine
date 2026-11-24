@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { openJobsPage } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -82,6 +83,9 @@ test("Job settings open in a window and retain inherited Main without changing f
   await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
   await page.goto("/");
   const panel = page.locator("[data-connections-panel]").filter({ visible: true });
+  // Every job but Main is on the Jobs page.
+  await openJobsPage(page);
+  const followsMain = panel.locator('[data-jobs-section="follows-main"] [data-defaults-tile="agents"]');
   for (const key of ["agents", "decision"]) {
     const row = panel.locator(`[data-defaults-role="${key}"]`);
     const gear = row.getByRole("button", { name: /settings/i });
@@ -130,7 +134,7 @@ test("Job settings open in a window and retain inherited Main without changing f
   await main.click();
   await expect(dialog).toBeHidden();
   expect(patches).toEqual([]);
-  await expect(agents).toContainText("Follows Main");
+  await expect(followsMain).toBeVisible();
   await page.evaluate(async () => {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
     useUIStore.setState({ connectionsGroupBy: "folder" });
@@ -155,11 +159,12 @@ test("Job settings open in a window and retain inherited Main without changing f
   await dialog.locator('[data-switcher-section="now"] [data-switcher-entry="inline-main"]').click();
   await expect(dialog).toBeHidden();
   expect(patches).toEqual([]);
-  await expect(agents).toContainText("Follows Main");
+  await expect(followsMain).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   if (info.project.name === "desktop-chromium") {
     await page.setViewportSize({ width: 768, height: 960 });
     await page.reload();
+    await openJobsPage(page);
     const row = panel.locator('[data-defaults-role="agents"]');
     await row.getByRole("button", { name: /settings/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();

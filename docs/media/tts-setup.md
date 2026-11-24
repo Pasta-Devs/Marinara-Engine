@@ -7,13 +7,13 @@ Text to speech (TTS) reads chat messages and game narration out loud. This guide
 1. Click **Connections** in the top bar, then click **Add**.
 2. Click **Voice** in the type chips, pick a service, and paste your key into **API key**. Click **Connect**.
 3. Under **Found in … — use it for:**, tick **Voice**, then click **Done**. Picking a Voice model is the on switch.
-4. Click the gear of the **Voice** row in the **Jobs** box, then click **Preview** to hear a sample. In a chat, click **Speak** under a message.
+4. Click the gear beside **Voice** on the **Jobs** page, then click **Preview** to hear a sample. In a chat, click **Speak** under a message.
 
 ## Turn on text to speech
 
 Picking a model for the **Voice** job turns text to speech on. It does not make anything speak by itself. It shows the **Speak** button on each message and the **Auto-play** options. You still choose what is read and when.
 
-1. Click **Connections** in the top bar. Find the **Voice** row under **Pictures & sound** in the **Jobs** box.
+1. Click **Connections** in the top bar, then click **All jobs** under **Jobs**. Find **Voice**.
 2. Click the row and pick a voice model or a voice service. The row shows your pick.
 3. Click the gear of the row to open the voice settings. If you have no voice account yet, click **Add** in the row, or add one as in the quick start.
 4. To turn text to speech off, click the row and choose **Turn voice off**. The row shows **Off**, and nothing is read aloud.
@@ -33,7 +33,7 @@ Requests go through Marinara's own server. Your API key is stored encrypted on t
 
 If you already added an **Audio** account (see [Supported AI Providers](../connections/providers-reference.md#audio)), you do not need to enter its details again. Its voice models appear in the **Voice** picker.
 
-1. Click the **Voice** row in the **Jobs** box and pick the model.
+1. Click **Voice** on the **Jobs** page and pick the model.
 2. Click the gear of the row. Choose your voices and the other settings.
 
 Marinara then uses that account's address, key, model and **Request timeout (seconds)**, so the voice settings do not show those fields. The key stays in the account and is never copied into the voice settings or sent to your browser. Changes to the account, such as a new key, apply at once.
@@ -65,7 +65,7 @@ PocketTTS is not built into Marinara. Install [the official PocketTTS server](ht
 
 ### Request timeout
 
-Marinara waits up to 60 seconds for each spoken line. A voice server on your own computer, especially a laptop, can need longer for a long line. Raise **Request timeout (seconds)** under **More** in **Voice settings** (the gear on the **Voice** row in the **Jobs** box). The range is 10 to 3,600 seconds.
+Marinara waits up to 60 seconds for each spoken line. A voice server on your own computer, especially a laptop, can need longer for a long line. Raise **Request timeout (seconds)** under **More** in **Voice settings** (the gear beside **Voice** on the **Jobs** page). The range is 10 to 3,600 seconds.
 
 An Audio account has its own **Request timeout (seconds)**, below **Default voice** in its model's **Edit model** window and in **Voice settings**. Chats that speak through an Audio account, including one picked for the **Voice** job, use that limit. The limit in **Voice settings** covers speech from those settings, including **Preview**. If a line takes too long, the error says how many seconds Marinara waited and which setting to raise.
 
@@ -176,7 +176,7 @@ If the voice mispronounces a character or persona name, add a **Phonetic name** 
 
 ## Troubleshooting
 
-- **Nothing speaks**: check that the **Voice** row in the **Jobs** box is not **Off**. Then check the right **Auto-play** toggle, or use **Speak** on a message.
+- **Nothing speaks**: check that **Voice** on the **Jobs** page is not under **Off**. Then check the right **Auto-play** toggle, or use **Speak** on a message.
 - **The Voice row shows The voice account is missing**: the account behind the voice model was deleted or cannot be used. Pick another voice model. See [Use a Voice model from an account](#use-a-voice-model-from-an-account).
 - **No voices in the list**: check that the **Voice** row has a model and a valid key, then click **Refresh voices from provider**. The official PocketTTS server uses Marinara's built-in list. For a compatible PocketTTS wrapper, check that `<Base URL>/v1/voices` responds.
 - **ElevenLabs will not speak**: pick a real voice, not the "Select an ElevenLabs voice" placeholder. Check that the voice model is a speech model, not a voice-design model whose ID contains `ttv`.

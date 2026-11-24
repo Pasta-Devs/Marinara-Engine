@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { hideExistingItems } from "./connections-panel.js";
+import { hideExistingItems, openJobsPage } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -70,7 +70,8 @@ test("the decision installer is reachable before setup, asks before turning on, 
     await screenshot("decision-installer-dark");
     return;
   }
-  await panel.locator('[data-defaults-role="decision"]').getByRole("button", { name: "Add", exact: true }).click();
+  // An empty Decision job is a chip in the Jobs page's Off row; with no decision model anywhere it opens Add.
+  await (await openJobsPage(page)).locator('[data-defaults-tile="decision"]').click();
   const openInstaller = page.getByRole("dialog").locator('[data-add-connection-service="decision_builtin"]');
   await expect(openInstaller).toBeVisible();
   await openInstaller.click();

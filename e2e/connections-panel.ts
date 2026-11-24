@@ -20,10 +20,26 @@ export async function hideExistingItems(page: Page, request: APIRequestContext, 
   return { items, hidden };
 }
 
-/** Variant D: a Model shows on its Connection's page; the panel search lists every Model first. */
+/**
+ * Variant D: a Model shows on its Connection's page; the panel search lists every Model first. The search box shows
+ * only from 8 Models, so with fewer the row is found in the list itself.
+ */
 export async function openConnectionsPanelModel(panel: Locator, name: string) {
-  await panel.getByRole("searchbox", { name: "Search models and accounts" }).fill(name);
+  const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
+  if (await search.count()) await search.fill(name);
   await panel.locator("[data-connection-id]").filter({ hasText: name }).first().click();
+}
+
+/** Opens the Jobs page from the summary at the top of the Connections panel, unless it shows already. */
+export async function openJobsPage(page: Page) {
+  await openConnectionsPanel(page);
+  const jobsPage = page.locator("[data-connections-jobs-page]").filter({ visible: true });
+  if (!(await jobsPage.count())) {
+    await showConnectionsList(page);
+    await page.locator("[data-connections-jobs-open]").filter({ visible: true }).first().click();
+  }
+  await expect(jobsPage).toBeVisible();
+  return jobsPage;
 }
 
 /**
@@ -58,21 +74,10 @@ export async function openDefaultsTile(page: Page, tile: "voice" | "stt") {
   await (await revealDefaultsTile(page, tile)).click();
 }
 
-/** Shows a Defaults tile without opening it: unfolds the box and its "more roles" list when needed. */
+/** Shows a job's row (or chip) on the Jobs page without opening it. */
 export async function revealDefaultsTile(page: Page, tile: "voice" | "stt") {
-  await openConnectionsPanel(page);
-  const tileButton = page.locator(`[data-defaults-tile="${tile}"]`).filter({ visible: true });
-  const mainTile = page.locator('[data-defaults-tile="main"]').filter({ visible: true });
-  if (!(await tileButton.count())) {
-    await showConnectionsList(page);
-    // The Defaults box remembers its fold; unfold it only when it is folded.
-    if (!(await mainTile.count()))
-      await page.locator('[data-connections-row="defaults"]').filter({ visible: true }).click();
-  }
-  await expect(mainTile).toBeVisible();
-  if (!(await tileButton.count())) {
-    await page.locator("[data-defaults-unused]").filter({ visible: true }).click();
-  }
+  const jobsPage = await openJobsPage(page);
+  const tileButton = jobsPage.locator(`[data-defaults-tile="${tile}"]`);
   await expect(tileButton).toBeVisible();
   return tileButton;
 }
@@ -81,13 +86,9 @@ export function ttsConfigCard(page: Page) {
   return page.locator('[data-component="TTSConfigCard"]').filter({ visible: true });
 }
 
-/** Opens a job's settings window from its gear in the Connections panel. */
+/** Opens a job's settings window from its gear on the Jobs page. */
 export async function openJobSettings(page: Page, job: string) {
-  await openConnectionsPanel(page);
-  const role = page
-    .locator("[data-connections-panel]")
-    .filter({ visible: true })
-    .locator(`[data-defaults-role="${job}"]`);
+  const role = (await openJobsPage(page)).locator(`[data-defaults-role="${job}"]`);
   await role.scrollIntoViewIfNeeded();
   await role.getByRole("button", { name: / settings$/ }).click();
   return page.getByRole("dialog");

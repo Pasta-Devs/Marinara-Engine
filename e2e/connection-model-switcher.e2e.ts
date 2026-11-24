@@ -202,8 +202,13 @@ async function showNow(menu: Locator) {
   if (await back.isVisible()) await back.click();
 }
 
+// A folded list keeps the account's saved Models in view under Saved; these tests read them with the rest.
 const modelRow = (picker: Locator, section: "starred" | "all", id: string) =>
-  picker.locator(`[data-switcher-section="${section}"] [data-switcher-model="${id}"]`);
+  picker.locator(
+    section === "all"
+      ? `:is([data-switcher-section="all"], [data-switcher-section="saved"]) [data-switcher-model="${id}"]`
+      : `[data-switcher-section="${section}"] [data-switcher-model="${id}"]`,
+  );
 
 async function expectNoHorizontalScroll(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -214,6 +219,14 @@ async function capture(page: Page, testInfo: TestInfo, name: string) {
   await page.screenshot({ path, animations: "disabled" });
   await testInfo.attach(name, { path, contentType: "image/png" });
 }
+
+// These tests read an account's whole model list. A long list below models of yours starts folded behind
+// "Browse all N models" (covered in connections-quick-wins.e2e.ts), so it is opened whenever it shows folded.
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator('[data-switcher-browse][aria-expanded="false"]').first(), (browse) =>
+    browse.click(),
+  );
+});
 
 test("quick picker lists scroll in chat and Professor Mari", async ({ page, request }, testInfo) => {
   await acquireMariThreadLock();

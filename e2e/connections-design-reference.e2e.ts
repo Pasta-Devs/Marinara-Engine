@@ -204,8 +204,9 @@ test("connections concept A reference renders without overflow", async ({ browse
         "Use letters",
         "Reset to default",
       ]);
-      // An outside press closes the menu (Escape would also close a narrow panel).
-      await panel.getByRole("searchbox").click();
+      // An outside press closes the menu (Escape would also close a narrow panel): the panel's top corner.
+      const corner = (await panel.boundingBox())!;
+      await page.mouse.click(corner.x + 2, corner.y + 2);
       await expect(menu).toHaveCount(0);
     }
 
@@ -223,11 +224,14 @@ test("connections concept A reference renders without overflow", async ({ browse
       await page.route("**/api/connections", (route) => route.fulfill({ json: [...connections, standalone] }));
       await page.reload();
       const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
-      await search.fill("Standalone fixture");
       const row = panel.locator('[data-connection-id="c-standalone"]');
-      await expect(row).toBeVisible();
-      expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-      await search.fill("");
+      // The search box shows from 8 Models; it lists a Model with no account in place.
+      if (await search.count()) {
+        await search.fill("Standalone fixture");
+        await expect(row).toBeVisible();
+        expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+        await search.fill("");
+      }
       await panel.locator('[data-connections-row="other"]').click();
       await expect(row).toBeVisible();
       expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -349,7 +353,9 @@ for (const [size, theme] of [
       .evaluate((el) => el.getBoundingClientRect().top);
     const nameBottom = await nanoHeading.evaluate((el) => el.getBoundingClientRect().bottom);
     expect(countTop).toBeGreaterThanOrEqual(nameBottom - 1);
-    await expect(claude.locator("[data-connection-group-heading]")).toContainText("1 starred · Plan");
+    // The plan word lives on the account's page now; the heading keeps the count.
+    await expect(claude.locator("[data-connection-group-heading]")).toContainText("1 starred");
+    await expect(claude.locator("[data-connection-group-heading]")).not.toContainText("Plan");
 
     // The usage meter: two windows, the limit reads as the problem; still there with the card folded.
     const claudeMeter = claude.locator("[data-connection-usage-meter]");

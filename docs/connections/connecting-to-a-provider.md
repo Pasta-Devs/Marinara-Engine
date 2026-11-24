@@ -52,9 +52,9 @@ If you start a chat before you have a model, Marinara opens the **Add account** 
 
 You manage accounts in the **Connections** panel. From top to bottom it shows:
 
-- A search box that filters the list as you type. Its label is **Search models and accounts**.
-- **Add**, which opens **Add account**, and **More actions** (three dots), which has **Import account**, **Export all accounts**, folding, and grouping. In a wide panel, the sort dropdown is beside the search. In a narrow panel, sorting is in **More actions**.
-- The **Jobs** box. It says which model does each job.
+- **Search models and accounts**, a search box that filters the list as you type. It shows once you have 8 models or more.
+- **Add**, which opens **Add account**, and **More actions** (three dots), which has **Import account**, **Export all accounts**, sorting, folding, and grouping.
+- The **Jobs** summary. It shows your **Main** model and one sentence about the other jobs. See [Choosing the model for each job](#choosing-the-model-for-each-job).
 - The **Built-in model** card. See [Built-in Model Setup](local-model.md).
 - Your accounts, each with its saved models under it. See [Organizing Connections](organizing-connections.md).
 
@@ -62,23 +62,27 @@ An **account** is one saved key, sign-in, or address for one service. If you use
 
 ## Choosing the model for each job
 
-A job is something a model does for you. The **Jobs** box lists them in four groups:
+A job is something a model does for you. **Main** writes replies in your chats, **Agents** runs the helper agents, and other jobs make pictures, speak or answer yes-or-no questions for agents.
 
-| Group | Jobs |
+The **Jobs** summary at the top of the panel shows the **Main** row and one sentence such as "Every other job follows Main, except Images." A job that follows Main uses the Main model. A job with a problem, such as a model whose account is off, gets its own line with a fix button.
+
+To see every job, click **All jobs** or the **Jobs** heading. The **Jobs** page lists them in this order:
+
+| Part | What it lists |
 | --- | --- |
-| **Chat** | **Main** writes replies in your chats. **Agents** runs the helper agents. **Impersonate** writes as you. |
-| **Omnibar** | **Professor Mari** and **Quick answers**. |
-| **Pictures & sound** | **Images**, **Video**, **Voice**, and **Dictation** when it is available. |
-| **Behind the scenes** | **Decision**, **Embeddings**, and **Image reading**. |
+| **Main** | The Main model, and its **If it fails** model when it has one. |
+| **Own model** | Jobs with a model of their own, and jobs with a problem to fix. |
+| **Follow Main**, **Follow Agents** | Jobs that use the Main or Agents model, as small buttons. |
+| **Off** | Jobs with no model yet, as small buttons. **Pick** means your accounts have models for it. **Add** means they have none, and **Set up** means the job needs something installed first. |
 
-Each row shows the model doing that job, or what the job does without one, such as **Follows Main** or **Off**. An empty job shows **N models found** with **Pick**, or **None in your accounts** with **Add**. The picker lists the models of every account that fit the job. **Add** opens the **Add account** window and returns you to the job. Click **Jobs** to fold the box.
+Every job is on the page once. Click **Connections** at the top of the page to go back to the list.
 
-To change the model for a job, click its row. **Model for** that job opens, except for three rows. **Decision** and **Embeddings** open their own controls (see [Decision Models](decision-models.md) and [Supported AI Providers](providers-reference.md#embeddings)). **Dictation** opens speech setup. **Voice**, **Dictation** and **Image reading** also have a gear that opens their settings window; Image reading's holds what its model is asked (see [Image captioning](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Picking a **Voice** model turns text to speech on.
+To change the model for a job, click its row or its button. **Model for** that job opens, except for three rows. **Decision** and **Embeddings** open their own controls (see [Decision Models](decision-models.md) and [Supported AI Providers](providers-reference.md#embeddings)). **Dictation** opens speech setup. **Voice**, **Dictation** and **Image reading** also have a gear that opens their settings window; Image reading's holds what its model is asked (see [Image captioning](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Picking a **Voice** model turns text to speech on.
 
 In **Model for**:
 
 1. Look at the list.
-2. Click a model. The list shows it under **Now**, then your **Starred** models, then your saved models by account. **All models** under an account opens its full list. Type in **Search all models or paste a model ID** to search every account at once. You do not have to save a model first.
+2. Click a model. The list shows it under **Now**, then your **Starred** models, then your saved models by account. Click an account to see its models. Type in **Search all models or paste a model ID** to search every account at once. You do not have to save a model first.
 
 **If it fails** at the top of the window picks a second model that answers when the first one fails. **Add account** at the bottom opens the Add window.
 
@@ -95,8 +99,10 @@ A feature that cannot work without a kind of model shows a **Needs an image mode
 A new chat uses your **Main** model. To give one chat a different model, click the model button in the chat input (the link icon, labeled with the current model), or use the **Model** field in **Chat Settings → Connection**. Both open **Model for this chat**:
 
 - **Now** shows the model the chat uses. **This chat only** means the chat has its own pick. **follows Main** means it uses Main.
-- **Recent** and **Starred** list your models by account.
-- **Search models or paste an ID…** searches every account. **Browse** opens one account's full list.
+- **Starred** lists your starred models, then **Recent** lists the last models you picked on this device.
+- **Search models or paste an ID…** searches every account.
+- Click an account to see its models: **Starred** first, then **Saved** (models you saved, with their own settings), then the rest. A long list starts folded behind **Browse all N models**. Click it to show every model.
+- In a long list, buttons such as **Claude**, **GPT** and **DeepSeek** show one model family at a time. **All** shows every model again. The search box ignores these buttons.
 - **Follow Main** clears the chat's own pick. **Shuffle** picks a different model each time.
 
 A pick changes only that chat. The message after a pick offers **Make it my Main model** and **Undo**. In Game Mode the field is labeled **Game Master model**.

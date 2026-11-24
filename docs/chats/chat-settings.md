@@ -58,7 +58,7 @@ The **Connection** section picks the model that answers in this chat. A pick cha
 1. Open **Chat Settings** and the **Connection** section.
 2. Tap the **Model** field. It shows the current model.
 3. Check whether it says the chat follows **Main**. Main is the default model you set in **Connections**.
-4. Pick a model. The chooser is the same as the model button in the chat input. The current model stays at the top, with recent and starred models below, grouped by account. Search across models and accounts, or use **Browse** to open one account's catalog.
+4. Pick a model. The chooser is the same as the model button in the chat input. The current model stays at the top, with starred and recent models below. Search across models and accounts, or click an account to see its models. A long list starts folded behind **Browse all N models**.
 
 **Follow Main** clears the chat's own choice, so the chat changes when you change Main. **Shuffle** picks a different model from your pool for each reply. See [Shuffle](../connections/organizing-connections.md#shuffle). If an account needs a key or is off, its model leads to the repair action. To add an account, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 

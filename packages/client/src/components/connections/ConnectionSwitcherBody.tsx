@@ -1669,7 +1669,9 @@ export function ConnectionSwitcherBody({
     : foldable;
   // Recent (Starred pane): this device's last picks that are not starred and that this picker still lists.
   const recentEntries: Entry[] = [];
-  if (!shownGroup && !paneFolder && !searching) {
+  // Job pickers (showUnstarred) already list every model with the current one in place, so Recent is for the
+  // chat hosts' Starred overview only.
+  if (!shownGroup && !paneFolder && !searching && !showUnstarred) {
     for (const pick of recentPicks) {
       if (recentEntries.length === RECENT_SHOWN) break;
       const group = groupByAccount.get(pick.accountId);
@@ -1695,11 +1697,7 @@ export function ConnectionSwitcherBody({
       ? groups
           .map((group) => {
             const { lead, rest } = paneEntries(group);
-            // A model already under Recent is not listed a second time.
-            const recent = new Set(
-              recentEntries.filter((entry) => entry.group?.key === group.key).map((entry) => entry.model),
-            );
-            return { group, entries: [...lead, ...rest].filter((entry) => !recent.has(entry.model)) };
+            return { group, entries: [...lead, ...rest] };
           })
           .filter(({ entries }) => entries.length > 0)
       : [];

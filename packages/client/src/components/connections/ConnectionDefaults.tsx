@@ -4,7 +4,18 @@
 // Model of their own as rows (with "If it fails"), the ones that follow Main or Agents or are off as chips. A row
 // or chip opens the job's one picker; a job with settings of its own keeps them behind a gear.
 // ──────────────────────────────────────────────
-import { lazy, Suspense, useId, useMemo, useState, type ReactNode } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { AlertTriangle, ChevronRight, Shuffle, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -61,7 +72,7 @@ import {
   type Job,
   type JobKey,
 } from "../../lib/connection-jobs";
-import { summarizeJobs } from "../../lib/connection-jobs-summary";
+import { summarizeJobs, type JobBucket } from "../../lib/connection-jobs-summary";
 import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
@@ -760,6 +771,7 @@ function DefaultsJobRow({
   onOpenDevice,
   overrides = [],
   chip,
+  onBusyChange,
 }: {
   /** Models that keep a setting of this job on their own row, edited here */
   overrides?: readonly ConnectionRowData[];
@@ -768,11 +780,19 @@ function DefaultsJobRow({
   modelFor: ReturnType<typeof useJobModels>;
   onOpenDevice: (item: DeviceItem) => void;
   chip?: string;
+  /** Told while the job's picker or settings window is open, so the Jobs page keeps it where it is. */
+  onBusyChange?: (key: JobKey, busy: boolean) => void;
 }) {
   const { t } = useTranslation();
   const mayReadImages = useMayReadImages();
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const busy = open || settingsOpen;
+  useEffect(() => {
+    if (!onBusyChange) return;
+    onBusyChange(job.key as JobKey, busy);
+    return () => onBusyChange(job.key as JobKey, false);
+  }, [busy, job.key, onBusyChange]);
   const connectionSaving = useUIStore((s) => s.connectionSaving);
   const embeddings = job.key === "embeddings";
   const decision = job.key === "decision";
@@ -787,6 +807,19 @@ function DefaultsJobRow({
     if (job.device) return setSettingsOpen(true);
     setOpen(true);
   };
+  // A chip that has just been given a Model of its own (the Jobs page keeps it in place while its window is open)
+  // names that Model instead of its section's word.
+  const chipModel = chip !== undefined && !tile.find && !tile.setup && !tile.follows && !!tile.source;
+  const chipAction =
+    chip === undefined
+      ? null
+      : tile.find
+        ? t(tile.find.count || tile.find.unknown ? "connections.defaults.pick" : "connections.defaults.add")
+        : tile.setup
+          ? t("connections.defaults.setUp")
+          : chipModel
+            ? tile.value
+            : null;
   const chevron = <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />;
   const settingsButton = hasSettings && (
     <button
@@ -839,13 +872,18 @@ function DefaultsJobRow({
             data-defaults-tile={job.key}
             onClick={onClick}
             aria-haspopup={tile.device ? undefined : "dialog"}
-            aria-label={t("connections.defaults.jobLabel", { role: tile.title, value: chip })}
+            aria-label={t("connections.defaults.jobLabel", {
+              role: tile.title,
+              value: chipModel ? tile.value : [chip, chipAction].filter(Boolean).join(" · "),
+            })}
             className={cn("mari-connection-chip min-w-0 gap-1.5", FOCUS)}
           >
             <span aria-hidden className="flex shrink-0">
               {tile.icon}
             </span>
             <span className="truncate">{tile.title}</span>
+            {/* An empty job's chip says what a click does, as its row's Pick, Add or Set up did. */}
+            {chipAction && <span className="shrink-0 text-[var(--muted-foreground)]">· {chipAction}</span>}
           </button>
           {settingsButton}
         </>
@@ -1086,10 +1124,10 @@ export function ConnectionJobsSummary({
 }
 
 /** One part of the Jobs page under its own small heading. */
-function JobsPageSection({ title, children }: { title: string; children: ReactNode }) {
+function JobsPageSection({ title, part, children }: { title: string; part: string; children: ReactNode }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className="flex min-w-0 flex-col">
+    <section aria-labelledby={id} data-jobs-section={part} className="flex min-w-0 flex-col">
       <h4 id={id} className="mari-connection-defaults-group">
         {title}
       </h4>
@@ -1111,9 +1149,63 @@ export function ConnectionJobsPage({
   onOpenDevice: (item: DeviceItem) => void;
 }) {
   const { t } = useTranslation();
-  const summary = useJobsSummary(connectionsList);
+  const live = useJobsSummary(connectionsList);
   const modelFor = useJobModels(connectionsList);
   const titleId = useId();
+  const rootRef = useRef<HTMLElement>(null);
+  // A job that changes section (an Off chip that gets a Model becomes a row) remounts. While any job's picker or
+  // settings window is open, every job keeps its place, so no window closes under the person using it; once they
+  // are all closed the page sorts again and focus follows the job it was on.
+  const [busy, setBusy] = useState<ReadonlySet<JobKey>>(() => new Set());
+  const onBusyChange = useCallback(
+    (key: JobKey, isBusy: boolean) =>
+      setBusy((keys) => {
+        if (keys.has(key) === isBusy) return keys;
+        const next = new Set(keys);
+        if (isBusy) next.add(key);
+        else next.delete(key);
+        return next;
+      }),
+    [],
+  );
+  const liveBuckets = useMemo(() => {
+    const buckets = new Map<JobKey, JobBucket>();
+    for (const bucket of ["own", "followsMain", "followsAgents", "off"] as const)
+      for (const tile of live[bucket]) buckets.set(tile.key, bucket);
+    return buckets;
+  }, [live]);
+  const [placed, setPlaced] = useState(liveBuckets);
+  const refocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (busy.size > 0) return;
+    const same =
+      placed.size === liveBuckets.size && [...liveBuckets].every(([key, bucket]) => placed.get(key) === bucket);
+    if (same) return;
+    const active = document.activeElement;
+    refocusRef.current =
+      active instanceof HTMLElement && rootRef.current?.contains(active)
+        ? (active.closest("[data-defaults-role]")?.getAttribute("data-defaults-role") ?? null)
+        : null;
+    setPlaced(liveBuckets);
+  }, [busy, liveBuckets, placed]);
+  useLayoutEffect(() => {
+    const key = refocusRef.current;
+    if (!key) return;
+    refocusRef.current = null;
+    rootRef.current?.querySelector<HTMLElement>(`[data-defaults-tile="${CSS.escape(key)}"]`)?.focus();
+  }, [placed]);
+  const sectionOf = (bucket: JobBucket) =>
+    (["own", "followsMain", "followsAgents", "off"] as const)
+      .flatMap((from) => live[from])
+      .filter((tile) => (placed.get(tile.key) ?? liveBuckets.get(tile.key)) === bucket)
+      .sort((a, b) => JOBS.findIndex((job) => job.key === a.key) - JOBS.findIndex((job) => job.key === b.key));
+  const summary = {
+    main: live.main,
+    own: sectionOf("own"),
+    followsMain: sectionOf("followsMain"),
+    followsAgents: sectionOf("followsAgents"),
+    off: sectionOf("off"),
+  };
   const row = (tile: DefaultsTile) => (
     <div key={tile.key} className="mari-connection-model-slot min-w-0">
       <DefaultsJobRow
@@ -1122,6 +1214,7 @@ export function ConnectionJobsPage({
         modelFor={modelFor}
         onOpenDevice={onOpenDevice}
         overrides={overridesOf(tile.key, connectionsList)}
+        onBusyChange={onBusyChange}
       />
     </div>
   );
@@ -1136,38 +1229,39 @@ export function ConnectionJobsPage({
           onOpenDevice={onOpenDevice}
           overrides={overridesOf(tile.key, connectionsList)}
           chip={state}
+          onBusyChange={onBusyChange}
         />
       ))}
     </div>
   );
   return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-2" data-connections-jobs-page>
+    <section ref={rootRef} aria-labelledby={titleId} className="flex flex-col gap-2" data-connections-jobs-page>
       <h3 id={titleId} className="px-1.5 text-base font-semibold leading-tight text-[var(--foreground)]">
         {t("connections.defaults.title")}
       </h3>
       <div className="mari-connection-group flex flex-col gap-1">
         {summary.main && (
-          <JobsPageSection title={t(jobLabelKey(JOB.main))}>
+          <JobsPageSection title={t(jobLabelKey(JOB.main))} part="main">
             <div className="mari-connection-model-well">{row(summary.main)}</div>
           </JobsPageSection>
         )}
         {summary.own.length > 0 && (
-          <JobsPageSection title={t("connections.jobs.section.own")}>
+          <JobsPageSection title={t("connections.jobs.section.own")} part="own">
             <div className="mari-connection-model-well">{summary.own.map(row)}</div>
           </JobsPageSection>
         )}
         {summary.followsMain.length > 0 && (
-          <JobsPageSection title={t("connections.jobs.section.followMain")}>
+          <JobsPageSection title={t("connections.jobs.section.followMain")} part="follows-main">
             {chips(summary.followsMain, t("connections.defaults.followsMain"))}
           </JobsPageSection>
         )}
         {summary.followsAgents.length > 0 && (
-          <JobsPageSection title={t("connections.jobs.section.followAgents")}>
+          <JobsPageSection title={t("connections.jobs.section.followAgents")} part="follows-agents">
             {chips(summary.followsAgents, t("connections.defaults.followsAgents"))}
           </JobsPageSection>
         )}
         {summary.off.length > 0 && (
-          <JobsPageSection title={t("connections.jobs.section.off")}>
+          <JobsPageSection title={t("connections.jobs.section.off")} part="off">
             {chips(summary.off, t("connections.defaults.off"))}
           </JobsPageSection>
         )}

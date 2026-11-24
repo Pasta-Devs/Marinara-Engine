@@ -191,7 +191,7 @@ Under **Voice**, an audio service speaks character voices and narration. Pick an
 
 Each source fills in a default address and model. **Default voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line. Raise it for a slow voice server.
 
-To choose the speech account Marinara uses by default, click the **Voice** row in the **Jobs** box. To read messages aloud with one, pick its model on the **Voice** row. See [Text to Speech (TTS) Setup](../media/tts-setup.md) and [Use a Voice model from an account](../media/tts-setup.md#use-a-voice-model-from-an-account).
+To choose the speech account Marinara uses by default, click **Voice** on the **Jobs** page. To read messages aloud with one, pick its model for **Voice**. See [Text to Speech (TTS) Setup](../media/tts-setup.md) and [Use a Voice model from an account](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 ## Music & Sound Effects
 
@@ -219,7 +219,7 @@ Embeddings turn text into lists of numbers so Marinara can find related text. Th
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)**, and **Grok CLI (Subscription)** cannot make embeddings. For those, use the **Embedding provider** dropdown to borrow another account, such as an OpenAI-compatible one, **Google Gemini**, or the **Built-in model**.
 
-To use one embedding source for every account that has no embedding settings of its own, click the **Embeddings** row in the **Jobs** box. **Marinara's own search** keeps the built-in embedding model. An account's own embedding model or **Embedding provider** still wins. Vectorize your lorebooks and memories again after you change it. See [Semantic Search for Lorebooks](../lorebooks/semantic-search.md).
+To use one embedding source for every account that has no embedding settings of its own, click **Embeddings** on the **Jobs** page. **Marinara's own search** keeps the built-in embedding model. An account's own embedding model or **Embedding provider** still wins. Vectorize your lorebooks and memories again after you change it. See [Semantic Search for Lorebooks](../lorebooks/semantic-search.md).
 
 ## Timeouts
 

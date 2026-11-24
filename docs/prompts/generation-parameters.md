@@ -132,11 +132,11 @@ Turning it off shows **Past reasoning blocks**. The default is 1, which keeps th
 2. Pick a model in the **Captioning model** dropdown.
 3. Optionally edit the **Captioning Prompt**, the instructions sent with each image. The reset button, or clearing the box, goes back to the engine-wide Image reading prompt. The prompt is saved for this chat only, and **Save as Connection Default** does not copy it.
 
-The box also shows when the switch is off but an **Image reading** model is set in the **Jobs** box of the **Connections** panel: that model then describes this chat's pictures whenever the chat's own model can't see them.
+The box also shows when the switch is off but an **Image reading** model is set on the **Jobs** page of the **Connections** panel: that model then describes this chat's pictures whenever the chat's own model can't see them.
 
 ### What the reading model is asked
 
-In the **Connections** panel, click the gear on the **Image reading** row of the **Jobs** box (or choose **Image reading settings** under the model list in **Model for Image reading**). These apply to every chat:
+In the **Connections** panel, click **All jobs**, then the gear beside **Image reading** (or choose **Image reading settings** under the model list in **Model for Image reading**). These apply to every chat:
 
 - **Instructions**: the system prompt sent with every picture. A chat's own **Captioning Prompt** replaces it.
 - **Request**: the message sent with each picture. `{{filename}}` becomes the picture's file name.
