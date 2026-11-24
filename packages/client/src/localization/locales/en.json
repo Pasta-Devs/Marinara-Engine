@@ -3015,6 +3015,8 @@
   "connections.modelPicker.loading": "Loading models…",
   "connections.modelPicker.localModel": "The built-in model is set up in Connections.",
   "connections.modelPicker.maxOutput": "{{size}} max output",
+  "connections.modelPicker.ownAddressEmpty": "The Own address lists no models (a proxy with no keys for this family lists none), so these are the account's models. You can still type a model ID.",
+  "connections.modelPicker.ownAddressEmptyNoFallback": "The Own address lists no models. A proxy with no keys for this family lists none. You can still type a model ID.",
   "connections.modelPicker.reasoning": "Reasoning options",
   "connections.modelPicker.refresh": "Refresh model list",
   "connections.modelPicker.refreshFailed": "Couldn't refresh the model list: {{error}}",

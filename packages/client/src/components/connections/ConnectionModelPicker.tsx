@@ -151,9 +151,15 @@ export function ConnectionModelPicker({
   offerDefault = true,
   onPickDefault,
   listAddress,
+  fallbackAddress,
 }: {
   /** An Own address being typed ("/proxy/openai"): list the models there instead of the Connection's list. */
   listAddress?: string;
+  /**
+   * The account's own address, when this Model has an Own address. If the Own address lists nothing (a proxy
+   * route with no keys lists no models), the account's list is shown instead, with a note.
+   */
+  fallbackAddress?: string;
   connection: ModelPickerConnection;
   /** Name the connection beside its provider, where the connection list is out of sight. */
   showConnectionName?: boolean;
@@ -239,7 +245,13 @@ export function ConnectionModelPicker({
     offerDefault && !only && isChatProvider(provider) && !!defaultAccountId && !!defaultAccount?.loadedModel;
   const pinnedIds = useMemo(() => parsePinnedModels(connection.pinnedModels), [connection.pinnedModels]);
 
-  const modelList = useConnectionModels(connection.id, !reviewRequired, listAddress);
+  const ownList = useConnectionModels(connection.id, !reviewRequired, listAddress);
+  // Nothing listed at the Own address: fall back to the account's list rather than only the starred models.
+  const ownListEmpty =
+    !!fallbackAddress && ownList.isSuccess && !ownList.isFetching && (ownList.data?.models?.length ?? 0) === 0;
+  const fallbackList = useConnectionModels(connection.id, !reviewRequired && ownListEmpty, fallbackAddress);
+  const usingFallback = ownListEmpty && !fallbackList.isError;
+  const modelList = usingFallback ? fallbackList : ownList;
   const refresh = useRefreshConnectionModels();
   const setPinned = useSetConnectionModelPinned();
   const updateConnection = useUpdateConnection();
@@ -847,6 +859,19 @@ export function ConnectionModelPicker({
                   </div>
                 )}
 
+                {ownListEmpty && (
+                  <p
+                    role="status"
+                    data-own-address-empty
+                    className="px-3 pb-1 text-[0.6875rem] leading-snug text-foreground/60"
+                  >
+                    {t(
+                      usingFallback
+                        ? "connections.modelPicker.ownAddressEmpty"
+                        : "connections.modelPicker.ownAddressEmptyNoFallback",
+                    )}
+                  </p>
+                )}
                 {modelList.isError && !refresh.isPending && (
                   <div role="status" className="px-3 pb-1 text-[0.6875rem] leading-snug text-foreground/60">
                     <p>{t("connections.modelPicker.loadFailed")}</p>

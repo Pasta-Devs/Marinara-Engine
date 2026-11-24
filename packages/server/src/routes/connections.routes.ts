@@ -77,6 +77,7 @@ import {
   speaksOpenAIChat,
   type AtlasCloudVideoModelSchemaResponse,
   type ConnectionTestAuthErrorCode,
+  proxyErrorFromReply,
 } from "@marinara-engine/shared";
 import {
   connectionSavesModelList,
@@ -2686,6 +2687,18 @@ export async function connectionsRoutes(app: FastifyInstance) {
           });
 
       const latencyMs = Date.now() - start;
+      // A proxy that writes its error as the reply (HTTP 200) has not answered: report its reason as a failure.
+      const proxyError = proxyErrorFromReply(fullResponse);
+      if (proxyError) {
+        debugLog("[connections/test-message] url=%s proxy error in %dms: %s", targetUrl, latencyMs, proxyError);
+        return {
+          success: false,
+          response: "",
+          latencyMs,
+          error: `The proxy answered with an error: ${proxyError}`,
+          model: model || "Grok CLI default",
+        };
+      }
       debugLog("[connections/test-message] url=%s success in %dms: %s", targetUrl, latencyMs, response);
       return {
         success: true,

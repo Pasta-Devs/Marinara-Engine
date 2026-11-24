@@ -3910,6 +3910,7 @@ export function ConnectionEditor({
                 onPickDefault={() => selectModel({ model: "" })}
                 // The models at the Own address being typed, not the Connection's own path.
                 listAddress={ownListAddress}
+                fallbackAddress={(ownListAddress ?? savedOwnAddress) && accountAddress ? accountAddress : undefined}
               />
             )}
             {!modelSummary && !!selectedModelInfo?.context && (
