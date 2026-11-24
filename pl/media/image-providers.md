@@ -113,7 +113,7 @@ Udostępnia hostowane modele Stable Diffusion. Model jest wymagany, więc wpisz 
 
 ### NovelAI
 
-Usługa NovelAI skupia się na grafice w stylu anime. Przy modelach V4, V4.5 i V5 Marinara wysyła natywne prompty poszczególnych postaci wraz z ich pozycjami dla storyboardów, scen agenta Illustrator i obrazów asystentki Professor Mari z wieloma postaciami. Precyzyjne obrazy referencyjne działają wyłącznie na modelu V4.5.
+Usługa NovelAI skupia się na grafice w stylu anime. Przy modelach V4, V4.5 i V5 Marinara wysyła natywne prompty poszczególnych postaci wraz z ich pozycjami dla storyboardów, scen agenta Illustrator i obrazów asystentki Professor Mari z wieloma postaciami. Precyzyjne obrazy referencyjne działają na modelach V4.5 i V5.
 
 ### Venice.ai
 
@@ -190,12 +190,14 @@ Każda usługa ma pole **Seed** (ziarno). Wartość -1 sprawia, że każdy obraz
 | ComfyUI | Sampler | euler_ancestral |
 | ComfyUI | Scheduler | normal |
 | ComfyUI | Denoise | 1 |
-| NovelAI | Steps | 28 |
-| NovelAI | Prompt guidance | 6 |
+| NovelAI | Steps | Automatycznie |
+| NovelAI | Prompt guidance | Automatycznie |
 | NovelAI | Sampler | k_euler_ancestral |
 | NovelAI | Noise schedule | karras |
 
 Każda usługa ma też pola **Prompt prefix** i **Negative prefix**. Wpisany tam tekst trafia na początek każdego promptu w tym modelu. AUTOMATIC1111 / Forge i ComfyUI mają pole **Clip skip**. AUTOMATIC1111 / Forge dokłada przełącznik **Restore faces**. ComfyUI dokłada przełącznik, który wgrywa obrazek zastępczy 1x1, gdy nie podano obrazu referencyjnego. Ma on znaczenie tylko przy własnych workflow ze znacznikami obrazów referencyjnych. NovelAI dokłada pola **Guidance rescale** i **UC preset**.
+
+Pola **Steps** i **Prompt guidance** w usłudze NovelAI są domyślnie puste, co oznacza **Automatic** (automatycznie): Marinara wysyła własną wartość domyślną usługi NovelAI dla danego modelu, widoczną w pustym polu. To 23 kroki, a współczynnik guidance wynosi 7 w modelu V5, 5 w V4.5 i 5,5 w V4. Wpisz liczbę, aby użyć własnej wartości. Wyczyść pole, aby wrócić do wartości automatycznej. Połączenie zapisane, zanim pojawiło się to ustawienie, z dawnymi wbudowanymi wartościami 28 kroków lub współczynnikiem guidance 6 korzysta teraz z wartości automatycznej.
 
 NovelAI ma też ustawienie **Zbiór danych teł do generowania tła**, domyślnie wyłączone. Gdy jest włączone, w modelach V4.5 i V5 prompty obrazów tła (teł w galeriach postaci i person, teł scen w czacie i tworzonych przez agenta Illustrator, obrazów lokacji w galerii czatu oraz teł gry) zaczynają się od tagu NovelAI `background dataset`. Zbiór danych tła NovelAI sprzyja stylowi fotograficznemu, więc zostaw to ustawienie wyłączone, jeśli tła mają pasować do czatu w stylu anime.
 
@@ -221,7 +223,7 @@ Obraz referencyjny to gotowy obrazek wysyłany razem z promptem, dzięki którem
 | --- | --- |
 | OpenAI (DALL-E) | Do 16, tylko modele GPT Image. Brak przy GIF-ie |
 | ChatGPT (Codex login) | Do 16 |
-| NovelAI | Do 16, tylko model V4.5 |
+| NovelAI | Do 16, tylko modele V4.5 i V5 |
 | xAI / Grok Imagine | Do 3 |
 | NanoGPT | Do 3, w granicach limitu modelu. Brak przy modelach text-to-image |
 | ComfyUI, RunPod Serverless (ComfyUI), SwarmUI | Do 4, przez znaczniki w workflow |
@@ -232,7 +234,7 @@ Obraz referencyjny to gotowy obrazek wysyłany razem z promptem, dzięki którem
 | Venice.ai, Z.AI | Nieobsługiwane przy zamianie tekstu na obraz |
 | Together AI, Pollinations, Stable Horde, fal.ai | Nieobsługiwane |
 
-Precyzyjne obrazy referencyjne w usłudze NovelAI działają wyłącznie na modelu V4.5, na przykład `nai-diffusion-4-5-full`. Usługa NovelAI nie udostępniła jeszcze funkcji Precise Reference dla V5. Jeśli zażądasz obrazów referencyjnych na innym modelu, Marinara wygeneruje obraz bez nich i zapisze ostrzeżenie w logu serwera.
+Precyzyjne obrazy referencyjne w usłudze NovelAI działają na modelach V4.5 i V5, na przykład `nai-diffusion-4-5-full` lub `nai-diffusion-5-full`. Na starszym modelu Marinara wygeneruje obraz bez obrazów referencyjnych i zapisze ostrzeżenie w logu serwera. V5 nie ma wierności stylu, więc ignoruje ustawienie **Style fidelity (V4.5 only)**. Każdy obraz referencyjny kosztuje tyle, ile pobiera sama usługa NovelAI: 5 Anlas za obraz.
 
 ## Kolejkowanie żądań generowania mediów
 

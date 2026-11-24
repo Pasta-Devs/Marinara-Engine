@@ -113,7 +113,7 @@ OpenAIはもっと多くのフレームを認めていますが、1つのGIFに�
 
 ### NovelAI
 
-NovelAIはアニメ調のイラストを得意とします。V4、V4.5、V5のモデルでは、複数のキャラクターが登場する絵コンテ、Illustratorのシーン、Professor Mariの画像に対して、Marinaraが位置情報付きのキャラクターごとのプロンプトをNovelAI標準の形式で送ります。精密な参照画像は、V4.5のモデルでしか動作しません。
+NovelAIはアニメ調のイラストを得意とします。V4、V4.5、V5のモデルでは、複数のキャラクターが登場する絵コンテ、Illustratorのシーン、Professor Mariの画像に対して、Marinaraが位置情報付きのキャラクターごとのプロンプトをNovelAI標準の形式で送ります。精密な参照画像は、V4.5とV5のモデルで動作します。
 
 ### Venice.ai
 
@@ -190,12 +190,14 @@ Marinaraに値を入れてほしい位置に、ワークフロー内で次のテ
 | ComfyUI | Sampler | euler_ancestral |
 | ComfyUI | Scheduler | normal |
 | ComfyUI | Denoise | 1 |
-| NovelAI | Steps | 28 |
-| NovelAI | Prompt guidance | 6 |
+| NovelAI | Steps | 自動 |
+| NovelAI | Prompt guidance | 自動 |
 | NovelAI | Sampler | k_euler_ancestral |
 | NovelAI | Noise schedule | karras |
 
 どのサービスにも**Prompt prefix**と**Negative prefix**の欄もあります。ここに入れたテキストは、このモデルで送るすべてのプロンプトの先頭に追加されます。AUTOMATIC1111 / ForgeとComfyUIには**Clip skip**欄があります。AUTOMATIC1111 / Forgeにはさらに**Restore faces**トグルがあります。ComfyUIには、参照画像がないときに1x1のプレースホルダー画像をアップロードするトグルがあります。これは、参照画像のプレースホルダーを含むカスタムワークフローでだけ意味を持ちます。NovelAIには**Guidance rescale**と**UC preset**があります。
+
+NovelAIの**Steps**と**Prompt guidance**はデフォルトでは空欄で、これは**Automatic**(自動)を意味します。Marinaraは、そのモデルに対するNovelAI自身のデフォルト値を送ります。この値は空欄の中に表示されます。ステップ数は23、ガイダンスはV5で7、V4.5で5、V4で5.5です。自分の値を使うには、数値を入力します。自動に戻すには、欄を空にします。この設定ができる前に、以前の組み込みの値である28ステップまたはガイダンス6で保存された接続は、自動の値を使うようになりました。
 
 NovelAIには、デフォルトでオフの**Background dataset for backgrounds**(背景に背景データセットを使う)もあります。オンにすると、V4.5とV5のモデルでは、背景画像(キャラクターやペルソナのGalleryの背景、チャットやIllustratorのシーン背景、チャットのギャラリーの場所の画像、ゲームの背景)のプロンプトの先頭に、NovelAIの`background dataset`タグが追加されます。NovelAIの背景データセットは写真風の画像になりやすいため、アニメ調のチャットに背景を合わせたい場合は、オフのままにしてください。
 
@@ -221,7 +223,7 @@ NovelAIには、専用のタグ`transparent background, alpha transparency`を�
 | --- | --- |
 | OpenAI (DALL-E) | 最大16枚、GPT Imageのモデルのみ。GIFの場合はなし |
 | ChatGPT (Codex login) | 最大16枚 |
-| NovelAI | 最大16枚、V4.5のモデルのみ |
+| NovelAI | 最大16枚、V4.5とV5のモデルのみ |
 | xAI / Grok Imagine | 最大3枚 |
 | NanoGPT | 最大3枚、モデルの上限の範囲内。text-to-imageのモデルではなし |
 | ComfyUI、RunPod Serverless (ComfyUI)、SwarmUI | 最大4枚、ワークフローのプレースホルダー経由 |
@@ -232,7 +234,7 @@ NovelAIには、専用のタグ`transparent background, alpha transparency`を�
 | Venice.ai、Z.AI | text-to-imageでは非対応 |
 | Together AI、Pollinations、Stable Horde、fal.ai | 非対応 |
 
-NovelAIの精密な参照画像は、`nai-diffusion-4-5-full`のようなV4.5のモデルでしか動作しません。NovelAIはV5向けのPrecise Referenceをまだ公開していません。ほかのモデルで参照画像を指定すると、Marinaraは参照画像なしで画像を生成し、サーバーに警告を記録します。
+NovelAIの精密な参照画像は、`nai-diffusion-4-5-full`や`nai-diffusion-5-full`のようなV4.5とV5のモデルで動作します。それより古いモデルでは、Marinaraは参照画像なしで画像を生成し、サーバーに警告を記録します。V5にはスタイルの忠実度がないため、**Style fidelity (V4.5 only)**は無視されます。参照画像には1枚ごとに、NovelAI自身の料金として5 Anlasがかかります。
 
 ## メディア生成リクエストを順番に処理
 
