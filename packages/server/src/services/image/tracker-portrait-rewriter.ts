@@ -328,6 +328,12 @@ export function cleanRewrittenTrackerPortraitPrompt(
   }).trim();
 }
 
+/** True when a completion finished with an explicit error or abort so partial text must not be accepted. */
+export function isFailedTrackerPortraitRewriteFinishReason(finishReason: string | null | undefined): boolean {
+  const normalized = typeof finishReason === "string" ? finishReason.trim().toLowerCase() : "";
+  return normalized === "error" || normalized === "abort";
+}
+
 export type RewriteTrackerPortraitPromptArgs = {
   db: DB;
   chatConnectionId?: string | null;
@@ -339,6 +345,7 @@ export type RewriteTrackerPortraitPromptArgs = {
   portraitTags?: string;
   imagePromptInstructions?: string | null;
   debugMode?: boolean;
+  runtime?: TrackerPortraitRewriteRuntime | null;
 };
 
 /**
@@ -347,23 +354,27 @@ export type RewriteTrackerPortraitPromptArgs = {
  */
 export async function rewriteTrackerPortraitPrompt(args: RewriteTrackerPortraitPromptArgs): Promise<string | null> {
   try {
-    const connections = createConnectionsStorage(args.db);
-    const illustrator = await createAgentsStorage(args.db).getByType("illustrator");
-    const localSidecarAvailable = sidecarModelService.getConfiguredModelRef() !== null;
-    const defaultAgentConnectionId = resolveAgentsDefaultConnectionId({
-      useLocalSidecarAsAgentsDefault: sidecarModelService.getConfig().useAsAgentsDefault,
-      localSidecarAvailable,
-      rowDefaultConnectionId: (await connections.getDefaultForAgents())?.id ?? null,
-    });
-
-    const runtime = await resolveTrackerPortraitRewriteConnection({
-      connections,
-      illustratorPromptConnectionId: args.illustratorPromptConnectionId,
-      illustratorConnectionId: typeof illustrator?.connectionId === "string" ? illustrator.connectionId : null,
-      defaultAgentConnectionId,
-      chatConnectionId: args.chatConnectionId,
-      localSidecarAvailable,
-    });
+    const runtime =
+      args.runtime !== undefined
+        ? args.runtime
+        : await (async () => {
+            const connections = createConnectionsStorage(args.db);
+            const illustrator = await createAgentsStorage(args.db).getByType("illustrator");
+            const localSidecarAvailable = sidecarModelService.getConfiguredModelRef() !== null;
+            const defaultAgentConnectionId = resolveAgentsDefaultConnectionId({
+              useLocalSidecarAsAgentsDefault: sidecarModelService.getConfig().useAsAgentsDefault,
+              localSidecarAvailable,
+              rowDefaultConnectionId: (await connections.getDefaultForAgents())?.id ?? null,
+            });
+            return resolveTrackerPortraitRewriteConnection({
+              connections,
+              illustratorPromptConnectionId: args.illustratorPromptConnectionId,
+              illustratorConnectionId: typeof illustrator?.connectionId === "string" ? illustrator.connectionId : null,
+              defaultAgentConnectionId,
+              chatConnectionId: args.chatConnectionId,
+              localSidecarAvailable,
+            });
+          })();
     if (!runtime) {
       logger.warn(
         '[character-tracker/portrait-rewriter] No text connection available for "%s"; falling back to direct prompt',
@@ -390,6 +401,14 @@ export async function rewriteTrackerPortraitPrompt(args: RewriteTrackerPortraitP
     );
 
     const result = await runtime.provider.chatComplete(messages, runtime.resolveCallOptions(messages));
+    if (isFailedTrackerPortraitRewriteFinishReason(result.finishReason)) {
+      logger.warn(
+        '[character-tracker/portrait-rewriter] Incomplete rewrite for "%s" (finishReason=%s); falling back to direct prompt',
+        args.character.name,
+        result.finishReason,
+      );
+      return null;
+    }
     const cleaned = cleanRewrittenTrackerPortraitPrompt(result.content ?? "", {
       imagePromptInstructions: args.imagePromptInstructions,
       promptMode: args.promptMode,

@@ -8,6 +8,7 @@ import {
   DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
   isCustomTrackerPortraitRewritePrompt,
   serializeTrackerPortraitRewriteSettings,
+  shouldClearTrackerPortraitRewriteDraftAfterSave,
   shouldShowTrackerPortraitRewriteEditor,
 } from "../../../packages/shared/dist/index.js";
 import {
@@ -142,5 +143,70 @@ assert.doesNotMatch(featureAgentDetailHostSource, /featureagentdetailhost\.featu
   assert.equal(
     shouldShowTrackerPortraitRewriteEditor({ enabled: false, editing: false, prompt: "Use watercolor tags." }),
     true,
+  );
+
+  // Post-save cleanup clears unmodified defaults only when agent identity and prompt revision are unchanged.
+  assert.equal(
+    shouldClearTrackerPortraitRewriteDraftAfterSave({
+      savedPrompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+      startedAgentId: "character-tracker",
+      currentAgentId: "character-tracker",
+      startedRevision: 2,
+      currentRevision: 2,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldClearTrackerPortraitRewriteDraftAfterSave({
+      savedPrompt: "",
+      startedAgentId: "character-tracker",
+      currentAgentId: "character-tracker",
+      startedRevision: 1,
+      currentRevision: 1,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldClearTrackerPortraitRewriteDraftAfterSave({
+      savedPrompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+      startedAgentId: "character-tracker",
+      currentAgentId: "character-tracker",
+      startedRevision: 2,
+      currentRevision: 3,
+    }),
+    false,
+    "concurrent edit while Save is in flight must not be cleared",
+  );
+  assert.equal(
+    shouldClearTrackerPortraitRewriteDraftAfterSave({
+      savedPrompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+      startedAgentId: "character-tracker",
+      currentAgentId: "illustrator",
+      startedRevision: 2,
+      currentRevision: 2,
+    }),
+    false,
+    "switching agents while Save is in flight must not clear the new view",
+  );
+  assert.equal(
+    shouldClearTrackerPortraitRewriteDraftAfterSave({
+      savedPrompt: "Custom prompt override",
+      startedAgentId: "character-tracker",
+      currentAgentId: "character-tracker",
+      startedRevision: 2,
+      currentRevision: 2,
+    }),
+    false,
+  );
+
+  assert.doesNotMatch(
+    fieldGroup,
+    /\b(?:amber|emerald)-\d+/u,
+    "Character Tracker portrait rewrite badges must use theme tokens rather than palette colors",
+  );
+  assert.match(
+    agentEditorSource,
+    /shouldClearTrackerPortraitRewriteDraftAfterSave\(/u,
+    "AgentEditor handleSave must guard post-save portrait rewrite cleanup",
   );
 }

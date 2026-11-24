@@ -28,7 +28,9 @@ const { buildTrackerPortraitPrompt, generateTrackerPortrait, trackerPortraitRewr
 const {
   buildTrackerPortraitRewriteMessages,
   cleanRewrittenTrackerPortraitPrompt,
+  isFailedTrackerPortraitRewriteFinishReason,
   resolveTrackerPortraitRewriteConnection,
+  rewriteTrackerPortraitPrompt,
 } = await import("../../../packages/server/src/services/image/tracker-portrait-rewriter.js");
 const {
   compileImagePrompt,
@@ -1263,6 +1265,53 @@ try {
     utilitySkippedWhenOtherAgentServed?.model,
     "def-model",
     "unserved utility slot skips cleanly to Agents default",
+  );
+
+  assert.equal(isFailedTrackerPortraitRewriteFinishReason("error"), true);
+  assert.equal(isFailedTrackerPortraitRewriteFinishReason("abort"), true);
+  assert.equal(isFailedTrackerPortraitRewriteFinishReason("stop"), false);
+  assert.equal(isFailedTrackerPortraitRewriteFinishReason(undefined), false);
+
+  const mockRewriteInput = {
+    db: {} as never,
+    systemPrompt: DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+    character: {
+      name: "Kitty Pryde",
+      imageAppearance: "kitty pryde, 1girl, brown hair",
+    },
+    includeOutfit: false,
+    promptMode: "danbooru" as const,
+  };
+  const makeMockRuntime = (content: string, finishReason: string) => ({
+    ...fakeUtilityEntry,
+    provider: {
+      chatComplete: async () => ({ content, finishReason }),
+    } as never,
+    resolveCallOptions: () => ({ model: "utility-sidecar", maxTokens: 320 }),
+  });
+  assert.equal(
+    await rewriteTrackerPortraitPrompt({
+      ...mockRewriteInput,
+      runtime: makeMockRuntime("partial_output_before_error", "error") as never,
+    }),
+    null,
+    "error finishReason rejects non-empty partial rewrite text so direct prompt fallback runs",
+  );
+  assert.equal(
+    await rewriteTrackerPortraitPrompt({
+      ...mockRewriteInput,
+      runtime: makeMockRuntime("partial_output_before_abort", "abort") as never,
+    }),
+    null,
+    "abort finishReason rejects non-empty partial rewrite text so direct prompt fallback runs",
+  );
+  assert.equal(
+    await rewriteTrackerPortraitPrompt({
+      ...mockRewriteInput,
+      runtime: makeMockRuntime("1girl, brown hair, portrait", "stop") as never,
+    }),
+    "1girl, brown hair, portrait",
+    "stop finishReason accepts cleaned rewrite text",
   );
 
   // Route E2E with rewrite ON: sends Illustrator LLM rewrite to image backend without hardcoded tail,

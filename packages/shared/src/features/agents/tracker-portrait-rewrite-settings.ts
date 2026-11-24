@@ -47,6 +47,21 @@ export function serializeTrackerPortraitRewriteSettings(args: {
   };
 }
 
+/** True when post-save cleanup should clear an unmodified default draft without clobbering concurrent edits or agent switches. */
+export function shouldClearTrackerPortraitRewriteDraftAfterSave(args: {
+  savedPrompt: string;
+  startedAgentId: string | null;
+  currentAgentId: string | null;
+  startedRevision: number;
+  currentRevision: number;
+}): boolean {
+  return (
+    !isCustomTrackerPortraitRewritePrompt(args.savedPrompt) &&
+    args.startedAgentId === args.currentAgentId &&
+    args.startedRevision === args.currentRevision
+  );
+}
+
 export function resolveTrackerPortraitRewriteSettings(
   settings: Record<string, unknown> | null | undefined,
 ): TrackerPortraitRewriteSettings {
