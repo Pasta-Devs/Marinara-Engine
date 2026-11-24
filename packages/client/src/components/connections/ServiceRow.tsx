@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────
 // ServiceRow — the one service (Connection account) row: its tile, its name and
-// one line of facts ("556.44 left · 3 models · plan · host") with a problem word.
+// one line of facts ("3 models · plan · host") with a problem or warning word.
 // The sidebar card head, the Move dialog, the Add window, the switcher and the
 // pickers all draw it; callers only choose the density and the end slots.
 // ──────────────────────────────────────────────
@@ -30,7 +30,7 @@ export function ServiceRow({
   state,
   stateLabel,
   billing,
-  balance,
+  warning,
   tile,
   density = "md",
   hint,
@@ -48,8 +48,8 @@ export function ServiceRow({
   state?: ConnectionAccountState;
   stateLabel?: string;
   billing?: ConnectionBilling;
-  /** What is left on the account ("556.44 left"), first on line 2. */
-  balance?: string | null;
+  /** A softer problem ("Low balance"): an amber word where the status word shows, unless `state` has one. */
+  warning?: string | null;
   /** Replaces the service's own tile, such as the sidebar tile with the account picture. */
   tile?: ReactNode;
   density?: "md" | "sm";
@@ -69,7 +69,7 @@ export function ServiceRow({
   const hintId = useId();
   const md = density === "md";
   const identity = getConnectionIdentity(account, rows);
-  // Line 2 is facts, never a second name: balance first (it survives the cut), count, plan word, host.
+  // Line 2 is facts, never a second name: count, plan word, host.
   const details = [identity.endpoint].filter(Boolean);
   const hasCount = count !== undefined && count !== null;
   // One card-level cost word: a plan, or a free service.
@@ -102,21 +102,23 @@ export function ServiceRow({
       >
         {/* Line 1 is the Connection's own name alone (up to two lines before it cuts); the service
             shows in the tile and the tooltip. */}
-        {(hasCount || balance || billingWord || details.length > 0 || problem) && (
+        {(hasCount || billingWord || details.length > 0 || problem || warning) && (
           <span
             data-connection-identity-meta
             className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-[var(--muted-foreground)]"
           >
             <span className="min-w-0 truncate">
-              {balance && <span data-connection-balance-word>{balance}</span>}
-              {balance && hasCount && " · "}
               {hasCount && <span data-connection-group-count>{count}</span>}
               {[billingWord, ...details]
                 .filter(Boolean)
-                .map((part, index) => (balance || hasCount || index > 0 ? ` · ${part}` : part))
+                .map((part, index) => (hasCount || index > 0 ? ` · ${part}` : part))
                 .join("")}
             </span>
-            {problem && <StateWord tone={STATE_TONE[problem.state]} label={problem.label} />}
+            {problem ? (
+              <StateWord tone={STATE_TONE[problem.state]} label={problem.label} />
+            ) : (
+              warning && <StateWord tone="warn" label={warning} />
+            )}
           </span>
         )}
       </ConnectionHeading>

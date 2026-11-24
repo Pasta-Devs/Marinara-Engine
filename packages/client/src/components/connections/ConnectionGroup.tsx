@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // ConnectionGroup — a Connection card: a heading that folds the card (name, model count, host, one status
-// word), its ⋯ menu ("Edit connection" first) and its model well.
+// word), its ⋯ menu ("Edit connection" first) and its model well. What is left on the account shows on the
+// Connection's page; the card only warns when it is gone or nearly gone.
 // ──────────────────────────────────────────────
 import { useEffect, useState, type ComponentProps, type HTMLAttributes, type ReactNode } from "react";
 import { ConnectionModelList } from "./ConnectionModelList";
@@ -56,7 +57,7 @@ import { CompactUsageMeter } from "./SubscriptionUsageWidget";
 import { resolveUsageConnection } from "../../lib/connection-filters";
 import { SMALL_ACTION } from "./DeviceDetail";
 import { MODEL_TEXT_INSET } from "./connection-row-layout";
-import { balanceWord } from "./ConnectionBalance";
+import { balanceWarning } from "../../lib/connection-balance-warning";
 import { useFolderChooser } from "./ConnectionFolderGroup";
 import {
   confirmAccountDelete,
@@ -221,13 +222,13 @@ export function ConnectionGroup({
   modelDragProps?: (row: ConnectionRowData, pick: string[] | null) => ComponentProps<typeof ModelRow>["rowProps"];
   dragBindings?: HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string | undefined>;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const voiceRowId = useVoiceRowId();
   const openModal = useUIStore((s) => s.openModal);
   const updateAccount = useUpdateConnectionAccount();
-  // Services with a balance endpoint show what is left on line 2; a failed check shows nothing there.
+  // Services with a balance endpoint warn when little or nothing is left; a failed check says nothing.
   const { data: balanceData } = useConnectionBalance(account.id, account.state === "ok" && !!account.balanceSource);
-  const balance = balanceWord(balanceData?.balance, t, i18n.resolvedLanguage);
+  const lowBalance = balanceWarning(balanceData?.balance);
   const removeAccount = useDeleteConnectionAccount();
   const duplicateAccount = useDuplicateConnectionAccount();
   const { data: accounts } = useConnectionAccounts();
@@ -382,6 +383,11 @@ export function ConnectionGroup({
                 run: runTest,
               }
             : null;
+  // A key or test problem outranks the balance: only a Connection that works says its credit is running out.
+  const warning =
+    lowBalance && account.state === "ok" && !testFailure ? t(`connections.balance.warning.${lowBalance}`) : null;
+  const headingName = [heading, accountLabel, endpoint, count].filter(Boolean).join(", ");
+  const statusWord = testFailure ? testLabel : account.state !== "ok" ? state : warning;
   return (
     <div
       {...dragBindings}
@@ -403,8 +409,7 @@ export function ConnectionGroup({
         count={count}
         state={testFailure ? "needs_key" : fix ? undefined : account.state}
         stateLabel={testFailure ? testLabel : state}
-        billing={account.billing}
-        balance={balance}
+        warning={warning}
         hint={testFailure ? t("connections.accounts.lastTestFailed", { reason: testFailure }) : undefined}
         tile={tile}
         onPictureClick={onPictureClick}
@@ -415,15 +420,9 @@ export function ConnectionGroup({
         data-connections-toggle={account.id}
         onClick={onToggle}
         aria-expanded={open}
-        aria-controls={modelsId}
-        aria-label={
-          account.state === "ok" && !testFailure
-            ? [heading, accountLabel, endpoint, count, balance].filter(Boolean).join(", ")
-            : t("connections.list.rowLabel", {
-                name: [heading, accountLabel, endpoint, count, balance].filter(Boolean).join(", "),
-                state: testFailure ? testLabel : state,
-              })
-        }
+        // The model list is only in the page while it shows.
+        aria-controls={open && !picked ? modelsId : undefined}
+        aria-label={statusWord ? t("connections.list.rowLabel", { name: headingName, state: statusWord }) : headingName}
         end={
           <>
             {fix && (
@@ -440,7 +439,7 @@ export function ConnectionGroup({
               aria-haspopup="menu"
               aria-expanded={!!menu}
             >
-              <MoreHorizontal size="1rem" />
+              <MoreHorizontal size="1rem" aria-hidden />
             </button>
             {/* Last, like the upstream headings' chevrons below it. The heading button is the keyboard and screen
             reader fold; this is a second pointer target for the same toggle. */}

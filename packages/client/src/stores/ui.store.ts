@@ -453,6 +453,26 @@ function normalizeUserActivity(activity: string): string {
   return activity.replace(/\s+/g, " ").trim().slice(0, USER_ACTIVITY_MAX_LENGTH);
 }
 
+/** A model picked in the model chooser: the account it runs on and the model id. */
+export type RecentModelPick = { accountId: string; model: string };
+const RECENT_MODEL_PICK_LIMIT = 8;
+
+/** The picks with `pick` first: one line per account and model, at most eight. Also cleans a saved list. */
+export function addRecentModelPick(picks: readonly unknown[], pick?: RecentModelPick): RecentModelPick[] {
+  const out: RecentModelPick[] = [];
+  const seen = new Set<string>();
+  for (const item of pick ? [pick, ...picks] : picks) {
+    const { accountId, model } = (item ?? {}) as Partial<RecentModelPick>;
+    if (typeof accountId !== "string" || typeof model !== "string" || !accountId || !model) continue;
+    const key = `${accountId}\n${model}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ accountId, model });
+    if (out.length === RECENT_MODEL_PICK_LIMIT) break;
+  }
+  return out;
+}
+
 export function getDefaultAppAccentColor() {
   return MARINARA_GRADIENT_PRESET;
 }
@@ -1311,6 +1331,8 @@ export interface UIState {
   connectionsUpgradeNoteDismissed: boolean;
   /** Ids of Connections folded shut in the Connections panel list; every other Connection shows its Models. */
   connectionsCollapsed: string[];
+  /** Account models picked in the model chooser on this device, newest first, for its Recent list. */
+  recentModelPicks: RecentModelPick[];
   /** Model rows show what a model costs ("Included", "2x", "Free"). */
   showCostBadges: boolean;
   /** The Connections list and quick picker group Models by Connection or by the user's folders. */
@@ -1714,6 +1736,7 @@ export interface UIState {
   dismissLinkApiBanner: () => void;
   dismissConnectionsUpgradeNote: () => void;
   toggleConnectionCollapsed: (id: string) => void;
+  rememberModelPick: (pick: RecentModelPick) => void;
   setShowCostBadges: (v: boolean) => void;
   setConnectionsGroupBy: (v: "connection" | "folder") => void;
   dismissChatSettingsMoveTip: () => void;
@@ -2386,6 +2409,8 @@ export function pickPersistedUIState(state: UIState) {
     linkApiBannerDismissed: state.linkApiBannerDismissed,
     connectionsUpgradeNoteDismissed: state.connectionsUpgradeNoteDismissed,
     connectionsCollapsed: state.connectionsCollapsed,
+    // This device only: pickSyncedSettings leaves it out.
+    recentModelPicks: state.recentModelPicks,
     showCostBadges: state.showCostBadges,
     connectionsGroupBy: state.connectionsGroupBy,
     connectionPanelSort: state.connectionPanelSort,
@@ -2758,6 +2783,7 @@ export const useUIStore = create<UIState>()(
         linkApiBannerDismissed: false,
         connectionsUpgradeNoteDismissed: false,
         connectionsCollapsed: [],
+        recentModelPicks: [],
         showCostBadges: true,
         connectionsGroupBy: "connection",
         connectionPanelSort: "name-asc",
@@ -3706,6 +3732,8 @@ export const useUIStore = create<UIState>()(
               ? state.connectionsCollapsed.filter((other) => other !== id)
               : [...state.connectionsCollapsed, id],
           })),
+        rememberModelPick: (pick) =>
+          set((state) => ({ recentModelPicks: addRecentModelPick(state.recentModelPicks, pick) })),
         setShowCostBadges: (v) => set({ showCostBadges: v }),
         setConnectionsGroupBy: (v) => set({ connectionsGroupBy: v }),
         setConnectionPanelSort: (sort) =>
@@ -4437,6 +4465,9 @@ export const useUIStore = create<UIState>()(
             : [],
           recentChatBackgrounds: Array.isArray(persisted.recentChatBackgrounds)
             ? persisted.recentChatBackgrounds.filter((url): url is string => typeof url === "string").slice(0, 4)
+            : [],
+          recentModelPicks: Array.isArray(persisted.recentModelPicks)
+            ? addRecentModelPick(persisted.recentModelPicks)
             : [],
           connectionTestFailures:
             persisted.connectionTestFailures && typeof persisted.connectionTestFailures === "object"
