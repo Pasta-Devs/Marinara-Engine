@@ -519,13 +519,21 @@ export function App() {
   const chatWidgetApplyShape = useUIStore((s) => s.chatWidgetApplyShape);
   const chatWidgetApplyColors = useUIStore((s) => s.chatWidgetApplyColors);
   const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
-  // The Whole app part's background (draft first, as Save keeps it) also sets --background, the page backing and
-  // theme-color. A legacy Background Color the part could not hold still paints when the part has none.
+  // The Whole app part's background (draft first, as Save keeps it) also sets the page backing, theme-color and,
+  // when the app's text reads on it, --background. A legacy Background Color the part could not hold still paints
+  // when the part has none.
   const appBackgroundColor = useUIStore(
     (s) =>
       (s.uiStylePreview?.target === "app"
         ? normalizeUiStyleOverride(s.uiStylePreview.override)?.background
         : s.uiStyleOverrides.app?.background) ?? normalizeAppBackgroundColor(s.appBackgroundColor),
+  );
+  // The same part's text color recolors every text in the app, so the background's readability is checked against it.
+  const appTextColor = useUIStore(
+    (s) =>
+      (s.uiStylePreview?.target === "app"
+        ? normalizeUiStyleOverride(s.uiStylePreview.override)?.color
+        : s.uiStyleOverrides.app?.color) ?? "",
   );
   const appAccentColor = useUIStore((s) => s.appAccentColor);
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
@@ -719,6 +727,7 @@ export function App() {
       root.style.setProperty("--marinara-app-background-paint", background);
     } else {
       root.style.removeProperty("--marinara-app-background-paint");
+      root.style.removeProperty("--marinara-app-background-color");
     }
 
     const syncLiteralBackground = () => {
@@ -727,14 +736,16 @@ export function App() {
       root.style.removeProperty("--background");
       // iOS paints the safe-area/overscroll backing from the literal html/body
       // background-color, not from resolved custom properties (see index.html).
-      // Read the rendered variable so visual themes and injected custom theme
-      // CSS are reflected instead of falling back to the stock scheme.
+      // Read the rendered variables so visual themes, seasonal themes and injected
+      // custom theme CSS are reflected instead of falling back to the stock scheme.
       const computedStyle = getComputedStyle(root);
       const computedBackground = computedStyle.getPropertyValue("--background").trim();
-      // The page backing follows the app background the shell paints, even when --background stays the theme's.
-      let literalBackground = background
-        ? resolvedBackground
-        : getCssColorFallback(computedBackground, resolvedBackground);
+      // The page backing follows what the shell paints, even when --background stays the theme's.
+      const paintedBackground = computedStyle.getPropertyValue("--marinara-app-background-paint").trim();
+      let literalBackground = getCssColorFallback(paintedBackground || computedBackground, resolvedBackground);
+      // Surfaces that lay a card wash over the app background (Home, Professor Mari, opaque modal backings)
+      // stay readable on any color, so they keep the painted one even when --background stays the theme's.
+      if (background) root.style.setProperty("--marinara-app-background-color", literalBackground);
       // Flatten translucent shell surfaces over the app background. Browser
       // chrome needs an opaque color, and sidebars retain the Home menu surface.
       const canvas = document.createElement("canvas");
@@ -750,11 +761,14 @@ export function App() {
           context.fillRect(0, 0, 1, 1);
           const backgroundPixels = context.getImageData(0, 0, 1, 1);
           if (background) {
-            // Editors, libraries and fields paint --background under the theme's own text. A dark app
-            // background in Light mode (or a light one in Dark) would leave that text unreadable there, so
-            // the app background becomes --background only while the theme's text stays readable on it.
-            // Otherwise it still paints the backdrop and those surfaces keep the theme's (#9741).
-            context.fillStyle = computedStyle.getPropertyValue("--foreground").trim();
+            // Editors, libraries and fields paint --background under the app's text: the Whole app part's
+            // text color when it has one, otherwise the chrome text color. A dark app background in Light
+            // mode (or a light one in Dark) would leave that text unreadable there, so the app background
+            // becomes --background only while that text stays readable on it. Otherwise it still paints
+            // the backdrop and those surfaces keep the theme's (#9741).
+            context.fillStyle =
+              getCssColorFallback(appTextColor, "") ||
+              computedStyle.getPropertyValue("--marinara-chat-chrome-text").trim();
             context.fillRect(0, 0, 1, 1);
             const textContrast = contrastRatio(backgroundPixels.data, context.getImageData(0, 0, 1, 1).data);
             if (textContrast >= READABLE_TEXT_CONTRAST) root.style.setProperty("--background", resolvedBackground);
@@ -783,7 +797,15 @@ export function App() {
     syncLiteralBackground();
     const frame = requestAnimationFrame(syncLiteralBackground);
     return () => cancelAnimationFrame(frame);
-  }, [activeCustomTheme?.css, appBackgroundColor, seasonal.themeId, theme, visualTheme]);
+  }, [
+    activeCustomTheme?.css,
+    appBackgroundColor,
+    appTextColor,
+    chatChromeTextColor,
+    seasonal.themeId,
+    theme,
+    visualTheme,
+  ]);
 
   useEffect(() => {
     const root = document.documentElement;

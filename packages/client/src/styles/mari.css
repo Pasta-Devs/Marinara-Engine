@@ -1180,7 +1180,8 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 .mari-pending-queue .mari-list__item {
   border: 1px solid var(--mari-hairline);
   border-radius: 0.75rem;
-  background: linear-gradient(var(--marinara-home-page-wash), var(--marinara-home-page-wash)) var(--background);
+  background: linear-gradient(var(--marinara-home-page-wash), var(--marinara-home-page-wash))
+    var(--marinara-app-background-color, var(--background));
 }
 
 /* Each row is its own card here, so the list divider between rows has nothing to divide. */
@@ -1255,7 +1256,8 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   --mari-workspace-gold: oklch(0.82 0.11 79);
   --mari-workspace-hoodie: oklch(0.62 0.1 252);
   --mari-workspace-blush: oklch(0.76 0.14 344);
-  background: linear-gradient(var(--marinara-home-page-wash), var(--marinara-home-page-wash)) var(--background);
+  background: linear-gradient(var(--marinara-home-page-wash), var(--marinara-home-page-wash))
+    var(--marinara-app-background-color, var(--background));
   border-color: color-mix(in srgb, var(--mari-workspace-blush) 24%, var(--border));
 }
 
@@ -2188,7 +2190,8 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 }
 
 .mari-workspace-canvas {
-  background: linear-gradient(var(--marinara-home-page-wash), var(--marinara-home-page-wash)) var(--background);
+  background: linear-gradient(var(--marinara-home-page-wash), var(--marinara-home-page-wash))
+    var(--marinara-app-background-color, var(--background));
 }
 
 /* M6: Chats, Skills, Memories and Aware of share one surface - the canvas, one hairline on the

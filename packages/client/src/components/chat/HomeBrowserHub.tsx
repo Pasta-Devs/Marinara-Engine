@@ -1781,7 +1781,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   };
   return (
     <div
-      className="mari-chrome-token-scope relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--background)]"
+      className="mari-chrome-token-scope relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--marinara-app-background-color,var(--background))]"
       data-component="HomeBrowserHub"
     >
       <div

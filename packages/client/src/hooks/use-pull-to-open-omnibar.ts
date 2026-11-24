@@ -329,7 +329,7 @@ export function usePullToOpenOmnibar({
         : "") +
       `radial-gradient(${px(rx)}px ${px(ry)}px at ${px(ex)}px ${px(ey)}px, color-mix(in srgb, var(--card) 30%, transparent) 96%, transparent 100%),` +
       `linear-gradient(to bottom, var(--marinara-topbar-surface) ${px(solidTo)}px, color-mix(in srgb, var(--card) 42%, transparent) ${px(height)}px),` +
-      `linear-gradient(to bottom, var(--background) ${px(solidTo)}px, color-mix(in srgb, var(--background) 0%, transparent) ${px(clearAt)}px)`;
+      `linear-gradient(to bottom, var(--marinara-app-background-color, var(--background)) ${px(solidTo)}px, color-mix(in srgb, var(--marinara-app-background-color, var(--background)) 0%, transparent) ${px(clearAt)}px)`;
 
     // Rim: soft, brightest along the upper left of the circle, travelling with it. Its light wavers
     // slowly and runs down the sheet to the circle as the pull grows.

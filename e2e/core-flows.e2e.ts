@@ -23443,15 +23443,36 @@ test("a dark app background in Light mode leaves editors and fields on the theme
       .locator("html")
       .evaluate((element, property) => getComputedStyle(element).getPropertyValue(property).trim(), name);
 
-  // The backdrop keeps the chosen color; the surfaces under the theme's text keep SillyTavern Light's.
+  // The backdrop and the washed surfaces (Home, Professor Mari) keep the chosen color; the surfaces
+  // under the app's text keep SillyTavern Light's.
   await expect.poll(() => rootValue("--marinara-app-background-paint")).toBe("#0d0830");
+  await expect.poll(() => rootValue("--marinara-app-background-color")).toBe("#0d0830");
   await expect.poll(() => rootValue("--background")).toBe("#e8e8ec");
 
+  const update = (change: string) =>
+    page.evaluate(async (step) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      const state = useUIStore.getState();
+      if (step === "dark") state.setTheme("dark");
+      if (step === "light") state.setTheme("light");
+      if (step === "app-text") state.saveUiStyleOverride("app", { background: "#0d0830", color: "#f4f4f5" });
+      if (step === "no-app-text") state.saveUiStyleOverride("app", { background: "#0d0830" });
+      if (step === "chrome-text") state.setChatChromeTextColor("#f4f4f5");
+    }, change);
+
   // Dark mode's light text reads on it, so there it is the surface as before.
-  await page.evaluate(async () => {
-    const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-    useUIStore.getState().setTheme("dark");
-  });
+  await update("dark");
+  await expect.poll(() => rootValue("--background")).toBe("#0d0830");
+
+  // In Light mode, light text the user chose makes it readable too: the Whole app part's text color...
+  await update("light");
+  await expect.poll(() => rootValue("--background")).toBe("#e8e8ec");
+  await update("app-text");
+  await expect.poll(() => rootValue("--background")).toBe("#0d0830");
+  // ...or the chrome text color that editors and libraries draw with.
+  await update("no-app-text");
+  await expect.poll(() => rootValue("--background")).toBe("#e8e8ec");
+  await update("chrome-text");
   await expect.poll(() => rootValue("--background")).toBe("#0d0830");
 });
 
