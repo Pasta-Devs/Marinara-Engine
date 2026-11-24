@@ -4,19 +4,20 @@ Neste guia você aprende a manter as contas e os modelos em ordem no painel **Co
 
 ## A lista de contas
 
-Abaixo da caixa **Jobs** (tarefas), o painel lista as suas contas. Cada conta mostra a imagem, o nome, o número de modelos e o endereço. Uma linha de modelo mostra a imagem do modelo, o nome dele e selos como a tarefa que ele faz (**Main**, **Agents**, **Images**), **Custom settings**, o preço ou **Plan**, para os modelos incluídos em uma assinatura. O card **Built-in model** (modelo embutido) fica abaixo da caixa **Jobs**. Veja [Como configurar o Built-in model](local-model.md).
+Abaixo do resumo **Jobs** (tarefas), o painel lista as suas contas. Cada conta mostra a imagem, o nome, o número de modelos e o endereço. Quando algo precisa da sua atenção, a conta avisa ao lado do nome: **Off**, **Needs key**, **Low balance** (saldo baixo: resta menos de 1 na moeda da conta) ou **No credit left** (sem crédito). Quando Marinara consegue ler o saldo ou o uso do plano de uma conta, mostra esses dados em **Edit account** (editar conta), em **Usage and balance** (uso e saldo). Uma linha de modelo mostra a imagem do modelo, o nome dele e selos como a tarefa que ele faz (**Main**, **Agents**, **Images**), **Custom settings**, o preço ou **Plan**, para os modelos incluídos em uma assinatura. O card **Built-in model** (modelo embutido) fica abaixo do resumo **Jobs**. Veja [Como configurar o Built-in model](local-model.md).
 
 Clique na linha de uma conta para recolher os modelos dela e clique de novo para mostrá-los. Marinara lembra quais contas você recolheu. **More actions** (mais ações, o botão de três pontos), no topo do painel, tem estes itens:
 
 | Item | O que faz |
 | --- | --- |
 | **Fold all accounts**, **Open all accounts** | Recolhe ou abre todas as contas. |
-| **Show only Off or Needs key** | Lista só as contas que precisam de atenção. |
+| **Sort: Custom**, **Sort: A–Z**, **Sort: Z–A**, **Sort: Newest**, **Sort: Oldest** | Ordena as contas: na ordem personalizada, de A a Z, de Z a A, das mais novas às mais antigas ou das mais antigas às mais novas. |
+| **Show only Off or Needs key** | Lista só as contas que precisam de atenção. Aparece quando alguma conta precisa de atenção. |
 | **Show cost badges** | Mostra o preço de cada modelo. |
 | **Group by folder** (agrupar por pasta), **Group by account** (agrupar por conta) | Troca o jeito de agrupar os modelos. Veja [Pastas](#folders). |
 | **Import account**, **Export all accounts** | Veja [Exportar e importar](#export-and-import). |
 
-Num painel largo, o menu suspenso de ordenação fica ao lado de **Search models and accounts** (buscar modelos e contas). Num painel estreito, a ordenação fica em **More actions**. As opções de ordenação são **Custom**, **A–Z**, **Z–A**, **Newest** e **Oldest** (personalizada, de A a Z, de Z a A, mais recentes e mais antigas). **Search models and accounts** filtra a lista conforme você digita.
+**Search models and accounts** (buscar modelos e contas) filtra a lista conforme você digita. A busca aparece quando você tem 8 modelos ou mais.
 
 Algumas contas alcançam modelos de vários criadores, como o NanoGPT ou um proxy. Os modelos delas ficam agrupados em títulos como **via NanoGPT**.
 
@@ -45,7 +46,7 @@ Cada conta mostra o ícone do serviço dela. Os ícones vêm com Marinara e nunc
 
 ## Modelos com estrela
 
-A estrela marca os modelos que você quer encontrar rápido. Os modelos com estrela aparecem em **Starred** (com estrela), perto do topo de todo seletor de modelos. Isso vale para as janelas **Model for** (modelo para) da caixa **Jobs**, para o **Model for this chat** e para os campos de modelo em **Chat Settings** (configurações do chat) e no editor de agente.
+A estrela marca os modelos que você quer encontrar rápido. Os modelos com estrela aparecem em **Starred** (com estrela), perto do topo de todo seletor de modelos. Isso vale para as janelas **Model for** (modelo para) da página **Jobs**, para o **Model for this chat** e para os campos de modelo em **Chat Settings** (configurações do chat) e no editor de agente.
 
 Para dar estrela a um modelo, clique na estrela dele na lista **Add model** da conta ou escolha **Star** (dar estrela) no menu **⋯** do modelo. Dar uma tarefa a um modelo também o salva.
 
@@ -57,7 +58,7 @@ Clique em **⋯** na linha de um modelo:
 
 | Ação | O que faz |
 | --- | --- |
-| **Use for…** | Abre a lista de tarefas. Clique em uma para atribuí-la ao modelo, como na caixa **Jobs**. Uma marca indica as tarefas que já foram atribuídas. |
+| **Use for…** | Abre a lista de tarefas. Clique em uma para atribuí-la ao modelo, como na página **Jobs**. Uma marca indica as tarefas que já foram atribuídas. |
 | **Edit model** (editar modelo) | Abre as configurações dele. Clicar na linha do modelo faz o mesmo. |
 | **Move to account…** (mover para a conta) | Move o modelo para outra conta. Ele passa a usar a chave daquela conta. |
 | **Folder** (pasta) | Coloca o modelo em uma pasta. |
@@ -92,7 +93,7 @@ A partir daí, cada resposta sorteia um modelo do seu conjunto do Shuffle.
 
 Se o modelo sorteado para uma resposta falhar e o **Main** (principal) tiver um modelo em **If it fails** (se falhar), esse modelo escreve a resposta no lugar dele. Um aviso mostra o modelo que falhou e um motivo curto, como "key rejected", "rate limited" ou "not found". A resposta fica com um pequeno rótulo **Fallback** (reserva). Toque nele, ou aponte para ele, para ver a mesma linha de novo.
 
-Uma escolha em **Model for this chat** muda só aquele chat. Para mudar o modelo dos chats novos, defina o **Main** na caixa **Jobs**.
+Uma escolha em **Model for this chat** muda só aquele chat. Para mudar o modelo dos chats novos, defina o **Main** no resumo **Jobs**.
 
 <a id="export-and-import"></a>
 

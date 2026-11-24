@@ -12,7 +12,7 @@ Una API key (clave de API) es un código secreto que te da un servicio para que 
 4. Haz clic en **Connect** (Conectar). Marinara prueba la cuenta.
 5. En **Found in … — use it for:**, marca **Images** (Imágenes). Si el servicio no tiene lista de modelos, escribe el ID del modelo en la fila. Haz clic en **Done** (Listo).
 6. Abre el modelo de imagen y haz clic en **Test image** (Probar imagen). Marinara crea una pequeña imagen de prueba.
-7. Marcar **Images** en el paso 5 también configura la tarea **Images** en el cuadro **Jobs** (Tareas), en la parte superior del panel **Connections**. Para cambiarla después, haz clic en la fila **Images**.
+7. Marcar **Images** en el paso 5 también configura la tarea **Images** en la página **Jobs** (Tareas) del panel **Connections**. Para cambiarla después, haz clic ahí en **Images**.
 
 Para añadir otro modelo de imagen a una cuenta, haz clic en **⋯** en la fila de la cuenta y elige **Add model** (Añadir modelo). Consulta [Conectarse a un proveedor de IA](../connections/connecting-to-a-provider.md) para ver la ventana completa.
 

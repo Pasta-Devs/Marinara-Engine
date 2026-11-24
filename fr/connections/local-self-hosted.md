@@ -28,7 +28,7 @@ Un serveur local ou auto-hébergé peut répondre avec le modèle qu'il a charg�
 
 - Un nouveau compte pour un serveur sur ton ordinateur ou ton réseau commence avec un modèle **Par défaut**.
 - Pour en ajouter un plus tard, clique sur **⋯** sur le compte et choisis **Ajouter un modèle**. **Par défaut** est la première ligne.
-- Utilise **Par défaut** comme n'importe quel autre modèle : attribue-lui une tâche comme **Principal** dans la zone **Tâches**, ou choisis-le dans **Modèle pour ce chat**.
+- Utilise **Default** (par défaut) comme n'importe quel autre modèle : attribue-lui une tâche comme **Main** (principal) sur la page **Jobs** (tâches), ou choisis-le dans **Model for this chat** (modèle pour ce chat).
 - Clique sur **Par défaut** dans le panneau pour lui attribuer ses propres réglages, comme ses paramètres et son preset de prompt, comme tu le ferais pour un modèle nommé.
 
 **Par défaut** apparaît pour un serveur sur ton ordinateur ou ton réseau, ainsi que pour la CLI Grok, qui a sa propre valeur par défaut (voir [CLI avec abonnement](subscription-clis.md)). Un service d'API hébergé a besoin d'un nom de modèle.
@@ -58,7 +58,7 @@ Sous Windows, un serveur qui tourne peut quand même être bloqué. Si Marinara 
 2. Clique sur **Test provider** (tester le fournisseur). Il vérifie que l'adresse est joignable et indique le temps que ça a pris.
 3. Choisis un modèle si ce n'est pas déjà fait, puis clique sur **Send test message** (envoyer un message de test). Il envoie un court message et affiche la réponse.
 
-Si les deux réussissent, ouvre un chat et choisis le compte dans **Model for this chat** (modèle pour ce chat). Voir [Choisir un modèle pour un seul chat](connecting-to-a-provider.md#choosing-a-model-for-one-chat).
+Si les deux réussissent, ouvre un chat et choisis le compte dans **Model for this chat**. Voir [Choisir un modèle pour un seul chat](connecting-to-a-provider.md#choosing-a-model-for-one-chat).
 
 Si un test échoue, vérifie que le serveur tourne avec un modèle chargé, et que l'adresse et le port correspondent exactement. Pour un serveur sur un autre ordinateur, vérifie les étapes ci-dessous.
 

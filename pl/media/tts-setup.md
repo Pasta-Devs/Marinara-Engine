@@ -7,13 +7,13 @@ Synteza mowy (TTS) czyta na głos wiadomości czatu i narrację gry. Z tego prze
 1. Kliknij **Connections** (Połączenia) na górnym pasku, a potem **Add** (dodaj).
 2. Kliknij filtr **Voice** (głos), wybierz usługę i wklej klucz w polu **API key** (klucz API). Kliknij **Connect**.
 3. Pod **Found in … — use it for:** zaznacz **Voice**, a potem kliknij **Done**. Wybór modelu dla Voice włącza syntezę mowy.
-4. Kliknij koło zębate w wierszu **Voice** sekcji **Jobs** (zadania), a potem **Preview** (Odsłuchaj), aby usłyszeć próbkę. W czacie kliknij **Speak** (Mów) pod wiadomością.
+4. Kliknij koło zębate obok **Voice** na stronie **Jobs** (zadania), a potem **Preview** (Odsłuchaj), aby usłyszeć próbkę. W czacie kliknij **Speak** (Mów) pod wiadomością.
 
 ## Włączanie syntezy mowy
 
 Wybór modelu dla zadania **Voice** włącza syntezę mowy. Pojawia się przycisk **Speak** przy każdej wiadomości i opcje **Auto-play** (automatyczne odtwarzanie). Nadal to ty wybierasz, co i kiedy ma być czytane.
 
-1. Kliknij **Connections** na górnym pasku. W sekcji **Jobs** znajdź wiersz **Voice** pod **Pictures & sound**.
+1. Kliknij **Connections** na górnym pasku, a potem **All jobs** (wszystkie zadania) pod nagłówkiem **Jobs**. Znajdź **Voice**.
 2. Kliknij wiersz i wybierz model lub usługę głosową. Wiersz pokazuje twój wybór.
 3. Kliknij koło zębate w wierszu, by otworzyć ustawienia głosu. Jeśli nie masz jeszcze konta głosowego, kliknij **Add** w wierszu lub dodaj konto zgodnie z instrukcją szybkiego startu.
 4. Aby wyłączyć syntezę mowy, kliknij wiersz i wybierz **Turn voice off** (wyłącz głos). Wiersz pokaże **Off**, a nic nie będzie czytane na głos.
@@ -35,7 +35,7 @@ Marinara zapisuje klucz, adres, model, głosy i parametry osobno dla każdej us�
 
 Jeśli masz już konto **Audio** (zobacz [Obsługiwani dostawcy AI](../connections/providers-reference.md#audio)), nie musisz ponownie wpisywać jego danych. Jego modele głosu pojawiają się w selektorze **Voice**.
 
-1. Kliknij wiersz **Voice** w sekcji **Jobs** i wybierz model.
+1. Kliknij **Voice** na stronie **Jobs** i wybierz model.
 2. Kliknij koło zębate w wierszu. Wybierz głosy i pozostałe ustawienia.
 
 Marinara używa adresu, klucza, modelu oraz wartości **Request timeout (seconds)** (limit czasu żądania w sekundach) z konta, więc ustawienia głosu nie pokazują tych pól. Klucz pozostaje na koncie i nigdy nie jest kopiowany do ustawień głosu ani wysyłany do przeglądarki. Zmiany konta, np. nowy klucz, obowiązują od razu.
@@ -69,7 +69,7 @@ PocketTTS nie jest wbudowany w aplikację Marinara Engine. Zainstaluj osobno [of
 
 ### Limit czasu żądania
 
-Zwiększ **Request timeout (seconds)** w sekcji **More** (więcej) w oknie **Voice settings** (ustawienia głosu). Otworzysz je kołem zębatym w wierszu **Voice** w sekcji **Jobs**. Domyślnie Marinara czeka 60 sekund na kwestię. Lokalny serwer, zwłaszcza na laptopie, może potrzebować więcej czasu. Dopuszczalny zakres to od 10 do 3 600 sekund.
+Zwiększ **Request timeout (seconds)** w sekcji **More** (więcej) w oknie **Voice settings** (ustawienia głosu). Otworzysz je kołem zębatym obok **Voice** na stronie **Jobs**. Domyślnie Marinara czeka 60 sekund na kwestię. Lokalny serwer, zwłaszcza na laptopie, może potrzebować więcej czasu. Dopuszczalny zakres to od 10 do 3 600 sekund.
 
 Konto Audio ma własny **Request timeout (seconds)** poniżej **Default voice** w oknie **Edit model** oraz w **Voice settings**. Czaty odczytywane przez to konto, również gdy jest wybrane dla zadania **Voice**, używają jego limitu. Limit w **Voice settings** obejmuje mowę odtwarzaną w tym oknie, także **Preview**. Komunikat po przekroczeniu limitu podaje czas oczekiwania i ustawienie, które należy zwiększyć.
 
@@ -182,7 +182,7 @@ Jeśli głos przekręca nazwę postaci albo persony, uzupełnij pole **Phonetic 
 
 ## Rozwiązywanie problemów
 
-- **Nic nie jest odczytywane**: sprawdź, czy wiersz **Voice** w sekcji **Jobs** nie pokazuje **Off**. Potem sprawdź odpowiedni przełącznik **Auto-play** lub użyj **Speak** pod wiadomością.
+- **Nic nie jest odczytywane**: sprawdź, czy **Voice** na stronie **Jobs** nie jest pod **Off**. Potem sprawdź odpowiedni przełącznik **Auto-play** lub użyj **Speak** pod wiadomością.
 - Jeśli wiersz pokazuje **The voice account is missing**, wybierz inny model głosu. Zobacz [Korzystanie z modelu głosowego z konta](#use-a-voice-model-from-an-account).
 - Sprawdź, czy w wierszu **Voice** jest wybrany model i czy klucz jest poprawny, a potem kliknij **Refresh voices from provider**. Oficjalny serwer PocketTTS korzysta z wbudowanej listy aplikacji Marinara Engine. W przypadku zgodnego adaptera PocketTTS sprawdź, czy `<Base URL>/v1/voices` odpowiada.
 - **ElevenLabs nie mówi**: wybierz prawdziwy głos, a nie tekst zastępczy "Select an ElevenLabs voice". Sprawdź, czy w polu **Model** jest model mowy, a nie model projektowania głosu z `ttv` w identyfikatorze.

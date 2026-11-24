@@ -4,19 +4,20 @@ Ce guide explique comment garder tes comptes et tes modèles bien rangés dans l
 
 ## La liste des comptes
 
-Sous l'encadré **Jobs** (tâches), le panneau liste tes comptes. Chaque compte affiche son image, son nom, son nombre de modèles et son adresse. Une ligne de modèle affiche l'image du modèle, son nom et des badges, comme la tâche dont il s'occupe (**Main**, **Agents**, **Images**), **Custom settings** (réglages personnalisés), son prix, ou **Plan** (forfait) pour les modèles inclus dans un abonnement. La carte **Built-in model** (modèle intégré) se trouve sous l'encadré **Jobs**. Voir [Configuration du modèle intégré](local-model.md).
+Sous le récapitulatif **Jobs** (tâches), le panneau liste tes comptes. Chaque compte affiche son image, son nom, son nombre de modèles et son adresse. Quand un compte demande ton attention, il l'indique à côté de son nom : **Off** s'il est désactivé, **Needs key** s'il lui manque une clé, **Low balance** quand son solde est inférieur à 1 dans sa devise, ou **No credit left** quand il n'a plus de crédit. Quand Marinara peut lire le solde d'un compte ou la consommation de son forfait, ces informations s'affichent dans **Edit account** (modifier le compte), sous **Usage and balance** (utilisation et solde). Une ligne de modèle affiche l'image du modèle, son nom et des badges, comme la tâche dont il s'occupe (**Main**, **Agents**, **Images**), **Custom settings** (réglages personnalisés), son prix, ou **Plan** (forfait) pour les modèles inclus dans un abonnement. La carte **Built-in model** (modèle intégré) se trouve sous le récapitulatif **Jobs**. Voir [Configuration du modèle intégré](local-model.md).
 
 Clique sur la ligne d'un compte pour replier ses modèles, et clique de nouveau pour les afficher. Marinara se souvient des comptes que tu as repliés. **More actions** (plus d'actions, trois points), en haut du panneau, propose ces éléments :
 
 | Élément | Ce qu'il fait |
 | --- | --- |
 | **Fold all accounts** (replier tous les comptes), **Open all accounts** (ouvrir tous les comptes) | Replie ou ouvre tous les comptes. |
-| **Show only Off or Needs key** (afficher seulement les comptes Off ou Needs key) | Ne liste que les comptes qui demandent ton attention. |
+| **Sort: Custom** (tri : personnalisé), **Sort: A–Z**, **Sort: Z–A**, **Sort: Newest** (tri : plus récents), **Sort: Oldest** (tri : plus anciens) | Trie les comptes. |
+| **Show only Off or Needs key** (afficher seulement les comptes Off ou Needs key) | Ne liste que les comptes qui demandent ton attention. Cet élément apparaît quand un compte demande ton attention. |
 | **Show cost badges** (afficher les badges de coût) | Affiche le prix de chaque modèle. |
 | **Group by folder** (regrouper par dossier), **Group by account** (regrouper par compte) | Change la façon dont les modèles sont regroupés. Voir [Dossiers](#folders). |
 | **Import account** (importer un compte), **Export all accounts** (exporter tous les comptes) | Voir [Exporter et importer](#export-and-import). |
 
-Dans un panneau large, le menu déroulant de tri se trouve à côté de **Search models and accounts** (rechercher des modèles et des comptes). Dans un panneau étroit, le tri se trouve dans **More actions**. Les choix de tri sont **Custom** (personnalisé), **A–Z**, **Z–A**, **Newest** (plus récents) et **Oldest** (plus anciens). **Search models and accounts** filtre la liste au fil de la saisie.
+**Search models and accounts** (rechercher des modèles et des comptes) filtre la liste au fil de la saisie. Cette zone de recherche apparaît dès que tu as 8 modèles ou plus.
 
 Certains comptes donnent accès aux modèles de plusieurs créateurs, comme NanoGPT ou un proxy. Leurs modèles sont regroupés sous des intitulés comme **via NanoGPT**.
 
@@ -26,7 +27,7 @@ Clique sur **⋯** sur la ligne d'un compte :
 
 | Action | Ce qu'elle fait |
 | --- | --- |
-| **Edit account** (modifier le compte) | Ouvre ses réglages, notamment **Name** (nom), **Address** (adresse), **API key** (clé API) et **Use this account** (utiliser ce compte). |
+| **Edit account** | Ouvre ses réglages, notamment **Name** (nom), **Address** (adresse), **API key** (clé API) et **Use this account** (utiliser ce compte). |
 | **Replace key** (remplacer la clé) | Colle une nouvelle clé. Si l'ancienne clé se trouve sur d'autres comptes, Marinara te demande s'il faut aussi les mettre à jour. |
 | **Test** (tester) | Vérifie la clé et affiche le résultat. |
 | **Add model** (ajouter un modèle) | Ouvre la liste de modèles du compte. |
@@ -37,7 +38,7 @@ Clique sur **⋯** sur la ligne d'un compte :
 
 Pour supprimer un compte, clique sur **Delete account**. Marinara te demande de confirmer et liste ce qui utilise ses modèles, sous **Used by** (utilisé par) : chats, agents, modèles et tâches. Clique sur **Delete with its N models** (supprimer avec ses N modèles) pour retirer le compte et ses modèles. Ces chats et ces tâches ont ensuite besoin d'un autre modèle. Si un modèle ne peut pas être retiré, l'éditeur le liste sous **This account still has models. Remove these first:**. Ouvre chacun d'eux et retire-le.
 
-Dans **Edit account**, **Test account** (tester le compte) vérifie la clé, **Usage and balance** (utilisation et solde) affiche la consommation du forfait, et **More options** (plus d'options) contient **Requests per minute** (requêtes par minute) et **Parallel requests** (requêtes en parallèle).
+Dans **Edit account**, **Test account** (tester le compte) vérifie la clé, **Usage and balance** affiche la consommation du forfait, et **More options** (plus d'options) contient **Requests per minute** (requêtes par minute) et **Parallel requests** (requêtes en parallèle).
 
 ### Icônes des fournisseurs
 
@@ -45,7 +46,7 @@ Chaque compte affiche l'icône de son service. Les icônes sont livrées avec Ma
 
 ## Modèles favoris
 
-Une étoile marque les modèles que tu veux retrouver vite. Les modèles étoilés sont listés sous **Starred** (favoris), près du haut de chaque sélecteur de modèle : les fenêtres **Model for** (modèle pour) de l'encadré **Jobs**, **Model for this chat** (modèle pour ce chat), et les champs de modèle dans **Chat Settings** (réglages du chat) et dans l'éditeur d'agent.
+Une étoile marque les modèles que tu veux retrouver vite. Les modèles étoilés sont listés sous **Starred** (favoris), près du haut de chaque sélecteur de modèle : les fenêtres **Model for** (modèle pour) de la page **Jobs**, **Model for this chat** (modèle pour ce chat), et les champs de modèle dans **Chat Settings** (réglages du chat) et dans l'éditeur d'agent.
 
 Pour étoiler un modèle, clique sur son étoile dans la liste **Add model** du compte, ou choisis **Star** (étoiler) dans le menu **⋯** du modèle. Confier une tâche à un modèle l'enregistre aussi.
 
@@ -57,7 +58,7 @@ Clique sur **⋯** sur la ligne d'un modèle :
 
 | Action | Ce qu'elle fait |
 | --- | --- |
-| **Use for…** (utiliser pour…) | Ouvre la liste des tâches. Clique sur une tâche pour la confier au modèle, comme dans l'encadré **Jobs**. Une coche indique les tâches déjà attribuées. |
+| **Use for…** (utiliser pour…) | Ouvre la liste des tâches. Clique sur une tâche pour la confier au modèle, comme sur la page **Jobs**. Une coche indique les tâches déjà attribuées. |
 | **Edit model** (modifier le modèle) | Ouvre ses réglages. Cliquer sur la ligne du modèle fait la même chose. |
 | **Move to account…** (déplacer vers un compte…) | Déplace le modèle vers un autre compte. Il utilise alors la clé de ce compte. |
 | **Folder** (dossier) | Range le modèle dans un dossier. |
@@ -92,7 +93,7 @@ Chaque réponse pioche alors un modèle au hasard parmi ceux que tu as ajoutés 
 
 Si le modèle choisi pour une réponse échoue et que **Main** a un modèle **If it fails** (en cas d'échec), c'est ce modèle qui écrit la réponse. Un avis nomme le modèle qui a échoué et une courte raison, comme "key rejected", "rate limited" ou "not found". La réponse garde une petite étiquette **Fallback** (secours). Touche-la, ou pointe dessus, pour revoir la même ligne.
 
-Un choix dans **Model for this chat** ne change que ce chat. Pour changer le modèle des nouveaux chats, définis **Main** dans l'encadré **Jobs**.
+Un choix dans **Model for this chat** ne change que ce chat. Pour changer le modèle des nouveaux chats, définis **Main** dans le récapitulatif **Jobs**.
 
 <a id="export-and-import"></a>
 

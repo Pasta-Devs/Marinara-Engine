@@ -63,8 +63,8 @@ Kaelen speaks normally.
 
 开始之前，先看[如何选择](#which-one-to-pick)。
 
-1. 点击顶栏里的 **Connections**(连接)，打开 **Jobs**(分工) 框。
-2. 在 **Behind the scenes**(幕后) 下点击 **Decision**(判定) 行，会打开一个列表。
+1. 点击顶栏里的 **Connections**(连接)，再点击 **Jobs**(分工) 下的 **All jobs**(全部工作)。
+2. 点击 **Decision**(判定)，会打开一个列表。
 3. 选一个模型。列表分三组：
    - **None (decisions off)**(无，关闭判定) 是默认选项。不会发出任何询问，智能体编辑器里的激活问题字段保持禁用。
    - **Built-in model**(内置模型) 列出 Marinara 在你电脑上运行的模型：**Built-in model**、**Built-in model (utility)**(内置模型，辅助) 和 **Built-in model (decisions)**(内置模型，判定)。所有内容都不会离开你的电脑。
@@ -100,7 +100,7 @@ Jev 和 Open-Jev 是不同的模型。Jev 是 TypeSafe 的托管模型，可以�
 
 如果已经下载了内置模型，就能用它来判定，不需要账号，也不花钱。见[内置模型设置](local-model.md)。
 
-1. 在 **Jobs** 框的 **Behind the scenes** 下点击 **Decision** 行。
+1. 在 **Jobs** 页面上点击 **Decision**。
 2. 选择 **Built-in model**；如果有 **Built-in model (utility)**，也可以选它。
 3. 点击 **Decision settings** 齿轮，再点击 **Test**。
 
@@ -124,7 +124,7 @@ Marinara 向模型提一个是或否的问题，让它只写一个 Token，再�
 
 如果聊天模型运行在 Ollama、LM Studio、llama.cpp 或其他 OpenAI 兼容服务器上，它就能回答判定，Marinara 不必再加载第二份。
 
-1. 点击 **Jobs** 框中 **Behind the scenes** 下的 **Decision** 行。选择器列出所有账号的模型，包括你的聊天模型。也可以点击模型上的 **⋯**，选择 **Use for…** → **Decision**。
+1. 在 **Jobs** 页面上点击 **Decision**。选择器列出所有账号的模型，包括你的聊天模型。也可以点击模型上的 **⋯**，选择 **Use for…** → **Decision**。
 2. 点击 **Decision** 行的齿轮，再点击 **Test**。测试通过时会说明服务器是否返回了对数概率，以及模型是否需要先推理。点击 **Done**。
 也可以自己创建一个。使用来源为 **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**(OpenAI 兼容聊天模型) 的 Decision 账号，填写与聊天账号相同的地址（例如 Ollama 的 `http://localhost:11434/v1`），以及服务器使用的模型名称。
 
@@ -141,14 +141,14 @@ Marinara 向模型提一个是或否的问题，让它只写一个 Token，再�
 1. 点击顶栏里的 **Connections**，再点击 **Add**(添加)。
 2. 点击类型按钮中的 **Decision**(判定)，再点击 **TypeSafe** 或 **Own decision server**。如果用 NanoGPT，见[通过 NanoGPT](#through-nanogpt)；如果用 OpenRouter 或 Google Gemini，见[通过 OpenRouter 或 Google Gemini](#through-openrouter-or-google-gemini)。
 3. 填写 **API key**(API 密钥)；如果是 **Own decision server**，则填写 **Server address**(服务器地址)。点击 **Connect**(连接)。
-4. 在 **Found in TypeSafe — use it for:** 下勾选 **Decision**，再点击 **Done**。模型会显示在 **Jobs** 框中 **Behind the scenes** 下的 **Decision** 行。
+4. 在 **Found in TypeSafe — use it for:** 下勾选 **Decision**，再点击 **Done**。现在 **Jobs** 页面上的 **Decision** 会显示这个模型。
 5. 要测试它，在面板里点击该模型打开 **Edit model**，然后点击 **Provider tests**(服务商测试) 卡片里的 **Test provider**。**Own decision server** 模型在那里没有 **Test provider** 按钮。请改为在面板里打开账号的 **⋯** 菜单，点击 **Test**。
 
 **Test provider** 通过时，会显示概率、回答耗时和账号的时限。**⋯** 菜单里账号的 **Test** 只说明是否成功以及耗时多久。测试至少等待 10 秒；时限更长时，等待时限再加 5 秒。如果回答耗时超过时限，结果会注明：在聊天中，这样的回答会算作没有答案。
 
 没有成功时，见[故障排查](#troubleshooting)。
 
-判定模型有以下字段。点击面板中的模型可打开 **Edit model**，或点击 **Jobs** 框中 **Decision** 行的齿轮，打开当前判定模型的 **Decision settings**。
+判定模型有以下字段。点击面板中的模型可打开 **Edit model**，或点击 **Jobs** 页面上 **Decision** 旁边的齿轮，打开当前判定模型的 **Decision settings**。
 
 | 字段 | 作用 |
 | --- | --- |
@@ -179,7 +179,7 @@ NanoGPT 提供 Jev Latest 等自己的判定模型。Marinara 会用你的 NanoG
 OpenRouter 和 Google Gemini 账号也会列出各自的判定模型，Marinara 会用该账号的密钥请求对应服务的判定 API。OpenRouter 列出了许多模型，其中名称以 `:free` 结尾的可以免费使用。Google Gemini 只列出一个，即 **Gemini Decision 1**。
 
 1. 照常连接 OpenRouter 或 Google Gemini。
-2. 点击 **Jobs** 框中 **Behind the scenes** 下的 **Decision** 行，再点击左侧的账号。在 **Decision models** 下选一个模型。
+2. 在 **Jobs** 页面上点击 **Decision**，再点击左侧的账号。在 **Decision models** 下选一个模型。
 3. 要测试它，打开模型的 **Edit model**，点击 **Test provider**。
 
 在 OpenRouter 账号中，会返回对数概率的聊天模型列在下方的 **Chat models** 中，也可以用来判定。Google Gemini 账号只提供它的判定模型。
@@ -333,7 +333,7 @@ OpenRouter 和 Google Gemini 账号也会列出各自的判定模型，Marinara 
 1. 点击顶栏里的 **Connections**。在 **On this device**(在你的电脑上) 下点击 **Built-in model (decisions)**。也可以在 **Connections** 面板里点击 **Add**，再点击 **Decisions** 下的 **Built-in model (decisions)**。
 2. 在 **Model**(模型) 列表里选择一个模型。下方会显示它的描述，然后是 **Answers** 和 **Reads**（见[模型页面列出什么](#what-a-model-page-lists)），以及语言和许可证。
 3. 点击带模型名称和大小的 **Download**(下载)。确认大小、硬件判断和许可证。在此之前什么都不会下载。
-4. 点击 **Use for Decision**(用于判定)，或者在 **Jobs** 框的 **Behind the scenes** 下点击 **Decision** 行，再选择 **Built-in model (decisions)**。
+4. 点击 **Use for Decision**(用于判定)，或者在 **Jobs** 页面上点击 **Decision**，再选择 **Built-in model (decisions)**。
 
 模型运行过后，它的页面还会显示 **On this computer**，列出在这台电脑上处理几轮聊天、一张图片，以及一个视频片段（支持读取时）的耗时。这些时间来自你自己的电脑，可以看出请求图片会让陈述的判定慢多少。
 

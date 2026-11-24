@@ -92,7 +92,7 @@ Każdy obraz w galerii może mieć krótki opis tego, co przedstawia. Czaty w tr
 - Aby napisać opis, kliknij przycisk oznaczania w lewym górnym rogu obrazu i wybierz **Add description** (dodanie opisu) albo **Edit description** (edycja opisu), aby go zmienić.
 - Aby opisy napisała AI, kliknij **Select images** (Zaznacz obrazy), wybierz obrazy, a potem kliknij **Describe with AI** (opisanie za pomocą AI). Model **Image reading** (odczytywanie obrazów) ogląda każdy z nich i pisze krótki opis. Jeśli niektóre już go mają, wybierz opisanie tylko tych bez opisu albo ponowne opisanie wszystkich.
 
-Zanim zaczniesz: opisy AI wymagają modelu, który potrafi odczytywać obrazy. Marinara używa modelu **Image reading**, jeśli ustawisz go w sekcji **Behind the scenes** (za kulisami) w ustawieniach połączenia, a w przeciwnym razie używa modelu agentów. Jednocześnie wysyłanych jest do 8 obrazów, więc opisanie większej liczby zajmuje chwilę.
+Zanim zaczniesz: opisy AI wymagają modelu, który potrafi odczytywać obrazy. Marinara używa modelu **Image reading**, jeśli ustawisz go na stronie **Jobs** (zadania) panelu **Connections** (Połączenia), a w przeciwnym razie używa modelu agentów. Jednocześnie wysyłanych jest do 8 obrazów, więc opisanie większej liczby zajmuje chwilę.
 
 Galeria samego czatu ma tę samą opcję **Describe with AI** w trybie zaznaczania.
 

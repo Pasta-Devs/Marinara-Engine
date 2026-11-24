@@ -193,7 +193,7 @@ OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI 和 Google 的图像和视�
 
 每个来源都会填好默认的地址和模型。**Default voice**(默认声音) 是在没有设置更具体的声音（比如单个角色的声音）时使用的声音。**Request timeout (seconds)**(请求超时，单位为秒) 是 Marinara 等待一句语音的时长。语音服务器较慢时调高它。
 
-要选择 Marinara 默认使用的语音账号，点击 **Jobs**(分工) 框中的 **Voice**(声音) 行。要朗读消息，请在该行选择账号的模型。见[Text to Speech (TTS) 设置](../media/tts-setup.md)和[使用账号中的语音模型](../media/tts-setup.md#use-a-voice-model-from-an-account)。
+要选择 Marinara 默认使用的语音账号，在 **Jobs**(分工) 页面上点击 **Voice**(声音)。要用某个语音账号朗读消息，就为 **Voice** 选择它的模型。见[Text to Speech (TTS) 设置](../media/tts-setup.md)和[使用账号中的语音模型](../media/tts-setup.md#use-a-voice-model-from-an-account)。
 
 <a id="music--sound-effects"></a>
 
@@ -225,7 +225,7 @@ OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI 和 Google 的图像和视�
 
 **Anthropic**、**Claude (Subscription)**、**OpenAI (ChatGPT)** 和 **Grok CLI (Subscription)** 无法生成嵌入。遇到这几家，就用 **Embedding provider**(嵌入服务商) 下拉菜单借用另一个账号，比如某个 OpenAI 兼容账号、**Google Gemini** 或 **Built-in model**(内置模型)。
 
-想让所有没有自己嵌入设置的账号都使用同一个嵌入来源，点击 **Jobs** 框里的 **Embeddings**(嵌入) 行。**Marinara's own search**(Marinara 自带的搜索) 会保留内置的嵌入模型。账号自己的嵌入模型或 **Embedding provider** 仍然优先。更改之后，请重新向量化你的世界书和记忆。见[世界书的语义搜索](../lorebooks/semantic-search.md)。
+想让所有没有自己嵌入设置的账号都使用同一个嵌入来源，在 **Jobs** 页面上点击 **Embeddings**(嵌入)。**Marinara's own search**(Marinara 自带的搜索) 会保留内置的嵌入模型。账号自己的嵌入模型或 **Embedding provider** 仍然优先。更改之后，请重新向量化你的世界书和记忆。见[世界书的语义搜索](../lorebooks/semantic-search.md)。
 
 <a id="timeouts"></a>
 

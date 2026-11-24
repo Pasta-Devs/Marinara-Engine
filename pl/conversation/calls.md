@@ -44,7 +44,7 @@ Główny przełącznik **Commands** w tej samej sekcji musi być włączony, aby
 
 Text to Speech decyduje, które postacie mogą mówić i jakim głosem. Pełny opis znajdziesz w [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md). W skrócie:
 
-1. Otwórz **Connections** i kliknij wiersz **Voice** w sekcji **Jobs**.
+1. Otwórz **Connections** i kliknij **Voice** na stronie **Jobs** (zadania).
 2. Wybierz model głosowy albo usługę głosową. Ten wybór włącza syntezę mowy. Konto modelu udostępnia klucz i adres.
 3. Kliknij koło zębate w wierszu **Voice**, aby otworzyć **Voice settings** (ustawienia głosu).
 4. W **Who speaks** (kto mówi) wybierz **Shared voice** (wspólny głos) albo przypisz postaciom i personom ich własne głosy w **Character and persona voices** (głosy postaci i person). Osobne głosy ułatwiają śledzenie rozmów grupowych.
@@ -147,7 +147,7 @@ Jeśli to nie zadziałało: w wersji Lite aplikacji Marinara Engine zobaczysz ko
 
 Jeśli Local Whisper słabo radzi sobie z twoim językiem lub akcentem, wyślij głos do innego serwera zamiany mowy na tekst. Działa każdy serwer, który przyjmuje format OpenAI do zamiany mowy na tekst (adres `/audio/transcriptions`), niezależnie od tego, czy uruchamiasz go sam, czy korzystasz z usługi takiej jak OpenAI lub Groq.
 
-1. Otwórz **Connections** i kliknij koło zębate przy **Dictation** (dyktowanie) w sekcji **Jobs**. Znajdziesz tam ustawienia serwera **Speech to text** (zamiana mowy na tekst). Są ukryte, dopóki pakiet Calls nie jest zainstalowany.
+1. Otwórz **Connections** i kliknij koło zębate obok **Dictation** (dyktowanie) na stronie **Jobs**. Znajdziesz tam ustawienia serwera **Speech to text** (zamiana mowy na tekst). Są ukryte, dopóki pakiet Calls nie jest zainstalowany.
 2. Wpisz **Server URL**, na przykład `http://localhost:8000/v1`.
 3. Wpisz **API key**, jeśli serwer go wymaga. Jest zapisywany w postaci zaszyfrowanej i pokazywany zamaskowany.
 4. Wpisz nazwę **Model** używaną przez twój serwer. Zostaw puste, aby wysyłać `whisper-1`.

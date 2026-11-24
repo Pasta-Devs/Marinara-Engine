@@ -28,7 +28,7 @@ Ein lokaler oder selbst gehosteter Server kann mit dem Modell antworten, das er 
 
 - Ein neues Konto für einen Server auf deinem Rechner oder in deinem Netzwerk beginnt mit einem Modell **Standard**.
 - Um später eines hinzuzufügen, klick am Konto auf **⋯** und wähl **Modell hinzufügen**. **Standard** steht in der ersten Zeile.
-- Nutze **Standard** wie jedes andere Modell: Weise ihm im Kasten **Aufgaben** eine Aufgabe wie **Main** zu oder wähl es unter **Modell für diesen Chat**.
+- Nutze **Standard** wie jedes andere Modell: Weise ihm auf der Seite **Jobs** (Aufgaben) eine Aufgabe wie **Main** zu oder wähl es unter **Modell für diesen Chat**.
 - Klick im Panel auf **Standard**, um ihm eigene Einstellungen zu geben, etwa Parameter und Prompt-Preset, genau wie einem benannten Modell.
 
 **Standard** erscheint bei einem Server auf deinem Rechner oder in deinem Netzwerk sowie für die Grok CLI, die einen eigenen Standard hat (siehe [Abonnement-CLIs](subscription-clis.md)). Ein gehosteter API-Dienst braucht einen Modellnamen.

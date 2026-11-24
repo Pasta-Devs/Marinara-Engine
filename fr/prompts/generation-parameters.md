@@ -134,13 +134,13 @@ Le désactiver fait apparaître **Past reasoning blocks** (blocs de raisonnement
 2. Choisis un modèle dans le menu déroulant **Captioning model** (modèle de description).
 3. Tu peux modifier le **Prompt de description**, les instructions envoyées avec chaque image. Le bouton de réinitialisation, ou le fait de vider le champ, revient au prompt de lecture d'images commun à tout le moteur. Le prompt n'est enregistré que pour ce chat, et **Enregistrer comme valeur par défaut de la connexion** ne le copie pas.
 
-Le champ s'affiche aussi quand l'interrupteur est désactivé mais qu'un modèle de **Lecture d'images** est défini dans l'encadré **Tâches** du panneau **Connexions** : ce modèle décrit alors les images de ce chat chaque fois que le modèle du chat ne peut pas les voir.
+Le champ s'affiche aussi quand l'interrupteur est désactivé mais qu'un modèle **Image reading** (lecture d'images) est défini sur la page **Jobs** (tâches) du panneau **Connections** : ce modèle décrit alors les images de ce chat chaque fois que le modèle du chat ne peut pas les voir.
 
 <a id="what-the-reading-model-is-asked"></a>
 
 ### Ce qui est demandé au modèle de lecture
 
-Dans le panneau **Connexions**, clique sur la roue dentée de la ligne **Lecture d'images** de l'encadré **Tâches** (ou choisis **Réglages de lecture d'images** sous la liste des modèles dans **Modèle pour Lecture d'images**). Ces réglages s'appliquent à tous les chats :
+Dans le panneau **Connections**, clique sur **All jobs** (toutes les tâches), puis sur la roue dentée à côté de **Image reading**. Tu peux aussi choisir **Image reading settings** (réglages de lecture d'images) sous la liste des modèles dans **Model for Image reading** (modèle pour la lecture d'images). Ces réglages s'appliquent à tous les chats :
 
 - **Instructions** : le prompt système envoyé avec chaque image. Le **Prompt de description** propre à un chat le remplace.
 - **Requête** : le message envoyé avec chaque image. `{{filename}}` devient le nom de fichier de l'image.

@@ -111,7 +111,7 @@ Opis mówi, co przedstawia emoji lub naklejka i jakie emocje wyraża, na przykł
 - Aby napisać opis, kliknij **Edit** na zakładce **Custom emojis** lub **Stickers**, a potem mały przycisk opisu w rogu kafelka. W przypadku emoji lub naklejki oznaczonej w galerii kliknij przycisk tagu i wybierz **Add description** (dodanie opisu).
 - Aby opisy napisała AI, kliknij **Edit**, a potem **Describe with AI** (opisanie za pomocą AI). Model **Image reading** (odczytywanie obrazów) ogląda każdy obrazek i pisze krótki opis. Jeśli niektóre już go mają, wybierz **Describe only the … without** (opisanie tylko tych bez opisu) lub **Describe all … again** (ponowne opisanie wszystkich).
 
-Zanim zaczniesz: opisy AI wymagają modelu, który potrafi odczytywać obrazy. Marinara używa modelu **Image reading**, jeśli ustawisz go w sekcji **Behind the scenes** (za kulisami) w ustawieniach połączenia, a w przeciwnym razie używa modelu agentów.
+Zanim zaczniesz: opisy AI wymagają modelu, który potrafi odczytywać obrazy. Marinara używa modelu **Image reading**, jeśli ustawisz go na stronie **Jobs** (zadania) panelu **Connections** (Połączenia), a w przeciwnym razie używa modelu agentów.
 
 Korzystają z nich dwa ustawienia w panelu **Selection preferences**:
 

@@ -12,7 +12,7 @@ A chave de API é um código secreto que um serviço dá a você para que Marina
 4. Clique em **Connect** (conectar). Marinara testa a conta.
 5. Em **Found in … — use it for:**, marque **Images** (imagens). Se o serviço não tiver uma lista de modelos, digite o ID do modelo na linha. Clique em **Done** (concluir).
 6. Abra o modelo de imagem e clique em **Test image** (testar imagem). Marinara gera uma pequena imagem de teste.
-7. Marcar **Images** no passo 5 também define a tarefa **Images** no quadro **Jobs** (tarefas), no topo do painel **Connections**. Para alterá-la depois, clique na linha **Images**.
+7. Marcar **Images** no passo 5 também define a tarefa **Images** na página **Jobs** (tarefas) do painel **Connections**. Para alterá-la depois, clique em **Images** ali.
 
 Para adicionar outro modelo de imagem a uma conta, clique em **⋯** na linha da conta e escolha **Add model** (adicionar modelo). Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md) para conhecer a janela inteira.
 

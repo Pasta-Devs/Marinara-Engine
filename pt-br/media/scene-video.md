@@ -37,7 +37,7 @@ No **SwarmUI**, Marinara preenche `http://127.0.0.1:7801`. Cole um fluxo de trab
 
 ### Defina como modelo de vídeo padrão
 
-Para usar um modelo de vídeo quando o chat não tem um próprio, ajuste a tarefa **Video** no quadro **Jobs** (tarefas), no topo do painel **Connections**. Em Chat Settings, ela aparece como **Default video provider** (provedor de vídeo padrão). Sem um modelo no chat e sem um padrão, as ações de vídeo avisam para você escolher um.
+Para usar um modelo de vídeo quando o chat não tem um próprio, ajuste a tarefa **Video** na página **Jobs** (tarefas) do painel **Connections**. Em Chat Settings, ela aparece como **Default video provider** (provedor de vídeo padrão). Sem um modelo no chat e sem um padrão, as ações de vídeo avisam para você escolher um.
 
 ### Video prompting instructions
 

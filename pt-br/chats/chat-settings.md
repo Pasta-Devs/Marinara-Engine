@@ -58,7 +58,7 @@ A seção **Connection** escolhe o modelo que responde neste chat. Uma escolha m
 1. Abra **Chat Settings** e a seção **Connection**.
 2. Toque no campo **Model** (modelo). Ele mostra o modelo atual.
 3. Confira se ele diz que o chat segue o **Main** (principal). O Main é o modelo padrão que você define em **Connections** (Conexões).
-4. Escolha um modelo. O seletor é o mesmo do botão de modelo na caixa de mensagem. O modelo atual fica no topo, com os modelos recentes e os com estrela logo abaixo, agrupados por conta. Busque entre modelos e contas, ou use **Browse** (navegar) para abrir o catálogo de uma conta.
+4. Escolha um modelo. O seletor é o mesmo do botão de modelo na caixa de mensagem. O modelo atual fica no topo, com os modelos com estrela e os recentes logo abaixo. Busque entre modelos e contas, ou clique em uma conta para ver os modelos dela. Uma lista longa começa recolhida em **Browse all N models** (ver todos os N modelos).
 
 **Follow Main** (seguir o principal) desfaz a escolha própria do chat, então o chat muda quando você muda o Main. **Shuffle** (sortear) escolhe um modelo diferente do seu conjunto a cada resposta. Veja [Shuffle](../connections/organizing-connections.md#shuffle). Se uma conta precisa de chave ou está desligada, o modelo dela leva à ação de reparo. Para adicionar uma conta, veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 

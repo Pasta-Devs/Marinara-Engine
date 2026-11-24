@@ -92,7 +92,7 @@ Qualquer imagem da galeria pode ter uma descrição curta do que mostra. Os chat
 - Para escrever uma, clique no botão de tag no canto superior esquerdo da imagem e escolha **Add description** (adicionar descrição), ou **Edit description** (editar descrição) para alterá-la.
 - Para a IA escrever as descrições, clique em **Select images** (selecionar imagens), escolha as imagens e depois clique em **Describe with AI** (descrever com IA). O modelo **Image reading** (leitura de imagens) examina cada uma e escreve uma descrição curta. Se algumas já tiverem descrição, escolha descrever apenas as que não têm ou todas novamente.
 
-Antes de começar: as descrições por IA precisam de um modelo que consiga ler imagens. Marinara usa o modelo **Image reading** se você definir um em **Behind the scenes** (nos bastidores) nas configurações de conexão; caso contrário, usa o modelo dos seus agentes. São enviadas até 8 imagens por vez, então uma seleção grande demora um pouco.
+Antes de começar: as descrições por IA precisam de um modelo que consiga ler imagens. Marinara usa o modelo **Image reading** se você definir um na página **Jobs** (tarefas) de **Connections** (Conexões); caso contrário, usa o modelo dos seus agentes. São enviadas até 8 imagens por vez, então uma seleção grande demora um pouco.
 
 A galeria do próprio chat tem o mesmo botão **Describe with AI** no modo de seleção.
 

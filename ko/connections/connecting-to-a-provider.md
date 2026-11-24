@@ -52,9 +52,9 @@
 
 계정은 **Connections** 패널에서 관리합니다. 위에서 아래로 다음 항목이 표시됩니다.
 
-- 입력하는 대로 목록을 걸러 주는 검색 상자. 라벨은 **Search models and accounts**(모델 및 계정 검색)입니다.
-- **Add**는 **Add account** 창을 엽니다. **More actions**(추가 작업, 점 3개)에는 **Import account**(연결 가져오기), **Export all accounts**(모든 계정 내보내기), 접기, 묶기가 있습니다. 패널이 넓으면 정렬 드롭다운이 검색 상자 옆에 있습니다. 패널이 좁으면 정렬은 **More actions** 안에 있습니다.
-- **Jobs**(작업) 상자. 어떤 모델이 어떤 작업을 맡는지 보여 줍니다.
+- **Search models and accounts**(모델 및 계정 검색). 입력하는 대로 목록을 걸러 주는 검색 상자입니다. 모델이 8개 이상이면 표시됩니다.
+- **Add**는 **Add account** 창을 엽니다. **More actions**(추가 작업, 점 3개)에는 **Import account**(연결 가져오기), **Export all accounts**(모든 계정 내보내기), 정렬, 접기, 묶기가 있습니다.
+- **Jobs**(작업) 요약. **Main** 모델과 나머지 작업에 관한 문장 하나를 보여 줍니다. [작업별 모델 고르기](#choosing-the-model-for-each-job)를 참고하세요.
 - **Built-in model** 카드. [내장 모델 설정](local-model.md)을 참고하세요.
 - 내 계정 목록. 계정마다 저장한 모델이 그 아래에 있습니다. [연결 정리하기](organizing-connections.md)를 참고하세요.
 
@@ -64,23 +64,27 @@
 
 ## 작업별 모델 고르기
 
-작업은 모델이 나 대신 하는 일입니다. **Jobs** 상자에는 작업이 4개 그룹으로 나뉘어 표시됩니다.
+작업은 모델이 나 대신 하는 일입니다. **Main**(메인)은 채팅의 답변을 쓰고, **Agents**(에이전트)는 보조 에이전트를 실행합니다. 다른 작업은 그림을 만들거나, 말을 하거나, 에이전트를 위해 예/아니요 질문에 답합니다.
 
-| 그룹 | 작업 |
+패널 맨 위의 **Jobs** 요약에는 **Main** 행과 "Every other job that is on follows Main, except Images." 같은 문장 하나가 표시됩니다. Main을 따르는 작업은 Main 모델을 씁니다. 꺼진 작업은 **Jobs** 페이지에 나열됩니다. 계정이 꺼진 모델을 쓰는 작업처럼 문제가 있는 작업은 해결 버튼과 함께 따로 한 줄에 표시됩니다.
+
+모든 작업을 보려면 **All jobs**(모든 작업)나 **Jobs** 머리글을 클릭하세요. **Jobs** 페이지에는 작업이 다음 순서로 표시됩니다.
+
+| 부분 | 표시되는 항목 |
 | --- | --- |
-| **Chat** | **Main**(메인)은 채팅의 답변을 씁니다. **Agents**(에이전트)는 보조 에이전트를 실행합니다. **Impersonate**(유저 사칭)는 나 대신 글을 씁니다. |
-| **Omnibar** | **Professor Mari**와 **Quick answers**(빠른 답변). |
-| **Pictures & sound**(그림 및 사운드) | **Images**(이미지), **Video**(비디오), **Voice**(음성, TTS), 그리고 사용할 수 있을 때는 **Dictation**(받아쓰기, 음성 인식). |
-| **Behind the scenes**(무대 뒤) | **Decision**(판단), **Embeddings**(임베딩), **Image reading**(이미지 읽기). |
+| **Main** | Main 모델, 그리고 **If it fails** 모델이 있으면 그 모델. |
+| **Own model**(자체 모델) | 자체 모델이 있는 작업과 해결할 문제가 있는 작업. |
+| **Follow Main**, **Follow Agents**(에이전트 따르기) | Main 모델이나 에이전트 모델을 쓰는 작업. 작은 버튼으로 표시됩니다. |
+| **Off**(꺼짐) | 아직 모델이 없는 작업. 작은 버튼으로 표시됩니다. **Pick**(선택)은 내 계정에 그 작업에 쓸 모델이 있다는 뜻입니다. **Add**는 모델이 없다는 뜻이고, **Set up**은 먼저 무언가를 설치해야 하는 작업이라는 뜻입니다. |
 
-각 행에는 작업을 맡은 모델이 표시됩니다. 모델이 없으면 **Follows Main**(메인 따름)이나 **Off**(꺼짐)처럼 모델이 없을 때의 동작이 표시됩니다. 빈 작업에는 **N models found**와 **Pick** 또는 **None in your accounts**와 **Add**가 표시됩니다. 선택기에는 모든 계정에서 해당 작업에 적합한 모델이 나옵니다. **Add**를 누르면 **Add account** 창이 열리고, 추가 후 같은 작업으로 돌아갑니다. **Jobs**를 클릭하면 상자가 접힙니다.
+모든 작업은 페이지에 한 번씩만 나옵니다. 목록으로 돌아가려면 페이지 맨 위의 **Connections**를 클릭하세요.
 
-작업의 모델을 바꾸려면 그 행을 클릭하세요. 세 행을 빼면 그 작업의 **Model for**(용도별 모델) 창이 열립니다. **Decision**과 **Embeddings**는 각자의 컨트롤을 엽니다([Decision 모델](decision-models.md)과 [지원하는 AI 제공자](providers-reference.md#embeddings) 참고). **Dictation**은 음성 입력 설정을 엽니다. **Voice**, **Dictation**, **Image reading**의 톱니바퀴를 클릭하면 각각의 설정 창이 열립니다. Image reading의 설정 창에는 모델에 보내는 요청 내용이 있습니다([이미지 캡셔닝](../prompts/generation-parameters.md#what-the-reading-model-is-asked) 참고). **Voice** 모델을 고르면 음성 합성이 켜집니다.
+작업의 모델을 바꾸려면 그 행이나 버튼을 클릭하세요. 세 행을 빼면 그 작업의 **Model for**(용도별 모델) 창이 열립니다. **Decision**(판단)과 **Embeddings**(임베딩)는 각자의 컨트롤을 엽니다([Decision 모델](decision-models.md)과 [지원하는 AI 제공자](providers-reference.md#embeddings) 참고). **Dictation**(받아쓰기, 음성 인식)은 음성 입력 설정을 엽니다. **Voice**, **Dictation**, **Image reading**(이미지 읽기)의 톱니바퀴를 클릭하면 각각의 설정 창이 열립니다. Image reading의 설정 창에는 모델에 보내는 요청 내용이 있습니다([이미지 캡셔닝](../prompts/generation-parameters.md#what-the-reading-model-is-asked) 참고). **Voice** 모델을 고르면 음성 합성이 켜집니다.
 
 **Model for** 창에서는 다음과 같이 하세요.
 
 1. 목록을 보세요.
-2. 모델을 클릭하세요. 목록에서 그 모델이 **Now**(현재) 아래에 표시되고, 이어서 **Starred**(별표) 모델이, 그다음에 저장한 모델이 계정별로 표시됩니다. 계정 아래의 **All models**(모든 모델)는 그 계정의 전체 목록을 엽니다. **Search all models or paste a model ID**(모든 모델 검색 또는 모델 ID 붙여넣기)에 입력하면 모든 계정을 한 번에 검색합니다. 먼저 모델을 저장할 필요는 없습니다.
+2. 모델을 클릭하세요. 목록에서 그 모델이 **Now**(현재) 아래에 표시되고, 이어서 **Starred**(별표) 모델이, 그다음에 저장한 모델이 계정별로 표시됩니다. 계정을 클릭하면 그 계정의 모델이 표시됩니다. **Search all models or paste a model ID**(모든 모델 검색 또는 모델 ID 붙여넣기)에 입력하면 모든 계정을 한 번에 검색합니다. 먼저 모델을 저장할 필요는 없습니다.
 
 창 위쪽의 **If it fails**(실패하면)는 첫 번째 모델이 실패했을 때 대신 답할 두 번째 모델을 고릅니다. 아래쪽의 **Add account**는 계정 추가 창을 엽니다.
 
@@ -99,8 +103,10 @@
 새 채팅은 **Main** 모델을 씁니다. 한 채팅에만 다른 모델을 쓰려면 채팅 입력란의 모델 버튼(현재 모델 이름이 붙은 링크 아이콘)을 클릭하거나, **Chat Settings → Connection**(채팅 설정 → 연결)의 **Model**(모델) 필드를 쓰세요. 둘 다 **Model for this chat**(이 채팅의 모델)을 엽니다.
 
 - **Now**에는 채팅이 쓰는 모델이 표시됩니다. **This chat only**(이 채팅만)는 채팅에 따로 고른 모델이 있다는 뜻입니다. **follows Main**(메인 따름)은 Main을 쓴다는 뜻입니다.
-- **Recent**(최근)와 **Starred**에는 내 모델이 계정별로 표시됩니다.
-- **Search models or paste an ID…**(모델 검색 또는 ID 붙여넣기…)는 모든 계정을 검색합니다. **Browse**(찾아보기)는 한 계정의 전체 목록을 엽니다.
+- **Starred**에는 별표한 모델이 표시되고, 이어서 **Recent**(최근)에는 이 기기에서 마지막으로 고른 모델이 표시됩니다.
+- **Search models or paste an ID…**(모델 검색 또는 ID 붙여넣기…)는 모든 계정을 검색합니다.
+- 계정을 클릭하면 그 계정의 모델이 표시됩니다. **Starred**가 먼저 나오고, 이어서 **Saved**(저장됨), 그다음 나머지 모델이 나옵니다. **Saved**에는 내가 저장해 둔 모델이 자체 설정과 함께 있습니다. 목록이 길면 처음에는 **Browse all N models**(모델 N개 모두 찾아보기) 뒤에 접혀 있습니다. 이 버튼을 클릭하면 모든 모델이 표시됩니다.
+- 목록이 길면 **Claude**, **GPT**, **DeepSeek** 같은 버튼으로 한 번에 한 모델 계열만 볼 수 있습니다. **All**(전체)을 클릭하면 다시 모든 모델이 표시됩니다. 검색 상자에는 이 버튼이 적용되지 않습니다.
 - **Follow Main**(메인 따르기)은 채팅에 따로 고른 모델을 지웁니다. **Shuffle**(셔플)은 매번 다른 모델을 고릅니다.
 
 여기서 고른 모델은 그 채팅에만 적용됩니다. 고른 뒤에 나오는 메시지에는 **Make it my Main model**(내 메인 모델로 설정)과 **Undo**(되돌리기)가 있습니다. Game Mode(게임 모드)에서는 이 필드의 라벨이 **Game Master model**(GM / 파티 모델)입니다.

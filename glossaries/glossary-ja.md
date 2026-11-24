@@ -744,6 +744,7 @@ Precedents from the #9063 sync of `characters/colors-and-stats.md`、「3つの�
 
 - **Voice settings**(音声の設定) and **Who speaks**(話者) are used in `conversation/calls.md` and `media/tts-setup.md`. The audio action **Preview** keeps **(試聴)** from the Character Voice tab ruling.
 - **Public Face**(周囲に知られている情報) follows the card field in `characters/creating-and-editing-characters.md`. Keep **Others' Public Faces**(ほかのキャラクターの公開情報) and **Send Public Faces**(公開情報を送信) distinct. The former applies to other characters in Individual Roleplay, and the latter to Impersonate.
+- #9760 (2026-11-24): the Jobs box became **Jobs**(役割)ページ and the panel's **Jobs**(役割)の概要. Coined (no `connections.jobs.*` in `ui/ja.json`): **All jobs**(すべての役割), **Own model**(独自のモデル), **Follow Agents**(エージェントに従う), **Saved**(保存済み), **Browse all N models**(N個のモデルをすべて参照), **Sort: Custom**(並べ替え: カスタム); **Pick**(選択) is shipped; **Low balance** and **No credit left** stay unglossed; a model family is モデルファミリー.
 
 ## ntfy push notifications (2026-11-24, #9756)
 

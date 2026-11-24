@@ -7,13 +7,13 @@
 1. 点击顶栏的 **Connections**(连接)，再点击 **Add**(添加)。
 2. 点击类型筛选项 **Voice**(声音)，选择服务，将密钥粘贴到 **API key**(API 密钥)。点击 **Connect**。
 3. 在 **Found in … — use it for:** 下勾选 **Voice**，然后点击 **Done**。给 Voice 选择模型即开启语音合成。
-4. 点击 **Jobs**(分工) 框中 **Voice** 行的齿轮，再点击 **Preview**(试听) 听一段示例。在聊天中点击消息下方的 **Speak**(朗读)。
+4. 点击 **Jobs**(分工) 页面上 **Voice** 旁边的齿轮，再点击 **Preview**(试听) 听一段示例。在聊天中点击消息下方的 **Speak**(朗读)。
 
 ## 开启语音合成
 
 为 **Voice** 工作选择模型就会开启语音合成。每条消息会出现 **Speak** 按钮，**Auto-play**(自动朗读) 选项也会出现。朗读什么、何时朗读仍由你决定。
 
-1. 点击顶栏的 **Connections**。在 **Jobs** 框的 **Pictures & sound** 分组中找到 **Voice** 行。
+1. 点击顶栏的 **Connections**，再点击 **Jobs** 下的 **All jobs**(全部工作)。找到 **Voice**。
 2. 点击这一行，选择语音模型或语音服务。该行会显示所选内容。
 3. 点击行中的齿轮即可打开声音设置。没有语音账号时，请点行中的 **Add**，或按快速上手的步骤添加。
 4. 要关闭语音合成，点击该行并选择 **Turn voice off**(关闭声音)。该行显示 **Off**，应用不再朗读。
@@ -35,7 +35,7 @@ Marinara 分开保存每项语音服务的密钥、地址、模型、声音和�
 
 如果你已经添加 **Audio**(音频) 账号（见[支持的 AI 服务商](../connections/providers-reference.md#audio)），就不用重新填写账号信息。该账号的语音模型会出现在 **Voice** 选择器中。
 
-1. 点击 **Jobs** 框里的 **Voice** 行并选择模型。
+1. 在 **Jobs** 页面上点击 **Voice** 并选择模型。
 2. 点击该行的齿轮，选择声音及其他设置。
 
 Marinara 使用该账号的地址、密钥、模型和 **Request timeout (seconds)**(请求超时，单位为秒)，声音设置中不会显示这些字段。密钥留在账号内，既不会复制到声音设置里，也不会发送到浏览器。账号变更立即生效，例如更换密钥。
@@ -69,7 +69,7 @@ PocketTTS 并非 Marinara 内置。单独安装[官方 PocketTTS 服务器](http
 
 ### 请求超时
 
-在 **Voice settings**(声音设置) 的 **More**(更多) 下调高 **Request timeout (seconds)**。点击 **Jobs** 框中 **Voice** 行的齿轮即可打开该窗口。Marinara 默认最多等待每句朗读 60 秒。本地服务器可能需要更长时间，尤其是在笔记本电脑上。可设置为 10 至 3,600 秒。
+在 **Voice settings**(声音设置) 的 **More**(更多) 下调高 **Request timeout (seconds)**。点击 **Jobs** 页面上 **Voice** 旁边的齿轮即可打开该窗口。Marinara 默认最多等待每句朗读 60 秒。本地服务器可能需要更长时间，尤其是在笔记本电脑上。可设置为 10 至 3,600 秒。
 
 Audio 账号在 **Edit model** 和 **Voice settings** 窗口中均有自己的 **Request timeout (seconds)**，位于 **Default voice** 下方。通过该账号朗读的聊天会使用这个时限，包括为 **Voice** 工作选用此账号的聊天。**Voice settings** 中的时限适用于该窗口发出的朗读，包括 **Preview**。若朗读超时，错误消息会列出等待时长和要调整的设置。
 
@@ -182,7 +182,7 @@ Marinara 会把生成的音频保存在你的浏览器里，同一句话不会�
 
 ## 故障排查
 
-- **没有朗读**：检查 **Jobs** 框中的 **Voice** 行是否已选择模型。若显示 **Off**，先选择模型，再检查对应的 **Auto-play** 开关，或点击消息下方的 **Speak**。
+- **没有朗读**：确认 **Jobs** 页面上的 **Voice** 没有列在 **Off** 下；如果在，先给它选择模型。然后检查对应的 **Auto-play** 开关，或点击消息下方的 **Speak**。
 - 如果该行显示 **The voice account is missing**，请选择其他语音模型。参见[使用账号中的语音模型](#use-a-voice-model-from-an-account)。
 - 确认 **Voice** 行选有模型且密钥有效，然后点击 **Refresh voices from provider**。官方 PocketTTS 服务器使用 Marinara 的内置列表。如果使用兼容的 PocketTTS 包装服务器，确认 `<Base URL>/v1/voices` 有响应。
 - **ElevenLabs 不出声**：选一个真正的声音，而不是“Select an ElevenLabs voice”占位项。确认 **Model** 是语音合成模型，而不是 ID 里带 `ttv` 的声音设计模型。

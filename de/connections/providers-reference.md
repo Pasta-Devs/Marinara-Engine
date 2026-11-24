@@ -192,7 +192,7 @@ Unter **Voice** spricht ein Audiodienst Charakterstimmen und Erzähltext. Wähle
 
 Jede Quelle trägt eine Standardadresse und ein Standardmodell ein. **Default voice** (Standardstimme) ist die Stimme, die gilt, solange nichts Spezifischeres festgelegt ist, etwa eine eigene Stimme pro Charakter. **Request timeout (seconds)** legt fest, wie lange Marinara auf eine gesprochene Zeile wartet. Erhöhe den Wert bei einem langsamen Sprachserver.
 
-Um das Standardkonto für die Sprachausgabe zu wählen, klick im Bereich **Jobs** (Aufgaben) auf die Zeile **Voice** (Stimme). Damit der Dienst Nachrichten vorliest, wähl sein Modell in dieser Zeile. Siehe [Text to Speech (TTS) einrichten](../media/tts-setup.md) und [Ein Stimmmodell aus einem Konto verwenden](../media/tts-setup.md#use-a-voice-model-from-an-account).
+Um das Standardkonto für die Sprachausgabe zu wählen, klick auf der Seite **Jobs** (Aufgaben) auf **Voice** (Stimme). Damit der Dienst Nachrichten vorliest, wähl sein Modell für **Voice**. Siehe [Text to Speech (TTS) einrichten](../media/tts-setup.md) und [Ein Stimmmodell aus einem Konto verwenden](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 <a id="music--sound-effects"></a>
 
@@ -222,7 +222,7 @@ Embeddings verwandeln Text in Zahlenlisten, damit Marinara verwandten Text finde
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** und **Grok CLI (Subscription)** können keine Embeddings erzeugen. Nutze dort das Dropdown-Menü **Embedding provider** (Embedding-Anbieter), um ein anderes Konto mitzuverwenden, etwa ein OpenAI-kompatibles, **Google Gemini** oder das **Built-in model** (eingebautes Modell).
 
-Um eine Embedding-Quelle für jedes Konto ohne eigene Embedding-Einstellungen zu nutzen, klick im Bereich **Jobs** auf die Zeile **Embeddings**. **Marinara's own search** (Marinaras eigene Suche) behält das eingebaute Embedding-Modell bei. Das eigene Embedding-Modell oder der **Embedding provider** eines Kontos hat weiterhin Vorrang. Vektorisiere deine Lorebooks und Erinnerungen neu, nachdem du die Quelle geändert hast. Siehe [Semantische Suche für Lorebooks](../lorebooks/semantic-search.md).
+Um eine Embedding-Quelle für jedes Konto ohne eigene Embedding-Einstellungen zu nutzen, klick auf der Seite **Jobs** auf **Embeddings**. **Marinara's own search** (Marinaras eigene Suche) behält das eingebaute Embedding-Modell bei. Das eigene Embedding-Modell oder der **Embedding provider** eines Kontos hat weiterhin Vorrang. Vektorisiere deine Lorebooks und Erinnerungen neu, nachdem du die Quelle geändert hast. Siehe [Semantische Suche für Lorebooks](../lorebooks/semantic-search.md).
 
 <a id="timeouts"></a>
 

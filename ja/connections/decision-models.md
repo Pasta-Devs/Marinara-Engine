@@ -63,8 +63,8 @@ Kaelen speaks normally.
 
 始める前に、[選択の目安](#which-one-to-pick)を参照してください。
 
-1. 上部バーの**Connections**(接続)をクリックし、**Jobs**(役割)ボックスを開きます。
-2. **Behind the scenes**(裏方の処理)の下にある**Decision**の行をクリックします。リストが開きます。
+1. 上部バーの**Connections**(接続)をクリックし、**Jobs**(役割)の下にある**All jobs**(すべての役割)をクリックします。
+2. **Decision**をクリックします。リストが開きます。
 3. モデルを選びます。リストは3つのグループに分かれています。
    - **None (decisions off)**(なし、判定オフ)がデフォルトです。何も問い合わせず、エージェントエディターの起動質問欄は無効のままです。
    - **Built-in model**(内蔵モデル)には、Marinaraが自分のコンピューター上で動かすモデルが並びます。**Built-in model**、**Built-in model (utility)**(補助用の内蔵モデル)、**Built-in model (decisions)**(判定用の内蔵モデル)です。情報はコンピューターの外に出ません。
@@ -100,7 +100,7 @@ Android(Termux)で**Built-in decision model**として提供されるのはJevK5
 
 内蔵モデルをダウンロード済みなら、アカウントも費用もなしで判定に使えます。[内蔵モデルのセットアップ](local-model.md)を参照してください。
 
-1. **Jobs**(役割)ボックスの**Behind the scenes**(裏方の処理)の下にある**Decision**の行をクリックします。
+1. **Jobs**(役割)ページの**Decision**をクリックします。
 2. **Built-in model**(内蔵モデル)を選びます(補助用のモデルがある場合は**Built-in model (utility)**(補助用の内蔵モデル)でもかまいません)。
 3. **Decision settings**(判定の設定)の歯車をクリックし、**Test**(テスト)をクリックします。
 
@@ -124,7 +124,7 @@ Marinaraはモデルにはい・いいえの質問を1つ送り、1トークン�
 
 チャットモデルをOllama、LM Studio、llama.cpp、またはほかのOpenAI互換サーバーで動かしているなら、Marinaraが2つ目のコピーを読み込まなくても、そのモデルが判定に回答できます。
 
-1. **Jobs**(役割)ボックスの**Behind the scenes**(裏方の処理)の下にある**Decision**の行をクリックします。選択ウィンドウには、チャットモデルを含むすべてのアカウントのモデルが表示されます。または、モデルの**⋯**をクリックし、**Use for…**(用途…) → **Decision**(判断)を選びます。
+1. **Jobs**(役割)ページの**Decision**をクリックします。選択ウィンドウには、チャットモデルを含むすべてのアカウントのモデルが表示されます。または、モデルの**⋯**をクリックし、**Use for…**(用途…) → **Decision**(判断)を選びます。
 2. **Decision**の行の歯車をクリックし、**Test**(テスト)をクリックします。テストに成功すると、サーバーが対数確率を返したかと、モデルが先に推論する必要があったかが表示されます。**Done**(完了)をクリックします。
 自分で作成することもできます。ソースを**OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**(OpenAI互換チャットモデル)にしたDecisionアカウントを使い、チャット用のアカウントと同じアドレス(Ollamaなら例えば`http://localhost:11434/v1`)と、サーバーが使うモデル名を指定します。
 
@@ -141,14 +141,14 @@ Marinaraはモデルにはい・いいえの質問を1つ送り、1トークン�
 1. 上部バーの**Connections**(接続)をクリックし、**Add**(追加)をクリックします。
 2. 種類のチップで**Decision**(判断)をクリックし、**TypeSafe**または**Own decision server**(独自の判断サーバー)をクリックします。NanoGPTの場合は[NanoGPT経由](#through-nanogpt)を参照してください。OpenRouterまたはGoogle Geminiの場合は[OpenRouterまたはGoogle Gemini経由](#through-openrouter-or-google-gemini)を参照してください。
 3. **API key**(APIキー)を入力します。**Own decision server**の場合は**Server address**(サーバーのアドレス)を入力します。**Connect**(接続)をクリックします。
-4. **Found in TypeSafe — use it for:**で**Decision**にチェックを入れ、**Done**(完了)をクリックします。**Jobs**(役割)ボックスの**Behind the scenes**(裏方の処理)の下にある**Decision**の行にモデルが表示されます。
+4. **Found in TypeSafe — use it for:**で**Decision**にチェックを入れ、**Done**(完了)をクリックします。**Jobs**(役割)ページの**Decision**にモデルが表示されます。
 5. テストするには、パネルでモデルをクリックして**Edit model**(モデルの編集)を開き、**Provider tests**(プロバイダーのテスト)カードの**Test provider**(プロバイダーをテスト)をクリックします。**Own decision server**のモデルには、そこに**Test provider**ボタンがありません。代わりに、パネルでアカウントの**⋯**メニューを開き、**Test**(テスト)をクリックします。
 
 **Test provider**に成功すると、確率、回答にかかった時間、アカウントの制限時間が表示されます。**⋯**メニューにあるアカウントの**Test**では、動作したかどうかと、かかった時間だけが表示されます。テストは少なくとも10秒待ちます。制限時間がそれより長い場合は、その制限時間の5秒後まで待ちます。回答が制限時間より長くかかった場合は、結果にその旨が表示されます。チャットでは、その回答は回答なしとして扱われます。
 
 うまくいかなかった場合は、[トラブルシューティング](#troubleshooting)を参照してください。
 
-判定モデルには次の欄があります。パネルでモデルをクリックすると**Edit model**(モデルの編集)が開きます。**Jobs**ボックスの**Decision**の行にある歯車をクリックすると、現在のモデルの**Decision settings**(判定の設定)が開きます。
+判定モデルには次の欄があります。パネルでモデルをクリックすると**Edit model**(モデルの編集)が開きます。**Jobs**ページの**Decision**の横にある歯車をクリックすると、現在のモデルの**Decision settings**(判定の設定)が開きます。
 
 | 欄 | 内容 |
 | --- | --- |
@@ -179,7 +179,7 @@ NanoGPTにはJev Latestなどの独自の判定モデルがあり、MarinaraはN
 OpenRouterとGoogle Geminiのアカウントにも独自の判定モデルがあり、Marinaraはアカウントのキーを使って各サービスの判定APIに問い合わせます。OpenRouterには多数のモデルがあり、名前の末尾が`:free`のものは無料です。Google Geminiには**Gemini Decision 1**が1つだけあります。
 
 1. 通常どおりOpenRouterまたはGoogle Geminiを接続します。
-2. **Jobs**ボックスの**Behind the scenes**にある**Decision**の行をクリックし、左側のアカウントを選びます。**Decision models**からモデルを選びます。
+2. **Jobs**(役割)ページの**Decision**をクリックし、左側のアカウントを選びます。**Decision models**からモデルを選びます。
 3. テストするには、モデルの**Edit model**を開き、**Test provider**をクリックします。
 
 OpenRouterアカウントでは、その下の**Chat models**に対数確率を返すチャットモデルが並び、これらも使えます。Google Geminiアカウントでは判定モデルだけを選べます。
@@ -333,7 +333,7 @@ Custom System Oneのアカウントの背後で自分で動かしているOpen-J
 1. 上部バーの**Connections**(接続)をクリックします。**On this device**(このデバイス上)の下にある**Built-in model (decisions)**(判定用の内蔵モデル)をクリックします。**Connections**パネルで**Add**(追加)をクリックし、**Decisions**(判断)の下の**Built-in model (decisions)**をクリックしても開けます。
 2. **Model**(モデル)のリストからモデルを選びます。その下に説明、**Answers**(回答)と**Reads**(読み取れるもの)([モデルのページに表示される情報](#what-a-model-page-lists)を参照)、対応言語、ライセンスが表示されます。
 3. モデル名とサイズが付いた**Download**(ダウンロード)をクリックします。サイズ、ハードウェアの診断結果、ライセンスを確認します。それまでは何もダウンロードされません。
-4. **Use for Decision**(判断に使う)をクリックするか、**Jobs**(役割)ボックスの**Behind the scenes**(裏方の処理)の下にある**Decision**(判断)の行をクリックし、**Built-in model (decisions)**を選びます。
+4. **Use for Decision**(判断に使う)をクリックするか、**Jobs**(役割)ページの**Decision**(判断)をクリックし、**Built-in model (decisions)**を選びます。
 
 モデルを一度実行すると、そのページの**On this computer**(このコンピューターでの速度)に、そこでかかった時間も表示されます。チャットの数ターン、画像1枚、対応モデルではクリップ1本の時間です。自分のコンピューターでの時間なので、画像を要求すると判定文の処理がどれだけ遅くなるかが分かります。
 

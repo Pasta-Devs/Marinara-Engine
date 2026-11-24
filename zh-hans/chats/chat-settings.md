@@ -58,7 +58,7 @@ Conversation 聊天还有 Autonomous Messaging(自主消息，角色会先给你
 1. 打开 **Chat Settings** 和其中的 **Connection** 区域。
 2. 点击 **Model**(模型) 字段，它显示当前模型。
 3. 看看它是否显示这个聊天跟随 **Main**(主模型)。Main 是你在 **Connections**(连接) 里设置的默认模型。
-4. 选择一个模型。这个选择器和聊天输入框里的模型按钮相同。当前模型固定在最上方，下面是最近用过和加了星标的模型，按账号分组。可以跨模型和账号搜索，也可以用 **Browse**(浏览) 打开某一个账号的模型目录。
+4. 选择一个模型。这个选择器和聊天输入框里的模型按钮相同。当前模型固定在最上方，下面是加了星标的模型和最近用过的模型。可以跨模型和账号搜索，也可以点击某个账号查看它的模型。列表较长时会先折叠起来，收在 **Browse all N models**(浏览全部 N 个模型) 后面。
 
 **Follow Main**(跟随主模型) 会清除这个聊天自己的选择，这样你更换 Main 时，这个聊天也会跟着变。**Shuffle**(随机轮换) 每条回复都从你的池子里换一个模型，见 [Shuffle](../connections/organizing-connections.md#shuffle)。如果某个账号缺密钥或已关闭，点它的模型会引向修复操作。要添加账号，见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 

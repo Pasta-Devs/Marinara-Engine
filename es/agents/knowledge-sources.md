@@ -72,7 +72,7 @@ Cuando eliges lorebooks de origen para el enrutador, aparece una insignia de cob
 Knowledge Router también puede encontrar entradas candidatas por significado, no solo por palabra clave. Para esto usa un embedder, un modelo pequeño que convierte texto en números para que Marinara pueda comparar el significado. El enrutador funciona sin él.
 
 1. Abre el editor del lorebook y busca **Semantic search (embeddings)** (Búsqueda semántica: embeddings).
-2. Elige una cuenta que tenga un modelo de embeddings. Si configuraste la tarea **Embeddings** en el cuadro **Jobs** (Tareas) de **Connections** (Conexiones), se elige por ti, salvo que antes hayas elegido otra fuente.
+2. Elige una cuenta que tenga un modelo de embeddings. Si configuraste la tarea **Embeddings** en la página **Jobs** (Tareas) de **Connections** (Conexiones), se elige por ti, salvo que antes hayas elegido otra fuente.
 3. Usa la misma fuente de embeddings que la cuenta de tu chat. Los vectores de un tamaño diferente se omiten.
 4. Haz clic en el botón de vectorizar. Muestra cuántas entradas aún necesitan vectores. **Re-vectorize all** (Revectorizar todo) rehace todas las entradas.
 

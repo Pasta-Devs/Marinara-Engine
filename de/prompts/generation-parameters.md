@@ -134,11 +134,11 @@ Mit **Image captioning** (Bildbeschreibung) beschreibt Marinara jedes angehängt
 2. Wähl im Dropdown-Menü **Captioning model** (Modell für die Bildbeschreibung) ein Modell.
 3. Optional: Bearbeite **Prompt für Bildbeschreibungen**, die Anweisungen, die mit jedem Bild gesendet werden. Die Schaltfläche zum Zurücksetzen oder das Leeren des Felds stellt den engineweiten Prompt für „Bilder lesen“ wieder her. Der Prompt wird nur für diesen Chat gespeichert; **Als Verbindungsstandard speichern** kopiert ihn nicht.
 
-Das Feld erscheint auch bei ausgeschaltetem Schalter, wenn im Bereich **Jobs** des Panels **Verbindungen** ein Modell für **Bilder lesen** festgelegt ist: Dieses Modell beschreibt dann die Bilder des Chats, wenn dessen eigenes Modell sie nicht sehen kann.
+Das Feld erscheint auch bei ausgeschaltetem Schalter, wenn auf der Seite **Jobs** (Aufgaben) des Panels **Connections** ein Modell für **Image reading** (Bilder lesen) festgelegt ist: Dieses Modell beschreibt dann die Bilder des Chats, wenn dessen eigenes Modell sie nicht sehen kann.
 
 ### Was das Modell beim Lesen gefragt wird
 
-Klick im Panel **Verbindungen** auf das Zahnrad in der Zeile **Bilder lesen** des Bereichs **Jobs** (oder wähle unter der Modellliste in **Modell für Bilder lesen** die Option **Einstellungen für „Bilder lesen“**). Diese Einstellungen gelten für jeden Chat:
+Klick im Panel **Connections** auf **All jobs** (alle Aufgaben) und dann auf das Zahnrad neben **Image reading** (oder wähle unter der Modellliste in **Model for Image reading** die Option **Image reading settings**). Diese Einstellungen gelten für jeden Chat:
 
 - **Anweisungen**: der System-Prompt, der mit jedem Bild gesendet wird. Ein eigener **Prompt für Bildbeschreibungen** im Chat ersetzt ihn.
 - **Anfrage**: die Nachricht, die mit jedem Bild gesendet wird. `{{filename}}` wird zum Dateinamen des Bildes.

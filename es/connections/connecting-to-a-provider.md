@@ -52,9 +52,9 @@ Si empiezas un chat antes de tener un modelo, Marinara abre primero la ventana *
 
 Gestionas las cuentas en el panel **Connections**. De arriba abajo, muestra:
 
-- Un cuadro de búsqueda que filtra la lista a medida que escribes. Su etiqueta es **Search models and accounts** (Buscar modelos y cuentas).
-- **Add**, que abre **Add account**, y **More actions** (Más acciones; tres puntos), que tiene **Import account** (Importar cuenta), **Export all accounts** (Exportar todas las cuentas), el plegado y la agrupación. En un panel ancho, el menú desplegable de orden está junto a la búsqueda. En un panel estrecho, el orden está en **More actions**.
-- El cuadro **Jobs** (Tareas). Indica qué modelo hace cada tarea.
+- **Search models and accounts** (Buscar modelos y cuentas), un cuadro de búsqueda que filtra la lista a medida que escribes. Aparece cuando tienes 8 modelos o más.
+- **Add**, que abre **Add account**, y **More actions** (Más acciones; tres puntos), que tiene **Import account** (Importar cuenta), **Export all accounts** (Exportar todas las cuentas), el orden, el plegado y la agrupación.
+- El resumen **Jobs** (Tareas). Muestra tu modelo **Main** y una frase sobre las demás tareas. Consulta [Elegir el modelo para cada tarea](#choosing-the-model-for-each-job).
 - La tarjeta **Built-in model**. Consulta [Configuración del modelo integrado](local-model.md).
 - Tus cuentas, cada una con sus modelos guardados debajo. Consulta [Organizar las conexiones](organizing-connections.md).
 
@@ -64,29 +64,33 @@ Una **cuenta** es una clave, un inicio de sesión o una dirección guardados par
 
 ## Elegir el modelo para cada tarea
 
-Una tarea es algo que un modelo hace por ti. El cuadro **Jobs** las enumera en cuatro grupos:
+Una tarea es algo que un modelo hace por ti. **Main** (Principal) escribe las respuestas en tus chats, **Agents** (Agentes) ejecuta los agentes auxiliares, y otras tareas crean imágenes, hablan o responden preguntas de sí o no para los agentes.
 
-| Grupo | Tareas |
+El resumen **Jobs**, en la parte superior del panel, muestra la fila **Main** y una frase como "Every other job that is on follows Main, except Images." (Todas las demás tareas activadas siguen a Main, excepto Images). Una tarea que sigue a Main usa el modelo Main. Las tareas desactivadas aparecen en la página **Jobs**. Una tarea con un problema, como un modelo cuya cuenta está desactivada, tiene su propia línea con un botón para solucionarlo.
+
+Para ver todas las tareas, haz clic en **All jobs** (Todas las tareas) o en el encabezado **Jobs**. La página **Jobs** las enumera en este orden:
+
+| Parte | Qué enumera |
 | --- | --- |
-| **Chat** | **Main** (Principal) escribe las respuestas en tus chats. **Agents** (Agentes) ejecuta los agentes auxiliares. **Impersonate** escribe como tú. |
-| **Omnibar** | **Professor Mari** y **Quick answers** (Respuestas breves). |
-| **Pictures & sound** (Imágenes y sonido) | **Images** (Imágenes), **Video**, **Voice** y **Dictation** cuando está disponible. |
-| **Behind the scenes** (Entre bastidores) | **Decision** (Decisión), **Embeddings** e **Image reading** (Lectura de imágenes). |
+| **Main** | El modelo Main y, si lo tiene, su modelo **If it fails** (Si falla). |
+| **Own model** (Modelo propio) | Las tareas con un modelo propio y las tareas con un problema que solucionar. |
+| **Follow Main** (Seguir al principal), **Follow Agents** (Seguir a los agentes) | Las tareas que usan el modelo Main o el de Agents, como botones pequeños. |
+| **Off** | Las tareas que todavía no tienen modelo, como botones pequeños. **Pick** (Elegir) significa que tus cuentas tienen modelos para ella. **Add** significa que no tienen ninguno, y **Set up** (Configurar) significa que la tarea necesita que primero se instale algo. |
 
-Cada fila muestra el modelo que hace esa tarea, o lo que hace la tarea sin modelo, como **Follows Main** u **Off**. Una tarea sin modelo muestra **N models found** con **Pick** (Elegir), o **None in your accounts** con **Add**. El selector enumera los modelos compatibles de todas las cuentas. **Add** abre **Add account** y después vuelve a la tarea. Haz clic en **Jobs** para plegar el cuadro.
+Cada tarea aparece una sola vez en la página. Haz clic en **Connections** en la parte superior de la página para volver a la lista.
 
-Para cambiar el modelo de una tarea, haz clic en su fila. Se abre **Modelo para** esa tarea, excepto en tres filas. **Decisión** y **Embeddings** abren sus propios controles (consulta [Modelos de decisión](decision-models.md) y [Proveedores de IA compatibles](providers-reference.md#embeddings)). **Dictation** (Dictado) abre la configuración de voz a texto. **Voz**, **Dictation** y **Lectura de imágenes** también tienen un engranaje para abrir su ventana de ajustes; la de lectura de imágenes contiene lo que se le pide al modelo (consulta [Descripción de imágenes](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Elegir un modelo de **Voz** activa la síntesis de voz.
+Para cambiar el modelo de una tarea, haz clic en su fila o en su botón. Se abre **Model for** (Modelo para) esa tarea, excepto en tres filas. **Decision** (Decisión) y **Embeddings** abren sus propios controles (consulta [Modelos de decisión](decision-models.md) y [Proveedores de IA compatibles](providers-reference.md#embeddings)). **Dictation** (Dictado) abre la configuración de voz a texto. **Voice**, **Dictation** e **Image reading** (Lectura de imágenes) también tienen un engranaje para abrir su ventana de ajustes; la de lectura de imágenes contiene lo que se le pide al modelo (consulta [Descripción de imágenes](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Elegir un modelo de **Voice** activa la síntesis de voz.
 
 En **Model for**:
 
 1. Mira la lista.
-2. Haz clic en un modelo. La lista lo muestra en **Now** (Ahora), luego tus modelos **Starred** (Con estrella) y después tus modelos guardados por cuenta. **All models** (Todos los modelos), debajo de una cuenta, abre su lista completa. Escribe en **Search all models or paste a model ID** (Buscar en todos los modelos o pegar un ID de modelo) para buscar en todas las cuentas a la vez. No tienes que guardar un modelo antes.
+2. Haz clic en un modelo. La lista lo muestra en **Now** (Ahora), luego tus modelos **Starred** (Con estrella) y después tus modelos guardados por cuenta. Haz clic en una cuenta para ver sus modelos. Escribe en **Search all models or paste a model ID** (Buscar en todos los modelos o pegar un ID de modelo) para buscar en todas las cuentas a la vez. No tienes que guardar un modelo antes.
 
-**If it fails** (Si falla), en la parte superior de la ventana, elige un segundo modelo que responde cuando el primero falla. **Add account**, en la parte inferior, abre la ventana Add.
+**If it fails**, en la parte superior de la ventana, elige un segundo modelo que responde cuando el primero falla. **Add account**, en la parte inferior, abre la ventana Add.
 
 ### Cuando una función necesita un modelo
 
-Una función que no puede funcionar sin cierto tipo de modelo muestra una etiqueta **Needs an image model** (Necesita un modelo de imagen), o su equivalente para video, audio, decisión o chat. La ves en la tarjeta del agente en el panel **Agents**, en **Chat Settings** (Ajustes del chat), en el editor de agentes y en las ventanas de imagen y video. Haz clic en **Set up** (Configurar), junto a ella, y luego elige un modelo o haz clic en **Add account**. La etiqueta desaparece en cuanto la tarea tiene un modelo.
+Una función que no puede funcionar sin cierto tipo de modelo muestra una etiqueta **Needs an image model** (Necesita un modelo de imagen), o su equivalente para video, audio, decisión o chat. La ves en la tarjeta del agente en el panel **Agents**, en **Chat Settings** (Ajustes del chat), en el editor de agentes y en las ventanas de imagen y video. Haz clic en **Set up**, junto a ella, y luego elige un modelo o haz clic en **Add account**. La etiqueta desaparece en cuanto la tarea tiene un modelo.
 
 ## Probar una cuenta
 
@@ -99,9 +103,11 @@ Una función que no puede funcionar sin cierto tipo de modelo muestra una etique
 Un chat nuevo usa tu modelo **Main**. Para darle a un chat un modelo distinto, haz clic en el botón de modelo de la entrada del chat (el icono de enlace, con el nombre del modelo actual), o usa el campo **Model** (Modelo) en **Chat Settings → Connection** (Ajustes del chat → Conexión). Ambos abren **Model for this chat** (Modelo para este chat):
 
 - **Now** muestra el modelo que usa el chat. **This chat only** (Solo este chat) significa que el chat tiene su propia elección. **follows Main** (sigue al principal) significa que usa Main.
-- **Recent** (Recientes) y **Starred** enumeran tus modelos por cuenta.
-- **Search models or paste an ID…** (Buscar modelos o pegar un ID…) busca en todas las cuentas. **Browse** (Explorar) abre la lista completa de una cuenta.
-- **Follow Main** (Seguir al principal) quita la elección propia del chat. **Shuffle** (Aleatorio) elige un modelo distinto cada vez.
+- **Starred** enumera tus modelos con estrella y luego **Recent** (Recientes) enumera los últimos modelos que elegiste en este dispositivo.
+- **Search models or paste an ID…** (Buscar modelos o pegar un ID…) busca en todas las cuentas.
+- Haz clic en una cuenta para ver sus modelos: primero los **Starred**, luego los **Saved** (Guardados; modelos que guardaste, con sus propios ajustes) y después el resto. Una lista larga empieza plegada detrás de **Browse all N models** (Explorar los N modelos). Haz clic en él para mostrar todos los modelos.
+- En una lista larga, botones como **Claude**, **GPT** y **DeepSeek** muestran una familia de modelos a la vez. **All** (Todos) vuelve a mostrar todos los modelos. El cuadro de búsqueda ignora estos botones.
+- **Follow Main** quita la elección propia del chat. **Shuffle** (Aleatorio) elige un modelo distinto cada vez.
 
 Una elección cambia solo ese chat. El mensaje que aparece después de una elección ofrece **Make it my Main model** (Convertirlo en mi modelo principal) y **Undo** (Deshacer). En Game Mode el campo se llama **Game Master model** (Modelo del Game Master).
 

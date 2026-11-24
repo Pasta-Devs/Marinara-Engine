@@ -134,11 +134,11 @@ NanoGPT의 MiniMax M3.1 Flash는 항상 추론합니다. **Low**(낮음)부터 *
 2. **Captioning model**(캡션 연결) 드롭다운에서 모델을 고르세요.
 3. 필요하면 이미지마다 함께 보내는 지시인 **Captioning Prompt**(캡션 프롬프트)를 고치세요. 초기화 버튼을 누르거나 입력란을 비우면 엔진 전체의 이미지 판독 프롬프트로 돌아갑니다. 프롬프트는 이 채팅에만 저장되며, **Save as Connection Default**(연결 기본값으로 저장)로는 복사되지 않습니다.
 
-스위치가 꺼져 있어도 **Connections**(연결) 패널의 **Jobs**에 **Image reading**(이미지 판독) 모델이 설정되어 있으면 입력란이 표시됩니다. 그러면 채팅 자체 모델이 이미지를 볼 수 없을 때마다 그 모델이 이 채팅의 이미지를 설명합니다.
+스위치가 꺼져 있어도 **Connections**(연결) 패널의 **Jobs**(작업) 페이지에 **Image reading**(이미지 판독) 모델이 설정되어 있으면 입력란이 표시됩니다. 그러면 채팅 자체 모델이 이미지를 볼 수 없을 때마다 그 모델이 이 채팅의 이미지를 설명합니다.
 
 ### 판독 모델에 요청하는 내용
 
-**Connections** 패널의 **Jobs**에서 **Image reading** 행의 톱니바퀴를 클릭하세요. 또는 **Model for Image reading**의 모델 목록 아래에서 **Image reading settings**(이미지 판독 설정)를 고르세요. 다음 설정은 모든 채팅에 적용됩니다.
+**Connections** 패널에서 **All jobs**(모든 작업)를 클릭한 다음 **Image reading** 옆의 톱니바퀴를 클릭하세요. 또는 **Model for Image reading**의 모델 목록 아래에서 **Image reading settings**(이미지 판독 설정)를 고르세요. 다음 설정은 모든 채팅에 적용됩니다.
 
 - **Instructions**(지침): 모든 이미지와 함께 보내는 시스템 프롬프트입니다. 채팅 자체의 **Captioning Prompt**가 이를 대신합니다.
 - **Request**(요청): 각 이미지와 함께 보내는 메시지입니다. `{{filename}}`은 이미지 파일 이름으로 바뀝니다.

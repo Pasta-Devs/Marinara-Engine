@@ -43,7 +43,7 @@ Avant de commencer : il te faut un compte qui propose des embeddings. Voir [Se c
 
 Certains services ne proposent pas d'embeddings. Marinara te demande alors de choisir un compte d'embeddings dédié, par exemple un compte compatible OpenAI, Google ou le modèle intégré.
 
-Pour utiliser une même source partout, choisis-la pour la tâche **Embeddings** dans l'encadré **Jobs** (tâches) de **Connections**. Les comptes qui n'ont pas de modèle d'embeddings propre l'utilisent. Le réglage propre à un compte garde la priorité.
+Pour utiliser une même source partout, choisis-la pour la tâche **Embeddings** sur la page **Jobs** (tâches) de **Connections**. Les comptes qui n'ont pas de modèle d'embeddings propre l'utilisent. Le réglage propre à un compte garde la priorité.
 
 Sans compte d'embeddings ni valeur par défaut **Embeddings**, Marinara se rabat sur un modèle d'embeddings intégré. Il le télécharge une seule fois et le fait tourner sur ton ordinateur, sans clé API (un code secret, un peu comme un mot de passe). Voir [Configuration du modèle intégré](../connections/local-model.md).
 

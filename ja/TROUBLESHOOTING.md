@@ -240,7 +240,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 1. **Chat Settings → Memory Recall**(チャット設定 → 記憶の呼び出し)を開き、**Enable Memory Recall**がオンになっているか確かめます。
 2. **Access memories for this chat**を開きます。**Memories for This Chat**で、各チャンクの状態を確認します。
 3. **Waiting for vector**は、その記憶がまだ処理中であることを示します。少し待ってから、もう一度チャットしてください。
-4. **Embedding unavailable**は、使える埋め込みの生成元が1つもないことを示します。埋め込み用のアカウントを設定するか、内蔵モデルを読み込ませてください。すべてのチャットで1つの生成元を使うには、**Connections**(接続)の**Jobs**(役割)ボックスにある**Embeddings**(埋め込み)で選びます。
+4. **Embedding unavailable**は、使える埋め込みの生成元が1つもないことを示します。埋め込み用のアカウントを設定するか、内蔵モデルを読み込ませてください。すべてのチャットで1つの生成元を使うには、**Connections**(接続)の**Jobs**(役割)ページにある**Embeddings**(埋め込み)で選びます。
 
 記憶が作られるには、新しいメッセージが5件以上必要です。呼び出しでは新しいメッセージと強く一致する記憶だけが表示されるため、記憶があっても何も返らないことがあります。
 
@@ -321,8 +321,8 @@ pnpm backgroundremover:install
 
 ## 音声、通話、TTS
 
-- **通話でキャラクターが話さない。** **Voice**(音声)の役割にモデルが設定されていません。**Connections**(接続)を開き、**Jobs**(役割)ボックスの**Voice**の行をクリックして音声モデルを選びます。次に歯車をクリックして声を選びます。声がないキャラクターはテキストだけで表示されます。
-- **音声が「No audio after N s」で止まる。** 音声サーバーの応答が、Marinaraの待ち時間より遅くなっています。ノートパソコン上のローカルサーバーでは、よくあることです。`N`は、現在のタイムアウトの値です。**Voice settings**(音声の設定)の**More**(その他)にある**Request timeout (seconds)**(リクエストのタイムアウト、秒単位)を大きくしてください。このウィンドウは**Jobs**ボックスの**Voice**の行にある歯車で開きます。または、メッセージに記載された音声モデルの**Edit model**(モデルの編集)でタイムアウトを変更します。[リクエストのタイムアウト](media/tts-setup.md#request-timeout)を参照してください。
+- **通話でキャラクターが話さない。** **Voice**(音声)の役割にモデルが設定されていません。**Connections**(接続)を開き、**All jobs**(すべての役割)をクリックし、**Voice**をクリックして音声モデルを選びます。次に歯車をクリックして声を選びます。声がないキャラクターはテキストだけで表示されます。
+- **音声が「No audio after N s」で止まる。** 音声サーバーの応答が、Marinaraの待ち時間より遅くなっています。ノートパソコン上のローカルサーバーでは、よくあることです。`N`は、現在のタイムアウトの値です。**Voice settings**(音声の設定)の**More**(その他)にある**Request timeout (seconds)**(リクエストのタイムアウト、秒単位)を大きくしてください。このウィンドウは**Jobs**(役割)ページの**Voice**の横にある歯車で開きます。または、メッセージに記載された音声モデルの**Edit model**(モデルの編集)でタイムアウトを変更します。[リクエストのタイムアウト](media/tts-setup.md#request-timeout)を参照してください。
 - **マイクが動かない。** **Agents → Agent Organizer**から**Calls**をインストールします。次に**Connections**(接続)を開き、**On this device**(このデバイス上)のカードで**Local speech model**(ローカル音声モデル)を探して、Whisperのモデルを選び、**Download Whisper**(Whisperをダウンロード)をクリックします。Firefoxにはブラウザーの音声認識がないため、この手順が必要です。Callsをアンインストールすると、そのWhisperのモデルも削除されます。自分のサーバーを使うこともできます。[自分の音声認識サーバーを使う](conversation/calls.md#use-your-own-speech-to-text-server)を参照してください。
 - **Local Whisper is disabled in Lite mode**と表示される。liteイメージでは、ローカルの音声認識モデルを動かせません。通常のインストールを使ってください。
 

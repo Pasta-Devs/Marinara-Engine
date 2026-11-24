@@ -34,7 +34,7 @@ Jeśli się nie udało: gdy Marinara nie znajdzie modelu obrazów, którego mog�
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-Aby to naprawić, ustaw zadanie **Images** (obrazy) w bloku **Jobs** (zadania) panelu **Connections** (Połączenia) albo przypisz agentowi **Illustrator** jego własny model obrazów.
+Aby to naprawić, ustaw zadanie **Images** (obrazy) na stronie **Jobs** (zadania) panelu **Connections** (Połączenia) albo przypisz agentowi **Illustrator** jego własny model obrazów.
 
 ## Sekcja Gallery
 

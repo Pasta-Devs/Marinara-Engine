@@ -43,7 +43,7 @@ Marinara 在你的浏览器中录制麦克风或摄像头。根据下文的输�
 
 语音合成决定哪些角色能开口说话，以及使用哪种声音。完整步骤请阅读 [Text to Speech (TTS) 设置](../media/tts-setup.md)。简要步骤如下：
 
-1. 打开 **Connections**，点击 **Jobs** 框中的 **Voice** 行。
+1. 打开 **Connections**，在 **Jobs**(分工) 页面上点击 **Voice**。
 2. 选择语音模型或语音服务。选中后即开启语音合成。密钥和地址由模型所属账号提供。
 3. 点击 **Voice** 行的齿轮，打开 **Voice settings**(声音设置)。
 4. 在 **Who speaks**(谁在说话) 中选择 **Shared voice**(共用声音)，或者在 **Character and persona voices**(角色和用户角色的声音) 下分别指定声音。不同的声音能让你更容易跟上群组通话。
@@ -144,7 +144,7 @@ Local Whisper 会在运行 Marinara 的电脑上把你的语音转换为文字�
 
 如果 Local Whisper 对你的语言或口音识别不佳，可以改为把语音发送到另一个语音识别服务器。只要接受 OpenAI 语音识别格式（即 `/audio/transcriptions` 地址）的服务器都可以使用，无论是你自己架设的，还是 OpenAI、Groq 等服务。
 
-1. 打开 **Connections**，点击 **Jobs** 框中 **Dictation**(语音识别) 行的齿轮。这里可以设置 **Speech to text** 服务器。未安装 Calls 时，这些设置会隐藏。
+1. 打开 **Connections**，点击 **Jobs** 页面上 **Dictation**(语音识别) 旁边的齿轮。这里可以设置 **Speech to text** 服务器。未安装 Calls 时，这些设置会隐藏。
 2. 输入 **Server URL**（服务器地址），例如 `http://localhost:8000/v1`。
 3. 如果服务器需要，请输入 **API key**(API 密钥)。它会加密保存，并以掩码方式显示。
 4. 输入服务器使用的 **Model**(模型) 名称。留空则发送 `whisper-1`。

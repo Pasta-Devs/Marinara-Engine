@@ -28,7 +28,7 @@ Un servidor local o autoalojado puede responder con el modelo que tiene cargado,
 
 - Una cuenta nueva para un servidor en tu computadora o red empieza con un modelo **Predeterminado**.
 - Para añadir uno más tarde, haz clic en **⋯** en la cuenta y elige **Añadir modelo**. **Predeterminado** es la primera fila.
-- Usa **Predeterminado** como cualquier otro modelo: asígnale una tarea como **Principal** en el cuadro **Tareas**, o elígelo en **Modelo para este chat**.
+- Usa **Predeterminado** como cualquier otro modelo: asígnale una tarea como **Main** (Principal) en la página **Jobs** (Tareas), o elígelo en **Modelo para este chat**.
 - Haz clic en **Predeterminado** en el panel para darle sus propios ajustes, como sus parámetros y su preset de prompt, igual que harías con un modelo con nombre.
 
 **Predeterminado** se muestra para un servidor en tu computadora o tu red, y para Grok CLI, que tiene su propio valor predeterminado (consulta [CLI de suscripción](subscription-clis.md)). Un servicio de API alojado necesita un nombre de modelo.

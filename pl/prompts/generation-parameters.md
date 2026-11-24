@@ -134,11 +134,11 @@ Ustawienie **Image captioning** (opisywanie obrazów) sprawia, że Marinara opis
 2. Wybierz model z listy rozwijanej **Captioning model** (model do opisywania obrazów).
 3. Opcjonalnie edytuj **Prompt opisywania obrazów**, czyli instrukcje wysyłane razem z każdym obrazem. Przycisk resetowania albo wyczyszczenie pola przywraca prompt odczytywania obrazów wspólny dla całej aplikacji. Prompt jest zapisywany tylko dla tego czatu, a **Zapisz jako domyślne dla połączenia** go nie kopiuje.
 
-Sekcja pojawia się też, gdy przełącznik jest wyłączony, ale w sekcji **Zadania** panelu **Połączenia** ustawiono model **Odczytywanie obrazów**: ten model opisuje wtedy obrazy z tego czatu, gdy jego własny model nie potrafi ich zobaczyć.
+Sekcja pojawia się też, gdy przełącznik jest wyłączony, ale na stronie **Jobs** (zadania) panelu **Connections** ustawiono model **Image reading** (odczytywanie obrazów): ten model opisuje wtedy obrazy z tego czatu, gdy jego własny model nie potrafi ich zobaczyć.
 
 ### O co pytany jest model odczytujący obrazy
 
-W panelu **Połączenia** kliknij zębatkę w wierszu **Odczytywanie obrazów** sekcji **Zadania** (albo wybierz **Ustawienia odczytywania obrazów** pod listą modeli w oknie **Model dla: Odczytywanie obrazów**). Te ustawienia dotyczą wszystkich czatów:
+W panelu **Connections** kliknij **All jobs** (wszystkie zadania), a potem zębatkę obok **Image reading**. Możesz też wybrać **Image reading settings** (ustawienia odczytywania obrazów) pod listą modeli w oknie **Model for Image reading** (model dla odczytywania obrazów). Te ustawienia dotyczą wszystkich czatów:
 
 - **Instrukcje**: prompt systemowy wysyłany z każdym obrazem. Własny **Prompt opisywania obrazów** czatu go zastępuje.
 - **Żądanie**: wiadomość wysyłana z każdym obrazem. `{{filename}}` zostaje zastąpione nazwą pliku obrazu.

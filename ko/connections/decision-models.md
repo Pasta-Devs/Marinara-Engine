@@ -63,8 +63,8 @@ Kaelen speaks normally.
 
 시작하기 전에 [선택 기준](#which-one-to-pick)을 참고하세요.
 
-1. 상단 바에서 **Connections**(연결)를 클릭하고 **Jobs**(작업) 상자를 여세요.
-2. **Behind the scenes**(무대 뒤) 아래의 **Decision**(판단) 행을 클릭하세요. 목록이 열립니다.
+1. 상단 바에서 **Connections**(연결)를 클릭한 다음 **Jobs**(작업) 아래의 **All jobs**(모든 작업)를 클릭하세요.
+2. **Decision**(판단)을 클릭하세요. 목록이 열립니다.
 3. 모델을 고르세요. 목록에는 3개 그룹이 있습니다.
    - **None (decisions off)**(없음, 판단 끔)가 기본값입니다. 아무것도 묻지 않으며, 에이전트 편집기의 활성화 질문 필드는 비활성 상태로 남습니다.
    - **Built-in model**(내장 모델) 그룹에는 Marinara가 내 컴퓨터에서 실행하는 모델이 있습니다. **Built-in model**, **Built-in model (utility)**(내장 모델, 보조), **Built-in model (decisions)**(결정 사이드카, 실험적)입니다. 정보가 컴퓨터 밖으로 나가지 않습니다.
@@ -100,7 +100,7 @@ Android(Termux)에서는 **Built-in decision model**로 JevK5와 Liquid d1만 �
 
 내장 모델을 다운로드해 두었다면 계정도 비용도 없이 판정에 사용할 수 있습니다. [내장 모델 설정](local-model.md)을 참고하세요.
 
-1. **Jobs** 상자의 **Behind the scenes** 아래에 있는 **Decision** 행을 클릭하세요.
+1. **Jobs** 페이지에서 **Decision**을 클릭하세요.
 2. **Built-in model**을 고르세요. **Built-in model (utility)**가 있다면 그쪽을 골라도 됩니다.
 3. **Decision settings** 톱니바퀴를 클릭한 다음 **Test**를 클릭하세요.
 
@@ -124,7 +124,7 @@ Marinara는 모델에 예/아니요 질문 하나를 보내 토큰 하나를 쓰
 
 채팅 모델이 Ollama, LM Studio, llama.cpp 또는 다른 OpenAI 호환 서버에서 실행 중이라면, Marinara가 두 번째 사본을 로드하지 않고도 그 모델이 판정에 답할 수 있습니다.
 
-1. **Jobs** 상자의 **Behind the scenes** 아래에서 **Decision** 행을 클릭하세요. 선택 창에는 채팅 모델을 포함한 모든 계정의 모델이 표시됩니다. 또는 모델의 **⋯**을 클릭하고 **Use for…** → **Decision**을 고르세요.
+1. **Jobs** 페이지에서 **Decision**을 클릭하세요. 선택 창에는 채팅 모델을 포함한 모든 계정의 모델이 표시됩니다. 또는 모델의 **⋯**을 클릭하고 **Use for…** → **Decision**을 고르세요.
 2. **Decision** 행의 톱니바퀴를 클릭한 다음 **Test**를 클릭하세요. 테스트에 성공하면 서버가 로그 확률을 반환했는지, 모델이 먼저 생각해야 했는지 알려 줍니다. **Done**(완료)을 클릭하세요.
 직접 만들 수도 있습니다. 소스가 **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**(OpenAI 호환 채팅 모델, Ollama, LM Studio, llama.cpp)인 Decision 계정을 쓰고, 채팅 계정과 같은 주소(예: Ollama라면 `http://localhost:11434/v1`)와 서버가 쓰는 모델 이름을 입력하세요.
 
@@ -141,14 +141,14 @@ Marinara는 모델에 예/아니요 질문 하나를 보내 토큰 하나를 쓰
 1. 상단 바에서 **Connections**를 클릭한 다음 **Add**(추가)를 클릭하세요.
 2. 유형 칩에서 **Decision**(결정)을 클릭한 다음 **TypeSafe** 또는 **Own decision server**를 클릭하세요. NanoGPT를 쓰려면 [NanoGPT로 연결하기](#through-nanogpt)를 참고하세요. OpenRouter나 Google Gemini를 쓰려면 [OpenRouter 또는 Google Gemini로 연결하기](#through-openrouter-or-google-gemini)를 참고하세요.
 3. **API key**(API 키)를 입력하세요. **Own decision server**를 쓰려면 **Server address**(서버 주소)를 입력하세요. **Connect**(연결)를 클릭하세요.
-4. **Found in TypeSafe — use it for:** 아래의 **Decision**을 체크하고 **Done**(완료)을 클릭하세요. **Jobs**(작업) 상자의 **Behind the scenes**(무대 뒤) 아래에 있는 **Decision** 행에 모델이 표시됩니다.
+4. **Found in TypeSafe — use it for:** 아래의 **Decision**을 체크하고 **Done**(완료)을 클릭하세요. 이제 **Jobs** 페이지의 **Decision**에 모델이 표시됩니다.
 5. 테스트하려면 패널에서 모델을 클릭해 **Edit model**을 연 다음 **Provider tests**(연결 테스트) 카드의 **Test provider**를 클릭하세요. **Own decision server** 모델에는 그곳에 **Test provider** 버튼이 없습니다. 대신 패널에서 계정의 **⋯** 메뉴를 열고 **Test**를 클릭하세요.
 
 **Test provider**가 성공하면 확률, 답하는 데 걸린 시간, 계정의 시간 제한이 표시됩니다. **⋯** 메뉴에 있는 계정의 **Test**는 작동 여부와 걸린 시간만 알려 줍니다. 테스트는 최소 10초를 기다리며, 시간 제한이 그보다 길면 제한보다 5초 더 기다립니다. 답이 제한보다 오래 걸렸다면 결과에 그렇게 표시됩니다. 채팅에서는 그 답이 답 없음으로 처리됩니다.
 
 실패했다면 [문제 해결](#troubleshooting)을 참고하세요.
 
-판단 모델에는 다음 필드가 있습니다. 패널에서 모델을 클릭해 **Edit model**(모델 편집)을 열거나, **Jobs** 상자의 **Decision** 행에서 톱니바퀴를 클릭해 현재 모델의 **Decision settings**(판단 설정)를 여세요.
+판단 모델에는 다음 필드가 있습니다. 패널에서 모델을 클릭해 **Edit model**(모델 편집)을 열거나, **Jobs** 페이지에서 **Decision** 옆의 톱니바퀴를 클릭해 현재 모델의 **Decision settings**(판단 설정)를 여세요.
 
 | 필드 | 하는 일 |
 | --- | --- |
@@ -179,7 +179,7 @@ NanoGPT에는 Jev Latest와 같은 자체 판단 모델이 있습니다. Marinar
 OpenRouter와 Google Gemini 계정에도 자체 판단 모델이 있습니다. Marinara는 해당 계정 키를 사용해 서비스의 판단 API에 요청합니다. OpenRouter에는 모델이 많고, 이름이 `:free`로 끝나는 모델은 무료입니다. Google Gemini에는 **Gemini Decision 1** 하나가 있습니다.
 
 1. 평소처럼 OpenRouter 또는 Google Gemini를 연결하세요.
-2. **Jobs** 상자의 **Behind the scenes** 아래에서 **Decision** 행을 클릭한 다음 왼쪽의 계정을 클릭하세요. **Decision models**에서 모델을 고르세요.
+2. **Jobs** 페이지에서 **Decision**을 클릭한 다음 왼쪽의 계정을 클릭하세요. **Decision models**에서 모델을 고르세요.
 3. 테스트하려면 모델의 **Edit model**을 열고 **Test provider**를 클릭하세요.
 
 OpenRouter 계정에서는 로그 확률을 반환하는 채팅 모델이 아래의 **Chat models**에 표시되며, 이 모델도 사용할 수 있습니다. Google Gemini 계정에는 판단 모델만 있습니다.
@@ -333,7 +333,7 @@ Custom System One 계정 뒤에서 직접 호스팅하는 Open-Jev도 0.5를 사
 1. 상단 바에서 **Connections**를 클릭하세요. **On this device** 아래의 **Built-in model (decisions)**를 클릭하세요. **Connections** 패널에서 **Add**를 클릭하고 **Decisions** 아래의 **Built-in model (decisions)**를 클릭해도 됩니다.
 2. **Model**(모델) 목록에서 모델을 고르세요. 그 아래에 설명, **Answers**와 **Reads**([모델 페이지의 정보](#what-a-model-page-lists) 참고), 언어와 라이선스가 표시됩니다.
 3. 모델 이름과 크기가 표시된 **Download**(다운로드)를 클릭하세요. 크기, 하드웨어 평가 결과, 라이선스를 확인하세요. 그 전에는 아무것도 다운로드되지 않습니다.
-4. **Use for Decision**(판단에 사용)을 클릭하거나, **Jobs** 상자의 **Behind the scenes** 아래에서 **Decision** 행을 클릭하고 **Built-in model (decisions)**를 고르세요.
+4. **Use for Decision**(판단에 사용)을 클릭하거나, **Jobs** 페이지에서 **Decision**을 클릭하고 **Built-in model (decisions)**를 고르세요.
 
 모델을 한 번 실행하면 페이지의 **On this computer**에도 처리 시간이 표시됩니다. 채팅 몇 턴, 이미지 하나, 그리고 클립을 읽는 모델이라면 클립 하나를 처리하는 시간입니다. 내 컴퓨터에서 측정한 시간이므로 판정문에서 이미지를 요청할 때 얼마나 느려지는지 알 수 있습니다.
 

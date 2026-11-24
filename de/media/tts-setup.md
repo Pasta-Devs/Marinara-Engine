@@ -7,13 +7,13 @@ Text to Speech (TTS) liest Chat-Nachrichten und Spielerzählungen laut vor. In d
 1. Klick in der oberen Leiste auf **Connections** (Verbindungen) und dann auf **Add** (Hinzufügen).
 2. Klick bei den Typfiltern auf **Voice** (Stimme), wähl einen Dienst und füg deinen Key unter **API key** ein. Klick auf **Connect** (Verbinden).
 3. Hake unter **Found in … — use it for:** die Option **Voice** an und klick auf **Done** (Fertig). Ein Voice-Modell zu wählen, schaltet die Sprachausgabe ein.
-4. Klick im Bereich **Jobs** (Aufgaben) auf das Zahnrad der Zeile **Voice** und dann auf **Preview** (Vorschau), um eine Probe zu hören. In einem Chat klickst du unter einer Nachricht auf **Speak** (Vorlesen).
+4. Klick auf der Seite **Jobs** (Aufgaben) auf das Zahnrad neben **Voice** und dann auf **Preview** (Vorschau), um eine Probe zu hören. In einem Chat klickst du unter einer Nachricht auf **Speak** (Vorlesen).
 
 ## Text to Speech einschalten
 
 Ein Modell für die Aufgabe **Voice** zu wählen, schaltet die Sprachausgabe ein. Dadurch wird noch nichts von selbst vorgelesen. Auf jeder Nachricht erscheint die Schaltfläche **Speak**, und die Optionen für **Auto-play** werden sichtbar. Du wählst weiterhin, was wann vorgelesen wird.
 
-1. Klick in der oberen Leiste auf **Connections**. Such im Bereich **Jobs** unter **Pictures & sound** (Bild und Ton) die Zeile **Voice**.
+1. Klick in der oberen Leiste auf **Connections** und dann unter **Jobs** auf **All jobs** (alle Aufgaben). Such dort **Voice**.
 2. Klick auf die Zeile und wähl ein Sprachmodell oder einen Sprachdienst. Die Zeile zeigt deine Auswahl.
 3. Klick auf das Zahnrad der Zeile, um die Stimmeinstellungen zu öffnen. Hast du noch kein Sprachkonto, klick in der Zeile auf **Add** oder füge wie im Schnellstart eines hinzu.
 4. Um die Sprachausgabe auszuschalten, klick auf die Zeile und wähl **Turn voice off** (Sprachausgabe ausschalten). Die Zeile zeigt **Off** (Aus), und es wird nichts vorgelesen.
@@ -35,7 +35,7 @@ Anfragen laufen über Marinaras eigenen Server. Dein API-Key wird verschlüsselt
 
 Hast du bereits ein **Audio**-Konto hinzugefügt (siehe [Unterstützte KI-Anbieter](../connections/providers-reference.md#audio)), musst du seine Daten nicht noch einmal eintragen. Seine Sprachmodelle erscheinen in der Auswahl für **Voice**.
 
-1. Klick im Bereich **Jobs** auf die Zeile **Voice** und wähl das Modell.
+1. Klick auf der Seite **Jobs** auf **Voice** und wähl das Modell.
 2. Klick auf das Zahnrad der Zeile. Wähl deine Stimmen und die übrigen Einstellungen.
 
 Marinara verwendet dann Adresse, Key, Modell und **Request timeout (seconds)** dieses Kontos, deshalb zeigen die Stimmeinstellungen diese Felder nicht. Der Key bleibt im Konto. Er wird weder in die Stimmeinstellungen kopiert noch an deinen Browser geschickt. Änderungen am Konto, etwa ein neuer Key, gelten sofort.
@@ -69,7 +69,7 @@ PocketTTS ist nicht in Marinara eingebaut. Installiere [den offiziellen PocketTT
 
 ### Zeitlimit für Anfragen
 
-Marinara wartet bis zu 60 Sekunden auf jede gesprochene Zeile. Ein Sprachserver auf deinem eigenen Rechner, vor allem auf einem Laptop, kann für eine lange Zeile länger brauchen. Erhöhe **Request timeout (seconds)** unter **More** (Mehr) in **Voice settings** (Stimmeinstellungen; das Zahnrad auf der Zeile **Voice** im Bereich **Jobs**). Möglich sind 10 bis 3.600 Sekunden.
+Marinara wartet bis zu 60 Sekunden auf jede gesprochene Zeile. Ein Sprachserver auf deinem eigenen Rechner, vor allem auf einem Laptop, kann für eine lange Zeile länger brauchen. Erhöhe **Request timeout (seconds)** unter **More** (Mehr) in **Voice settings** (Stimmeinstellungen; das Zahnrad neben **Voice** auf der Seite **Jobs**). Möglich sind 10 bis 3.600 Sekunden.
 
 Ein Audio-Konto hat ein eigenes Feld **Request timeout (seconds)**, unter **Default voice** (Standardstimme) im Fenster **Edit model** (Modell bearbeiten) seines Modells und in **Voice settings**. Chats, die über ein Audio-Konto sprechen, auch über eines, das für die Aufgabe **Voice** gewählt ist, nutzen dieses Limit. Das Limit in **Voice settings** gilt für Sprachausgabe mit diesen Einstellungen, einschließlich **Preview**. Dauert eine Zeile zu lange, nennt die Fehlermeldung, wie viele Sekunden Marinara gewartet hat und welche Einstellung du erhöhen solltest.
 
@@ -182,7 +182,7 @@ Spricht die Stimme einen Charakter- oder Persona-Namen falsch aus, füge einen *
 
 ## Fehlerbehebung
 
-- **Es wird nichts vorgelesen**: Prüf, ob die Zeile **Voice** im Bereich **Jobs** nicht auf **Off** steht. Prüf dann den passenden Schalter für **Auto-play** oder nutze **Speak** an einer Nachricht.
+- **Es wird nichts vorgelesen**: Prüf, ob **Voice** auf der Seite **Jobs** nicht unter **Off** steht. Prüf dann den passenden Schalter für **Auto-play** oder nutze **Speak** an einer Nachricht.
 - **Die Zeile Voice zeigt The voice account is missing**: Das Konto hinter dem Sprachmodell wurde gelöscht oder lässt sich nicht verwenden. Wähl ein anderes Sprachmodell. Siehe [Ein Voice-Modell aus einem Konto verwenden](#use-a-voice-model-from-an-account).
 - **Keine Stimmen in der Liste**: Prüf, ob die Zeile **Voice** ein Modell und einen gültigen Key hat, und klick auf **Refresh voices from provider**. Der offizielle PocketTTS-Server nutzt Marinaras eingebaute Liste. Bei einem kompatiblen PocketTTS-Wrapper prüfst du, ob `<Base URL>/v1/voices` antwortet.
 - **ElevenLabs spricht nicht**: Wähl eine echte Stimme, nicht den Platzhalter „Select an ElevenLabs voice“. Prüf, ob das Modell ein Sprachmodell ist und kein Voice-Design-Modell, dessen ID `ttv` enthält.

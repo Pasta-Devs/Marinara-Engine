@@ -192,7 +192,7 @@ W sekcji **Voice** usługa audio odpowiada za głosy postaci i narrację. Wybier
 
 Każde źródło wpisuje domyślny adres i model. **Default voice** (domyślny głos) to głos używany wtedy, gdy nie ustawiono nic bardziej szczegółowego, na przykład głosu dla konkretnej postaci. **Request timeout (seconds)** (limit czasu żądania w sekundach) to czas, przez jaki Marinara czeka na jedną wypowiadaną kwestię. Przy wolnym serwerze głosu zwiększ tę wartość.
 
-Żeby wybrać konto mowy używane domyślnie przez aplikację Marinara, kliknij wiersz **Voice** (głos) w sekcji **Jobs** (zadania). Aby czytać wiadomości na głos, wybierz model konta w wierszu **Voice**. Zobacz [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md) i [Korzystanie z modelu głosu z konta](../media/tts-setup.md#use-a-voice-model-from-an-account).
+Żeby wybrać konto mowy używane domyślnie przez aplikację Marinara, kliknij **Voice** (głos) na stronie **Jobs** (zadania). Aby czytać wiadomości na głos, wybierz model tego konta dla zadania **Voice**. Zobacz [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md) i [Korzystanie z modelu głosu z konta](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 <a id="music--sound-effects"></a>
 
@@ -224,7 +224,7 @@ Embeddingi zamieniają tekst na listy liczb, dzięki czemu Marinara może znajdo
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** i **Grok CLI (Subscription)** nie potrafią tworzyć embeddingów. W ich przypadku użyj listy rozwijanej **Embedding provider** (dostawca embeddingów), żeby pożyczyć inne konto, na przykład zgodne z OpenAI, **Google Gemini** albo **Built-in model** (model wbudowany).
 
-Żeby używać jednego źródła embeddingów dla każdego konta bez własnych ustawień embeddingów, kliknij wiersz **Embeddings** (embeddingi) w sekcji **Jobs**. **Marinara's own search** (własne wyszukiwanie aplikacji Marinara) zachowuje wbudowany model embeddingów. Własny model embeddingów konta albo jego **Embedding provider** nadal ma pierwszeństwo. Po zmianie ponownie zwektoryzuj lorebooki i wspomnienia. Zobacz [Wyszukiwanie semantyczne w lorebookach](../lorebooks/semantic-search.md).
+Żeby używać jednego źródła embeddingów dla każdego konta bez własnych ustawień embeddingów, kliknij **Embeddings** (embeddingi) na stronie **Jobs**. **Marinara's own search** (własne wyszukiwanie aplikacji Marinara) zachowuje wbudowany model embeddingów. Własny model embeddingów konta albo jego **Embedding provider** nadal ma pierwszeństwo. Po zmianie ponownie zwektoryzuj lorebooki i wspomnienia. Zobacz [Wyszukiwanie semantyczne w lorebookach](../lorebooks/semantic-search.md).
 
 <a id="timeouts"></a>
 

@@ -111,7 +111,7 @@ Uma descrição diz o que um emoji ou sticker mostra e a sensação que transmit
 - Para escrever uma, clique em **Edit** na aba **Custom emojis** ou **Stickers** e depois no pequeno botão de descrição no canto de um bloco. Para um emoji ou sticker marcado na galeria, clique no botão de tag dele e escolha **Add description** (adicionar descrição).
 - Para a IA escrever as descrições, clique em **Edit** e depois em **Describe with AI** (descrever com IA). O modelo **Image reading** (leitura de imagens) examina cada imagem e escreve uma descrição curta. Se alguns já tiverem descrição, escolha **Describe only the … without** (descrever apenas os … sem descrição) ou **Describe all … again** (descrever todos os … novamente).
 
-Antes de começar: as descrições por IA precisam de um modelo que consiga ler imagens. Marinara usa o modelo **Image reading** se você definir um em **Behind the scenes** (nos bastidores) nas configurações de conexão; caso contrário, usa o modelo dos seus agentes.
+Antes de começar: as descrições por IA precisam de um modelo que consiga ler imagens. Marinara usa o modelo **Image reading** se você definir um na página **Jobs** (tarefas) de **Connections** (Conexões); caso contrário, usa o modelo dos seus agentes.
 
 Duas configurações em **Selection preferences** usam as descrições:
 

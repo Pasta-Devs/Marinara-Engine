@@ -63,8 +63,8 @@ Die Seite jedes eingebauten Decision-Modells zeigt zwei Zeilen:
 
 Lies vorher [Welche Möglichkeit passt?](#which-one-to-pick).
 
-1. Klick in der oberen Leiste auf **Connections** (Verbindungen) und öffne den Bereich **Jobs** (Aufgaben).
-2. Klick unter **Behind the scenes** (hinter den Kulissen) auf die Zeile **Decision**. Eine Liste öffnet sich.
+1. Klick in der oberen Leiste auf **Connections** (Verbindungen) und dann unter **Jobs** (Aufgaben) auf **All jobs** (alle Aufgaben).
+2. Klick auf **Decision**. Eine Liste öffnet sich.
 3. Wähle ein Modell. Die Liste hat drei Gruppen:
    - **None (decisions off)** ist der Standard. Es wird nichts gefragt, und die Felder für Aktivierungsfragen im Agenten-Editor bleiben deaktiviert.
    - **Built-in model** (eingebautes Modell) listet die Modelle, die Marinara auf deinem Rechner ausführt: **Built-in model**, **Built-in model (utility)** und **Built-in model (decisions)**. Nichts verlässt deinen Rechner.
@@ -100,7 +100,7 @@ Schreib Presets, Karten und Agenten für „ein Decision-Modell“, niemals mit 
 
 Hast du das eingebaute Modell heruntergeladen, kannst du es ohne Konto und ohne Kosten für Decisions verwenden. Siehe [Eingebautes Modell einrichten](local-model.md).
 
-1. Klick im Bereich **Jobs** unter **Behind the scenes** auf die Zeile **Decision**.
+1. Klick auf der Seite **Jobs** auf **Decision**.
 2. Wähle **Built-in model** (oder **Built-in model (utility)**, falls du eines hast).
 3. Klick auf das Zahnrad **Decision settings** und dann auf **Test**.
 
@@ -124,7 +124,7 @@ Die Ja/Nein-Wahrscheinlichkeiten eines allgemeinen Chat-Modells taugen für eine
 
 Läuft dein Chat-Modell in Ollama, LM Studio, llama.cpp oder einem anderen OpenAI-kompatiblen Server, kann es Decisions beantworten, ohne dass Marinara eine zweite Kopie lädt.
 
-1. Klick im Kasten **Jobs** unter **Behind the scenes** auf die Zeile **Decision**. Die Auswahl listet die Modelle aller Konten auf, auch dein Chat-Modell. Oder klick beim Modell auf **⋯** und wähle **Use for…** → **Decision**.
+1. Klick auf der Seite **Jobs** auf **Decision**. Die Auswahl listet die Modelle aller Konten auf, auch dein Chat-Modell. Oder klick beim Modell auf **⋯** und wähle **Use for…** → **Decision**.
 2. Klick auf das Zahnrad der Zeile **Decision** und dann auf **Test**. Ein bestandener Test nennt, ob der Server Log-Wahrscheinlichkeiten geliefert hat und ob das Modell zuerst nachdenken musste. Klick auf **Done**.
 Du kannst es auch selbst anlegen. Nimm ein Decision-Konto mit der Quelle **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**, derselben Adresse wie dein Chat-Konto (zum Beispiel `http://localhost:11434/v1` für Ollama) und dem Modellnamen, den der Server verwendet.
 
@@ -141,14 +141,14 @@ Ein gehostetes Decision-Konto sendet die ausgewählten jüngsten Nachrichten und
 1. Klick in der oberen Leiste auf **Connections** und dann auf **Add** (Hinzufügen).
 2. Klick bei den Typfiltern auf **Decision** (Entscheidungen) und dann auf **TypeSafe** oder **Own decision server**. Für NanoGPT siehe [Über NanoGPT](#through-nanogpt). Für OpenRouter oder Google Gemini siehe [Über OpenRouter oder Google Gemini](#through-openrouter-or-google-gemini).
 3. Gib den **API key** ein oder bei **Own decision server** die **Server address** (Serveradresse). Klick auf **Connect** (Verbinden).
-4. Hak unter **Found in TypeSafe — use it for:** **Decision** an und klick dann auf **Done**. Die Zeile **Decision** unter **Behind the scenes** im Kasten **Jobs** zeigt jetzt das Modell.
+4. Hak unter **Found in TypeSafe — use it for:** **Decision** an und klick dann auf **Done**. Auf der Seite **Jobs** zeigt **Decision** jetzt das Modell.
 5. Zum Testen klick im Panel auf das Modell, um **Edit model** zu öffnen, und dann in der Karte **Provider tests** (Anbietertests) auf **Test provider**. Ein Modell vom Typ **Own decision server** hat dort keine Schaltfläche **Test provider**. Öffne stattdessen im Panel das Menü **⋯** des Kontos und klick auf **Test**.
 
 Ein bestandener **Test provider** zeigt die Wahrscheinlichkeit, wie lange die Antwort gedauert hat, und das Zeitlimit des Kontos. **Test** im Menü **⋯** des Kontos sagt nur, ob es funktioniert hat und wie lange es gedauert hat. Der Test wartet mindestens 10 Sekunden oder 5 Sekunden über ein längeres Limit hinaus. Hat die Antwort länger als das Limit gedauert, steht das im Ergebnis: Im Chat würde diese Antwort als keine Antwort zählen.
 
 Hat es nicht funktioniert, sieh unter [Fehlerbehebung](#troubleshooting) nach.
 
-Ein Decision-Modell hat diese Felder. Klick im Panel auf das Modell, um **Edit model** zu öffnen, oder im Kasten **Jobs** auf das Zahnrad der Zeile **Decision**, um **Decision settings** für das aktuelle Decision-Modell zu öffnen:
+Ein Decision-Modell hat diese Felder. Klick im Panel auf das Modell, um **Edit model** zu öffnen, oder auf der Seite **Jobs** auf das Zahnrad neben **Decision**, um **Decision settings** für das aktuelle Decision-Modell zu öffnen:
 
 | Feld | Was es bewirkt |
 | --- | --- |
@@ -181,7 +181,7 @@ Standardmäßig entscheidet NanoGPT, ob eine Anfrage über dein Abo oder dein Gu
 Konten bei OpenRouter und Google Gemini listen ebenfalls eigene Decision-Modelle. Marinara fragt sie über die Decision-API des jeweiligen Dienstes mit dem Key dieses Kontos an. OpenRouter listet viele, einige davon kostenlos (ihre Namen enden auf `:free`). Google Gemini listet eines, **Gemini Decision 1**.
 
 1. Verbinde OpenRouter oder Google Gemini wie gewohnt.
-2. Klick im Kasten **Jobs** unter **Behind the scenes** auf die Zeile **Decision** und dann links auf das Konto. Wähl ein Modell unter **Decision models**.
+2. Klick auf der Seite **Jobs** auf **Decision** und dann links auf das Konto. Wähl ein Modell unter **Decision models**.
 3. Öffne zum Testen bei diesem Modell **Edit model** und klick auf **Test provider**.
 
 Bei einem OpenRouter-Konto funktionieren auch die Chat-Modelle, die Log-Wahrscheinlichkeiten liefern. Sie stehen darunter unter **Chat models**. Ein Google-Gemini-Konto bietet nur sein Decision-Modell an.
@@ -335,7 +335,7 @@ Bevor etwas heruntergeladen wird, prüft Marinara, ob dein Rechner das Modell au
 1. Klick in der oberen Leiste auf **Verbindungen**. Klick unter **On this device** auf **Built-in model (decisions)**. Du kannst auch im Panel **Verbindungen** auf **Hinzufügen** und unter **Decisions** auf **Built-in model (decisions)** klicken.
 2. Wähle ein Modell in der Liste **Modell**. Darunter siehst du seine Beschreibung, dann **Antworten** und **Liest** (siehe [Was eine Modellseite auflistet](#what-a-model-page-lists)), seine Sprachen und Lizenzen.
 3. Klick auf **Herunterladen** mit dem Namen und der Größe des Modells. Bestätige Größe, Hardwareeinschätzung und Lizenzen. Vorher wird nichts heruntergeladen.
-4. Klick auf **Use for Decision** oder im Kasten **Jobs** unter **Behind the scenes** auf die Zeile **Decision** und wähle **Built-in model (decisions)**.
+4. Klick auf **Use for Decision** oder auf der Seite **Jobs** auf **Decision** und wähle **Built-in model (decisions)**.
 
 Sobald ein Modell gelaufen ist, zeigt seine Seite auch **Auf diesem Computer** mit der dort gemessenen Dauer: für einige Chat-Züge, ein Bild und bei Modellen, die sie lesen, einen Clip. Diese Zeiten stammen von deinem eigenen Rechner. Daran siehst du, wie viel langsamer eine Aussage wird, wenn sie ein Bild anfordert.
 

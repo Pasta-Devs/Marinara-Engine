@@ -28,7 +28,7 @@ Serwer lokalny lub samodzielnie hostowany może odpowiadać modelem, który ma z
 
 - Nowe konto serwera na twoim komputerze lub w twojej sieci zaczyna z modelem **Domyślny**.
 - Żeby dodać go później, kliknij **⋯** na koncie i wybierz **Dodaj model**. **Domyślny** jest pierwszym wierszem.
-- Używaj modelu **Domyślny** tak jak każdego innego: przydziel mu zadanie, na przykład **Main**, w sekcji **Zadania** albo wybierz go w **Model dla tego czatu**.
+- Używaj modelu **Domyślny** tak jak każdego innego: przydziel mu zadanie, na przykład **Main**, na stronie **Jobs** (zadania) albo wybierz go w **Model dla tego czatu**.
 - Kliknij **Domyślny** w panelu, żeby nadać mu własne ustawienia, takie jak parametry i preset promptu, tak samo jak modelowi z nazwą.
 
 **Domyślny** pojawia się przy serwerze na twoim komputerze lub w twojej sieci, a także przy Grok CLI, które ma własny model domyślny (zobacz [Narzędzia CLI w ramach subskrypcji](subscription-clis.md)). Hostowana usługa API wymaga nazwy modelu.

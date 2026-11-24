@@ -52,9 +52,9 @@ Si tu démarres un chat avant d'avoir un modèle, Marinara ouvre d'abord la fen�
 
 Les comptes se gèrent dans le panneau **Connections**. De haut en bas, il affiche :
 
-- Une zone de recherche qui filtre la liste au fil de la saisie. Elle s'intitule **Search models and accounts** (rechercher des modèles et des comptes).
-- **Add**, qui ouvre **Add account**, et **More actions** (plus d'actions, trois points), qui propose **Import account** (importer un compte), **Export all accounts** (exporter tous les comptes), le repli et le regroupement. Dans un panneau large, le menu déroulant de tri se trouve à côté de la recherche. Dans un panneau étroit, le tri se trouve dans **More actions**.
-- L'encadré **Jobs** (tâches). Il indique quel modèle s'occupe de chaque tâche.
+- **Search models and accounts** (rechercher des modèles et des comptes), une zone de recherche qui filtre la liste au fil de la saisie. Elle apparaît dès que tu as 8 modèles ou plus.
+- **Add**, qui ouvre **Add account**, et **More actions** (plus d'actions, trois points), qui propose **Import account** (importer un compte), **Export all accounts** (exporter tous les comptes), le tri, le repli et le regroupement.
+- Le récapitulatif **Jobs** (tâches). Il affiche ton modèle **Main** et une phrase sur les autres tâches. Voir [Choisir le modèle de chaque tâche](#choosing-the-model-for-each-job).
 - La carte **Built-in model**. Voir [Configuration du modèle intégré](local-model.md).
 - Tes comptes, chacun avec ses modèles enregistrés en dessous. Voir [Organiser les connexions](organizing-connections.md).
 
@@ -64,29 +64,33 @@ Un **compte**, c'est une clé, une identification ou une adresse enregistrée po
 
 ## Choisir le modèle de chaque tâche
 
-Une tâche, c'est quelque chose qu'un modèle fait pour toi. L'encadré **Jobs** les liste en quatre groupes :
+Une tâche, c'est quelque chose qu'un modèle fait pour toi. **Main** écrit les réponses dans tes chats, **Agents** fait tourner les agents d'assistance, et d'autres tâches créent des images, lisent du texte à voix haute ou répondent par oui ou par non aux questions des agents.
 
-| Groupe | Tâches |
+Le récapitulatif **Jobs**, en haut du panneau, affiche la ligne **Main** et une phrase comme "Every other job that is on follows Main, except Images." Une tâche qui suit Main utilise le modèle Main. Les tâches désactivées sont listées sur la page **Jobs**. Une tâche qui a un problème, par exemple un modèle dont le compte est désactivé, a sa propre ligne avec un bouton de réparation.
+
+Pour voir toutes les tâches, clique sur **All jobs** (toutes les tâches) ou sur le titre **Jobs**. La page **Jobs** les liste dans cet ordre :
+
+| Partie | Ce qu'elle liste |
 | --- | --- |
-| **Chat** | **Main** écrit les réponses dans tes chats. **Agents** fait tourner les agents d'assistance. **Impersonate** écrit à ta place. |
-| **Omnibar** | **Professor Mari** et **Quick answers** (réponses rapides). |
-| **Pictures & sound** (images et son) | **Images**, **Video** (vidéo), **Voice** et **Dictation** quand elle est disponible. |
-| **Behind the scenes** (en coulisses) | **Decision** (décision), **Embeddings** et **Image reading** (lecture d'images). |
+| **Main** | Le modèle Main, et son modèle **If it fails** (en cas d'échec) quand il en a un. |
+| **Own model** (modèle dédié) | Les tâches qui ont leur propre modèle, et les tâches qui ont un problème à corriger. |
+| **Follow Main** (suivre Main), **Follow Agents** (suivre Agents) | Les tâches qui utilisent le modèle Main ou Agents, sous forme de petits boutons. |
+| **Off** (désactivé) | Les tâches qui n'ont pas encore de modèle, sous forme de petits boutons. **Pick** (choisir) veut dire que tes comptes ont des modèles pour cette tâche. **Add** veut dire qu'ils n'en ont aucun, et **Set up** (configurer) veut dire que la tâche nécessite d'abord d'installer quelque chose. |
 
-Chaque ligne affiche le modèle qui s'occupe de cette tâche, ou ce que fait la tâche sans modèle, par exemple **Follows Main** (suit Main) ou **Off** (désactivé). Une tâche sans modèle affiche **N models found** avec **Pick** (choisir), ou **None in your accounts** avec **Add**. Le sélecteur liste les modèles compatibles de tous les comptes. **Add** ouvre **Add account**, puis revient à la tâche. Clique sur **Jobs** pour replier l'encadré.
+Chaque tâche n'apparaît qu'une fois sur la page. Clique sur **Connections** en haut de la page pour revenir à la liste.
 
-Pour changer le modèle d'une tâche, clique sur sa ligne. **Modèle pour** cette tâche s'ouvre, sauf pour trois lignes. **Décision** et **Embeddings** ouvrent leurs propres contrôles (voir [Modèles de décision](decision-models.md) et [Fournisseurs d'IA pris en charge](providers-reference.md#embeddings)). **Dictée** ouvre la configuration de la parole. **Voix**, **Dictée** et **Lecture d'images** ont aussi un engrenage qui ouvre leur fenêtre de réglages ; celle de Lecture d'images contient ce qui est demandé à son modèle (voir [Description d'images](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Choisir un modèle **Voix** active la synthèse vocale.
+Pour changer le modèle d'une tâche, clique sur sa ligne ou sur son bouton. La fenêtre **Model for** (modèle pour) de cette tâche s'ouvre, sauf pour trois lignes. **Decision** (décision) et **Embeddings** ouvrent leurs propres contrôles (voir [Modèles de décision](decision-models.md) et [Fournisseurs d'IA pris en charge](providers-reference.md#embeddings)). **Dictation** (dictée) ouvre la configuration de la parole. **Voice**, **Dictation** et **Image reading** (lecture d'images) ont aussi un engrenage qui ouvre leur fenêtre de réglages ; celle de la tâche Image reading contient ce qui est demandé à son modèle (voir [Description d'images](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Choisir un modèle **Voice** active la synthèse vocale.
 
 Dans **Model for** :
 
 1. Regarde la liste.
-2. Clique sur un modèle. La liste l'affiche sous **Now** (actuel), puis tes modèles **Starred** (favoris), puis tes modèles enregistrés, classés par compte. **All models** (tous les modèles), sous un compte, ouvre sa liste complète. Tape dans **Search all models or paste a model ID** (rechercher dans tous les modèles ou coller un ID de modèle) pour chercher dans tous les comptes à la fois. Inutile d'enregistrer un modèle d'abord.
+2. Clique sur un modèle. La liste l'affiche sous **Now** (actuel), puis tes modèles **Starred** (favoris), puis tes modèles enregistrés, classés par compte. Clique sur un compte pour voir ses modèles. Tape dans **Search all models or paste a model ID** (rechercher dans tous les modèles ou coller un ID de modèle) pour chercher dans tous les comptes à la fois. Inutile d'enregistrer un modèle d'abord.
 
-**If it fails** (en cas d'échec), en haut de la fenêtre, choisit un second modèle qui répond quand le premier échoue. **Add account**, en bas, ouvre la fenêtre d'ajout.
+**If it fails**, en haut de la fenêtre, choisit un second modèle qui répond quand le premier échoue. **Add account**, en bas, ouvre la fenêtre d'ajout.
 
 ### Quand une fonction a besoin d'un modèle
 
-Une fonction qui ne peut pas marcher sans un certain type de modèle affiche une étiquette **Needs an image model** (ou son équivalent pour la vidéo, l'audio, la décision ou le chat). Tu la vois sur la carte de l'agent dans le panneau **Agents**, dans **Chat Settings** (réglages du chat), dans l'éditeur d'agent et dans les fenêtres d'images et de vidéo. Clique sur **Set up** (configurer) à côté, puis choisis un modèle ou clique sur **Add account**. L'étiquette disparaît dès que la tâche a un modèle.
+Une fonction qui ne peut pas marcher sans un certain type de modèle affiche une étiquette **Needs an image model** (ou son équivalent pour la vidéo, l'audio, la décision ou le chat). Tu la vois sur la carte de l'agent dans le panneau **Agents**, dans **Chat Settings** (réglages du chat), dans l'éditeur d'agent et dans les fenêtres d'images et de vidéo. Clique sur **Set up** à côté, puis choisis un modèle ou clique sur **Add account**. L'étiquette disparaît dès que la tâche a un modèle.
 
 ## Tester un compte
 
@@ -99,9 +103,11 @@ Une fonction qui ne peut pas marcher sans un certain type de modèle affiche une
 Un nouveau chat utilise ton modèle **Main**. Pour donner un autre modèle à un chat, clique sur le bouton du modèle dans la zone de saisie du chat (l'icône de lien, qui porte le nom du modèle actuel), ou utilise le champ **Model** (modèle) dans **Chat Settings → Connection** (réglages du chat → connexion). Les deux ouvrent **Model for this chat** (modèle pour ce chat) :
 
 - **Now** indique le modèle qu'utilise le chat. **This chat only** (ce chat uniquement) veut dire que le chat a son propre choix. **follows Main** (suit Main) veut dire qu'il utilise Main.
-- **Recent** (récents) et **Starred** listent tes modèles par compte.
-- **Search models or paste an ID…** (rechercher des modèles ou coller un ID) cherche dans tous les comptes. **Browse** (parcourir) ouvre la liste complète d'un compte.
-- **Follow Main** (suivre Main) efface le choix propre au chat. **Shuffle** (mélange) choisit un modèle différent à chaque fois.
+- **Starred** liste tes modèles favoris, puis **Recent** (récents) liste les derniers modèles que tu as choisis sur cet appareil.
+- **Search models or paste an ID…** (rechercher des modèles ou coller un ID) cherche dans tous les comptes.
+- Clique sur un compte pour voir ses modèles : d'abord **Starred**, puis **Saved** (enregistrés : les modèles que tu as enregistrés, avec leurs propres réglages), puis les autres. Une longue liste est d'abord repliée derrière **Browse all N models** (parcourir les N modèles). Clique dessus pour afficher tous les modèles.
+- Dans une longue liste, des boutons comme **Claude**, **GPT** et **DeepSeek** n'affichent qu'une famille de modèles à la fois. **All** (tous) réaffiche tous les modèles. La zone de recherche ne tient pas compte de ces boutons.
+- **Follow Main** efface le choix propre au chat. **Shuffle** (mélange) choisit un modèle différent à chaque fois.
 
 Un choix ne change que ce chat. Le message qui suit un choix propose **Make it my Main model** (en faire mon modèle Main) et **Undo** (annuler). En Game Mode, le champ s'intitule **Game Master model** (modèle du maître du jeu).
 

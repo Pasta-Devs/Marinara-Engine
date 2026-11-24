@@ -11,7 +11,7 @@
 开始之前，确认有足够的空闲磁盘空间和内存（RAM）来放这个模型。具体大小见下表。
 
 1. 点击顶栏里的 **Connections**(连接)。
-2. 在 **Jobs**(分工) 框下方找到 **Built-in model** 卡片。它显示 **Not downloaded**。
+2. 在 **Jobs**(分工) 摘要下方找到 **Built-in model** 卡片。它显示 **Not downloaded**。
 3. 点击卡片，或者点击它的 **Download**(下载) 按钮。一个标题为 **Built-in model** 的窗口会打开。
 4. 在 **Which model?**(用哪个模型？) 下面选一个模型。**Gemma 4 E2B — Q8 (Best Quality)** 带有 **Recommended**(推荐) 标记。电脑内存不多的话，选 **Q4_K_M**。它大约需要 3.4 GB 内存，而不是 5.4 GB。
 5. 点击底部的 **Download** 按钮。按钮上会显示模型大小，例如 **Download 5.0 GB**。

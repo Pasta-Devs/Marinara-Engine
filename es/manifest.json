@@ -24,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "b1b37205b3386409a6d1e34045274550f27ebcf176918cd7cb1930433ec4f3da",
-      "bytes": 51451
+      "sha256": "3824b722cc9c321a416b2f502623e1d6635920fb8ff133b027046ed54b81df81",
+      "bytes": 51468
     },
     {
       "path": "UPGRADING.md",
@@ -64,13 +64,13 @@
     },
     {
       "path": "agents/knowledge-sources.md",
-      "sha256": "a1e2fe9bd53e424575459b2837cc82f1667323e02c9a47606c1fb5ddcb830a31",
-      "bytes": 6740
+      "sha256": "e54b452813803a2e08e733388d4bfa07a5bb3e25284223a5ea461fba74f30509",
+      "bytes": 6741
     },
     {
       "path": "agents/memory.md",
-      "sha256": "876b01d540b2755862b53f48bb8d72604f1c479528b7970ddd9322f496724273",
-      "bytes": 53233
+      "sha256": "5ea20ef3a65666a03fc3a4ead8d6d0112361d6d3b4524e96b1fe5904b6d013f8",
+      "bytes": 53236
     },
     {
       "path": "agents/noodle-settings.md",
@@ -129,8 +129,8 @@
     },
     {
       "path": "characters/galleries.md",
-      "sha256": "07b0975f1ca4e9d336bf010666c908ccafc14c7e20bac5ef2387d7d2787b3dd7",
-      "bytes": 14655
+      "sha256": "8a5b28000e2df6c283ce4a5e6056deef191f3dd9ae9935736229a6be8ccaacf2",
+      "bytes": 14644
     },
     {
       "path": "characters/import-export.md",
@@ -164,8 +164,8 @@
     },
     {
       "path": "chats/chat-settings.md",
-      "sha256": "c7c8e4f6b5c3ecd7e440acd6aa21c0e91c0dbd045a9f1bb767ac460171c87731",
-      "bytes": 20030
+      "sha256": "293e7afb0f81c324bfafcfabce04819f4b07595e5d8f87f3bc21e27122b013fc",
+      "bytes": 20073
     },
     {
       "path": "chats/connected-chats.md",
@@ -224,33 +224,33 @@
     },
     {
       "path": "connections/connecting-to-a-provider.md",
-      "sha256": "d0e9ca33f2dba104ebe9225a6d7997b48817d24a4042a347db210a1ac07e817d",
-      "bytes": 13923
+      "sha256": "e5c9e8a48cb9199a190b4ebc188c47d87602bbf6060bbbaca16bd8344ea31e67",
+      "bytes": 15068
     },
     {
       "path": "connections/decision-models.md",
-      "sha256": "8d2364348d1cbf63df40661cdab42fd138bd5f0c6cd6c4ba9a29c9df7b9d6995",
-      "bytes": 47861
+      "sha256": "452a00a0e3a787b0889c64f96557dcb7851626e98b089e4648507fedc3c90ebe",
+      "bytes": 47647
     },
     {
       "path": "connections/local-model.md",
-      "sha256": "5bfb0681c4068c5d4f243bb802933283247b3194d3d38522e43a9a643ec0df8a",
-      "bytes": 14974
+      "sha256": "e73aeaa02489035047a7755a39811d6c8b9ccb6eda7b8c2049c89c32a8e392f4",
+      "bytes": 14975
     },
     {
       "path": "connections/local-self-hosted.md",
-      "sha256": "a33af030390760f8b703eee9ab431149b3f83d4dd79dfa4d573accdf1e350223",
-      "bytes": 10153
+      "sha256": "6c4e98a034d07eff664a3968fa3555d6a026663d67e64620e8217b71ed0450f5",
+      "bytes": 10168
     },
     {
       "path": "connections/organizing-connections.md",
-      "sha256": "8c60a6a35c8697d917d645c45a1db86c893b2ad34e743d439318493f794ed969",
-      "bytes": 9834
+      "sha256": "b5c0bde6c4257d476137319d002b6f206f7574074ccd8f8edeaa257f40145073",
+      "bytes": 10161
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "980f3f7553ec96feab635aac824327dfba6e3b0fc561906c8ae0e4e032c6ecea",
-      "bytes": 22495
+      "sha256": "3cc892f121d24f8ad5a8b7e5175b71abda291acbe81b4f574c36ec5c8d4b29d7",
+      "bytes": 22483
     },
     {
       "path": "connections/subscription-clis.md",
@@ -264,13 +264,13 @@
     },
     {
       "path": "conversation/calls.md",
-      "sha256": "0de0939d671213038471e16eb0561b0a9d2ffa6546e3cc26005f7440be22cc6c",
-      "bytes": 18962
+      "sha256": "ab59102fadfaa48705625ad1b1dab49e71898dfe6785be67a4f03136bdd328d6",
+      "bytes": 18957
     },
     {
       "path": "conversation/emoji-stickers-gifs.md",
-      "sha256": "8c09485812cd7aa0ef9ed9f9036b95f021cb9cf019a75b2ad6f86efde7f6ff7a",
-      "bytes": 12104
+      "sha256": "af9d63df7450664b592bfec61327eecdfdee1e371fde7c991e20b966b8ad1486",
+      "bytes": 12093
     },
     {
       "path": "conversation/getting-started.md",
@@ -659,13 +659,13 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "fa388e6bddbaff626c12e27339b223e50f95f5aa4193cbc098fd867afd8642d8",
-      "bytes": 20244
+      "sha256": "aa00d0dfc45d5dd03e449158a0e828d76487ef074ed197945dba30c52a33f47c",
+      "bytes": 20245
     },
     {
       "path": "media/image-providers.md",
-      "sha256": "4c91477142e45aea26e3210dc60d6f7ae5a481db7610e643f063ee4b1a5363b9",
-      "bytes": 24276
+      "sha256": "23afec060bfcea49c272b6a09ddd461964d2b34b4f75990ec5a9c50cc3e7d05c",
+      "bytes": 24252
     },
     {
       "path": "media/music.md",
@@ -674,13 +674,13 @@
     },
     {
       "path": "media/scene-backgrounds.md",
-      "sha256": "7637e96f84e437588c016aa72e62a95a99013cbd3da78fca3ece536837310868",
-      "bytes": 10986
+      "sha256": "e8c5fcb7bce9534536ee8467d18f64e96e09c45d4d5f290d0ce1e2ebb2c690fc",
+      "bytes": 10987
     },
     {
       "path": "media/scene-video.md",
-      "sha256": "5b9995b578e602b88e1a0f21a38ab180ec4731f5273c07a5e384729802b522a4",
-      "bytes": 21356
+      "sha256": "8b54f7f234830e92b81d640a55f38a71be11f91b848f0173747f927103e69d3a",
+      "bytes": 21335
     },
     {
       "path": "media/style-profiles.md",
@@ -689,8 +689,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "725b9797c57493231f73b80e5500e57fc28a1df8bf9bbc7154c3092ee456460a",
-      "bytes": 24698
+      "sha256": "df2472e46fa9304bf6071e6495722e4e83a6cb0f27631e27010a0afaa5e3a5d4",
+      "bytes": 24679
     },
     {
       "path": "prompts/conditional-prompts.md",
@@ -699,8 +699,8 @@
     },
     {
       "path": "prompts/generation-parameters.md",
-      "sha256": "912e22b7cddb5381ab3afdec9055494b27d40cd7c04e60cdc42a72e7a3e816ed",
-      "bytes": 21918
+      "sha256": "d97763871e936b846ede5a6c9fb98070aec45121fef40e17c3255ea32d3290b9",
+      "bytes": 21939
     },
     {
       "path": "prompts/macros.md",

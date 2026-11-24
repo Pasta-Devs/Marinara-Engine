@@ -44,7 +44,7 @@ Der Hauptschalter **Commands** im selben Bereich muss für Befehle im Anruf an s
 
 Text to Speech legt fest, welche Charaktere mit welcher Stimme sprechen können. Lies [Text to Speech (TTS) einrichten](../media/tts-setup.md) für die vollständige Anleitung. Kurz gefasst:
 
-1. Öffne **Connections** und klick im Bereich **Jobs** (Aufgaben) auf die Zeile **Voice** (Stimme).
+1. Öffne **Connections** und klick auf der Seite **Jobs** (Aufgaben) auf **Voice** (Stimme).
 2. Wähl ein Stimmmodell oder einen Sprachdienst. Die Auswahl schaltet Text to Speech ein. Das Konto des Modells liefert den Key und die Adresse.
 3. Klick auf das Zahnrad in der Zeile **Voice**, um **Voice settings** (Stimmeinstellungen) zu öffnen.
 4. Wähl unter **Who speaks** (Wer spricht) eine **Shared voice** (Gemeinsame Stimme) oder gib Charakteren und Personas unter **Character and persona voices** eigene Stimmen. So lassen sich Gruppenanrufe leichter verfolgen.
@@ -147,7 +147,7 @@ Wenn es nicht funktioniert hat: In einem Lite-Build von Marinara siehst du „Lo
 
 Kommt Local Whisper mit deiner Sprache oder deinem Akzent schlecht zurecht, sende deine Stimme stattdessen an einen anderen Speech-to-Text-Server. Jeder Server, der das OpenAI-Speech-to-Text-Format akzeptiert (die Adresse `/audio/transcriptions`), funktioniert, ob du ihn selbst betreibst oder einen Dienst wie OpenAI oder Groq nutzt.
 
-1. Öffne **Connections** und klick auf das Zahnrad der Zeile **Dictation** (Diktat) unter **Jobs**. Dort stehen die Servereinstellungen für **Speech to text**. Solange Calls nicht installiert ist, bleiben sie verborgen.
+1. Öffne **Connections** und klick auf der Seite **Jobs** auf das Zahnrad neben **Dictation** (Diktat). Dort stehen die Servereinstellungen für **Speech to text**. Solange Calls nicht installiert ist, bleiben sie verborgen.
 2. Gib die **Server URL** ein, zum Beispiel `http://localhost:8000/v1`.
 3. Gib einen **API key** ein, wenn der Server einen braucht. Er wird verschlüsselt gespeichert und maskiert angezeigt.
 4. Gib den **Model**-Namen ein, den dein Server nutzt. Lass es leer, um `whisper-1` zu senden.

@@ -44,7 +44,7 @@ El interruptor general **Commands** de la misma sección debe estar activado par
 
 Text to Speech decide qué personajes pueden hablar y con qué voz. Lee [Configuración de Text to Speech (TTS)](../media/tts-setup.md) para ver el recorrido completo. En resumen:
 
-1. Abre **Connections** y haz clic en la fila **Voice** (Voz) del cuadro **Jobs** (Tareas).
+1. Abre **Connections** y haz clic en **Voice** (Voz) en la página **Jobs** (Tareas).
 2. Elige un modelo o un servicio de voz. Al elegirlo se activa Text to Speech. La cuenta del modelo proporciona la clave y la dirección.
 3. Haz clic en el engranaje de la fila **Voice** para abrir **Voice settings** (Ajustes de voz).
 4. En **Who speaks** (Quién habla), elige una **Shared voice** (Voz compartida) o asigna voces en **Character and persona voices**. Las voces por personaje hacen que las llamadas grupales sean más fáciles de seguir.
@@ -147,7 +147,7 @@ Si no funcionó: en una compilación Lite de Marinara ves "Local Whisper is disa
 
 Si Local Whisper tiene problemas con tu idioma o tu acento, envía tu voz a otro servidor de speech-to-text. Sirve cualquier servidor que acepte el formato de speech-to-text de OpenAI (la dirección `/audio/transcriptions`), ya sea uno que ejecutes tú o un servicio como OpenAI o Groq.
 
-1. Abre **Connections** y haz clic en el engranaje de la fila **Dictation** (Dictado) del cuadro **Jobs**. Ahí están los ajustes del servidor **Speech to text**. Se ocultan mientras Calls no está instalado.
+1. Abre **Connections** y haz clic en el engranaje junto a **Dictation** (Dictado) en la página **Jobs**. Ahí están los ajustes del servidor **Speech to text**. Se ocultan mientras Calls no está instalado.
 2. Escribe la **Server URL**, por ejemplo `http://localhost:8000/v1`.
 3. Escribe una **API key** si el servidor la necesita. Se guarda cifrada y se muestra enmascarada.
 4. Escribe el nombre del **Model** que usa tu servidor. Déjalo vacío para enviar `whisper-1`.

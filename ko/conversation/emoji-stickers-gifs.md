@@ -111,7 +111,7 @@ Marinara는 응답하는 캐릭터에게 어떤 사용자 지정 이모지와 �
 - 직접 쓰려면 **Custom emojis** 탭이나 **Stickers** 탭에서 **Edit**를 클릭한 다음 타일 모서리의 작은 설명 버튼을 클릭하세요. 갤러리에서 태그한 항목이라면 태그 버튼을 클릭하고 **Add description**(설명 추가)을 고르세요.
 - AI로 쓰려면 **Edit**를 클릭한 다음 **Describe with AI**(AI로 설명 작성)를 클릭하세요. **Image reading**(이미지 읽기) 모델이 각 이미지를 보고 짧은 설명을 씁니다. 이미 설명이 있는 항목이 있다면 **Describe only the … without**(설명 없는 …만 설명 작성)(설명이 없는 항목만) 또는 **Describe all … again**(모든 … 설명 다시 작성)을 고르세요.
 
-시작하기 전에: AI로 설명을 쓰려면 이미지를 읽을 수 있는 모델이 필요합니다. 연결 설정의 **Behind the scenes**(무대 뒤)에서 **Image reading** 모델을 설정했다면 Marinara는 그 모델을 쓰고, 설정하지 않았다면 에이전트의 모델을 씁니다.
+시작하기 전에: AI로 설명을 쓰려면 이미지를 읽을 수 있는 모델이 필요합니다. **Connections**(연결)의 **Jobs**(작업) 페이지에서 **Image reading** 모델을 설정했다면 Marinara는 그 모델을 쓰고, 설정하지 않았다면 에이전트의 모델을 씁니다.
 
 **Selection preferences**의 두 설정에서 설명을 사용합니다.
 
