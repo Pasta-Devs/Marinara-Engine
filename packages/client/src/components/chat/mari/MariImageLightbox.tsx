@@ -217,12 +217,15 @@ export function MariImageOpener({
   onImageReplaced?: (message: MariReplacedMessage) => void;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState<{ src: string; alt: string } | null>(null);
+  const [open, setOpen] = useState<{ src: string; alt: string; messageId: string } | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
-  const onOpen = useCallback(({ trigger, ...image }: { src: string; alt: string; trigger: HTMLElement }) => {
-    triggerRef.current = trigger;
-    setOpen(image);
-  }, []);
+  const onOpen = useCallback(
+    ({ trigger, ...image }: { src: string; alt: string; trigger: HTMLElement }) => {
+      triggerRef.current = trigger;
+      setOpen({ ...image, messageId });
+    },
+    [messageId],
+  );
   // Back to the picture that opened it: with focus left on the page, her window takes the next Escape as "go back".
   const onClose = useCallback(() => {
     setOpen(null);
@@ -238,7 +241,7 @@ export function MariImageOpener({
           src={open.src}
           alt={open.alt}
           chatId={chatId}
-          messageId={messageId}
+          messageId={open.messageId}
           onImageReplaced={onImageReplaced}
           onClose={onClose}
         />
