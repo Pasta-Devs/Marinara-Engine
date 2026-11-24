@@ -10,7 +10,7 @@ import {
   requestCloseChatSettings,
   toggleChatSettings as toggleChatSettingsWindow,
 } from "../../lib/chat-settings-close";
-import { Suspense, lazy, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import {
   BookOpen,
   CalendarDays,
@@ -77,6 +77,7 @@ import { translate } from "../../localization/i18n";
 import { useTabScrollMemory } from "./use-tab-scroll-memory";
 import { markThingTried } from "../../lib/things-to-try-progress";
 import { splitDragProps } from "./split-view";
+import { ChatModeIcon } from "../chat/ChatModeIcon";
 // Its own chunk, so the app shell stays under the bundle budget.
 const DesktopTabStrip = lazy(() => import("./DesktopTabStrip").then((module) => ({ default: module.DesktopTabStrip })));
 
@@ -320,10 +321,22 @@ export function nameOf(record: unknown): string | null {
   return typeof name === "string" && name.trim() ? name : null;
 }
 
-/** "Roleplay · Claude Opus": the chat's mode and the model it talks to. */
-export function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: string }) {
+/**
+ * "Roleplay · Claude Opus": the chat's mode and the model it talks to. `modelOnly` drops the mode, for the phone's
+ * title, where the symbol and CO / RP / GM in front of the name already say it.
+ */
+export function ChatSettingsSummary({
+  chat,
+  fallback,
+  modelOnly = false,
+}: {
+  chat: Chat;
+  fallback: string;
+  modelOnly?: boolean;
+}) {
   // One fixed format everywhere: "Mode · model" (panel 3, PV14/N10a). The preset and agent count made the
   // label change while things loaded and from chat to chat; both are one click away in Chat settings.
+  const { t } = useTranslation();
   const { data: connections } = useConnections();
   const list = Array.isArray(connections) ? (connections as Array<Record<string, unknown>>) : [];
   const connection = chat.connectionId
@@ -331,7 +344,13 @@ export function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: 
     : list.find((item) => isConnectionFlagTrue(item.isDefault));
   // A tried model (one the chat runs without saving it) is named itself, not the saved Model it runs through.
   const override = chat.connectionId ? readChatModelOverride(chat) : null;
-  const parts = [fallback, override ? (override.name ?? override.model) : nameOf(connection)].filter(Boolean);
+  const modelName = override ? (override.name ?? override.model) : nameOf(connection);
+  if (modelOnly) {
+    // Nothing while the Models load, so the line doesn't flash "No model" first.
+    const model = modelName ?? (connections ? t("ui.overhaul.chatSummary.noModel") : "");
+    return <small>{model}</small>;
+  }
+  const parts = [fallback, modelName].filter(Boolean);
   return <small>{parts.join(" · ")}</small>;
 }
 
@@ -364,13 +383,25 @@ export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   const chat = tab.kind === "chat" ? chats.find((entry) => entry.id === tab.id) : undefined;
   // Two tabs with the same name ("Luna" the character and "Luna" the chat) say which is which (QC panel 2, D15).
   // Two chats say their mode, and two of the same mode their order by creation (QC panel 3, F3).
-  const kindKey = chat ? (CHAT_MODE_KIND_KEYS[chat.mode] ?? TAB_KIND_KEYS.chat) : TAB_KIND_KEYS[tab.kind];
+  // A chat's mode is already on the tab (its symbol and CO / RP / GM in front of the name), so a chat never adds
+  // its mode word; two chats of the same mode and name are told apart by their order of creation instead.
+  const kindKey = chat ? null : TAB_KIND_KEYS[tab.kind];
   const kind = kindKey ? t(kindKey) : null;
-  const withKind = kind ? t("ui.overhaul.tab.labelWithKind", { name: base, kind }) : base;
+  const withKind = chat
+    ? `${base}\u0000${chat.mode}`
+    : kind
+      ? t("ui.overhaul.tab.labelWithKind", { name: base, kind })
+      : base;
   const order = chat?.createdAt ?? key;
   useEffect(() => publishTabLabel(key, base, withKind, order), [base, key, order, withKind]);
   const clash = useSyncExternalStore(subscribeTabLabels, () => tabLabelClash(key, base, withKind, order));
-  const numbered = kind && clash > 1 ? t("ui.overhaul.tab.labelWithKindN", { name: base, kind, n: clash }) : withKind;
+  const numbered = chat
+    ? clash > 1
+      ? t("ui.overhaul.tab.labelN", { name: base, n: clash })
+      : base
+    : kind && clash > 1
+      ? t("ui.overhaul.tab.labelWithKindN", { name: base, kind, n: clash })
+      : withKind;
   const text = clash ? numbered : base;
   // What tells the tab apart (a branch's "· branch N", a clash's "· roleplay 2") stays in view; the name in front of
   // it is what gives way.
@@ -382,7 +413,14 @@ export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
     <span
       className={cn("ov-tab__label", tail && "ov-tab__label--split")}
       data-short={text.length <= 10 ? "true" : undefined}
-      title={numbered}
+      title={
+        chat
+          ? t("ui.overhaul.tab.labelWithKind", {
+              name: text,
+              kind: t(CHAT_MODE_KIND_KEYS[chat.mode] ?? TAB_KIND_KEYS.chat!),
+            })
+          : numbered
+      }
     >
       {tail ? (
         <>
@@ -623,13 +661,36 @@ export function useTabPicture(tab: OverhaulTab | null, chats: Chat[]): string | 
   return null;
 }
 
-export function TabIcon({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
-  if (tab.kind === "chat") {
-    const mode = chats.find((chat) => chat.id === tab.id)?.mode ?? "roleplay";
-    return (
-      <span aria-hidden="true" className="ov-tab__dot" style={{ background: MODE_DOT[mode] ?? MODE_DOT.roleplay }} />
-    );
-  }
+/**
+ * A chat tab's mode: the mode's own symbol (the one the Chats list uses) in the mode's colour, then CO / RP / GM.
+ * Screen readers hear the mode's name instead of the code. `code={false}` leaves the symbol alone (phone tab cards,
+ * whose card already names the mode).
+ */
+function ChatTabMode({ mode, code }: { mode: string | undefined; code: boolean }) {
+  const { t } = useTranslation();
+  const known = mode === "conversation" || mode === "game" ? mode : "roleplay";
+  return (
+    <span className="ov-tab__mode" data-tab-mode={known} style={{ "--ov-tab-mode": MODE_DOT[known] } as CSSProperties}>
+      <ChatModeIcon mode={known} aria-hidden="true" size={code ? 14 : 24} className="ov-tab__mode-icon" />
+      {code ? (
+        <>
+          <span className="ov-tab__mode-code" aria-hidden="true">
+            {t(CHAT_MODE_CODE_KEYS[known]!)}
+          </span>
+          <span className="sr-only">{t(CHAT_MODE_KIND_KEYS[known]!)}</span>
+        </>
+      ) : null}
+    </span>
+  );
+}
+const CHAT_MODE_CODE_KEYS: Partial<Record<string, string>> = {
+  conversation: "ui.overhaul.tab.codeConversation",
+  roleplay: "ui.overhaul.tab.codeRoleplay",
+  game: "ui.overhaul.tab.codeGame",
+};
+
+export function TabIcon({ tab, chats, code = true }: { tab: OverhaulTab; chats: Chat[]; code?: boolean }) {
+  if (tab.kind === "chat") return <ChatTabMode mode={chats.find((chat) => chat.id === tab.id)?.mode} code={code} />;
   if (tab.kind === "library") {
     const Icon = LIBRARY_SECTIONS.find((entry) => entry.id === tab.id)?.icon ?? Layers;
     return <Icon aria-hidden="true" size={14} className="ov-tab__icon" />;

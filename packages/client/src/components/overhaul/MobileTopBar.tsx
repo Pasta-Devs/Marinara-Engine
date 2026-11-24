@@ -132,7 +132,7 @@ function TabCard({
             <img className="ovm-tabcard__pic" src={picture} alt="" onError={() => setPictureFailed(true)} />
           ) : tab ? (
             <span className="ovm-tabcard__glyph">
-              <TabIcon tab={tab} chats={chats} />
+              <TabIcon tab={tab} chats={chats} code={false} />
             </span>
           ) : (
             <img className="ovm-tabcard__logo" src="/icon-192.png" alt="" />
@@ -349,7 +349,7 @@ export function OverhaulMobileTopBar() {
               <TabIcon tab={current} chats={chats} />
               <span className="ovm-title__text">
                 <TabLabel tab={current} chats={chats} />
-                <ChatSettingsSummary chat={activeChat} fallback={modeLabel} />
+                <ChatSettingsSummary chat={activeChat} fallback={modeLabel} modelOnly />
               </span>
             </>
           ) : current ? (

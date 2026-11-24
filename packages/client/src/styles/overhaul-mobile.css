@@ -94,12 +94,6 @@
   align-items: center;
   gap: 0.5rem;
 }
-.ovm-title .ov-tab__dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  flex: none;
-}
 .ovm-title .ov-tab__icon {
   flex: none;
   color: var(--ov-muted);
@@ -394,11 +388,6 @@
 .ovm-tabcard__glyph .ov-tab__icon {
   width: 1.5rem;
   height: 1.5rem;
-}
-.ovm-tabcard__glyph .ov-tab__dot {
-  width: 0.875rem;
-  height: 0.875rem;
-  border-radius: 50%;
 }
 .ovm-tabcard__glyph .ov-tab__appicon svg {
   width: 1.5rem;

@@ -197,15 +197,43 @@
   flex: none;
   white-space: nowrap;
 }
-.ov-tab__dot {
-  width: 0.4375rem;
-  height: 0.4375rem;
-  border-radius: 50%;
-  flex: none;
-}
 .ov-tab__icon {
   flex: none;
   opacity: 0.85;
+}
+/* A chat tab's mode: its symbol and CO / RP / GM, both in the mode's colour, in front of the name. */
+.ov-tab__mode {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--ov-tab-mode);
+  line-height: 1;
+}
+/* The open tab is often filled with a strong colour (a gel, a sail); leaning the mode colour toward the tab's own
+   text colour keeps the symbol and code readable on it in every theme. */
+.ov-tab.is-on .ov-tab__mode {
+  color: color-mix(in srgb, var(--ov-tab-mode) 60%, currentColor);
+}
+/* A full strip squeezes the name, never away: at least its first letter and the "…" stay, and a chat tab keeps room
+   for that beside its mode (in em, so a theme's larger tab font gets more), so a full strip moves tabs into its
+   overflow menu instead of pushing the name under the ×. */
+.ov-tab:has(.ov-tab__mode) {
+  min-width: 10em;
+}
+.ov-tab:has(.ov-tab__mode):has(.ov-tab__label--split) {
+  min-width: max(11rem, 14em);
+}
+.ov-tab__mode + .ov-tab__label {
+  min-width: 1.75em;
+}
+.ov-tab__mode-icon {
+  flex: none;
+}
+.ov-tab__mode-code {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 .ov-tab__close {
   display: grid;
