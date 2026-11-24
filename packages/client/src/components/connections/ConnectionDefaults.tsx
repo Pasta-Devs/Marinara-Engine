@@ -1084,6 +1084,7 @@ export function JobPickerWindow({ job, onClose }: { job: Job; onClose: () => voi
   const { t } = useTranslation();
   const connectionsList = (useConnections().data ?? []) as ConnectionRowData[];
   const model = useJobModels(connectionsList)(job);
+  const mayReadImages = useMayReadImages();
   const close = (open: boolean) => !open && onClose();
   // Dictation has no Model to pick: asking for its picker opens its settings, so the click never does nothing.
   const device = !!job.device;
@@ -1105,6 +1106,8 @@ export function JobPickerWindow({ job, onClose }: { job: Job; onClose: () => voi
       job={t(jobLabelKey(job))}
       jobKey={job.key as JobKey}
       showJobSettings={job.key === "vision" || job.key === "images"}
+      // Image reading lists only models that can see, like the job's other pickers.
+      rowFilter={job.key === "vision" ? mayReadImages : undefined}
       {...model}
     />
   );

@@ -591,6 +591,7 @@ export function ConnectionSwitcherBody({
   const updateConnection = useUpdateConnection();
   const updateAccount = useUpdateConnectionAccount();
   const modelStar = useModelStar();
+  const saveModel = usePickModel();
   const hiddenIds = useHiddenModelIds();
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
@@ -874,6 +875,45 @@ export function ConnectionSwitcherBody({
       {t(editOrder ? "connections.switcher.doneOrder" : "connections.switcher.editOrder")}
     </button>
   );
+  // A starred model's settings: green when the Model has settings of its own ("tuned", like the sticker on
+  // Connections), grey otherwise. A starred catalog model with no saved Model yet is saved first.
+  const settingsButton = (group: SwitcherGroup, model: string, title: string, row: SwitcherRow | undefined) => (
+    <button
+      type="button"
+      data-switcher-settings={model}
+      data-switcher-tuned={row?.ownSettings ? "" : undefined}
+      disabled={busy}
+      aria-label={t("connections.star.settings", { model: title })}
+      title={t(row?.ownSettings ? "connections.star.settingsTuned" : "connections.star.settings", { model: title })}
+      onClick={() => void openSettings(group, model, row)}
+      className={cn(
+        "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-[color,background-color] hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait",
+        row?.ownSettings
+          ? "text-[var(--ov-accent-text,var(--marinara-chat-chrome-accent))]"
+          : "text-foreground/35 hover:text-foreground/70",
+      )}
+    >
+      <SlidersHorizontal size="0.875rem" aria-hidden />
+    </button>
+  );
+  const openSettings = async (group: SwitcherGroup, model: string, row: SwitcherRow | undefined) => {
+    if (row) {
+      onDone();
+      openConnectionDetail(row.id);
+      return;
+    }
+    if (busy || !group.account) return;
+    setBusy(true);
+    try {
+      const { connectionId } = await saveModel.mutateAsync({ accountId: group.account.id, model });
+      onDone();
+      openConnectionDetail(connectionId);
+    } catch (error) {
+      toast.error(t("connections.star.failed", { error: errorMessage(error) }));
+    } finally {
+      setBusy(false);
+    }
+  };
   const starButton = (group: SwitcherGroup, model: string, title: string, starred: boolean) =>
     group.account ? (
       <button
@@ -935,6 +975,10 @@ export function ConnectionSwitcherBody({
     (!modelFilter || modelFilter(model)) &&
     (!catalogFilter || catalogFilter(model, facts)) &&
     (kind === "all" || !!modelFilter || catalogMatchesKind(model, facts, kind) || leads(group, model, facts));
+  // Starred and kept models: a chat picker keeps them all unless its job filters them (Image reading leaves out
+  // models that cannot see); other kinds take only what their catalog check accepts.
+  const keepsSaved = (model: string, facts?: CachedModelFacts) =>
+    !catalogFilter || (kind === "chat" ? catalogFilter(model, facts) : acceptsCatalog(model, facts));
   // Your models: each Connection's starred models, plus the saved Models a role or their own settings keep.
   const listed = useMemo(
     () =>
@@ -942,10 +986,7 @@ export function ConnectionSwitcherBody({
         if (!group.account) return { group, entries: group.rows.map((row) => entryOfRow(row, group)) };
         const byModel = new Map<string, Entry>();
         for (const model of starsOfRows(group.rows)) {
-          if (
-            !leadOnly(group, model, catalogOf(group)?.of(model)) &&
-            (kind === "chat" || !catalogFilter || acceptsCatalog(model, catalogOf(group)?.of(model)))
-          )
+          if (!leadOnly(group, model, catalogOf(group)?.of(model)) && keepsSaved(model, catalogOf(group)?.of(model)))
             byModel.set(model, entryFor(group, anchorOf(group), model));
         }
         for (const row of group.rows) {
@@ -955,7 +996,7 @@ export function ConnectionSwitcherBody({
             kept &&
             !byModel.has(row.model) &&
             !leadOnly(group, row.model, catalogOf(group)?.of(row.model)) &&
-            (kind === "chat" || !catalogFilter || acceptsCatalog(row.model, catalogOf(group)?.of(row.model)))
+            keepsSaved(row.model, catalogOf(group)?.of(row.model))
           ) {
             byModel.set(row.model, entryFor(group, anchorOf(group), row.model));
           }
@@ -993,8 +1034,7 @@ export function ConnectionSwitcherBody({
       ? [...starsOf(group)]
           .filter(
             (model) =>
-              !leadOnly(group, model, catalogOf(group)?.of(model)) &&
-              (kind === "chat" || !catalogFilter || acceptsCatalog(model, catalogOf(group)?.of(model))),
+              !leadOnly(group, model, catalogOf(group)?.of(model)) && keepsSaved(model, catalogOf(group)?.of(model)),
           )
           .map((model) => entryFor(group, anchor, model))
       : [];
@@ -1445,26 +1485,11 @@ export function ConnectionSwitcherBody({
           <>
             {now && unavailable && group && fixButton(group)}
             {ordering && starred && group && orderButtons(group, entry.model!, entry.title)}
-            {starred && entry.row && !ordering && (
-              <button
-                type="button"
-                data-switcher-settings={entry.model}
-                aria-label={t("connections.star.settings", { model: entry.title })}
-                title={t("connections.star.settings", { model: entry.title })}
-                onClick={() => {
-                  onDone();
-                  openConnectionDetail(entry.row!.id);
-                }}
-                className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/35 outline-none transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground/70 focus-visible:ring-1 focus-visible:ring-foreground/25",
-                  // Shown on hover, unless the model has settings of its own; touch screens always show it.
-                  !entry.row.ownSettings &&
-                    "opacity-0 focus-visible:opacity-100 group-hover/row:opacity-100 group-focus-within/row:opacity-100 max-md:opacity-100",
-                )}
-              >
-                <SlidersHorizontal size="0.875rem" aria-hidden />
-              </button>
-            )}
+            {starred &&
+              group?.account &&
+              entry.model &&
+              !ordering &&
+              settingsButton(group, entry.model, entry.title, entry.row)}
             {showStar && !ordering && starButton(group!, entry.model!, entry.title, starred)}
           </>
         }
@@ -2242,7 +2267,14 @@ export function ConnectionSwitcherBody({
         // models, such as a Decision connection, stay pickable above it.
         <>
           {extraRows.length > 0 && <div className="shrink-0 border-t border-foreground/10 p-1.5">{extraRows}</div>}
-          {empty ?? <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>}
+          {empty ?? (
+            <ListStatus>
+              {/* A media job with accounts that cannot do it says so, rather than "no models yet". */}
+              {(kind === "image" || kind === "video" || kind === "audio") && (accounts?.length ?? 0) > 0
+                ? t(`connections.picker.noneForKind.${kind}`)
+                : t("ui.chat.quickconnectionswitcher.noConnectionsFound")}
+            </ListStatus>
+          )}
           {addRow}
         </>
       ) : searching ? (

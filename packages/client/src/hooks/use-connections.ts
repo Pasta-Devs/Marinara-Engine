@@ -9,6 +9,7 @@ import {
   connectionSavesModelList,
   isChatProvider,
   modelReadsImages,
+  modelIdReadsImages,
   MAX_PINNED_MODELS,
   parsePinnedModels,
   type ConnectionBilling,
@@ -623,7 +624,9 @@ export function useMayReadImages() {
   return (row: { id: string; model?: string | null }) => {
     const index = chatRows.findIndex((entry) => entry.id === row.id);
     const chatRow = chatRows[index];
-    return !chatRow || modelReadsImages(chatRow, catalogs[index]?.of(row.model)) !== false;
+    if (!chatRow) return true;
+    // The user's own setting and the provider's list come first; the model id is the last guess.
+    return (modelReadsImages(chatRow, catalogs[index]?.of(row.model)) ?? modelIdReadsImages(row.model ?? "")) !== false;
   };
 }
 
@@ -665,16 +668,22 @@ export function useOutsideReads() {
 /** A model list stays fresh for six hours; Refresh asks sooner. */
 const MODEL_LIST_TTL = 6 * 60 * 60_000;
 
-const connectionModelsPath = (id: string, refresh = false) =>
-  `/connections/${encodeURIComponent(id)}/models${refresh ? "?refresh=true" : ""}`;
+const connectionModelsPath = (id: string, refresh = false, address?: string) => {
+  const query = new URLSearchParams();
+  if (refresh) query.set("refresh", "true");
+  // An Own address still being typed: the server lists that path live, without saving it.
+  if (address !== undefined) query.set("address", address);
+  const search = query.toString();
+  return `/connections/${encodeURIComponent(id)}/models${search ? `?${search}` : ""}`;
+};
 
 /** The server got no answer from the provider (address gone, refused, timed out). */
 const isUnreachable = (error: unknown) =>
   error instanceof ApiError && !!(error.payload as { unreachable?: unknown } | undefined)?.unreachable;
 
 /** A list load that found the server unreachable, or reached it again, changes what the Connections page shows. */
-function loadModelList(qc: ReturnType<typeof useQueryClient>, id: string, refresh = false) {
-  return api.get<ConnectionModelList>(connectionModelsPath(id, refresh)).then(
+function loadModelList(qc: ReturnType<typeof useQueryClient>, id: string, refresh = false, address?: string) {
+  return api.get<ConnectionModelList>(connectionModelsPath(id, refresh, address)).then(
     (list) => {
       if (refresh) void qc.invalidateQueries({ queryKey: connectionAccountKeys.list() });
       return list;
@@ -694,11 +703,13 @@ const isStaleModelList = (error: unknown) => error instanceof ApiError && error.
  * only when nothing is saved yet, so opening a picker again costs no provider call. A failed load is not
  * retried each time a picker opens; Refresh asks again.
  */
-export function useConnectionModels(id: string | null | undefined, enabled = true) {
+export function useConnectionModels(id: string | null | undefined, enabled = true, address?: string) {
   const qc = useQueryClient();
   return useQuery({
-    queryKey: connectionKeys.models(id ?? ""),
-    queryFn: () => loadModelList(qc, id ?? ""),
+    // A typed Own address has a list of its own, beside the saved one.
+    queryKey:
+      address !== undefined ? [...connectionKeys.models(id ?? ""), "at", address] : connectionKeys.models(id ?? ""),
+    queryFn: () => loadModelList(qc, id ?? "", false, address),
     enabled: enabled && !!id && id !== "random",
     staleTime: MODEL_LIST_TTL,
     gcTime: MODEL_LIST_TTL,

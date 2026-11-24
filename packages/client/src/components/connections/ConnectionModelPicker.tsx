@@ -150,7 +150,10 @@ export function ConnectionModelPicker({
   builtInModels,
   offerDefault = true,
   onPickDefault,
+  listAddress,
 }: {
+  /** An Own address being typed ("/proxy/openai"): list the models there instead of the Connection's list. */
+  listAddress?: string;
   connection: ModelPickerConnection;
   /** Name the connection beside its provider, where the connection list is out of sight. */
   showConnectionName?: boolean;
@@ -236,7 +239,7 @@ export function ConnectionModelPicker({
     offerDefault && !only && isChatProvider(provider) && !!defaultAccountId && !!defaultAccount?.loadedModel;
   const pinnedIds = useMemo(() => parsePinnedModels(connection.pinnedModels), [connection.pinnedModels]);
 
-  const modelList = useConnectionModels(connection.id, !reviewRequired);
+  const modelList = useConnectionModels(connection.id, !reviewRequired, listAddress);
   const refresh = useRefreshConnectionModels();
   const setPinned = useSetConnectionModelPinned();
   const updateConnection = useUpdateConnection();
@@ -749,10 +752,13 @@ export function ConnectionModelPicker({
                   type="button"
                   data-model-refresh
                   onClick={() =>
-                    refresh.mutate(connection.id, {
-                      onError: (error) =>
-                        toast.error(t("connections.modelPicker.refreshFailed", { error: errorMessage(error) })),
-                    })
+                    // A typed Own address is always listed live, so Refresh just asks it again.
+                    listAddress !== undefined
+                      ? void modelList.refetch()
+                      : refresh.mutate(connection.id, {
+                          onError: (error) =>
+                            toast.error(t("connections.modelPicker.refreshFailed", { error: errorMessage(error) })),
+                        })
                   }
                   disabled={refresh.isPending || modelList.isFetching}
                   aria-label={t("connections.modelPicker.refresh")}

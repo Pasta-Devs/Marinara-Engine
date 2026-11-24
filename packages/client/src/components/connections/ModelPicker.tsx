@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
   isChatProvider,
+  modelIdReadsImages,
   speaksOpenAIChat,
   type ChatModelChoice,
   type ConnectionPickerKind,
@@ -504,11 +505,7 @@ function ModelPickerSlot({
           },
         }))}
         modelFilter={embedding ? isEmbeddingModel : undefined}
-        catalogFilter={
-          rowFilter
-            ? (_model, facts) => !facts?.inputModalities?.length || facts.inputModalities.includes("image")
-            : undefined
-        }
+        catalogFilter={rowFilter ? readsImagesInCatalog : undefined}
         onAdd={onAdd}
         listFooter={footer}
         firstAccountId={firstAccountId}
@@ -522,6 +519,10 @@ function ModelPickerSlot({
 type PickerProps = Parameters<typeof ModelPickerSlot>[0];
 
 /** The job's picker. With an "If it fails" Model, two rows on top choose which of the two the list sets. */
+/** Image reading: the provider's list says whether a model sees images; else the model id is the guess. */
+const readsImagesInCatalog = (model: string, facts: { inputModalities?: readonly string[] } | undefined) =>
+  facts?.inputModalities?.length ? facts.inputModalities.includes("image") : modelIdReadsImages(model) !== false;
+
 export function ModelPicker({
   fallback,
   ...props

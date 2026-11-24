@@ -58,6 +58,7 @@ import {
   hasPlanUsageWindows,
   isLocalAuthProvider,
   isChatProvider,
+  resolveModelAddress,
   isGeminiArgonOrCarbonModel,
   isGeminiHydrogenOrNeonModel,
   isMistralAdjustableReasoningModel,
@@ -81,6 +82,7 @@ import {
   connectionSavesModelList,
   createConnectionsStorage,
   ownModelBaseUrl,
+  MODEL_ADDRESS_ORIGIN_ERROR,
   withoutSavedModels,
 } from "../services/storage/connections.storage.js";
 import { accountBlocksRows, createConnectionAccountsStorage } from "../services/storage/connection-accounts.storage.js";
@@ -1931,41 +1933,56 @@ export async function connectionsRoutes(app: FastifyInstance) {
   // A chat connection keeps the list it fetched (one copy per Connection), so later looks answer from it without
   // asking the provider again; a background job keeps it fresh. `refresh=true` (the Refresh and Fetch Models
   // buttons) fetches and replaces it. A saved list carries `fetchedAt`.
-  app.get<{ Params: { id: string }; Querystring: { refresh?: string } }>("/:id/models", async (req, reply) => {
-    const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return unusableConnection(req.params.id, reply);
-    if (conn.provider === "audio_generation") return { models: [] };
-    // Voice catalogs are not at `${baseUrl}/models` (ElevenLabs answers 404), so reuse the TTS lookup.
-    if (conn.provider === "audio") {
-      const cfg = await resolveAudioConfig(appSettings, storage, conn.id);
-      if (cfg.connectionUnavailable) return reply.status(409).send({ error: TTS_CONNECTION_UNAVAILABLE });
-      if (cfg.source === "elevenlabs") return fetchProviderModels(cfg);
-    }
-    // A Model with its own address lists that address live; the Connection's saved catalog is another address's.
-    const savesList =
-      connectionSavesModelList(conn.provider) && !ownModelBaseUrl((await storage.getById(conn.id)) ?? {});
-    if (savesList && req.query.refresh !== "true") {
-      const saved = await storage.readCatalog(conn);
-      if (saved) return withCosts(conn, saved);
-    }
-    // A server that gave no answer lately is not asked again until its wait is over; Refresh (Retry) asks now.
-    const reachKey = reachabilityKey(conn);
-    const waiting = req.query.refresh === "true" ? null : waitingUnreachable(reachKey, conn.baseUrl);
-    if (waiting) return reply.status(502).send({ error: waiting.error, unreachable: true });
-    const discovered = await discoverConnectionModels(conn, reply);
-    // FastifyReply is thenable: awaiting a helper that sent it resolves to undefined.
-    if (reply.sent || !discovered) return reply;
-    noteReachable(reachKey);
-    const { builtIn, ...result } = discovered as Exclude<typeof discovered, FastifyReply>;
-    if (!savesList || builtIn) return withCosts(conn, result);
-    const saved = await storage.saveModelListIfUnchanged(conn, result.models);
-    // The provider, address or key changed while the list loaded, so it may belong to the old settings.
-    // Don't hand it out as current; the client asks again.
-    if (!saved) {
-      return reply.status(409).send({ error: "The connection changed while its models were loading." });
-    }
-    return withCosts(conn, saved);
-  });
+  app.get<{ Params: { id: string }; Querystring: { refresh?: string; address?: string } }>(
+    "/:id/models",
+    async (req, reply) => {
+      const conn = await storage.getWithKey(req.params.id);
+      if (!conn) return unusableConnection(req.params.id, reply);
+      // The editor lists the models at an Own address the user is still typing ("/proxy/openai"): live, never saved,
+      // and only on the Connection's own server, since the request carries its key.
+      if (req.query.address !== undefined && isChatProvider(conn.provider)) {
+        const serverAddress = (conn as { connectionBaseUrl?: string | null }).connectionBaseUrl ?? conn.baseUrl;
+        const resolved = resolveModelAddress(req.query.address, serverAddress);
+        if (!resolved) return reply.status(400).send({ error: MODEL_ADDRESS_ORIGIN_ERROR });
+        const atAddress = { ...conn, baseUrl: resolved };
+        const discovered = await discoverConnectionModels(atAddress, reply);
+        if (reply.sent || !discovered) return reply;
+        const { builtIn: _builtIn, ...result } = discovered as Exclude<typeof discovered, FastifyReply>;
+        return withCosts(atAddress, result);
+      }
+      if (conn.provider === "audio_generation") return { models: [] };
+      // Voice catalogs are not at `${baseUrl}/models` (ElevenLabs answers 404), so reuse the TTS lookup.
+      if (conn.provider === "audio") {
+        const cfg = await resolveAudioConfig(appSettings, storage, conn.id);
+        if (cfg.connectionUnavailable) return reply.status(409).send({ error: TTS_CONNECTION_UNAVAILABLE });
+        if (cfg.source === "elevenlabs") return fetchProviderModels(cfg);
+      }
+      // A Model with its own address lists that address live; the Connection's saved catalog is another address's.
+      const savesList =
+        connectionSavesModelList(conn.provider) && !ownModelBaseUrl((await storage.getById(conn.id)) ?? {});
+      if (savesList && req.query.refresh !== "true") {
+        const saved = await storage.readCatalog(conn);
+        if (saved) return withCosts(conn, saved);
+      }
+      // A server that gave no answer lately is not asked again until its wait is over; Refresh (Retry) asks now.
+      const reachKey = reachabilityKey(conn);
+      const waiting = req.query.refresh === "true" ? null : waitingUnreachable(reachKey, conn.baseUrl);
+      if (waiting) return reply.status(502).send({ error: waiting.error, unreachable: true });
+      const discovered = await discoverConnectionModels(conn, reply);
+      // FastifyReply is thenable: awaiting a helper that sent it resolves to undefined.
+      if (reply.sent || !discovered) return reply;
+      noteReachable(reachKey);
+      const { builtIn, ...result } = discovered as Exclude<typeof discovered, FastifyReply>;
+      if (!savesList || builtIn) return withCosts(conn, result);
+      const saved = await storage.saveModelListIfUnchanged(conn, result.models);
+      // The provider, address or key changed while the list loaded, so it may belong to the old settings.
+      // Don't hand it out as current; the client asks again.
+      if (!saved) {
+        return reply.status(409).send({ error: "The connection changed while its models were loading." });
+      }
+      return withCosts(conn, saved);
+    },
+  );
 
   /** The same fetch with the error reply captured instead of sent (background refresh, move catalogs). */
   // A live check must not hang while the user types.

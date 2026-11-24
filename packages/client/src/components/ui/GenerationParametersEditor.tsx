@@ -7,6 +7,7 @@ import {
   normalizeThinkingTagPairs,
   reasoningEffortChoices,
   relevantGenerationParameters,
+  modelIgnoredGenerationParameters,
   verbosityChoices,
   type GenerationParameterChoice,
   type GenerationParameterKey,
@@ -263,6 +264,7 @@ const UNUSED_PARAMETER_LABELS: Array<[GenerationParameterKey, string]> = [
   ["maxTokens", "ui.agents.agenteditor.maxOutputTokens"],
   ["topP", "ui.ui.generationparametersfields.topP"],
   ["topK", "ui.ui.generationparametersfields.topK"],
+  ["minP", "ui.ui.generationparametersfields.minP"],
   ["frequencyPenalty", "ui.ui.generationparametersfields.frequency"],
   ["presencePenalty", "ui.ui.generationparametersfields.presence"],
   ["assistantPrefill", "ui.ui.generationparametersfields.assistantPrefill"],
@@ -344,7 +346,10 @@ export function GenerationParametersFields({
     capabilities: modelCapabilities ?? null,
     reasoningEffort: value.reasoningEffort,
   };
-  const relevant = provider === undefined ? null : relevantGenerationParameters(context);
+  const sent = provider === undefined ? null : relevantGenerationParameters(context);
+  // A custom endpoint sends some settings the model behind it ignores (Gemini 3 sampling): those count as unsupported.
+  const ignored = sent ? modelIgnoredGenerationParameters(context) : null;
+  const relevant = sent && ignored ? new Set([...sent].filter((key) => !ignored.has(key))) : sent;
   // Settings this model never receives stay hidden, but the line below names them and can show them anyway.
   const [showUnused, setShowUnused] = useState(false);
   const unused = relevant
@@ -358,7 +363,11 @@ export function GenerationParametersFields({
       : key !== "serviceTier" || showOpenRouterServiceTier);
   // A shown-anyway setting says it is not sent, in place of its effective value.
   const unusedNote = (key: GenerationParameterKey) =>
-    showUnused && isUnused(key) ? localizeUi("generationParameters.unused.fieldNote") : undefined;
+    showUnused && isUnused(key)
+      ? localizeUi(
+          ignored?.has(key) ? "generationParameters.unused.ignoredNote" : "generationParameters.unused.fieldNote",
+        )
+      : undefined;
   const effortChoices = reasoningEffortChoices({ ...context, selected: value.reasoningEffort }).filter(
     (choice) => choice.value !== null || !isClaudeOpus55Model(model ?? ""),
   );
@@ -476,7 +485,7 @@ export function GenerationParametersFields({
               help={localizeUi("ui.ui.generationparametersfields.minPHelp")}
               value={value.minP ?? 0}
               onChange={(nextValue) => set("minP", nextValue)}
-              effective={effectiveHint("minP")}
+              effective={unusedNote("minP") ?? effectiveHint("minP")}
               min={0}
               max={1}
               step={0.01}
@@ -970,7 +979,7 @@ export function CustomParametersInput({
             event.currentTarget.blur();
           }
         }}
-        rows={3}
+        rows={5}
         spellCheck={false}
         ariaInvalid={Boolean(error)}
         title={label}

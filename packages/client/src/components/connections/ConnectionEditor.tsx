@@ -32,6 +32,7 @@ import {
   type ChangeEvent,
   type ReactNode,
 } from "react";
+import { suggestModelAddressPath } from "../../lib/model-address-suggest";
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import {
@@ -661,6 +662,31 @@ export function ConnectionEditor({
   const accountAddress = linkedAccount?.baseUrl?.trim() ?? "";
   const canOwnAddress =
     !!accountId && !!accountAddress && isChatProvider(localProvider) && localProvider === linkedAccount?.provider;
+  // The path this Model's family probably uses on a per-vendor proxy ("/proxy/openai" for a GPT model).
+  const suggestedAddress = useMemo(
+    () =>
+      canOwnAddress
+        ? suggestModelAddressPath(
+            localModel,
+            accountAddress,
+            (
+              (allConnections ?? []) as Array<{
+                id: string;
+                accountId?: string | null;
+                model?: string | null;
+                modelBaseUrl?: string | null;
+              }>
+            ).filter((row) => row.accountId === accountId && row.id !== connectionDetailId),
+          )
+        : null,
+    [canOwnAddress, localModel, accountAddress, allConnections, accountId, connectionDetailId],
+  );
+  const applySuggestedAddress = () => {
+    if (!suggestedAddress) return;
+    setOwnAddressOpen(true);
+    setLocalModelBaseUrl(suggestedAddress);
+    markDirty();
+  };
   const modelBaseUrlValidation = useMemo((): { value: string; error?: string | null; resolved?: string } => {
     // Only a path ("/proxy/zai" or "proxy/zai"): read against the Connection's server, and kept as typed so it
     // moves with that server when its address changes.
@@ -682,6 +708,15 @@ export function ConnectionEditor({
       ? checked
       : { value: checked.value, error: t("connections.ownAddress.otherServer", { origin: origin(accountAddress) }) };
   }, [localModelBaseUrl, accountAddress, t]);
+  // A changed, valid Own address lists its own models (debounced while typing); the saved one already does.
+  const savedOwnAddress = ((conn as { modelBaseUrl?: string | null } | undefined)?.modelBaseUrl ?? "").trim();
+  const typedOwnAddress = canOwnAddress && !modelBaseUrlValidation.error ? modelBaseUrlValidation.value.trim() : "";
+  const [ownListAddress, setOwnListAddress] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const next = typedOwnAddress && typedOwnAddress !== savedOwnAddress ? typedOwnAddress : undefined;
+    const timer = window.setTimeout(() => setOwnListAddress(next), next ? 500 : 0);
+    return () => window.clearTimeout(timer);
+  }, [typedOwnAddress, savedOwnAddress]);
 
   // Populate from server
   useEffect(() => {
@@ -2792,8 +2827,8 @@ export function ConnectionEditor({
             </>
           ) : null}
 
-          {/* Embedding Connection Override */}
-          <div className="mt-3 pt-3 border-t border-[var(--border)]">
+          {/* Embedding Connection Override: the line only separates it from the embedding model fields above. */}
+          <div className="mt-3 pt-3 border-t border-[var(--border)] first:mt-0 first:border-t-0 first:pt-0">
             <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
               {localizeUi("ui.connections.connectioneditor.embeddingConnection")}
             </label>
@@ -3414,6 +3449,13 @@ export function ConnectionEditor({
                 <input
                   data-own-address
                   value={localModelBaseUrl}
+                  // Tab in the empty field takes the suggested path, the way a search box completes its hint.
+                  onKeyDown={(event) => {
+                    if (event.key === "Tab" && !event.shiftKey && !localModelBaseUrl.trim() && suggestedAddress) {
+                      event.preventDefault();
+                      applySuggestedAddress();
+                    }
+                  }}
                   onChange={(e) => {
                     setLocalModelBaseUrl(e.target.value);
                     markDirty();
@@ -3426,8 +3468,18 @@ export function ConnectionEditor({
                     "mari-chrome-field h-11 w-full px-3 font-mono text-xs max-sm:text-base md:h-9",
                     modelBaseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
                   )}
-                  placeholder={t("connections.ownAddress.placeholder")}
+                  placeholder={suggestedAddress ?? t("connections.ownAddress.placeholder")}
                 />
+                {suggestedAddress && localModelBaseUrl.trim() !== suggestedAddress && (
+                  <button
+                    type="button"
+                    className="ov-own-address-suggest"
+                    data-own-address-suggest
+                    onClick={applySuggestedAddress}
+                  >
+                    {t("connections.ownAddress.suggest", { path: suggestedAddress })}
+                  </button>
+                )}
                 {modelBaseUrlValidation.error ? (
                   <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{modelBaseUrlValidation.error}</p>
                 ) : modelBaseUrlValidation.resolved ? (
@@ -3447,15 +3499,27 @@ export function ConnectionEditor({
                 </p>
               </FieldGroup>
             ) : (
-              <button
-                type="button"
-                data-own-address-add
-                onClick={() => setOwnAddressOpen(true)}
-                className="flex min-h-11 items-center gap-1.5 rounded-lg text-xs font-semibold text-[var(--marinara-chat-chrome-accent,var(--foreground))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] md:min-h-8"
-              >
-                <Plus size="0.875rem" aria-hidden />
-                {t("connections.ownAddress.add")}
-              </button>
+              <div className="flex flex-wrap items-center gap-x-3">
+                <button
+                  type="button"
+                  data-own-address-add
+                  onClick={() => setOwnAddressOpen(true)}
+                  className="flex min-h-11 items-center gap-1.5 rounded-lg text-xs font-semibold text-[var(--marinara-chat-chrome-accent,var(--foreground))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] md:min-h-8"
+                >
+                  <Plus size="0.875rem" aria-hidden />
+                  {t("connections.ownAddress.add")}
+                </button>
+                {suggestedAddress && (
+                  <button
+                    type="button"
+                    className="ov-own-address-suggest"
+                    data-own-address-suggest
+                    onClick={applySuggestedAddress}
+                  >
+                    {t("connections.ownAddress.suggestHint", { path: suggestedAddress })}
+                  </button>
+                )}
+              </div>
             ))}
 
           {/* ── Image Service (only for image_generation provider) ── */}
@@ -3844,6 +3908,8 @@ export function ConnectionEditor({
                 // The Grok CLI keeps its own "Use the Grok CLI default" button above.
                 offerDefault={!isGrokSubscriptionProvider}
                 onPickDefault={() => selectModel({ model: "" })}
+                // The models at the Own address being typed, not the Connection's own path.
+                listAddress={ownListAddress}
               />
             )}
             {!modelSummary && !!selectedModelInfo?.context && (
@@ -4027,6 +4093,7 @@ export function ConnectionEditor({
                   markDirty();
                 }}
                 placeholder={localizeUi("ui.connections.connectioneditor.imagePromptingInstructionsPlaceholder")}
+                rows={4}
                 className="mari-chrome-field min-h-[96px] w-full resize-y px-3 py-2 text-xs"
               />
             </FieldGroup>
@@ -4042,6 +4109,7 @@ export function ConnectionEditor({
                   markDirty();
                 }}
                 placeholder={localizeUi("ui.connections.connectioneditor.videoPromptingInstructionsPlaceholder")}
+                rows={4}
                 className="mari-chrome-field min-h-[96px] w-full resize-y px-3 py-2 text-xs"
               />
             </FieldGroup>

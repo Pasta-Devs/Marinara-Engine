@@ -6,7 +6,7 @@
 // grouped the way you think about the items; the clicked item opens on the
 // right in its usual editor. One Library tab per section, not one per item.
 // ──────────────────────────────────────────────
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   CheckSquare,
   ChevronDown,
@@ -38,6 +38,7 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { Toggle, flag, parseList, useRegexFolders, useRegexImport, useRegexKitActions } from "./LibraryTables";
 import { ImportRegexModal } from "../modals/ImportRegexModal";
+import { ViewerListResizeHandle, useViewerListWidth } from "./viewer-list-width";
 import { insertLibraryItems } from "../../lib/library-order";
 import { builtInFirst, DeviceDetail, useDeviceEngines } from "../connections/DeviceDetail";
 import { JOB_SETTINGS_PREFIX, JobSettingsPage } from "../connections/ConnectionDefaults";
@@ -204,6 +205,7 @@ export function OvViewer({
   const localize = useLocalizedUiText();
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const [headSlot, setHeadSlot] = useState<HTMLDivElement | null>(null);
+  const listWidth = useViewerListWidth();
   const visible = groups.filter((group) => group.rows.length || !search);
   const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
   // Library > Section > item, like the Lorebook, Preset and Character pages.
@@ -240,7 +242,10 @@ export function OvViewer({
     </button>
   );
   return (
-    <div className={cn("ov-vw", className, !landing && "has-item", landing && total === 0 && !search && "is-empty")}>
+    <div
+      className={cn("ov-vw", className, !landing && "has-item", landing && total === 0 && !search && "is-empty")}
+      style={listWidth ? ({ "--ov-vw-list-width": `${listWidth}px` } as CSSProperties) : undefined}
+    >
       {/* The open item's editor puts its own header here (OvEditorHead), so Regex, Connections and
           Agents read like every other editor: Library › Section › Item, the item's name, Save. */}
       <div className="ov-vw__head">
@@ -271,6 +276,7 @@ export function OvViewer({
         </header>
       </div>
       <aside className="ov-vw__left" aria-label={title}>
+        <ViewerListResizeHandle width={listWidth} />
         <div className="ov-vw__find">
           <label className="ov-vw__search">
             <Search size={13} aria-hidden="true" />

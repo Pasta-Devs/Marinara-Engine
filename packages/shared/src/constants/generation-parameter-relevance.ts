@@ -417,6 +417,25 @@ export function relevantGenerationParameters(context: GenerationParameterContext
 
 const STORED_EFFORT_LEVELS: StoredEffortLevel[] = ["low", "medium", "high", "xhigh", "maximum"];
 
+/** Hosted model families whose own APIs have no min-p setting. */
+const HOSTED_FAMILY = /^(?:gemini-|claude-|gpt-|o[134](?:$|-)|grok-|deepseek-|kimi-|glm-|mistral-|magistral-)/u;
+
+/**
+ * Settings a custom endpoint still sends but the model behind it ignores, judged from the model id alone. The
+ * request is unchanged (a proxy may honour them); the editors only tuck these behind "Show unsupported parameters".
+ */
+export function modelIgnoredGenerationParameters(context: GenerationParameterContext): Set<GenerationParameterKey> {
+  const ignored = new Set<GenerationParameterKey>();
+  const rawProvider = String(context.provider ?? "").trim();
+  if (!rawProvider || (KNOWN_PROVIDERS.has(rawProvider) && rawProvider !== "custom")) return ignored;
+  const model = capabilityModelId(String(context.model ?? ""));
+  if (!model) return ignored;
+  const bare = bareCapabilityModelId(model).replace(/^models\//u, "");
+  if (isGeminiSamplingIgnoredModel(model)) [...SAMPLING, "minP" as const].forEach((key) => ignored.add(key));
+  if (HOSTED_FAMILY.test(bare)) ignored.add("minP");
+  return ignored;
+}
+
 /**
  * The effort buttons to offer, named the way the provider names them.
  *

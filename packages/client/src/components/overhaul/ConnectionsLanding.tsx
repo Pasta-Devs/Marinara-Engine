@@ -200,7 +200,6 @@ const DEVICE_ROLE: Record<string, string> = {
  */
 function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
   const { t } = useTranslation();
-  const localize = useLocalizedUiText();
   const setup = useDeviceSetup();
   const engines = useDeviceEngines();
   const usedBy = useLocalModelUsedBy();
@@ -213,9 +212,9 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
     setup["local-model"].available &&
     !setup["local-model"].setUp &&
     !engines.some((engine) => engine.item === "local-model");
-  if (engines.length === 0 && !builtInAvailable && !decision && !embedding) return null;
   // Each row is named by its job (the card says it is on this device); the model's own name is line 2.
   const shortJob = useShortJobLabel();
+  if (engines.length === 0 && !builtInAvailable && !decision && !embedding) return null;
   const roleOf = (item: string, name: string) => {
     const key =
       DEVICE_ROLE[item] ??
@@ -241,7 +240,7 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
             {
               item: "local-model" as DeviceItem,
               name: t("connections.device.role.sidecar"),
-              detail: localize("No account needed"),
+              detail: undefined,
               jobs: [] as string[],
               tone: "off" as const,
               state: t("connections.builtin.card.notDownloaded"),
@@ -300,7 +299,6 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
               <div className="ov-conn-card__head">
                 <span className="ov-conn-card__name">
                   <b>{t("connections.accounts.section.device")}</b>
-                  <span className="ov-conn__dim">{localize("No account needed")}</span>
                 </span>
               </div>
             </th>

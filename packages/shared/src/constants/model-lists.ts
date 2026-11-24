@@ -1876,6 +1876,27 @@ export type ModelImageInput = (typeof MODEL_IMAGE_INPUTS)[number];
  * Whether a Model reads images: its own setting first, then the catalog's input modalities. null means unknown,
  * and the images are then sent as they are. The on-device model never reads images.
  */
+/**
+ * A guess from the model id alone, for when neither the user nor the provider's list says whether a model reads
+ * images: well-known families only, null for anything else. The Image reading job uses it to leave out models
+ * that cannot see.
+ */
+export function modelIdReadsImages(model: string): boolean | null {
+  const id = bareCapabilityModelId(model);
+  if (!id) return null;
+  // Text-only families.
+  if (/^(?:deepseek-|gpt-oss|kimi-k2|minimax-m\d|text-embedding|o1-mini|o3-mini)/u.test(id)) return false;
+  if (/^glm-\d/u.test(id)) return /^glm-[\d.]+v(?:$|-)/u.test(id);
+  // Families that see images.
+  if (
+    /^(?:claude-|gemini-|gemma-[34]|gpt-4o|gpt-4\.1|gpt-5|gpt-6|grok-4|o[34](?:$|-)|llama-4|pixtral|qwen[\d.]*-?vl)/u.test(
+      id,
+    )
+  )
+    return true;
+  return null;
+}
+
 export function modelReadsImages(
   row: { id?: string | null; imageInput?: string | null },
   catalogModel?: { inputModalities?: readonly string[] } | null,
