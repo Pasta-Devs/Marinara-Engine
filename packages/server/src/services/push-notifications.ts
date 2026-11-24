@@ -134,6 +134,7 @@ export async function writePushNotificationSettings(
     }
     clickUrl = normalized;
   }
+  let replacedTopic = "";
   await db.transaction(async () => {
     const current = await readPushNotificationSettings(db);
     const next: PushNotificationSettings = {
@@ -143,11 +144,13 @@ export async function writePushNotificationSettings(
       ...(clickUrl !== undefined ? { clickUrl } : {}),
     };
     if (options.rotateTopic || (next.enabled && !next.topic)) {
-      if (current.topic) retiredTopics.add(current.topic);
+      replacedTopic = current.topic;
       next.topic = generatePushTopic();
     }
     await createAppSettingsStorage(db).set(PUSH_NOTIFICATION_SETTINGS_KEY, JSON.stringify(next));
   });
+  // Only once the new topic is saved: a failed write keeps the old topic in use.
+  if (replacedTopic) retiredTopics.add(replacedTopic);
   return readPushNotificationSettings(db);
 }
 
