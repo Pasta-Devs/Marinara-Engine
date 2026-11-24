@@ -15,9 +15,9 @@ import {
   professorMariWorkspaceResponseFormat,
   resolveWorkspaceMutationVerification,
   scrubInternalNames,
-  workspaceCommandKnowledgePrompt,
   auditWorkspaceCompletionClaim,
   workspaceTextClaimsMutationCompletion,
+  WORKSPACE_TOOL_DEFINITIONS,
   type WorkspaceCommandResult,
 } from "../../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import {
@@ -963,7 +963,12 @@ const cases: RegressionCase[] = [
         const scrubbed = scrubInternalNames("I checked agent.catalog.get before answering.");
         assert.ok(!scrubbed.includes("agent.catalog.get"));
         assert.ok(scrubbed.includes("the agent catalog"));
-        assert.ok(workspaceCommandKnowledgePrompt().includes("agent.list|get|search|runs|catalog.get"));
+        const appDataTool = WORKSPACE_TOOL_DEFINITIONS.find((tool) => tool.name === "app_data");
+        const appDataActions = (
+          appDataTool?.parameters as { properties?: { action?: { enum?: readonly string[] } } } | undefined
+        )?.properties?.action?.enum;
+        assert.ok(appDataActions?.includes("agent.catalog.get"));
+        assert.ok(PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE.includes("`agent.catalog.get` (`id` or `name`)"));
 
         // agent.catalog.get reads the official catalog, not saved DB state, so it must never mark an
         // earlier unverified write without readBack as verified.
