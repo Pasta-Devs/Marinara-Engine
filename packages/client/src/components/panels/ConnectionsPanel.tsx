@@ -1286,6 +1286,8 @@ export function ConnectionsPanel() {
       ref={rootRef}
       className="mari-connection-scope flex min-h-full flex-col gap-2 p-3 max-md:p-1.5"
       data-connections-panel={wide ? "wide" : "narrow"}
+      // How many Models the list holds once loaded: the search box shows from 8 (tests read it).
+      data-connections-models={isLoading ? undefined : connectionsList.length}
     >
       {body}
       {chooseFolder.dialog}

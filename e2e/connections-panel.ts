@@ -20,13 +20,28 @@ export async function hideExistingItems(page: Page, request: APIRequestContext, 
   return { items, hidden };
 }
 
+/** The panel's search box shows from this many Models (#9758). */
+export const PANEL_SEARCH_MIN_MODELS = 8;
+
 /**
- * Variant D: a Model shows on its Connection's page; the panel search lists every Model first. The search box shows
- * only from 8 Models, so with fewer the row is found in the list itself.
+ * Checks the panel's search box against the Models the panel holds: visible from 8, absent below. Returns the box
+ * when it shows, else null.
  */
-export async function openConnectionsPanelModel(panel: Locator, name: string) {
+export async function panelSearch(panel: Locator) {
+  await expect(panel).toHaveAttribute("data-connections-models", /^\d+$/u);
+  const models = Number(await panel.getAttribute("data-connections-models"));
   const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
-  if (await search.count()) await search.fill(name);
+  if (models >= PANEL_SEARCH_MIN_MODELS) {
+    await expect(search).toBeVisible();
+    return search;
+  }
+  await expect(search).toHaveCount(0);
+  return null;
+}
+
+/** Variant D: a Model shows on its Connection's page; the panel search lists every Model first, when it shows. */
+export async function openConnectionsPanelModel(panel: Locator, name: string) {
+  await (await panelSearch(panel))?.fill(name);
   await panel.locator("[data-connection-id]").filter({ hasText: name }).first().click();
 }
 

@@ -1209,7 +1209,13 @@ export function ConnectionJobsPage({
     const key = refocusRef.current;
     if (!key) return;
     refocusRef.current = null;
-    rootRef.current?.querySelector<HTMLElement>(`[data-defaults-tile="${CSS.escape(key)}"]`)?.focus();
+    const focusJob = () =>
+      rootRef.current?.querySelector<HTMLElement>(`[data-defaults-tile="${CSS.escape(key)}"]`)?.focus();
+    focusJob();
+    // A closing window gives focus back to its opener a frame later (useDialogFocusScope). Safari never focuses a
+    // tapped button, so that opener can be another control on the page, which would take focus from the job.
+    const frame = window.requestAnimationFrame(focusJob);
+    return () => window.cancelAnimationFrame(frame);
   }, [placed]);
   const sectionOf = (bucket: JobBucket) =>
     (["own", "followsMain", "followsAgents", "off"] as const)

@@ -96,6 +96,7 @@ test("The Voice job turns Text to Speech on with a built-in source", async ({ pa
     // device turns text to speech on.
     await expect(voice.getByRole("button", { name: "Turn on", exact: true })).toHaveCount(0);
     await expect(jobs.locator('[data-jobs-section="off"] [data-defaults-role="voice"]')).toBeVisible();
+    await expect(voice.locator("[data-defaults-tile]")).toHaveAccessibleName(/^Voice: Off\b/u);
     await voice.locator("[data-defaults-tile]").click();
     const picker = page.getByRole("dialog", { name: "Model for Voice", exact: true });
     // A phone shows the picker one view at a time and opens straight into a list of models; the built-in choices

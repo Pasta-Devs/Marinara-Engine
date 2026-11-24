@@ -289,3 +289,74 @@ test("the chat's model chooser lists this device's recent picks after Starred", 
     await provider.close();
   }
 });
+
+test("a job keeps its place while its picker is open, then moves and keeps focus", async ({ page, request }, info) => {
+  const previousMain = ((await (await request.get("/api/connections")).json()) as Array<Record<string, unknown>>).find(
+    (row) => row.isDefault === true || row.isDefault === "true",
+  );
+  await setup(page, request);
+  // An account with a chat model (Main) and an image model that no job uses yet.
+  const created = (await (
+    await request.post("/api/connection-accounts", {
+      data: {
+        provider: "openai",
+        name: `Freeze studio ${info.project.name} ${Date.now()}`,
+        apiKey: "fixture-not-a-real-key",
+        baseUrl: "http://127.0.0.1:9/v1",
+        model: "gpt-5.5",
+      },
+    })
+  ).json()) as { account: { id: string }; connectionId: string };
+  let imageId: string | null = null;
+  try {
+    expect(
+      (await request.patch(`/api/connections/${created.connectionId}`, { data: { isDefault: true } })).ok(),
+    ).toBeTruthy();
+    const image = await request.post("/api/connections", {
+      data: {
+        name: "Freeze image",
+        provider: "image_generation",
+        imageGenerationSource: "openai",
+        model: "gpt-image-1.5",
+        accountId: created.account.id,
+        apiKey: "ignored",
+        baseUrl: "http://127.0.0.1:9/v1",
+      },
+    });
+    expect(image.ok()).toBeTruthy();
+    imageId = ((await image.json()) as { id: string }).id;
+    await page.goto("/");
+    const jobs = await openJobsPage(page);
+    // Images has no model yet: a chip in the Off row.
+    const offImages = jobs.locator('[data-jobs-section="off"] [data-defaults-role="images"]');
+    await expect(offImages).toBeVisible();
+    await offImages.locator("[data-defaults-tile]").click();
+    const picker = page.getByRole("dialog", { name: /^Model for Images/u });
+    await expect(picker).toBeVisible();
+
+    // Images gets its model while the picker is open: the job stays where it is, so its picker stays open.
+    await offImages.evaluate((element) => element.setAttribute("data-retained-row", "true"));
+    expect(
+      (await request.patch(`/api/connections/${imageId}`, { data: { defaultForAgents: true } })).ok(),
+    ).toBeTruthy();
+    await page.evaluate(async () => {
+      const { queryClient } = await import("/src/lib/query-client.ts" as string);
+      await queryClient.invalidateQueries({ queryKey: ["connections"] });
+    });
+    await expect(offImages.locator("[data-defaults-tile]")).toHaveAccessibleName(/^Images: Freeze image/u);
+    await expect(offImages).toHaveAttribute("data-retained-row", "true");
+    await expect(picker).toBeVisible();
+
+    // Closing the picker moves Images to its own row, and focus follows it there.
+    await picker.getByRole("button", { name: /^Close Model for Images/u }).click();
+    await expect(picker).toBeHidden();
+    const ownImages = jobs.locator('[data-jobs-section="own"] [data-defaults-tile="images"]');
+    await expect(ownImages).toBeVisible();
+    await expect(ownImages).toBeFocused();
+  } finally {
+    if (imageId) await request.delete(`/api/connections/${imageId}`);
+    await request.delete(`/api/connections/${created.connectionId}`);
+    await request.delete(`/api/connection-accounts/${created.account.id}`);
+    if (previousMain) await request.patch(`/api/connections/${previousMain.id}`, { data: { isDefault: true } });
+  }
+});

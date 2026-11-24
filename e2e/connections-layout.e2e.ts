@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { openJobsPage, showConnectionsList } from "./connections-panel.js";
+import { openJobsPage, panelSearch, showConnectionsList } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -141,18 +141,20 @@ test("Connections keep the established header, mixed models and compact role con
     await expect(group.locator("[data-connection-id]")).toHaveCount(0);
     await group.locator(`[data-connections-toggle="${created.account.id}"]`).click();
     await expect(group.locator("[data-connection-id]")).toHaveCount(3);
-    const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
-    // The box shows from 8 Models, which the shared server usually holds; connections-quick-wins covers the rule.
-    if (await search.count()) {
-      await search.fill("Studio Image");
-      await expect(accountHeader).toContainText("3 starred");
-      await accountHeader.click();
-      await expect(group.locator("[data-connection-id]")).toHaveCount(0);
+    // The heading folds the same way with or without a search; with 8 Models or more a new query opens the fold again.
+    const search = await panelSearch(panel);
+    await search?.fill("Studio Image");
+    await expect(accountHeader).toContainText("3 starred");
+    await accountHeader.click();
+    await expect(group.locator("[data-connection-id]")).toHaveCount(0);
+    if (search) {
       await search.fill("Studio Voice");
       await expect(group.locator("[data-connection-id]")).toHaveCount(3);
       await search.fill("");
-      await expect(group.locator("[data-connection-id]")).toHaveCount(3);
+    } else {
+      await accountHeader.click();
     }
+    await expect(group.locator("[data-connection-id]")).toHaveCount(3);
     expect(
       (await request.patch(`/api/connection-accounts/${created.account.id}`, { data: { enabled: false } })).ok(),
     ).toBeTruthy();
@@ -439,9 +441,8 @@ test("Move to account offers the same service first, then other services with a 
     await page.goto("/");
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
     const openMove = async () => {
-      // The search box shows from 8 Models; with fewer the row is already in the list.
-      const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
-      if (await search.count()) await search.fill(modelName);
+      // With 8 Models or more the search lists the row first; with fewer it is already in the list.
+      await (await panelSearch(panel))?.fill(modelName);
       await panel
         .locator(`[data-connection-id="${home.connectionId}"]`)
         .getByRole("button", { name: `Actions for ${modelName}`, exact: true })
