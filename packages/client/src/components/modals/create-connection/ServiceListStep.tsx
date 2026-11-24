@@ -5,6 +5,7 @@ import { useLocalizedUiText } from "../../../localization/use-localized-ui-text"
 import { cn } from "../../../lib/utils";
 import { decisionCannotRun, useDecisionSidecar } from "../../../hooks/use-decision-sidecar";
 import { useUIStore } from "../../../stores/ui.store";
+import { useSidecarStore } from "../../../stores/sidecar.store";
 import { ListStatus } from "../../connections/ListFrame";
 import { SearchInput } from "../../ui/SearchInput";
 import { ProviderIcon } from "../../connections/ProviderIcon";
@@ -157,6 +158,8 @@ export function ServiceListStep({
   const localize = useLocalizedUiText();
   const builtinTts = useBuiltinTts(compact);
   const decisionEngine = useDecisionEngine();
+  // A built-in model the user already has is no longer a recommendation; it stays under Built-in in a search.
+  const sidecarDownloaded = useSidecarStore((state) => state.modelDownloaded);
   // The compact menu has no "All" tab: it opens on Text, the usual reason to add an account.
   const [type, setType] = useState<ModelType | "all" | "decision">(
     kind === "chat"
@@ -211,7 +214,7 @@ export function ServiceListStep({
   // The built-in voice model leads the Voice tab: free, offline, nothing to host. Its tag names the model that
   // suits the Engine's language (Supertonic 3 for Korean, Japanese, German, Polish and Russian).
   const ttsName = t("connections.builtinTts.name");
-  if (compact && builtinTts.data?.supported && matches(`${ttsName} kokoro supertonic voice tts speech offline`)) {
+  if (compact && builtinTts.data?.supported && !builtinTts.data.activeModelId && matches(`${ttsName} kokoro supertonic voice tts speech offline`)) {
     const model = recommendedBuiltinTtsModel(i18n.language);
     tiles.push({
       id: "device:builtin-tts",
@@ -225,7 +228,7 @@ export function ServiceListStep({
     });
   }
   const sidecarName = t("connections.add.device.local_model");
-  if (compact && !isLite && matches(`${sidecarName} local offline device sidecar gemma chat`)) {
+  if (compact && !isLite && !sidecarDownloaded && matches(`${sidecarName} local offline device sidecar gemma chat`)) {
     tiles.push({
       id: "device:local-model",
       name: sidecarName,
@@ -237,7 +240,7 @@ export function ServiceListStep({
       group: "popular",
     });
   }
-  if (compact && decisionEngine && matches(`${decisionEngine.name} local offline device decision`)) {
+  if (compact && decisionEngine && !decisionEngine.installed && matches(`${decisionEngine.name} local offline device decision`)) {
     tiles.push({
       id: DECISION_DEVICE_ID,
       name: decisionEngine.name,

@@ -8,7 +8,14 @@ export const DECISION_DEVICE_ID = "device:decision";
 export const EMBEDDING_DEVICE_ID = "device:embeddings";
 
 /** `detail` is the installed model's name, like the other entries on this device show theirs. */
-export type DecisionEngineRow = { name: string; state: string; tone: "ok" | "off" | "warn"; detail: string };
+export type DecisionEngineRow = {
+  name: string;
+  state: string;
+  tone: "ok" | "off" | "warn";
+  detail: string;
+  /** Downloaded or downloading: the Add menu stops recommending it. */
+  installed: boolean;
+};
 
 /** Null where this machine cannot run it at all; the Add window still explains that. */
 export function useDecisionEngine(): DecisionEngineRow | null {
@@ -29,6 +36,7 @@ export function useDecisionEngine(): DecisionEngineRow | null {
   if (progress)
     return {
       name,
+      installed: true,
       detail: progress.label,
       state: t("connections.builtinEmbedding.downloadingPercent", {
         percent:
@@ -38,10 +46,12 @@ export function useDecisionEngine(): DecisionEngineRow | null {
       }),
       tone: "off",
     };
-  if (!option.unavailable) return { name, detail, state: t("connections.accounts.state.ok"), tone: "ok" };
-  if (option.unavailable === "not_enabled") return { name, detail, state: t("connections.defaults.off"), tone: "off" };
+  const installed = option.unavailable !== "not_installed" && option.unavailable !== "no_model";
+  if (!option.unavailable) return { name, installed, detail, state: t("connections.accounts.state.ok"), tone: "ok" };
+  if (option.unavailable === "not_enabled") return { name, installed, detail, state: t("connections.defaults.off"), tone: "off" };
   return {
     name,
+    installed,
     detail,
     state: t(`connections.decision.unavailable.${option.unavailable}`, {
       detail: option.detail ?? "",

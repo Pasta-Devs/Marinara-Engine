@@ -201,11 +201,11 @@ export type ServiceGroupDefinition = {
   sorted?: boolean;
 };
 export const SERVICE_GROUPS: ServiceGroupDefinition[] = [
-  { id: "popular", services: ["linkapi", "nanogpt", "openrouter", "openai", "anthropic", "google"] },
+  { id: "popular", services: ["linkapi", "nanogpt", "openrouter", "openai", "anthropic", "google", "custom"] },
   { id: "plan", services: ["openai_chatgpt", "claude_subscription", "grok_subscription"] },
   {
     id: "local",
-    services: ["local_model", ...MEDIA_BACKENDS.filter((b) => SELF_HOSTED.has(b.source)).map((b) => b.id), "custom"],
+    services: ["local_model", ...MEDIA_BACKENDS.filter((b) => SELF_HOSTED.has(b.source)).map((b) => b.id)],
   },
   {
     id: "all",
