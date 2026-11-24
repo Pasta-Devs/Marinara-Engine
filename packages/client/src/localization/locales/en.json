@@ -18228,6 +18228,7 @@
   "ui.overhaul.characterChatButton.newChat": "New chat…",
   "ui.overhaul.characters": "Characters",
   "ui.overhaul.chat": "Chat",
+  "ui.overhaul.chatSummary.noModel": "No model",
   "ui.overhaul.connectionslanding.value1Value2": "{{value1}}: {{value2}}?",
   "ui.overhaul.crop": "Crop",
   "ui.overhaul.editorrail.moreTags": "+{{count}} more",

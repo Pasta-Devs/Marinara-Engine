@@ -349,7 +349,7 @@ export function OverhaulMobileTopBar() {
               <TabIcon tab={current} chats={chats} />
               <span className="ovm-title__text">
                 <TabLabel tab={current} chats={chats} />
-                <ChatSettingsSummary chat={activeChat} fallback={modeLabel} />
+                <ChatSettingsSummary chat={activeChat} fallback={modeLabel} modelOnly />
               </span>
             </>
           ) : current ? (

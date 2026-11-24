@@ -321,10 +321,22 @@ export function nameOf(record: unknown): string | null {
   return typeof name === "string" && name.trim() ? name : null;
 }
 
-/** "Roleplay · Claude Opus": the chat's mode and the model it talks to. */
-export function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: string }) {
+/**
+ * "Roleplay · Claude Opus": the chat's mode and the model it talks to. `modelOnly` drops the mode, for the phone's
+ * title, where the symbol and CO / RP / GM in front of the name already say it.
+ */
+export function ChatSettingsSummary({
+  chat,
+  fallback,
+  modelOnly = false,
+}: {
+  chat: Chat;
+  fallback: string;
+  modelOnly?: boolean;
+}) {
   // One fixed format everywhere: "Mode · model" (panel 3, PV14/N10a). The preset and agent count made the
   // label change while things loaded and from chat to chat; both are one click away in Chat settings.
+  const { t } = useTranslation();
   const { data: connections } = useConnections();
   const list = Array.isArray(connections) ? (connections as Array<Record<string, unknown>>) : [];
   const connection = chat.connectionId
@@ -332,7 +344,13 @@ export function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: 
     : list.find((item) => isConnectionFlagTrue(item.isDefault));
   // A tried model (one the chat runs without saving it) is named itself, not the saved Model it runs through.
   const override = chat.connectionId ? readChatModelOverride(chat) : null;
-  const parts = [fallback, override ? (override.name ?? override.model) : nameOf(connection)].filter(Boolean);
+  const modelName = override ? (override.name ?? override.model) : nameOf(connection);
+  if (modelOnly) {
+    // Nothing while the Models load, so the line doesn't flash "No model" first.
+    const model = modelName ?? (connections ? t("ui.overhaul.chatSummary.noModel") : "");
+    return <small>{model}</small>;
+  }
+  const parts = [fallback, modelName].filter(Boolean);
   return <small>{parts.join(" · ")}</small>;
 }
 
