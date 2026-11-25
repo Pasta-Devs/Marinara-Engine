@@ -100,11 +100,15 @@ function exitCode(proc) {
 const MIB = 1024 * 1024;
 const HEAP_FLAG = /(?:^|\s)--max[-_]old[-_]space[-_]size(?:[=\s]|$)/u;
 const AUTO_HEAP_CAP_MB = 4096;
+// Node accepts quoted options in NODE_OPTIONS ('"--max-old-space-size=1024"'); quotes are dropped
+// before matching so a quoted limit still counts as explicit.
+const explicitHeapFlag = [
+  (process.env.NODE_OPTIONS ?? "").replace(/["']/gu, ""),
+  ...process.execArgv,
+  ...serverArgs,
+].some((value) => HEAP_FLAG.test(value));
 function chooseServerHeapMb() {
-  const explicit = [process.env.NODE_OPTIONS ?? "", ...process.execArgv, ...serverArgs].some((value) =>
-    HEAP_FLAG.test(value),
-  );
-  if (explicit || !startsServerBuild) return null;
+  if (explicitHeapFlag || !startsServerBuild) return null;
   let configured = process.env.MARINARA_NODE_HEAP_MB;
   try {
     configured ??=
@@ -147,8 +151,10 @@ function explainOutOfMemory(restarting, soonAfterStart) {
         : soonAfterStart
           ? "          It ran out right after starting, so it was not restarted automatically."
           : "          It ran out of memory several times this hour, so it was not restarted automatically.",
-      "          To give it more room, close other heavy programs, or set MARINARA_NODE_HEAP_MB=<MiB>",
-      "          (for example 6144 on a PC with 16 GB of RAM) in the .env file next to start.bat or start.sh.",
+      "          To give it more room, close other heavy programs, or raise the limit:",
+      explicitHeapFlag
+        ? "          change --max-old-space-size=<MiB> in NODE_OPTIONS (or the Termux launcher's setting)."
+        : "          set MARINARA_NODE_HEAP_MB=<MiB> (for example 6144 on a PC with 16 GB of RAM) in .env.",
       "",
     ].join("\n"),
   );

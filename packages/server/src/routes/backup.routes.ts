@@ -1821,8 +1821,19 @@ function openProfileTableJsonLines(outputPath: string, tableName: string) {
   const stream = createWriteStream(outputPath, { mode: PRIVATE_FILE_MODE });
   let size = 0;
   let count = 0;
+  // The writer can sit open between batches while other I/O runs; a write failure in that gap must
+  // not become an unhandled stream error. Keep it and report it on the next write or finish.
+  let failure: unknown = null;
+  stream.on("error", (error) => {
+    failure ??= error;
+  });
+  const fail = (error: unknown): never => {
+    stream.destroy();
+    throw error;
+  };
   return {
     async write(rows: Array<Record<string, unknown>>) {
+      if (failure) fail(failure);
       try {
         for (const row of sanitizeProfileTableRows(tableName, rows)) {
           const line = Buffer.from(`${JSON.stringify(row)}\n`, "utf8");
@@ -1831,17 +1842,17 @@ function openProfileTableJsonLines(outputPath: string, tableName: string) {
           count += 1;
         }
       } catch (error) {
-        stream.destroy();
-        throw error;
+        fail(error);
       }
     },
     async finish() {
+      if (failure) fail(failure);
       try {
         await finishZipStream(stream);
       } catch (error) {
-        stream.destroy();
-        throw error;
+        fail(error);
       }
+      if (failure) fail(failure);
       return { size, count };
     },
     destroy: () => stream.destroy(),
@@ -1873,7 +1884,10 @@ async function buildProfileArchiveSources(
   // profiles out of Node's heap during backups, including the automatic one that runs at startup.
   const exportable = FILE_BACKED_TABLES.filter((tableName) => profileTableObjects.has(tableName));
   const chatTableWriters = new Map<string, ReturnType<typeof openProfileTableJsonLines>>();
-  const chatTableSizes = new Map<string, { size: number; count: number }>();
+  const chatTableFiles = new Map<string, { filePath: string; size: number; count: number }>();
+  // Scanned rows go to their own files, so an interrupted scan's output never mixes with the
+  // whole-table fallback below.
+  const scanPath = (tableName: string) => join(tablesDir, `${tableName}.scan.jsonl`);
   const fileStore = app.db._fileStore;
   if (fileStore?.scanLazyTablesByChat) {
     try {
@@ -1881,18 +1895,16 @@ async function buildProfileArchiveSources(
         for (const [tableName, rows] of rowsByTable) {
           let writer = chatTableWriters.get(tableName);
           if (!writer) {
-            writer = openProfileTableJsonLines(join(tablesDir, `${tableName}.jsonl`), tableName);
+            writer = openProfileTableJsonLines(scanPath(tableName), tableName);
             chatTableWriters.set(tableName, writer);
           }
           await writer.write(rows);
         }
       });
       for (const tableName of scanned) {
-        const writer =
-          chatTableWriters.get(tableName) ??
-          openProfileTableJsonLines(join(tablesDir, `${tableName}.jsonl`), tableName);
+        const writer = chatTableWriters.get(tableName) ?? openProfileTableJsonLines(scanPath(tableName), tableName);
         chatTableWriters.delete(tableName);
-        chatTableSizes.set(tableName, await writer.finish());
+        chatTableFiles.set(tableName, { filePath: scanPath(tableName), ...(await writer.finish()) });
       }
     } finally {
       for (const writer of chatTableWriters.values()) writer.destroy();
@@ -1902,9 +1914,10 @@ async function buildProfileArchiveSources(
   for (const tableName of exportable) {
     const table = profileTableObjects.get(tableName)!;
     const relativePath = `profile-tables/${tableName}.jsonl`;
-    const outputPath = join(tablesDir, `${tableName}.jsonl`);
+    const scannedFile = chatTableFiles.get(tableName);
+    const outputPath = scannedFile?.filePath ?? join(tablesDir, `${tableName}.jsonl`);
     const { size, count } =
-      chatTableSizes.get(tableName) ??
+      scannedFile ??
       (await writeProfileTableJsonLines(
         outputPath,
         tableName,
