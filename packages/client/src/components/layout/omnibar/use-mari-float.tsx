@@ -4,6 +4,7 @@ import { useMatchMedia } from "../../../hooks/use-match-media";
 import {
   clampMariFloatRect,
   drawnMariFloatRect,
+  MARI_FLOAT_EDGE_PX,
   mariFloatDockWidth,
   mariFloatZoneAt,
   mariFloatZoneRect,
@@ -18,6 +19,7 @@ import {
 } from "../../../lib/mari-float-layout";
 import { useUIStore } from "../../../stores/ui.store";
 import { WindowResizeGrip, isWindowResizeCorner } from "../../ui/WindowResizeGrip";
+import { mariCompanionDockRect } from "./use-mari-companion";
 
 /** Presses on these inside her header are clicks, not the start of a move. */
 const HEADER_CONTROLS = "button, a, input, textarea, select, label, [role='tab'], [role='slider'], [contenteditable]";
@@ -74,7 +76,7 @@ function writePreview(preview: HTMLElement | null, rect: MariFloatRect, shown: b
 /** How far her companion panel has to be pulled before it tears off into a floating window: a deliberate pull. */
 const TEAR_OFF_PX = 72;
 /** How much of that pull the panel shows before it tears, as resistance. */
-const TEAR_OFF_GIVE = 0.12;
+const TEAR_OFF_GIVE = 0.3;
 
 /** How long a dropped window glides into its place (matches the CSS transition). */
 const SETTLE_MS = 200;
@@ -245,6 +247,8 @@ export function useMariFloat(
     }
     let target: MariFloatZone | null = null;
     let moved = false;
+    // The top zone arms once the pointer has been below its band (mariFloatZoneAt).
+    let topArmed = startY > MARI_FLOAT_EDGE_PX;
     track(
       event,
       (move) => {
@@ -266,11 +270,20 @@ export function useMariFloat(
         if (!moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return null;
         if (!moved && fromDock) useUIStore.getState().setMariFloatDock(null);
         moved = true;
-        target = mariFloatZoneAt(move.clientX, move.clientY, view);
+        if (move.clientY > MARI_FLOAT_EDGE_PX) topArmed = true;
+        target = mariFloatZoneAt(move.clientX, move.clientY, view, topArmed);
         const next = clampMariFloatRect({ ...origin, left: origin.left + dx, top: origin.top + dy }, view);
         // Outside a zone the hidden outline rides along with her, so the next zone grows out of her window.
         const dock = mariFloatDockWidth(ui.mariFloatDockWidth, view, remPx());
-        writePreview(previewRef.current, target ? mariFloatZoneRect(target, view, dock) : next, target !== null);
+        // Beside an editor the left edge is the companion's place: preview the companion panel, below the editor's
+        // header, not a full-height dock.
+        const zoneRect =
+          target === "left" && companionAvailable
+            ? (mariCompanionDockRect() ?? mariFloatZoneRect(target, view, dock))
+            : target
+              ? mariFloatZoneRect(target, view, dock)
+              : next;
+        writePreview(previewRef.current, zoneRect, target !== null);
         return next;
       },
       (last) => {

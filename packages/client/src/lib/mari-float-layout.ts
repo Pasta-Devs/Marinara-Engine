@@ -31,8 +31,12 @@ export interface MariFloatView {
 
 /** Room kept between her window and the screen edge, and between two halves. */
 export const MARI_FLOAT_GAP_PX = 12;
-/** How close to an edge the pointer has to be for that edge's zone. */
-export const MARI_FLOAT_EDGE_PX = 16;
+/**
+ * How close to an edge the pointer has to be for that edge's zone. Windows snaps when the cursor hits the screen
+ * edge, where it stops; in a browser the pointer runs on past the page, so the band is wider (about 1cm at 96dpi,
+ * a little over GTK's 20px Aero Snap edge region).
+ */
+export const MARI_FLOAT_EDGE_PX = 36;
 /** Smallest window: her header, tabs and composer still fit. */
 export const MARI_FLOAT_MIN_WIDTH_PX = 352;
 export const MARI_FLOAT_MIN_HEIGHT_PX = 320;
@@ -103,9 +107,13 @@ export function resizeMariFloatDock(start: number, side: "left" | "right", dx: n
   );
 }
 
-/** The zone a drag would land in with the pointer here; the top edge wins in the corners. */
-export function mariFloatZoneAt(x: number, y: number, view: MariFloatView): MariFloatZone | null {
-  if (y <= MARI_FLOAT_EDGE_PX) return "max";
+/**
+ * The zone a drag would land in with the pointer here; the top edge wins in the corners. `allowTop` is false until
+ * the pointer has been below the top band during this drag: her header can start inside it (docked, or full screen),
+ * and a sideways pull must not fill the screen.
+ */
+export function mariFloatZoneAt(x: number, y: number, view: MariFloatView, allowTop = true): MariFloatZone | null {
+  if (allowTop && y <= MARI_FLOAT_EDGE_PX) return "max";
   if (x <= MARI_FLOAT_EDGE_PX) return "left";
   if (x >= view.width - 1 - MARI_FLOAT_EDGE_PX) return "right";
   return null;

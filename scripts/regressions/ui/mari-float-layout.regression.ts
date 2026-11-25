@@ -70,6 +70,13 @@ const rem = 16;
   assert.equal(mariFloatZoneAt(700, 0, view), "max");
   assert.equal(mariFloatZoneAt(0, 0, view), "max");
   assert.equal(mariFloatZoneAt(700, 400, view), null);
+  // The band is about 1cm wide, so the pointer need not reach the very edge.
+  assert.equal(mariFloatZoneAt(30, 400, view), "left");
+  assert.equal(mariFloatZoneAt(1440 - 30, 400, view), "right");
+  assert.equal(mariFloatZoneAt(700, 30, view), "max");
+  // Before the pointer has left the top band, the top edge is no zone, so the sides still count there.
+  assert.equal(mariFloatZoneAt(700, 10, view, false), null);
+  assert.equal(mariFloatZoneAt(10, 10, view, false), "left");
 }
 
 // 4. A free window stays on screen and shrinks with a smaller screen, never below the minimum.
