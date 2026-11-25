@@ -3,12 +3,14 @@
 //
 // One compact button ("Tags", or the picked tag) that opens a searchable list
 // of every tag with its count. Pick several to narrow the list to cards that
-// carry all of them; "Untagged" shows only cards without tags. Replaces the
+// carry all of them; "Untagged" shows only cards without tags. A page with
+// favourites (Characters, Backgrounds) pins "Favorites" at the top of the list.
+// Replaces the
 // long tag list that used to grow under Characters/Personas in the Library pane.
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Hash, Search, Tag, X } from "lucide-react";
+import { Check, ChevronDown, Hash, Search, Star, Tag, X } from "lucide-react";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 
@@ -52,6 +54,7 @@ export function TagFilter({
   onChange,
   compact = false,
   className,
+  favorites,
 }: {
   tags: TagCount[];
   untagged: number;
@@ -61,6 +64,8 @@ export function TagFilter({
   compact?: boolean;
   /** Replaces the default `ov-btn` look, so the button can match its neighbours. */
   className?: string;
+  /** Pages with favourites: a "Favorites" choice pinned first in the list (narrows together with the tags). */
+  favorites?: { count: number; on: boolean; onChange: (on: boolean) => void };
 }) {
   const localize = useLocalizedUiText();
   const [open, setOpen] = useState(false);
@@ -130,13 +135,22 @@ export function TagFilter({
   }, [open]);
 
   const realPicked = picked.filter((value) => value !== UNTAGGED);
-  const label = picked.includes(UNTAGGED)
-    ? localize("Untagged")
-    : realPicked.length
-      ? `#${tags.find((entry) => entry.tag.toLowerCase() === realPicked[0].toLowerCase())?.tag ?? realPicked[0]}`
-      : localize("Tags");
-  const more = realPicked.length > 1 ? realPicked.length - 1 : 0;
-  const active = picked.length > 0;
+  const favOn = !!favorites?.on;
+  const label = favOn
+    ? localize("Favorites")
+    : picked.includes(UNTAGGED)
+      ? localize("Untagged")
+      : realPicked.length
+        ? `#${tags.find((entry) => entry.tag.toLowerCase() === realPicked[0].toLowerCase())?.tag ?? realPicked[0]}`
+        : localize("Tags");
+  // Favorites leads the label, so every picked tag counts towards "+N".
+  const more = favOn ? picked.length : realPicked.length > 1 ? realPicked.length - 1 : 0;
+  const pickedCount = picked.length + (favOn ? 1 : 0);
+  const active = pickedCount > 0;
+  const clearAll = () => {
+    onChange([]);
+    if (favOn) favorites?.onChange(false);
+  };
 
   return (
     <>
@@ -146,16 +160,21 @@ export function TagFilter({
         className={cn(className ?? "ov-btn", "ov-tagfilter", compact && "ov-tagfilter--compact", active && "is-on")}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={localize("Filter by tag")}
-        title={localize("Filter by tag")}
+        aria-label={localize(favorites ? "Filter by favorites or tag" : "Filter by tag")}
+        title={localize(favorites ? "Filter by favorites or tag" : "Filter by tag")}
         data-mari-part="tag-filter"
+        data-favorites={favOn ? "on" : undefined}
         onClick={() => setOpen((value) => !value)}
       >
-        <Tag size={14} aria-hidden="true" />
+        {favOn ? (
+          <Star size={14} aria-hidden="true" fill="currentColor" className="ov-tagfilter__star" />
+        ) : (
+          <Tag size={14} aria-hidden="true" />
+        )}
         <span className="ov-tagfilter__label">{label}</span>
         {more ? <span className="ov-tagfilter__more">+{more}</span> : null}
         {/* Phones show only the icon, plus how many tags are picked. */}
-        {active ? <span className="ov-tagfilter__count">{picked.length}</span> : null}
+        {active ? <span className="ov-tagfilter__count">{pickedCount}</span> : null}
         <ChevronDown size={14} aria-hidden="true" className="ov-tagfilter__chev" />
       </button>
       {open
@@ -163,7 +182,7 @@ export function TagFilter({
             <div
               ref={popRef}
               role="dialog"
-              aria-label={localize("Filter by tag")}
+              aria-label={localize(favorites ? "Filter by favorites or tag" : "Filter by tag")}
               className="ov-tagpop"
               data-component="OverhaulTagFilter"
               style={{
@@ -184,13 +203,33 @@ export function TagFilter({
                   />
                 </label>
                 {active ? (
-                  <button type="button" className="ov-tagpop__clear" onClick={() => onChange([])}>
+                  <button type="button" className="ov-tagpop__clear" onClick={clearAll}>
                     <X size={12} aria-hidden="true" />
                     {localize("Clear")}
                   </button>
                 ) : null}
               </div>
               <div className="ov-tagpop__list" role="group">
+                {/* Favorites stays pinned first, even while searching tags. */}
+                {favorites ? (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={favOn}
+                      className={cn("ov-tagpop__row ov-tagpop__row--fav", favOn && "is-on")}
+                      onClick={() => favorites.onChange(!favOn)}
+                    >
+                      <span className="ov-tagpop__box">
+                        {favOn ? <Check size={11} strokeWidth={3} aria-hidden="true" /> : null}
+                      </span>
+                      <Star size={12} aria-hidden="true" className="ov-tagpop__hash" />
+                      <span className="ov-tagpop__name">{localize("Favorites")}</span>
+                      <small>{favorites.count}</small>
+                    </button>
+                    <div className="ov-tagpop__rule" aria-hidden="true" />
+                  </>
+                ) : null}
                 {shown.map((entry) => {
                   const on = isPicked(entry.tag);
                   return (
@@ -233,8 +272,10 @@ export function TagFilter({
                   </>
                 ) : null}
               </div>
-              {realPicked.length > 1 ? (
-                <p className="ov-tagpop__hint">{localize("Showing cards with all picked tags")}</p>
+              {realPicked.length > 1 || (favOn && realPicked.length) ? (
+                <p className="ov-tagpop__hint">
+                  {localize(favOn ? "Showing favorites with all picked tags" : "Showing cards with all picked tags")}
+                </p>
               ) : null}
             </div>,
             document.body,

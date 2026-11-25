@@ -2085,9 +2085,13 @@ export const ChatInput = memo(function ChatInput({
             <Paperclip size="1rem" />
           </button>
 
-          {/* Quick Switchers — desktop: inline, mobile: chevron */}
-          <QuickConnectionSwitcher className="hidden sm:flex" contextBudget={showContextUsage ? contextBudget : null} />
-          <QuickPersonaSwitcher className="hidden sm:flex" />
+          {/* Quick Switchers — desktop: inline, mobile: chevron. The wrapper hides them on phones,
+              where the chevron's Quick Switcher already has the model and persona pickers; a class on
+              the persona button itself loses to the touch-target rule that sets its display. */}
+          <div className="hidden shrink-0 items-center gap-1 sm:flex">
+            <QuickConnectionSwitcher contextBudget={showContextUsage ? contextBudget : null} />
+            <QuickPersonaSwitcher />
+          </div>
           <div className="sm:hidden">
             <QuickSwitcherMobile contextBudget={showContextUsage ? contextBudget : null} />
           </div>

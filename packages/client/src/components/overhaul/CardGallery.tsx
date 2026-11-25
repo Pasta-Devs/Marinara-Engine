@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // UI overhaul: Characters / Personas landing page (portrait gallery)
 //
-// Title with Import and New, one toolbar row (search, quick filters, sort),
+// Title with Import and New, one toolbar row (search, tags and favorites, sort),
 // then a grid of portraits with the token count, name and tags. Clicking a
 // portrait opens its editor; the tag selector beside search filters the list.
 // ──────────────────────────────────────────────
@@ -24,7 +24,6 @@ import {
   Square,
   BookOpen,
   List,
-  Star,
   Tag,
 } from "lucide-react";
 import { plainTextPreview } from "../../lib/plain-text-preview";
@@ -90,8 +89,8 @@ export type GalleryCard = {
   updatedAt: string;
 };
 
-// "Recently edited" is a sort, as on Lorebooks and Presets, not a filter (audit C16).
-type QuickFilter = "favorites" | null;
+// "Recently edited" is a sort, as on Lorebooks and Presets, not a filter (audit C16). Favorites is the first
+// choice in the Tags filter, so the header keeps one line of buttons.
 type SortKey = "name-asc" | "name-desc" | "recent" | "newest" | "oldest" | "tokens-desc" | "tokens-asc" | "custom";
 /** Sorts the server can apply when it loads the cards, so a large library loads the newest (or largest) first. */
 const SERVER_SORTS = new Set<string>(["name-asc", "name-desc", "newest", "oldest", "tokens-desc", "tokens-asc"]);
@@ -156,12 +155,12 @@ export function CardGallery({
   const setListView = useOverhaulStore((state) => state.setGalleryListView);
   const [loadingAll, setLoadingAll] = useState(false);
   const [search, setSearch] = useState("");
-  const [quick, setQuick] = useState<QuickFilter>(null);
-  // Phones: Favourites is a dropdown beside + New.
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const mobile = useOverhaulMobile();
   // The tag selector beside search (several tags narrow to cards with all of them).
   const [pickedTags, setPickedTags] = useState<string[]>([]);
   const tagCounts = useMemo(() => countItemTags(cards), [cards]);
+  const favoriteCount = useMemo(() => cards.filter((card) => card.favorite).length, [cards]);
   const [baseSort, setBaseSort] = useState<SortKey>(() =>
     serverSort && SERVER_SORTS.has(serverSort) ? (serverSort as SortKey) : "name-asc",
   );
@@ -183,7 +182,7 @@ export function CardGallery({
     const needle = search.trim().toLowerCase();
     const tagQuery = needle.startsWith("tag:") ? needle.slice(4).trim() : null;
     let list = cards.filter((card) => {
-      if (quick === "favorites" && !card.favorite) return false;
+      if (favoritesOnly && !card.favorite) return false;
       if (!matchesPickedTags(card.tags, pickedTags)) return false;
       if (!needle) return true;
       if (tagQuery !== null) return card.tags.some((tag) => tag.toLowerCase().includes(tagQuery));
@@ -212,7 +211,7 @@ export function CardGallery({
       default:
         return list.sort((a, b) => a.name.localeCompare(b.name));
     }
-  }, [cards, order, pickedTags, quick, search, sort]);
+  }, [cards, order, pickedTags, favoritesOnly, search, sort]);
 
   // ── Select, ⋯ menus, folders and dragging (like the Lorebooks and Presets pages) ──
   const isCharacters = kind === "characters";
@@ -227,9 +226,9 @@ export function CardGallery({
   const duplicatePersona = useDuplicatePersona();
   const deleteCharacter = useDeleteCharacter();
   const deletePersona = useDeletePersona();
-  const filtering = !!search.trim() || !!quick || pickedTags.length > 0 || sort === "recent";
+  const filtering = !!search.trim() || favoritesOnly || pickedTags.length > 0 || sort === "recent";
   // Searching or filtering looks inside every folder; otherwise the Folders view lists folders closed.
-  const searching = !!search.trim() || !!quick || pickedTags.length > 0;
+  const searching = !!search.trim() || favoritesOnly || pickedTags.length > 0;
   const opened = useOpenFolder(folders);
   const byId = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
   const exportBase = isCharacters ? "/characters" : "/characters/personas";
@@ -542,21 +541,6 @@ export function CardGallery({
     </button>
   ) : null;
 
-  const quickSelect = (className: string) => (
-    <select
-      className={cn("ov-select", className)}
-      value={quick ?? "all"}
-      onChange={(event) => {
-        const value = event.target.value;
-        setQuick(value === "all" ? null : (value as QuickFilter));
-      }}
-      aria-label={localize("Filter")}
-    >
-      <option value="all">{localize("All")}</option>
-      <option value="favorites">{localize("Favorites")}</option>
-    </select>
-  );
-
   // Desktop: List is the first stop on the card-size switch (one control, so the toolbar keeps one line), and it
   // sits before the sort as on Lorebooks and Presets. Phones and tablets have the List / Gallery switch in the
   // header, and this one after the sort.
@@ -702,20 +686,6 @@ export function CardGallery({
           <Plus size={14} aria-hidden="true" />
           {mobile ? localize("New") : localize(kind === "characters" ? "New character" : "New persona")}
         </button>
-        {/* Phones: Favorites is one star toggle (the All / Favorites dropdown didn't fit beside the List /
-            Gallery switch in wide-font themes). */}
-        {mobile && kind === "characters" ? (
-          <button
-            type="button"
-            className={cn("ov-btn ov-btn--icon ovm-fav-toggle", quick === "favorites" && "is-on")}
-            aria-pressed={quick === "favorites"}
-            aria-label={localize("Favorites")}
-            title={localize("Favorites")}
-            onClick={() => setQuick((value) => (value === "favorites" ? null : "favorites"))}
-          >
-            <Star size={15} aria-hidden="true" fill={quick === "favorites" ? "currentColor" : "none"} />
-          </button>
-        ) : null}
         {mobile ? viewSwitch : null}
       </header>
       <div className="ov-gallery__tools">
@@ -728,18 +698,19 @@ export function CardGallery({
             aria-label={localize(kind === "characters" ? "Search characters or tag:name" : "Search personas")}
           />
         </label>
-        {tagCounts.tags.length || pickedTags.length ? (
-          <TagFilter tags={tagCounts.tags} untagged={tagCounts.untagged} picked={pickedTags} onChange={setPickedTags} />
-        ) : null}
-        {kind === "characters" && !mobile ? (
-          <button
-            type="button"
-            className={cn("ov-btn", quick === "favorites" && "is-on")}
-            aria-pressed={quick === "favorites"}
-            onClick={() => setQuick((value) => (value === "favorites" ? null : "favorites"))}
-          >
-            {localize("Favorites")}
-          </button>
+        {/* Characters: Favorites is pinned first in the Tags list, so the button shows even with no tags. */}
+        {tagCounts.tags.length || pickedTags.length || kind === "characters" ? (
+          <TagFilter
+            tags={tagCounts.tags}
+            untagged={tagCounts.untagged}
+            picked={pickedTags}
+            onChange={setPickedTags}
+            favorites={
+              kind === "characters"
+                ? { count: favoriteCount, on: favoritesOnly, onChange: setFavoritesOnly }
+                : undefined
+            }
+          />
         ) : null}
         <span className="ov-gallery__spacer" />
         <KitFolderViewToggle folders={folders} view={folderView} />
@@ -761,7 +732,6 @@ export function CardGallery({
         </select>
         {/* A narrow split side shows this copy (beside the sort) and hides the header one, so the
             toolbar keeps three lines (overhaul-mobile.css, SV14). */}
-        {mobile && kind === "characters" ? quickSelect("ovm-lp-filter ovm-lp-filter--tools") : null}
         {mobile ? (
           <ViewSwitch
             gallery={!listView}
