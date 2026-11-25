@@ -20,9 +20,9 @@ import { Select } from "../../ui/Select";
 import { ToggleSetting } from "./SettingControls";
 
 const buttonClass =
-  "min-h-11 rounded-md border border-[var(--border)] px-3 py-2 text-xs text-[var(--foreground)] hover:bg-[var(--secondary)] disabled:opacity-50 active:scale-95";
+  "min-h-11 rounded-md border border-[var(--border)] px-3 py-2 text-xs text-[var(--foreground)] hover:bg-[var(--secondary)] disabled:opacity-50 active:scale-95 sm:min-h-7 sm:px-2.5 sm:py-1.5 sm:text-[0.6875rem] sm:pointer-coarse:min-h-11";
 const inputClass =
-  "min-h-11 w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-base text-[var(--foreground)]";
+  "min-h-11 w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-base text-[var(--foreground)] sm:h-9 sm:min-h-0 sm:px-2.5 sm:text-xs sm:pointer-coarse:min-h-11";
 
 export function ImageTagDatasetsSettings() {
   const { t } = useTranslation();
@@ -79,7 +79,7 @@ export function ImageTagDatasetsSettings() {
         {t("settings.imageTagDatasets.description")}
       </p>
       <a
-        className="inline-flex min-h-11 items-center text-xs text-[var(--primary)] underline"
+        className="inline-flex min-h-11 items-center text-xs text-[var(--primary)] underline sm:min-h-0"
         href="https://huggingface.co/datasets/HDiffusion/historical-danbooru-tag-counts/tree/main"
         target="_blank"
         rel="noopener noreferrer"
@@ -125,7 +125,7 @@ export function ImageTagDatasetsSettings() {
                     {t("settings.imageTagDatasets.enabledCategories")}
                   </legend>
                   {IMAGE_TAG_CATEGORIES.map((value) => (
-                    <label key={value} className="flex min-h-11 items-center gap-2 text-xs">
+                    <label key={value} className="flex min-h-11 items-center gap-2 text-xs sm:min-h-7">
                       <Checkbox
                         checked={source.enabledCategories.includes(value)}
                         onChange={(event) => {
