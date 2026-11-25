@@ -17989,12 +17989,19 @@ input.ov-edhead__title:not(#ov-x) {
 :root[data-theme="light"] .ov-conn-main__warn {
   color: color-mix(in srgb, var(--ov-mode-game) 45%, var(--ov-text));
 }
+/* Independent columns (MasonryColumns): a card that opens pushes down only its own column. */
 .ov-conn-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
-  align-items: start;
+  display: flex;
+  align-items: flex-start;
   gap: 0.75rem;
   margin-top: 0.875rem;
+}
+.ov-masonry__column {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 .ov-conn-card {
   display: flex;

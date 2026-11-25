@@ -37,6 +37,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
+import { MasonryColumns } from "./MasonryColumns";
 import { ProviderIcon } from "../connections/ProviderIcon";
 import { hostOf } from "../connections/ConnectionGroup";
 import { useConnectionDefaults } from "../connections/ConnectionDefaults";
@@ -1124,36 +1125,35 @@ export function ConnectionsLanding() {
       ) : nothing && !accounts?.length ? (
         <p className="ov-list__empty">{localize("No accounts yet.")}</p>
       ) : (
-        <div className="ov-conn-cards">
-          {byFolder ? (
-            folderView()
-          ) : (
-            <>
-              {visible.groups.map(({ account, rows: models }, index) => renderAccount(account, models, index))}
-              {visible.standalone.length ? (
-                <article className="ov-table-wrap ov-conn-card">
-                  <table className="ov-table ov-conn-card__table">
-                    <thead>
-                      <tr>
-                        <th scope="col" className="ov-table__name">
-                          <div className="ov-conn-card__head">
-                            <span className="ov-conn-card__name">
-                              <b>{localize("Other models")}</b>
-                            </span>
-                          </div>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="ov-conn-card__rows">
-                      {cardRows("__other", visible.standalone, (row) => renderModel(row, [row]))}
-                    </tbody>
-                  </table>
-                </article>
-              ) : null}
-            </>
-          )}
-          {!needle && kind === "all" ? <DeviceCard onOpen={(item) => openConnectionDetail(`device:${item}`)} /> : null}
-        </div>
+        <MasonryColumns className="ov-conn-cards">
+          {/* Plain arrays, not a fragment: each card has to reach MasonryColumns on its own to get a column. */}
+          {byFolder
+            ? folderView()
+            : visible.groups.map(({ account, rows: models }, index) => renderAccount(account, models, index))}
+          {!byFolder && visible.standalone.length ? (
+            <article key="__other" className="ov-table-wrap ov-conn-card">
+              <table className="ov-table ov-conn-card__table">
+                <thead>
+                  <tr>
+                    <th scope="col" className="ov-table__name">
+                      <div className="ov-conn-card__head">
+                        <span className="ov-conn-card__name">
+                          <b>{localize("Other models")}</b>
+                        </span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="ov-conn-card__rows">
+                  {cardRows("__other", visible.standalone, (row) => renderModel(row, [row]))}
+                </tbody>
+              </table>
+            </article>
+          ) : null}
+          {!needle && kind === "all" ? (
+            <DeviceCard key="__device" onOpen={(item) => openConnectionDetail(`device:${item}`)} />
+          ) : null}
+        </MasonryColumns>
       )}
       {modelMenu.node}
       {chooseFolder.dialog}
