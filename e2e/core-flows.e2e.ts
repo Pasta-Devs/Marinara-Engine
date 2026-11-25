@@ -5254,7 +5254,11 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await sheetThumbnail.focus();
     await sheetThumbnail.press("Enter");
     await expect(sheetPreview).toBeVisible();
-    await expect(sheetPreview.locator(".mari-modal-panel")).toHaveCount(0);
+    // The viewer sits on a Modal panel since #9455; the panel paints no chrome around the picture.
+    const sheetPanel = sheetPreview.locator(".mari-modal-panel");
+    await expect(sheetPanel).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(sheetPanel).toHaveCSS("border-width", "0px");
+    await expect(sheetPanel).toHaveCSS("box-shadow", "none");
     await expect(sheetPreview.getByRole("heading")).toHaveCount(0);
     await expect(sheetPreview.getByAltText(`${characterName} character sheet`, { exact: true })).toHaveJSProperty(
       "src",
@@ -9529,7 +9533,7 @@ for (const owner of ["character", "persona"] as const) {
       const close = lightbox.getByRole("button", { name: "Close image", exact: true });
       await close.focus();
       await page.keyboard.press("Tab");
-      await expect(lightbox.getByRole("button", { name: "Set as avatar", exact: true })).toBeFocused();
+      await expect(lightbox.getByRole("button", { name: "Use as avatar", exact: true })).toBeFocused();
       await page.keyboard.press("Shift+Tab");
       await expect(close).toBeFocused();
       const deleteImage = lightbox.getByRole("button", { name: "Delete", exact: true });

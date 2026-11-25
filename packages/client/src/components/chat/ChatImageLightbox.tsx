@@ -174,6 +174,8 @@ export function ChatImageLightbox({
   const versionIndex = stack?.versions.findIndex((row) => row.id === image.id) ?? 0;
   const galleryImages = stacks.map((group) => (group === stack ? image : group.selected));
   const navigating = selectionPending || selectVersion.isPending;
+  // Name the picture by its prompt, as `items` below does once a gallery has two or more (#9099 lost this).
+  const imageAlt = alt ?? (prompt || localizeUi("ui.chat.conversationmessagelightbox.expandedImage"));
 
   // Close is disabled while a regeneration runs, and the panel closes before `busy` clears: wait for
   // both, or focus falls to the page.
@@ -193,7 +195,7 @@ export function ChatImageLightbox({
         closeButtonRef={closeButtonRef}
         overMari={overMari}
         src={image.url}
-        alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
+        alt={imageAlt}
         childrenMaxHeightClass={
           editing ? "max-h-[64%] [@media(max-height:520px)]:max-h-[82%] sm:max-h-[48%]" : undefined
         }
@@ -203,7 +205,7 @@ export function ChatImageLightbox({
             <ImageMaskCanvas
               key={image.id}
               src={image.url}
-              alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
+              alt={imageAlt}
               disabled={busy || interactionDisabled}
               tool={maskTool}
               brushSizePx={maskBrushSize}
