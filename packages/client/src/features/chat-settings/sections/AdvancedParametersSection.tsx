@@ -7,6 +7,8 @@ import {
   CHAT_PARAMETER_DEFAULTS,
   GenerationParametersFields,
   getEditableGenerationParameters,
+  managedParameterOverrides,
+  parseEditableGenerationParameters,
   type EditableGenerationParameters,
   ROLEPLAY_PARAMETER_DEFAULTS,
   STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS,
@@ -190,11 +192,18 @@ export function AdvancedParametersSection({
       if (!editableKeys.has(key)) sparse[key] = value;
     }
     for (const key of EDITABLE_PARAMETER_KEYS) {
-      if (key === "enabledParameters") continue;
+      if (key === "enabledParameters" || key === "managedCustomParameters") continue;
       if (JSON.stringify(next[key]) !== JSON.stringify(defaults[key])) {
         sparse[key] = next[key];
       }
     }
+    // Custom parameter values are merged per parameter, so an edit keeps only this chat's own ones.
+    const managedOverrides = managedParameterOverrides(
+      parseEditableGenerationParameters(params)?.managedCustomParameters,
+      defaults.managedCustomParameters,
+      next.managedCustomParameters,
+    );
+    if (Object.keys(managedOverrides).length > 0) sparse.managedCustomParameters = managedOverrides;
     // Preserve explicit Send choices without freezing inherited connection switches
     // when the user edits an unrelated value.
     const previousSend = (params.enabledParameters ?? {}) as Record<string, unknown>;

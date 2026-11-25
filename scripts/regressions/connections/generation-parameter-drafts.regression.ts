@@ -150,8 +150,20 @@ assert.equal(DEFAULT_GENERATION_PARAMS.reasoningEffort, "maximum");
 
   const clientRequire = createRequire(new URL("../../../packages/client/package.json", import.meta.url));
   const React = clientRequire("react");
-  // The Node regression host compiles JSX in classic mode; the client uses the automatic runtime.
-  Object.assign(globalThis, { React });
+  // The Node regression host compiles JSX in classic mode (the client uses the automatic runtime), so the fields
+  // create their elements through this React. It keeps each ParamInput's props, to make the edits a person makes.
+  let paramInputs = new Map<string, { onChange: (next: number) => void; onSendChange?: (enabled: boolean) => void }>();
+  Object.assign(globalThis, {
+    React: {
+      ...React,
+      createElement: (type: unknown, props: Record<string, unknown> | null, ...children: unknown[]) => {
+        if (typeof type === "function" && type.name === "ParamInput" && props) {
+          paramInputs.set(String(props.label), props as never);
+        }
+        return React.createElement(type, props, ...children);
+      },
+    },
+  });
   const { renderToStaticMarkup } = clientRequire("react-dom/server");
   const { I18nextProvider } = await import("../../../packages/client/node_modules/react-i18next/dist/es/index.js");
   const { QueryClient, QueryClientProvider } =
@@ -169,20 +181,28 @@ assert.equal(DEFAULT_GENERATION_PARAMS.reasoningEffort, "maximum");
       },
     },
   });
-  const { CHAT_PARAMETER_DEFAULTS, GenerationParametersFields, foldCustomMinP, getEditableGenerationParameters } =
-    await import("../../../packages/client/src/components/ui/GenerationParametersEditor.js");
+  const {
+    CHAT_PARAMETER_DEFAULTS,
+    GenerationParametersFields,
+    getEditableGenerationParameters,
+    managedParameterOverrides,
+  } = await import("../../../packages/client/src/components/ui/GenerationParametersEditor.js");
   const { customGenerationParameterKeys } =
     await import("../../../packages/client/src/hooks/use-custom-generation-parameters.js");
 
   const minP = { id: "min-p", name: "Min P", requestKey: "min_p", min: 0, max: 1 };
-  const sending = {
-    ...getEditableGenerationParameters(CHAT_PARAMETER_DEFAULTS, null),
+  const base = getEditableGenerationParameters(CHAT_PARAMETER_DEFAULTS, null);
+  const withCustom = (enabled: boolean, value: number) => ({
+    ...base,
     minP: 0.05,
-    managedCustomParameters: { "min-p": { enabled: true, value: 0.35 } },
-  };
-  const minPControls = (props: Record<string, unknown>, definitions: unknown[] = [minP]) => {
+    managedCustomParameters: { "min-p": { enabled, value } },
+  });
+  const sending = withCustom(true, 0.35);
+  const fields = (props: Record<string, unknown>, value: unknown = sending, definitions: unknown[] = [minP]) => {
     const client = new QueryClient();
     client.setQueryData(customGenerationParameterKeys.all, definitions);
+    let changed: unknown;
+    paramInputs = new Map();
     const html: string = renderToStaticMarkup(
       React.createElement(
         I18nextProvider,
@@ -190,24 +210,56 @@ assert.equal(DEFAULT_GENERATION_PARAMS.reasoningEffort, "maximum");
         React.createElement(
           QueryClientProvider,
           { client },
-          React.createElement(GenerationParametersFields, { value: sending, onChange: () => {}, ...props }),
+          React.createElement(GenerationParametersFields, {
+            value,
+            onChange: (next: unknown) => (changed = next),
+            ...props,
+          }),
         ),
       ),
     );
+    const inputs = paramInputs;
     return {
       values: [...html.matchAll(/<input[^>]*aria-label="Min P"[^>]*>/gu)].map(
         ([input]) => /value="([^"]*)"/u.exec(input)?.[1],
       ),
       sendSwitch: html.includes('aria-label="Send Min P parameter"'),
+      edit(label: string, next: number) {
+        inputs.get(label)!.onChange(next);
+        return changed as typeof sending;
+      },
+      send(label: string, enabled: boolean) {
+        inputs.get(label)!.onSendChange!(enabled);
+        return changed as typeof sending;
+      },
     };
   };
+  const minPControls = (props: Record<string, unknown>, value?: unknown, definitions?: unknown[]) => {
+    const { values, sendSwitch } = fields(props, value, definitions);
+    return { values, sendSwitch };
+  };
 
-  // Where the built-in field shows for a Model, it is the control, and it holds the custom value the request carried.
   for (const [provider, model] of [
     ["custom", "llama-3.3-70b"],
     ["local_sidecar", "gemma-3-12b"],
   ]) {
-    assert.deepEqual(minPControls({ provider, model }), { values: ["0.35"], sendSwitch: false }, provider);
+    const props = { provider, model };
+    // Where the built-in field shows for a Model, it is the one control. While the custom min_p is on, the request
+    // sends it, so the field shows and edits it, with its Send switch.
+    assert.deepEqual(minPControls(props), { values: ["0.35"], sendSwitch: true }, provider);
+    assert.deepEqual(fields(props).edit("Min P", 0.1), {
+      ...sending,
+      managedCustomParameters: { "min-p": { enabled: true, value: 0.1 } },
+    });
+    // Any other edit saves the stored values as they were, so the request changes only by that edit.
+    assert.deepEqual(fields(props).edit("Temperature", 0.7), { ...sending, temperature: 0.7 });
+    // An enabled 0 is sent as min_p: 0, so it stays the control rather than a built-in 0, which sends nothing.
+    assert.deepEqual(minPControls(props, withCustom(true, 0)), { values: ["0"], sendSwitch: true });
+    // Turned off, the custom min_p sends nothing, and the field edits the built-in Min P.
+    assert.deepEqual(fields(props).send("Min P", false), withCustom(false, 0.35));
+    const off = withCustom(false, 0.35);
+    assert.deepEqual(minPControls(props, off), { values: ["0.05"], sendSwitch: false });
+    assert.deepEqual(fields(props, off).edit("Min P", 0.1), { ...off, minP: 0.1 });
   }
   // Where it is hidden, or no Model is picked, the custom parameter is the control and keeps its Send switch.
   for (const [provider, model] of [
@@ -220,19 +272,60 @@ assert.equal(DEFAULT_GENERATION_PARAMS.reasoningEffort, "maximum");
   // A preset's custom values are never sent, so its editor shows the preset's own Min P.
   assert.deepEqual(minPControls({}), { values: ["0.05"], sendSwitch: false }, "preset editor");
   // Without a custom min_p nothing changes: the built-in field shows wherever it did.
-  assert.deepEqual(minPControls({ provider: null }, []), { values: ["0.05"], sendSwitch: false });
+  assert.deepEqual(minPControls({ provider: null }, sending, []), { values: ["0.05"], sendSwitch: false });
+  // Only the exact key replaces the built-in min_p in the request; MIN_P is sent beside it, so both controls stay.
+  const upperCase = { ...minP, requestKey: "MIN_P" };
+  assert.deepEqual(minPControls({ provider: "custom", model: "llama-3.3-70b" }, sending, [upperCase]), {
+    values: ["0.05", "0.35"],
+    sendSwitch: true,
+  });
 
-  // The first change saves the move: the field takes the value, and the custom parameter is turned off.
-  const folded = foldCustomMinP(sending, minP);
-  assert.equal(folded.minP, 0.35);
-  assert.deepEqual(folded.managedCustomParameters, { "min-p": { enabled: false, value: 0.35 } });
-  assert.deepEqual(resolveManagedGenerationParameters([minP], folded.managedCustomParameters), {});
-  const off = { ...sending, managedCustomParameters: { "min-p": { enabled: false, value: 0.35 } } };
-  assert.equal(foldCustomMinP(off, minP), off, "a custom min_p that is off sent nothing, so the field keeps its value");
-  // The value moves as the request sent it: clamped to the parameter's range, then to Min P's.
-  const wide = { ...minP, min: 0.1, max: 2 };
-  const clamped = (value: number) =>
-    foldCustomMinP({ ...sending, managedCustomParameters: { "min-p": { enabled: true, value } } }, wide).minP;
-  assert.equal(clamped(0.05), 0.1);
-  assert.equal(clamped(1.5), 1);
+  // A chat's own custom values add to the connection's per parameter, as the request merges them, so the field shows
+  // the connection's min_p even when the chat holds a value for another parameter.
+  const repetition = { id: "rep", name: "Repetition penalty", requestKey: "repetition_penalty", min: 0, max: 2 };
+  const connection = { managedCustomParameters: { "min-p": { enabled: true, value: 0.35 } } };
+  const chat = { managedCustomParameters: { rep: { enabled: true, value: 1.2 } } };
+  const inherited = getEditableGenerationParameters(CHAT_PARAMETER_DEFAULTS, connection);
+  const inChat = getEditableGenerationParameters(inherited, chat);
+  assert.deepEqual(inChat.managedCustomParameters, {
+    ...connection.managedCustomParameters,
+    ...chat.managedCustomParameters,
+  });
+  assert.deepEqual(
+    resolveManagedGenerationParameters(
+      [minP, repetition],
+      connection.managedCustomParameters,
+      chat.managedCustomParameters,
+    ),
+    { min_p: 0.35, repetition_penalty: 1.2 },
+  );
+  const custom = { provider: "custom", model: "llama-3.3-70b" };
+  assert.deepEqual(minPControls(custom, inChat, [minP, repetition]).values, ["0.35"]);
+
+  // Chat Settings saves only the chat's own custom values: an unrelated edit pins nothing the chat inherits, so a
+  // later change to the connection's min_p still reaches the chat.
+  const temperatureOnly = fields(custom, inherited).edit("Temperature", 0.7);
+  assert.equal(temperatureOnly.minP, inherited.minP);
+  assert.deepEqual(
+    managedParameterOverrides(undefined, inherited.managedCustomParameters, temperatureOnly.managedCustomParameters),
+    {},
+  );
+  const typed = fields(custom, inChat, [minP, repetition]).edit("Min P", 0.1);
+  assert.deepEqual(
+    managedParameterOverrides(
+      chat.managedCustomParameters,
+      inherited.managedCustomParameters,
+      typed.managedCustomParameters,
+    ),
+    { "min-p": { enabled: true, value: 0.1 }, rep: { enabled: true, value: 1.2 } },
+  );
+  // A value the chat set for itself stays its own, even where it now matches the connection's.
+  assert.deepEqual(
+    managedParameterOverrides(
+      connection.managedCustomParameters,
+      inherited.managedCustomParameters,
+      inherited.managedCustomParameters,
+    ),
+    connection.managedCustomParameters,
+  );
 }

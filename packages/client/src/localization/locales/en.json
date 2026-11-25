@@ -7804,7 +7804,7 @@
   "settings.customGenerationParameters.loading": "Loading parameters…",
   "settings.customGenerationParameters.maximum": "Maximum value",
   "settings.customGenerationParameters.minimum": "Minimum value",
-  "settings.customGenerationParameters.minPBuiltIn": "The built-in model and OpenAI-compatible custom servers have a Min P field of their own. They show that field instead of this parameter, and an enabled value of this parameter moves into it.",
+  "settings.customGenerationParameters.minPBuiltIn": "The built-in model and OpenAI-compatible custom servers have a Min P field of their own and show it instead of this parameter. While this parameter is on, that field edits its value.",
   "settings.customGenerationParameters.name": "Name",
   "settings.customGenerationParameters.range": "Range: {{min}} to {{max}}",
   "settings.customGenerationParameters.save": "Save parameter",

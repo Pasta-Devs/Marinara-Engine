@@ -173,7 +173,7 @@ export function CustomGenerationParametersSettings() {
                     {definition.tooltip}
                   </p>
                 )}
-                {definition.requestKey.toLowerCase() === "min_p" && (
+                {definition.requestKey === "min_p" && (
                   <p className="mt-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                     {t("settings.customGenerationParameters.minPBuiltIn")}
                   </p>

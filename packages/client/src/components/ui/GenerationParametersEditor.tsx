@@ -254,31 +254,30 @@ export function getEditableGenerationParameters(
     // Codex keeps its own thinking level until one is picked, so its parameters start at Default.
     ...(provider === "openai_chatgpt" ? { reasoningEffort: null } : {}),
     ...parsed,
+    // The request merges custom parameter values per parameter, so a chat's own map adds to the connection's.
+    managedCustomParameters: { ...defaults.managedCustomParameters, ...parsed.managedCustomParameters },
     enabledParameters: mergeEnabledParameters(defaults.enabledParameters, parsed.enabledParameters),
   };
 }
 
 /**
- * Where the built-in Min P field shows, it is the only Min P control (#9816). A custom min_p parameter that is on was
- * what the request carried (custom parameters are merged over the built-in field), so its value moves into the field
- * and the custom parameter is turned off. The next change saves that; until then the request is the same.
+ * The custom parameter values a chat keeps as its own: those it already had and those that now differ from what it
+ * inherits. The rest are left out, so they keep following the connection.
  */
-export function foldCustomMinP(
-  value: EditableGenerationParameters,
-  definition: ManagedGenerationParameterDefinition,
-): EditableGenerationParameters {
-  const stored = value.managedCustomParameters[definition.id];
-  if (!stored?.enabled || !Number.isFinite(stored.value)) return value;
-  const sent = Math.min(definition.max, Math.max(definition.min, stored.value));
-  return {
-    ...value,
-    minP: Math.min(1, Math.max(0, sent)),
-    managedCustomParameters: { ...value.managedCustomParameters, [definition.id]: { ...stored, enabled: false } },
-  };
+export function managedParameterOverrides(
+  own: EditableGenerationParameters["managedCustomParameters"] | undefined,
+  inherited: EditableGenerationParameters["managedCustomParameters"],
+  next: EditableGenerationParameters["managedCustomParameters"],
+): EditableGenerationParameters["managedCustomParameters"] {
+  return Object.fromEntries(
+    Object.entries(next).filter(
+      ([id, entry]) => own?.[id] !== undefined || JSON.stringify(entry) !== JSON.stringify(inherited[id]),
+    ),
+  );
 }
 
 export function GenerationParametersFields({
-  value: storedValue,
+  value,
   onChange,
   showServiceTier = false,
   showOpenRouterServiceTier = showServiceTier,
@@ -345,7 +344,7 @@ export function GenerationParametersFields({
     model,
     baseUrl,
     capabilities: modelCapabilities ?? null,
-    reasoningEffort: storedValue.reasoningEffort,
+    reasoningEffort: value.reasoningEffort,
   };
   const relevant = provider === undefined ? null : relevantGenerationParameters(context);
   const show = (key: GenerationParameterKey) =>
@@ -353,14 +352,16 @@ export function GenerationParametersFields({
     (relevant ? relevant.has(key) : key !== "serviceTier" || showOpenRouterServiceTier);
   // One Min P control (#9816). With no Model picked the request can go to any connection, and every one that takes
   // custom parameters sends a custom min_p, so it stands in for the built-in field, which only two kinds of connection
-  // send. Elsewhere the built-in field, where it shows, takes the custom one's place.
-  const customMinP = managedDefinitions.find((definition) => definition.requestKey.toLowerCase() === "min_p");
+  // send. Elsewhere the built-in field, where it shows, takes the custom one's place. Only the exact key overrides it.
+  const customMinP = managedDefinitions.find((definition) => definition.requestKey === "min_p");
   const showMinP = show("minP") && !(customMinP && relevant && !provider);
   const managedControls = showMinP
     ? managedDefinitions.filter((definition) => definition !== customMinP)
     : managedDefinitions;
-  // A preset's custom values are never sent, so only a Model's settings move a custom value into the field.
-  const value = showMinP && customMinP && provider ? foldCustomMinP(storedValue, customMinP) : storedValue;
+  // Custom parameters are merged over the built-in field, so while a Model's custom min_p is on, the field edits it
+  // and it stays on. A preset's custom values are never sent, so its field always edits its own Min P.
+  const sentCustomMinP =
+    showMinP && customMinP && provider && value.managedCustomParameters[customMinP.id]?.enabled ? customMinP : null;
   const effortChoices = reasoningEffortChoices({ ...context, selected: value.reasoningEffort }).filter(
     (choice) => choice.value !== null || !isClaudeOpus55Model(model ?? ""),
   );
@@ -460,11 +461,20 @@ export function GenerationParametersFields({
             <ParamInput
               label={localizeUi("ui.ui.generationparametersfields.minP")}
               help={localizeUi("ui.ui.generationparametersfields.minPHelp")}
-              value={value.minP ?? 0}
-              onChange={(nextValue) => set("minP", nextValue)}
+              value={
+                sentCustomMinP
+                  ? (value.managedCustomParameters[sentCustomMinP.id]?.value ?? sentCustomMinP.min)
+                  : (value.minP ?? 0)
+              }
+              onChange={(nextValue) =>
+                sentCustomMinP ? setManagedParameter(sentCustomMinP, { value: nextValue }) : set("minP", nextValue)
+              }
               effective={effectiveHint("minP")}
-              min={0}
-              max={1}
+              // The custom parameter's own switch; turned off, the field edits the built-in Min P.
+              sendEnabled={sentCustomMinP ? true : undefined}
+              onSendChange={sentCustomMinP ? (enabled) => setManagedParameter(sentCustomMinP, { enabled }) : undefined}
+              min={sentCustomMinP?.min ?? 0}
+              max={sentCustomMinP?.max ?? 1}
               step={0.01}
             />
           )}

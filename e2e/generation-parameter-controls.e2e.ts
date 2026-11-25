@@ -283,18 +283,28 @@ test("an OpenAI-compatible server shows one Min P field, holding a custom min_p'
     const parameters = page.locator('.mari-chat-settings-drawer [data-chat-settings-section="advanced-parameters"]');
     await parameters.getByText("Advanced Parameters", { exact: true }).click();
 
-    // One Min P control, the built-in field, showing the value the request carried. A second control would fail
-    // these strict locators.
+    // One Min P control, the built-in field, showing and editing the custom value the request carries. A second
+    // control would fail these strict locators.
     const minP = parameters.getByRole("textbox", { name: "Min P", exact: true });
     await expect(minP).toHaveValue("0.35");
     await expect(parameters.getByText("Min P", { exact: true })).toBeVisible();
-    await expect(parameters.getByRole("switch", { name: "Send Min P parameter", exact: true })).toHaveCount(0);
+    await expect(parameters.getByRole("switch", { name: "Send Min P parameter", exact: true })).toBeChecked();
+
+    const savedParameters = async () =>
+      (await (await request.get(`/api/chats/${chat.id}`)).json()).metadata.chatParameters;
+    // Another edit saves only that edit.
+    const temperature = parameters.getByRole("textbox", { name: "Temperature", exact: true });
+    await temperature.fill("0,7");
+    await temperature.press("Enter");
+    await expect
+      .poll(savedParameters)
+      .toEqual({ temperature: 0.7, managedCustomParameters: { [definition.id]: { enabled: true, value: 0.35 } } });
 
     await minP.fill("0,1");
     await minP.press("Enter");
     await expect
-      .poll(async () => (await (await request.get(`/api/chats/${chat.id}`)).json()).metadata.chatParameters)
-      .toMatchObject({ minP: 0.1, managedCustomParameters: { [definition.id]: { enabled: false, value: 0.35 } } });
+      .poll(savedParameters)
+      .toEqual({ temperature: 0.7, managedCustomParameters: { [definition.id]: { enabled: true, value: 0.1 } } });
     await expect(minP).toHaveValue("0.1");
   } finally {
     await request.delete(`/api/chats/${chat.id}`);
