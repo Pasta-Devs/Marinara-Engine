@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { closeChatSettings, openChatMessageSearch, openChatSettings, openChatTool } from "./chat-settings-tools.js";
+import { closeChatSettings, drawerToggle, openChatSettings, openChatTool } from "./chat-settings-tools.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -354,8 +354,10 @@ async function exerciseColorControls(page: Page, preset: Preset, theme: "dark" |
   await expectGradientWidgets(page, settings, page.locator("[data-chat-settings-button]"));
   await expectButtonRing(page, page.locator("[data-chat-settings-button]"), preset);
   // A custom foreground/background pair must remain paired on native fields in either app theme.
-  // Profile is a picker button since #9246, so the native field checked is Search messages.
-  const field = (await openChatMessageSearch(page)).getByRole("searchbox");
+  // Profile is a picker button since #9246. Lorebook Token Budget is a native field with no text color of its own.
+  const lorebooks = settings.locator('[data-drawer="lorebooks"]');
+  if ((await drawerToggle(lorebooks).getAttribute("aria-expanded")) !== "true") await drawerToggle(lorebooks).click();
+  const field = lorebooks.locator('input[inputmode="numeric"]');
   await expect(field).toHaveCSS(
     "background-image",
     await resolvedStyle(page, "background-image", GRADIENT_COLORS.background),
