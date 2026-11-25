@@ -7150,7 +7150,7 @@
   "rulesetBuilder.promptsHelp": "What the narrator is told about these rules, in your own words. Where a box shows a default, leave it empty to use it. Line breaks become spaces, and square brackets or double curly braces aren't allowed.",
   "rulesetBuilder.rankBonus": "Bonus",
   "rulesetBuilder.rankDisplay": "Show ranks on the sheet as",
-  "rulesetBuilder.rankDisplayHelp": "What the sheet shows beside each trained skill. Whichever you choose, checks and the narrator's copy of the sheet stay the same.",
+  "rulesetBuilder.rankDisplayHelp": "What the sheet shows beside each trained skill and save. Whichever you choose, checks and the narrator's copy of the sheet stay the same.",
   "rulesetBuilder.rankDisplays.dots": "Dots (●●○)",
   "rulesetBuilder.rankDisplays.label": "Rank name",
   "rulesetBuilder.rankDisplays.number": "Rank number (2)",

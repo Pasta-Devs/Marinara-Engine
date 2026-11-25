@@ -103,7 +103,7 @@ The chat moves to the new version and keeps every sheet. Renaming a stat, skill,
 | The order of rows | Stats, skills, pools, tracks, fields and list tabs show in the order of the form. Drag a row by its grip to move it, or focus the grip and press the up and down arrow keys. |
 | A stat's or skill's **Group** | Stats or skills with the same group show under one heading. |
 | **Skill ranks** | The ranks you pick for each skill on the sheet, each with what it adds: to the total on a d20 or 2d6 roll, dice on a pool, points on a percentile. |
-| **Show ranks on the sheet as** | What the sheet shows beside each trained skill: **Check value (+2)**, the **Rank name**, **Dots (●●○)**, **Roman numerals (II)** or the **Rank number (2)**. Checks and the narrator's copy of the sheet stay the same. |
+| **Show ranks on the sheet as** | What the sheet shows beside each trained skill and save: **Check value (+2)**, the **Rank name**, **Dots (●●○)**, **Roman numerals (II)** or the **Rank number (2)**. Checks and the narrator's copy of the sheet stay the same. |
 | **Practice meter** | Each trained skill shows how far it is toward its next rank, from 0 to 99%. Practice in the story raises it, and a rank-up starts it over. You can correct it on the sheet. Under **No meter for:**, tick a group to leave its skills out. |
 | **Number**, **Bar** or **Dots** on a pool or track | The number alone, a fill bar beside it, or a row of dots filled up to it, one dot a point. More than 20 dots show as a bar. |
 | **Lists** | Each list gets its own tab, named after the list unless you type another tab name. Lists with the same tab name share a tab. |

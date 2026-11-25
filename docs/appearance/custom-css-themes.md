@@ -289,11 +289,11 @@ A ruleset's character sheet looks the same in Roleplay and Game. These classes a
 | A pool, such as Health | `.mari-ruleset-sheet__pool` (in `.mari-ruleset-sheet__pools`) | `data-pool`; a group of pools has `data-pool-group` |
 | A track | `.mari-ruleset-sheet__track` (in `.mari-ruleset-sheet__tracks`) | `data-track`; a wound track also has `data-wound="true"` |
 | Conditions | `.mari-ruleset-sheet__conditions` | |
-| A trained skill or save | `.mari-ruleset-sheet__rank` (in `.mari-ruleset-sheet__trained`, by group in `.mari-ruleset-sheet__rank-group`); its rank is `__rank-value`, the check value shown beside it on a phone `__rank-check`, its practice `__practice` | `data-skill` or `data-save`, `data-tier` (the tier's ID), `data-rank` (`0` untrained, `1` the next tier, and so on) |
+| A trained skill or save | `.mari-ruleset-sheet__rank` (in `.mari-ruleset-sheet__trained`, by group in `.mari-ruleset-sheet__rank-group`); its rank, or its check value where the ruleset shows ranks as check values (`data-rank-display="value"`), is `__rank-value`, the check value shown beside it on a phone `__rank-check`, its practice `__practice` | `data-skill` or `data-save`, `data-tier` (the tier's ID), `data-rank` (`0` untrained, `1` the next tier, and so on) |
 | A skill or save while the sheet is edited | `.mari-ruleset-sheet-editor__rank` | `data-skill` or `data-save`, `data-tier`, `data-rank` |
 | A list, such as Gear | `.mari-ruleset-sheet__list`; each row is `.mari-ruleset-sheet__list-row` | `data-list`; a ticked row has `data-marked="true"` |
 
-For example, this shows rank 2 of one ruleset as two stars. Add a pair of rules like these for each rank you want to change:
+For example, this shows rank 2 of one ruleset as two stars. Add a pair of rules like these for each rank you want to change. Use it only on a ruleset that shows ranks as dots, names, Roman numerals or numbers: where it shows check values, `__rank-value` holds the check value, and this would hide it.
 
 ```css
 .mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value {
