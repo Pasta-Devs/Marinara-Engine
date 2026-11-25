@@ -697,6 +697,16 @@ export const AGENT_TRACKER_DATA_SECTIONS = [
 export type AgentTrackerDataSection = (typeof AGENT_TRACKER_DATA_SECTIONS)[number];
 export const AGENT_TRACKER_DATA_SECTIONS_SETTING = "trackerDataSections";
 
+/** Built-in trackers: each reads its own section plus the scene line, whatever is picked. */
+export const BUILT_IN_TRACKER_AGENT_TYPES: readonly string[] = [
+  "world-state",
+  "character-tracker",
+  "persona-stats",
+  "quest",
+  "custom-tracker",
+  "inventory-tracker",
+];
+
 /** The picked sections in canonical order, or null for All sections. */
 export function getAgentTrackerDataSections(settings: unknown): AgentTrackerDataSection[] | null {
   const stored = parseAgentSettingsRecord(settings)[AGENT_TRACKER_DATA_SECTIONS_SETTING];

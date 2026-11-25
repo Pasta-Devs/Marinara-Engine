@@ -120,6 +120,11 @@ import {
   getAgentCardContextMode,
   getAgentContextSources,
   setAgentCardContextMode,
+  AGENT_TRACKER_DATA_SECTIONS,
+  AGENT_TRACKER_DATA_SECTIONS_SETTING,
+  BUILT_IN_TRACKER_AGENT_TYPES,
+  getAgentTrackerDataSections,
+  type AgentTrackerDataSection,
   normalizeAgentPromptTemplateOptions,
   normalizeStoryboardAgentSettings,
   normalizeIllustratorRunInterval,
@@ -845,6 +850,8 @@ export function AgentEditor() {
   const [localContextSources, setLocalContextSources] = useState<CustomAgentContextSources>(() => ({
     ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES,
   }));
+  // Picked Tracker Data sections (#9745); null means All sections.
+  const [localTrackerDataSections, setLocalTrackerDataSections] = useState<AgentTrackerDataSection[] | null>(null);
   const [localInjectAsSection, setLocalInjectAsSection] = useState(false);
   const [localIncludePreGenInjections, setLocalIncludePreGenInjections] = useState(false);
   const [localIncludeParallelResults, setLocalIncludeParallelResults] = useState(false);
@@ -1164,6 +1171,7 @@ export function AgentEditor() {
       );
       setLocalCustomCapabilities(normalizeCustomAgentCapabilities(settings));
       setLocalContextSources(getAgentContextSources({ isCustomAgent: !builtIn, settings }));
+      setLocalTrackerDataSections(getAgentTrackerDataSections(settings));
       setLocalResultType(normalizeCustomResultType(settings.resultType));
       setLocalOutputOptions({
         jsonContextOutput: settings.jsonContextOutput === true,
@@ -1637,6 +1645,9 @@ export function AgentEditor() {
         ...(isEditingCustomAgent ? { customCapabilities } : {}),
         ...(isEditingCustomAgent ? { homeWidgets: localHomeWidgets } : {}),
         contextSources: localContextSources,
+        ...(localContextSources.trackerData && localTrackerDataSections
+          ? { [AGENT_TRACKER_DATA_SECTIONS_SETTING]: localTrackerDataSections }
+          : {}),
         batchWithOtherAgents: localBatchWithOtherAgents,
         ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
         ...(isEditingCustomAgent ? localOutputOptions : {}),
@@ -1766,6 +1777,7 @@ export function AgentEditor() {
     localOutputOptions,
     localCustomCapabilities,
     localContextSources,
+    localTrackerDataSections,
     localConnectionId,
     localImageConnectionId,
     localIncludePreGenInjections,
@@ -2020,6 +2032,9 @@ export function AgentEditor() {
       ...(isEditingCustomAgent ? { customCapabilities } : {}),
       ...(isEditingCustomAgent ? { homeWidgets: localHomeWidgets } : {}),
       contextSources: localContextSources,
+      ...(localContextSources.trackerData && localTrackerDataSections
+        ? { [AGENT_TRACKER_DATA_SECTIONS_SETTING]: localTrackerDataSections }
+        : {}),
       batchWithOtherAgents: localBatchWithOtherAgents,
       ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
       ...(isEditingCustomAgent ? localOutputOptions : {}),
@@ -2887,6 +2902,22 @@ export function AgentEditor() {
                 {CUSTOM_AGENT_CONTEXT_SOURCE_META.map((source) => {
                   const allowed =
                     !source.requiredCapability || localCustomCapabilities[source.requiredCapability] === true;
+                  if (source.id === "trackerData" && !BUILT_IN_TRACKER_AGENT_TYPES.includes(builtIn?.id ?? "")) {
+                    return (
+                      <TrackerDataSourceRow
+                        key={source.id}
+                        label={localizeUi(source.label)}
+                        description={localizeUi(source.description)}
+                        enabled={localContextSources.trackerData}
+                        sections={localTrackerDataSections}
+                        onChange={(enabled, sections) => {
+                          setLocalContextSources((current) => ({ ...current, trackerData: enabled }));
+                          setLocalTrackerDataSections(sections);
+                          markDirty();
+                        }}
+                      />
+                    );
+                  }
                   if (source.id === "characters" || source.id === "persona") {
                     const cardSource: AgentCardContextSource = source.id;
                     return (
@@ -5439,6 +5470,110 @@ function AgentCardSourceRow({
     </div>
   );
 }
+
+type TrackerDataMode = "off" | "all" | "pick";
+
+/**
+ * Tracker Data as a three-way choice like the Characters and Persona rows (#9426): Off, All
+ * sections, or Pick sections with a toggle per section (#9745).
+ */
+function TrackerDataSourceRow({
+  label,
+  description,
+  enabled,
+  sections,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  enabled: boolean;
+  sections: AgentTrackerDataSection[] | null;
+  onChange: (enabled: boolean, sections: AgentTrackerDataSection[] | null) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const mode: TrackerDataMode = !enabled ? "off" : sections ? "pick" : "all";
+  const toggleSection = (section: AgentTrackerDataSection) => {
+    const current = sections ?? [];
+    const next = current.includes(section) ? current.filter((entry) => entry !== section) : [...current, section];
+    // At least one section stays picked; clearing the last one would read as All sections.
+    if (next.length === 0) return;
+    onChange(
+      true,
+      AGENT_TRACKER_DATA_SECTIONS.filter((entry) => next.includes(entry)),
+    );
+  };
+  return (
+    <div
+      className={cn(
+        "flex w-full flex-col gap-2 rounded-xl p-3 text-left text-xs ring-1",
+        mode === "off"
+          ? "bg-[var(--secondary)]/55 text-[var(--muted-foreground)] ring-[var(--border)]"
+          : "bg-[var(--primary)]/10 text-[var(--foreground)] ring-[var(--primary)]/40",
+      )}
+    >
+      {/* Same label and description styles as the Characters and Persona rows (AgentCardSourceRow). */}
+      <div className="flex flex-col">
+        <span className="font-semibold">{label}</span>
+        <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
+          {description}
+        </span>
+      </div>
+      <CommandCenterSegmentedChoice<TrackerDataMode>
+        value={mode}
+        label={label}
+        onValueChange={(next) => {
+          if (next === "off") onChange(false, sections);
+          else if (next === "all") onChange(true, null);
+          else onChange(true, sections ?? ["scene"]);
+        }}
+        options={[
+          { value: "off", label: localizeUi("ui.agents.agenteditor.trackerDataMode.off") },
+          { value: "all", label: localizeUi("ui.agents.agenteditor.trackerDataMode.all") },
+          { value: "pick", label: localizeUi("ui.agents.agenteditor.trackerDataMode.pick") },
+        ]}
+      />
+      {mode === "pick" && (
+        <div
+          className="flex flex-wrap gap-1.5"
+          role="group"
+          aria-label={localizeUi("ui.agents.agenteditor.trackerDataMode.pick")}
+        >
+          {AGENT_TRACKER_DATA_SECTIONS.map((section) => {
+            const active = sections?.includes(section) === true;
+            return (
+              <button
+                key={section}
+                type="button"
+                aria-pressed={active}
+                onClick={() => toggleSection(section)}
+                className={cn(
+                  // Same sizes and selected look as the segmented choice above (44 px tap target on phones).
+                  "inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold ring-1 transition-all sm:min-h-7",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+                  active
+                    ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm ring-transparent"
+                    : "text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] hover:text-[var(--foreground)]",
+                )}
+              >
+                {localizeUi(TRACKER_DATA_SECTION_LABELS[section])}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const TRACKER_DATA_SECTION_LABELS: Record<AgentTrackerDataSection, string> = {
+  scene: "ui.agents.agenteditor.trackerDataSection.scene",
+  world: "ui.agents.agenteditor.trackerDataSection.world",
+  characters: "ui.agents.agenteditor.trackerDataSection.characters",
+  persona: "ui.agents.agenteditor.trackerDataSection.persona",
+  quests: "ui.agents.agenteditor.trackerDataSection.quests",
+  customFields: "ui.agents.agenteditor.trackerDataSection.customFields",
+  inventory: "ui.agents.agenteditor.trackerDataSection.inventory",
+};
 
 function ToolCard({
   tool,
