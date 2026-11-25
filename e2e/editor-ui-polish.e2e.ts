@@ -476,8 +476,7 @@ test("persona avatar removal progress belongs to the active editor session", asy
     const nextReplace = nextEditor
       .locator('[data-editor-section="metadata"] fieldset')
       .nth(1)
-      .locator("button")
-      .first();
+      .getByRole("button", { name: /^Upload(ing)? avatar/u });
     await expect(nextReplace).toHaveText("Uploading avatar…");
     await expect(nextReplace).toBeDisabled();
     await expect(nextReplace).toHaveAttribute("aria-busy", "true");

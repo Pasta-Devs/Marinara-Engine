@@ -236,8 +236,8 @@ test("Chat Settings keeps Play as a character folders usable", async ({ page, re
     await expectAvatarsInSlots(picker, 2);
     await expectReachable([
       picker.getByPlaceholder("Search personas and characters", { exact: true }),
-      // A floating window on desktop, a bottom sheet titled like the window on a phone.
-      picker.getByRole("button", { name: /^Close( Personas)?$/ }),
+      // The picker is a popover without Close on desktop; a phone's bottom sheet has one.
+      ...(info.project.name.includes("mobile") ? [picker.getByRole("button", { name: /^Close( Personas)?$/ })] : []),
       playAs,
       folder,
       ...rows,
