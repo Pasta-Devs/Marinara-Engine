@@ -23500,33 +23500,77 @@ test("a ?chat= launch link opens that chat once and leaves the address clean", a
   }
 });
 
-test("page backing keeps the app running when the browser refuses canvas reads", async ({ page }) => {
-  // WebKit throws InvalidStateError from getImageData under memory pressure (#7241).
+test("shell surfaces and the page backing keep their colors when canvas reads come back random", async ({ page }) => {
+  // #9791: Firefox's resistFingerprinting (and canvas blockers) return random canvas pixels, which painted
+  // the sidebar and editors a new random color on every load. WebKit can also refuse the read (#7241).
   await page.addInitScript(() => {
-    CanvasRenderingContext2D.prototype.getImageData = () => {
-      throw new DOMException("Unable to get image data from canvas", "InvalidStateError");
-    };
+    const getImageData = CanvasRenderingContext2D.prototype.getImageData;
+    CanvasRenderingContext2D.prototype.getImageData = function (this: CanvasRenderingContext2D, ...args) {
+      const image = getImageData.apply(this, args);
+      crypto.getRandomValues(image.data);
+      return image;
+    } as typeof getImageData;
   });
   await page.goto("/");
   await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
+  const html = page.locator("html");
+  const rootValue = (name: string) =>
+    html.evaluate((element, property) => getComputedStyle(element).getPropertyValue(property).trim(), name);
+  // The Dark theme's --card (#141414d9), at `share` of its opacity, over a background, rounded as the app does.
+  const cardOver = (background: readonly number[], share = 1) => {
+    const alpha = (0xd9 / 255) * share;
+    return `rgb(${background.map((channel) => Math.round(0x14 * alpha + channel * (1 - alpha))).join(", ")})`;
+  };
+  // The card over the theme's background (#050312), as the sidebar and the editors paint it.
+  const shellSurface = cardOver([0x05, 0x03, 0x12]);
+  await expect.poll(() => rootValue("--marinara-shell-surface")).toBe(shellSurface);
+  expect(await rootValue("--sidebar")).toBe(shellSurface);
+  expect(await rootValue("--marinara-editor-bg")).toBe(shellSurface);
+
   await page.evaluate(async () => {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
     useUIStore.getState().saveUiStyleOverride("app", { background: "#234567" });
   });
   await expect(page.getByText("Marinara hit a recoverable UI error.")).toHaveCount(0);
-  // Without the canvas, the backing keeps the theme's own background color, unflattened.
-  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(35, 69, 103)");
-  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(35, 69, 103)");
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#234567");
+  // The top bar's surface (the card at 80%) over the chosen color backs the page and the browser chrome.
+  const backing = cardOver([0x23, 0x45, 0x67], 0.8);
   await expect
-    .poll(() => page.locator("html").evaluate((element) => element.style.getPropertyValue("--marinara-page-backing")))
-    .toBe("#234567");
-  // Its contrast can't be checked either, so editors and fields keep the theme's own surface.
-  await expect
-    .poll(() =>
-      page.locator("html").evaluate((element) => getComputedStyle(element).getPropertyValue("--background").trim()),
-    )
-    .toBe("#050312");
+    .poll(() => html.evaluate((element) => element.style.getPropertyValue("--marinara-page-backing")))
+    .toBe(backing);
+  await expect(html).toHaveCSS("background-color", backing);
+  await expect(page.locator("body")).toHaveCSS("background-color", backing);
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", backing);
+  // The contrast check now runs without a canvas: the Dark theme's text (#d4d4d4) reads on #234567 at 6.7:1,
+  // so editors and fields take it too, as they already did wherever the canvas read worked.
+  await expect.poll(() => rootValue("--background")).toBe("#234567");
+});
+
+test("a custom theme's light-dark() card gives the shell surface the current mode's branch", async ({ page }) => {
+  // A detached canvas resolved light-dark() as Light in Chromium and Firefox, and WebKit refused it.
+  await page.route("**/api/themes", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "light-dark-card",
+          name: "Light-dark card",
+          css: ":root { --card: light-dark(#abcdef, #234567); }",
+          isActive: true,
+        },
+      ],
+    }),
+  );
+  await page.goto("/");
+  await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
+  const shellSurface = () =>
+    page
+      .locator("html")
+      .evaluate((element) => getComputedStyle(element).getPropertyValue("--marinara-shell-surface").trim());
+  await expect.poll(shellSurface).toBe("rgb(35, 69, 103)");
+  await page.evaluate(async () => {
+    const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+    useUIStore.getState().setTheme("light");
+  });
+  await expect.poll(shellSurface).toBe("rgb(171, 205, 239)");
 });
 
 test("a dark app background in Light mode leaves editors and fields on the theme's surface", async ({ page }) => {
