@@ -224,13 +224,15 @@ async function runCase(options, env = {}) {
   assert.equal(getStatusAttempts(), 2);
 }
 
-// The review evaluator answers one review signal. A newer signal for the same pull request supersedes it: the run ends
-// without publishing, and the newer signal's run publishes. Without SIGNAL_RUN_ID (the triage job) nothing is listed.
+// The review evaluator answers one review signal. A newer signal for the same pull request that has completed supersedes
+// it: the run ends without publishing, and the newer signal's run publishes. Without SIGNAL_RUN_ID (the triage job)
+// nothing is listed.
+const completed = { status: "completed", conclusion: "success" };
 {
   const { getSignalListings } = await runCase({
     pullRequest: { ...basePullRequest, user: { login: "MemberDeveloper" } },
     membership: { state: "active", role: "member" },
-    signalRuns: [{ id: 2000, head_sha: "head-sha", pull_requests: [{ number: 42 }] }],
+    signalRuns: [{ id: 2000, ...completed, head_sha: "head-sha", pull_requests: [{ number: 42 }] }],
   });
   assert.equal(getSignalListings(), 0);
 }
@@ -242,12 +244,13 @@ const member = {
 };
 
 for (const newer of [
-  { id: 1001, head_sha: "later-sha", pull_requests: [{ number: 42 }] },
-  { id: 1001, head_sha: "later-sha", pull_requests: [{ number: 7 }, { number: 42 }] },
+  { id: 1001, ...completed, head_sha: "later-sha", pull_requests: [{ number: 42 }] },
+  { id: 1001, ...completed, head_sha: "later-sha", pull_requests: [{ number: 7 }, { number: 42 }] },
   // A fork's signal lists no pull requests; its head names the pull request.
-  { id: 1001, head_sha: "head-sha", pull_requests: [] },
-  { id: 1001, head_sha: "reviewed-sha", pull_requests: [] },
-  { id: 1001, status: "queued", conclusion: null, head_sha: "head-sha", pull_requests: [] },
+  { id: 1001, ...completed, head_sha: "head-sha", pull_requests: [] },
+  { id: 1001, ...completed, head_sha: "reviewed-sha", pull_requests: [] },
+  // The evaluator starts on any completed signal, whatever its conclusion.
+  { id: 1001, status: "completed", conclusion: "failure", head_sha: "head-sha", pull_requests: [{ number: 42 }] },
 ]) {
   const { result, statuses } = await evaluateCase({ ...member, signalRuns: [newer] }, signal);
   assert.equal(result.superseded, true, JSON.stringify(newer));
@@ -261,10 +264,10 @@ for (const newer of [
       signalRuns: [
         // Another pull request's newer signal, a newer one still waiting for approval to run, this run's own signal
         // and an older one: none of them supersedes this run.
-        { id: 1003, head_sha: "other-sha", pull_requests: [{ number: 7 }] },
-        { id: 1002, conclusion: "action_required", head_sha: "head-sha", pull_requests: [] },
-        { id: 1000, head_sha: "reviewed-sha", pull_requests: [{ number: 42 }] },
-        { id: 999, head_sha: "head-sha", pull_requests: [{ number: 42 }] },
+        { id: 1003, ...completed, head_sha: "other-sha", pull_requests: [{ number: 7 }] },
+        { id: 1002, status: "completed", conclusion: "action_required", head_sha: "head-sha", pull_requests: [] },
+        { id: 1000, ...completed, head_sha: "reviewed-sha", pull_requests: [{ number: 42 }] },
+        { id: 999, ...completed, head_sha: "head-sha", pull_requests: [{ number: 42 }] },
       ],
     },
     signal,
@@ -274,12 +277,28 @@ for (const newer of [
 }
 
 {
+  // A newer signal that is still queued or running has no evaluator yet, and one stuck in the queue never gets one. The
+  // evaluator for it starts after this run publishes, so this run still publishes.
+  for (const status of ["queued", "in_progress", "waiting", "pending", "requested"]) {
+    const { status: published, getSignalListings } = await runCase(
+      {
+        ...member,
+        signalRuns: [{ id: 1001, status, conclusion: null, head_sha: "head-sha", pull_requests: [{ number: 42 }] }],
+      },
+      signal,
+    );
+    assert.equal(published.state, "success", status);
+    assert.equal(getSignalListings(), 2, status);
+  }
+}
+
+{
   // A review submitted while this run evaluates: the older run must not write after the newer one.
   const { result, statuses } = await evaluateCase(
     {
       ...member,
       signalRuns: (listing) =>
-        listing === 1 ? [] : [{ id: 1001, head_sha: "head-sha", pull_requests: [{ number: 42 }] }],
+        listing === 1 ? [] : [{ id: 1001, ...completed, head_sha: "head-sha", pull_requests: [{ number: 42 }] }],
     },
     signal,
   );
@@ -292,8 +311,8 @@ for (const newer of [
   // publishes this pull request's own result.
   const notFound = Object.assign(new Error("Not Found"), { status: 404 });
   for (const otherPullRequest of [
-    { id: 1001, head_sha: "head-sha", pull_requests: [{ number: 7 }] },
-    { id: 1001, head_sha: "reviewed-sha", pull_requests: [{ number: 7 }] },
+    { id: 1001, ...completed, head_sha: "head-sha", pull_requests: [{ number: 7 }] },
+    { id: 1001, ...completed, head_sha: "reviewed-sha", pull_requests: [{ number: 7 }] },
   ]) {
     const { status } = await runCase({ membershipError: notFound, signalRuns: [otherPullRequest] }, signal);
     assert.equal(status.state, "failure", JSON.stringify(otherPullRequest));
@@ -307,7 +326,7 @@ for (const newer of [
       ...member,
       statusFailures: 1,
       signalRuns: (listing) =>
-        listing <= 2 ? [] : [{ id: 1001, head_sha: "head-sha", pull_requests: [{ number: 42 }] }],
+        listing <= 2 ? [] : [{ id: 1001, ...completed, head_sha: "head-sha", pull_requests: [{ number: 42 }] }],
     },
     signal,
   );

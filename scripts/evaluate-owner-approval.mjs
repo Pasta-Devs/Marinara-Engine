@@ -52,7 +52,8 @@ async function listPullRequestReviews(request, token, repositoryPath, pullNumber
 
 // GitHub runs the review evaluator (owner-approval-review.yml) on the default branch, so a run cancelled by a
 // concurrency group shows as a failed check on main. Instead, a run ends without publishing when a newer review signal
-// for the same pull request exists; that signal's own run publishes. pull-request-triage.yml sets no SIGNAL_RUN_ID.
+// for the same pull request has completed; that signal's own run publishes. pull-request-triage.yml sets no
+// SIGNAL_RUN_ID.
 async function newerReviewSignal({ env, request, token, repositoryPath, pullNumber, headSha }) {
   const signalRunId = Number(env.SIGNAL_RUN_ID);
   if (!signalRunId) return false;
@@ -66,7 +67,10 @@ async function newerReviewSignal({ env, request, token, repositoryPath, pullNumb
     return runs.some(
       (run) =>
         run.id > signalRunId &&
-        // A fork's run that waits for approval to start may never start an evaluator.
+        // An evaluator starts only when its signal completes, so a newer signal still queued or running has written
+        // nothing yet, and one stuck in the queue would never write. A fork's run that waits for approval to start
+        // reports completed too, but may never start an evaluator.
+        run.status === "completed" &&
         run.conclusion !== "action_required" &&
         // A commit can head more than one pull request, so a run that lists pull requests must list this one. Only a
         // fork's run, which lists none, is matched by its head.
