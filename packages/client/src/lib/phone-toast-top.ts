@@ -91,8 +91,8 @@ export function watchPhoneToastTop(host: HTMLElement): () => void {
     [...observedHeaders].some(
       (header) => header.matches("[data-phone-toast-header]") && header.parentElement?.contains(node),
     );
-  // Measuring reads styles and layout. Done in the mutation delivery for every class or style change
-  // around a header, it forced a full restyle and layout in the middle of every render while a toast
+  // Measuring reads styles and layout. Done in the mutation delivery for every class or style change on
+  // or around a header, it forced a full restyle and layout in the middle of every render while a toast
   // showed (a lasting "update ready" toast made opening Chat settings measure the page twice). Those
   // changes get one measure per frame, run before that frame paints.
   let refreshFrame = 0;
@@ -108,15 +108,13 @@ export function watchPhoneToastTop(host: HTMLElement): () => void {
     for (const record of records) {
       // Streaming messages and toast animations cannot move these headers.
       if (host.contains(record.target)) continue;
-      // A header that comes, goes or changes, or a custom panel that grows under its header, is measured
-      // in this delivery. Until a frame callback measures it, the toast sits over the new controls: a
-      // tap or hit test before then lands on the toast, and a change made in another frame callback
-      // paints it there for a frame.
+      // A header that comes or goes, or a change inside a custom panel (its body moves its header), is
+      // measured in this delivery. Until a frame callback measures it, the toast sits over the new
+      // controls: a tap or hit test before then lands on the toast, and a change made in another frame
+      // callback paints it there for a frame.
       if (
         insideCustomPanel(record.target) ||
-        (record.type === "attributes"
-          ? record.target instanceof Element && (record.target.matches(HEADERS) || observedHeaders.has(record.target))
-          : [...record.addedNodes, ...record.removedNodes].some(containsHeader))
+        (record.type === "childList" && [...record.addedNodes, ...record.removedNodes].some(containsHeader))
       ) {
         refreshHeaders();
         return;
