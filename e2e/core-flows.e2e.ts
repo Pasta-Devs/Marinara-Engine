@@ -22059,6 +22059,16 @@ test("memory recall modal accepts clicks from chat settings", async ({ page }, t
   await memoryRecallSwitch.click();
   await expect(memoryRecallSwitch).not.toBeChecked();
   await expect(memoryRecallSwitch).not.toHaveClass(/mari-chat-option-switch--active/u);
+  // Off, the track takes the switch's off colour, not the accent.
+  const offTrack = await memoryRecallSwitch.evaluate((element) => {
+    const probe = document.createElement("span");
+    probe.style.backgroundColor = "var(--marinara-chat-option-switch-off)";
+    element.parentElement!.append(probe);
+    const color = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return color;
+  });
+  await expect(memoryRecallSwitch).toHaveCSS("background-color", offTrack);
   const [trackBox, thumbBox] = await Promise.all([
     memoryRecallSwitch.boundingBox(),
     memoryRecallSwitch.locator(":scope > span").boundingBox(),

@@ -112,13 +112,23 @@ test("an inventory stack changes by any amount, splits into a chosen size and me
     await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(confirmation).toHaveCount(0);
     await expect(slot("Apple x350")).toBeVisible();
+    // Asked once: the confirmation taking focus from the field never asks, or empties, a second time.
+    await page.evaluate(async () => {
+      const { useDialogStore } = await import("/src/stores/dialog.store.ts" as string);
+      const counter = window as Window & { inventoryConfirms?: number };
+      counter.inventoryConfirms = 0;
+      useDialogStore.subscribe((state: { dialog: { kind: string } | null }, previous: { dialog: unknown }) => {
+        if (state.dialog?.kind === "confirm" && state.dialog !== previous.dialog)
+          counter.inventoryConfirms = (counter.inventoryConfirms ?? 0) + 1;
+      });
+    });
     await amount.fill("0");
     await amount.press("Enter");
     await confirmation.getByRole("button", { name: "Confirm", exact: true }).click();
     await expect(page.getByText("Inventory empty")).toBeVisible();
     await expect.poll(async () => (await savedInventory()).length).toBe(0);
-    // Asked once: the confirmation taking focus from the field never asks, or empties, a second time.
     await expect(confirmation).toHaveCount(0);
+    expect(await page.evaluate(() => (window as Window & { inventoryConfirms?: number }).inventoryConfirms)).toBe(1);
   } finally {
     await request.delete(`/api/chats/${chatId}`);
   }
