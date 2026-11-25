@@ -3,12 +3,20 @@ import { useCodeBlockCopy } from "../../hooks/use-code-block-copy";
 // DocsViewerModal: Browse the guides shipped in docs/
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, BookOpen, FileText } from "lucide-react";
+import { ArrowLeft, BookOpen, ExternalLink, FileText } from "lucide-react";
 import { SearchInput } from "../ui/SearchInput";
 import { Modal } from "../ui/Modal";
 import { cn } from "../../lib/utils";
 import { renderMarkdownBlocks, applyInlineMarkdown } from "../../lib/markdown";
-import { useDocContent, useDocsIndex, useDocsSearch, type DocSummary } from "../../hooks/use-docs";
+import {
+  useDocContent,
+  useDocsIndex,
+  useDocsSearch,
+  type DocSummary,
+  type DocContent,
+  type DocsIndex,
+} from "../../hooks/use-docs";
+import { usePackageDocumentation } from "../../hooks/use-capability-packages";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { docsLanguageDirection } from "@marinara-engine/shared";
 
@@ -285,7 +293,7 @@ function resolveDocPath(currentPath: string, target: string): string {
  * links point at the content endpoint so the click handler below can follow
  * them inside the modal.
  */
-function prepareDocMarkdown(raw: string, docPath: string): string {
+function prepareDocMarkdown(raw: string, docPath: string, sourceUrl?: string): string {
   const out: string[] = [];
   for (const line of raw.replace(/\r\n/g, "\n").split("\n")) {
     const trimmed = line.trim();
@@ -306,8 +314,21 @@ function prepareDocMarkdown(raw: string, docPath: string): string {
     if (/^<img\b[^>]*>$/i.test(trimmed)) continue;
     out.push(line);
   }
-  return out
-    .join("\n")
+  const markdown = out.join("\n");
+  if (sourceUrl) {
+    return markdown.replace(/(!?\[[^\]]*\])\(([^\s()]+)\)/gu, (_match, label: string, target: string) => {
+      try {
+        const base = label.startsWith("!")
+          ? sourceUrl.replace("https://github.com/", "https://raw.githubusercontent.com/").replace("/blob/", "/")
+          : sourceUrl;
+        const url = new URL(target, base);
+        return url.protocol === "https:" && !url.username && !url.password ? `${label}(${url.href})` : label;
+      } catch {
+        return label;
+      }
+    });
+  }
+  return markdown
     .replace(/\[([^\]]+)\]\(#[^)]*\)/g, "$1")
     .replace(
       /\[([^\]]+)\]\((?!(?:https?|card):\/\/|\/api\/|#|mailto:)([^()\s#]+\.md)(?:#[^)]*)?\)/gi,
@@ -391,15 +412,21 @@ export function DocsViewerModal({
   onClose,
   initialDoc = null,
   initialSearchTerm = "",
+  packageId,
+  packageName,
 }: {
   open: boolean;
   onClose: () => void;
   initialDoc?: string | null;
   initialSearchTerm?: string;
+  packageId?: string;
+  packageName?: string;
 }) {
   const { t: localizeUi, i18n: uiI18n } = useUiTranslation();
   const savedPlaceRef = useRef(readSavedPlace());
-  const [selected, setSelectedState] = useState<string | null>(initialDoc ?? savedPlaceRef.current.doc);
+  const [selected, setSelectedState] = useState<string | null>(
+    packageId ? "overview" : (initialDoc ?? savedPlaceRef.current.doc),
+  );
   const [searchQuery, setSearchQuery] = useState(initialSearchTerm);
   const [debouncedQuery, setDebouncedQuery] = useState(initialSearchTerm);
   const [pendingScrollTerm, setPendingScrollTerm] = useState<string | null>(initialSearchTerm.trim() || null);
@@ -407,18 +434,57 @@ export function DocsViewerModal({
   // the Modal shell renders null on its first frame while its enter animation
   // arms, and a cached doc means no later dep change would re-fire them.
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
-  const restoreScrollRef = useRef(initialDoc === null && savedPlaceRef.current.doc !== null);
+  const restoreScrollRef = useRef(!packageId && initialDoc === null && savedPlaceRef.current.doc !== null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 250);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const { data: index, isLoading: indexLoading, isError: indexError } = useDocsIndex(open);
-  const { data: doc, isLoading: docLoading, isError: docError } = useDocContent(selected);
+  const localIndex = useDocsIndex(open && !packageId);
+  const localDoc = useDocContent(packageId ? null : selected);
+  const packageOverview = usePackageDocumentation(packageId, "overview", open);
+  const packageDoc = usePackageDocumentation(packageId, selected ?? "overview", open);
+  const index: DocsIndex | undefined = packageId
+    ? {
+        root: "",
+        language: "en",
+        docs: (packageOverview.data?.topics ?? [])
+          .map((topic) => ({
+            path: topic.id,
+            title: topic.id === "overview" ? localizeUi("ui.modals.docsviewermodal.packageOverview") : topic.title,
+            dir: "",
+            updatedAt: "",
+            language: "en",
+          }))
+          .filter(
+            (topic) =>
+              !debouncedQuery.trim() || topic.title.toLowerCase().includes(debouncedQuery.trim().toLowerCase()),
+          ),
+      }
+    : localIndex.data;
+  const doc = useMemo<DocContent | undefined>(
+    () =>
+      packageId
+        ? packageDoc.data?.content !== undefined
+          ? {
+              path: packageDoc.data.guideId,
+              title: packageDoc.data.title,
+              content: packageDoc.data.content,
+              language: "en",
+              updatedAt: packageDoc.data.retrievedAt ?? "",
+            }
+          : undefined
+        : localDoc.data,
+    [packageId, packageDoc.data, localDoc.data],
+  );
+  const indexLoading = packageId ? packageOverview.isLoading : localIndex.isLoading;
+  const indexError = packageId ? packageOverview.isError : localIndex.isError;
+  const docLoading = packageId ? packageDoc.isLoading : localDoc.isLoading;
+  const docError = packageId ? packageDoc.isError : localDoc.isError;
   const trimmedQuery = debouncedQuery.trim();
-  const searching = trimmedQuery.length >= 2;
-  const { data: search, isFetching: searchFetching } = useDocsSearch(trimmedQuery);
+  const searching = !packageId && trimmedQuery.length >= 2;
+  const { data: search, isFetching: searchFetching } = useDocsSearch(packageId ? "" : trimmedQuery);
   // Live highlight target: the active (debounced) query while a search is on,
   // capped at 200 chars to mirror the server's needle truncation.
   const highlightTerm = searching ? trimmedQuery.slice(0, 200) : "";
@@ -432,14 +498,20 @@ export function DocsViewerModal({
 
   const rendered = useMemo(
     () =>
-      doc ? renderMarkdownBlocks(prepareDocMarkdown(doc.content, doc.path), applyInlineMarkdown, "docs-viewer") : null,
-    [doc],
+      doc
+        ? renderMarkdownBlocks(
+            prepareDocMarkdown(doc.content, doc.path, packageId ? packageDoc.data?.sourceUrl : undefined),
+            applyInlineMarkdown,
+            "docs-viewer",
+          )
+        : null,
+    [doc, packageId, packageDoc.data?.sourceUrl],
   );
 
   const selectDoc = (path: string, scrollTerm: string | null = null) => {
     // Re-selecting the open doc must not reset the saved reading place.
     if (path !== selected) {
-      writeSavedPlace({ doc: path, scrollTop: 0 });
+      if (!packageId) writeSavedPlace({ doc: path, scrollTop: 0 });
       setSelectedState(path);
     }
     restoreScrollRef.current = false;
@@ -584,6 +656,17 @@ export function DocsViewerModal({
     } catch {
       return;
     }
+    if (packageId) {
+      const topics = packageOverview.data?.topics ?? [];
+      const topic =
+        topics.find((candidate) => candidate.sourceUrl === url.href) ??
+        topics.find((candidate) => candidate.sourceUrl === url.href.split("#")[0]);
+      if (topic) {
+        event.preventDefault();
+        selectDoc(topic.id);
+      }
+      return;
+    }
     if (url.origin !== window.location.origin || !url.pathname.endsWith("/api/docs/content")) return;
     const target = url.searchParams.get("path");
     if (!target) return;
@@ -613,7 +696,11 @@ export function DocsViewerModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={localizeUi("home.actions.documentation")}
+      title={
+        packageId
+          ? localizeUi("ui.modals.docsviewermodal.packageTitle", { name: packageName ?? packageId })
+          : localizeUi("home.actions.documentation")
+      }
       width="max-w-6xl"
       mobileFullscreen
     >
@@ -627,7 +714,9 @@ export function DocsViewerModal({
             value={searchQuery}
             onChange={setSearchQuery}
             label={localizeUi("ui.modals.docsviewermodal.searchDocumentation")}
-            placeholder={localizeUi("ui.modals.docsviewermodal.searchAllGuides")}
+            placeholder={localizeUi(
+              packageId ? "ui.modals.docsviewermodal.filterTopics" : "ui.modals.docsviewermodal.searchAllGuides",
+            )}
             className="mb-2 shrink-0"
           />
 
@@ -638,7 +727,11 @@ export function DocsViewerModal({
               </p>
             ) : indexError || !index ? (
               <p className="px-1 py-2 text-xs text-[var(--muted-foreground)]">
-                {localizeUi("ui.modals.docsviewermodal.couldNotLoadTheDocumentationListTheDocsFolder")}
+                {localizeUi(
+                  packageId
+                    ? "ui.modals.docsviewermodal.packageUnavailable"
+                    : "ui.modals.docsviewermodal.couldNotLoadTheDocumentationListTheDocsFolder",
+                )}
               </p>
             ) : searching ? (
               searchResults.length === 0 ? (
@@ -689,7 +782,11 @@ export function DocsViewerModal({
               )
             ) : groups.length === 0 ? (
               <p className="px-1 py-2 text-xs text-[var(--muted-foreground)]">
-                {localizeUi("ui.modals.docsviewermodal.noGuidesFoundInTheDocsFolder")}
+                {localizeUi(
+                  packageId
+                    ? "ui.modals.docsviewermodal.noPackageTopics"
+                    : "ui.modals.docsviewermodal.noGuidesFoundInTheDocsFolder",
+                )}
               </p>
             ) : (
               groups.map((group) => (
@@ -701,7 +798,9 @@ export function DocsViewerModal({
                       sidebarHeaderTracked && "uppercase tracking-[0.16em]",
                     )}
                   >
-                    {dirLabel(group.dir, docsLanguage)}
+                    {packageId
+                      ? localizeUi("ui.modals.docsviewermodal.packageTopics")
+                      : dirLabel(group.dir, docsLanguage)}
                   </p>
                   <div className="space-y-1">
                     {group.docs.map((entry) => (
@@ -718,6 +817,7 @@ export function DocsViewerModal({
                         }
                         className={cn(
                           "flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-start transition-colors",
+                          packageId && "min-h-13",
                           selected === entry.path
                             ? "border-[var(--primary)]/40 bg-[var(--accent)] text-[var(--foreground)]"
                             : "border-transparent text-[var(--muted-foreground)] hover:border-[var(--border)] hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
@@ -729,7 +829,7 @@ export function DocsViewerModal({
                             {entry.title}
                           </span>
                           <span dir="ltr" className="block truncate text-[0.625rem] text-[var(--muted-foreground)]/70">
-                            {entry.path}
+                            {packageId ? "" : entry.path}
                           </span>
                         </span>
                         {docsLanguage !== "en" && entry.language === "en" ? englishBadge : null}
@@ -740,7 +840,7 @@ export function DocsViewerModal({
               ))
             )}
           </div>
-          {index ? (
+          {index && !packageId ? (
             <div className="mt-2 shrink-0 border-t border-[var(--border)]/60 pt-2">
               <p className="text-[0.625rem] text-[var(--muted-foreground)]/70">
                 {localizeUi("ui.modals.docsviewermodal.alsoOnDiskAt")}
@@ -774,10 +874,10 @@ export function DocsViewerModal({
                 <button
                   type="button"
                   onClick={() => {
-                    writeSavedPlace({ doc: null, scrollTop: 0 });
+                    if (!packageId) writeSavedPlace({ doc: null, scrollTop: 0 });
                     setSelectedState(null);
                   }}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] sm:hidden"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] sm:hidden"
                   aria-label={localizeUi("ui.modals.docsviewermodal.backToGuideList")}
                 >
                   <ArrowLeft size="0.875rem" />
@@ -786,11 +886,17 @@ export function DocsViewerModal({
                   {/* The path is an LTR isolate so an RTL UI locale cannot
                       reorder it against the updated-at clause beside it. */}
                   <span dir="ltr" className="[unicode-bidi:isolate]">
-                    {localizeUi("ui.modals.docsviewermodal.docs")}
-                    {selected}
+                    {packageId ? (
+                      (index?.docs.find((entry) => entry.path === selected)?.title ?? packageName ?? packageId)
+                    ) : (
+                      <>
+                        {localizeUi("ui.modals.docsviewermodal.docs")}
+                        {selected}
+                      </>
+                    )}
                   </span>
                   <span>
-                    {doc?.updatedAt
+                    {!packageId && doc?.updatedAt
                       ? localizeUi("ui.modals.docsviewermodal.lastUpdatedValue1_f97aff7", {
                           value1: formatUpdatedAt(doc.updatedAt, uiLocale),
                         })
@@ -799,11 +905,31 @@ export function DocsViewerModal({
                 </p>
                 {doc && docsLanguage !== "en" && doc.language === "en" ? englishBadge : null}
               </div>
+              {packageId && (
+                <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--muted-foreground)]">
+                  <span>{localizeUi("ui.modals.docsviewermodal.packageLanguage")}</span>
+                  {packageDoc.data?.status === "cached" && (
+                    <span role="status">{localizeUi("ui.modals.docsviewermodal.cachedPackageGuide")}</span>
+                  )}
+                  {packageDoc.data?.sourceUrl?.startsWith("https://") && (
+                    <a
+                      href={packageDoc.data.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-11 items-center gap-1 text-[var(--primary)] hover:underline"
+                    >
+                      <ExternalLink size="0.875rem" aria-hidden="true" />
+                      {localizeUi("ui.modals.docsviewermodal.viewSource")}
+                    </a>
+                  )}
+                </div>
+              )}
               <div
                 key={selected}
                 ref={setScrollEl}
                 onScroll={(event) => {
-                  if (selected) writeSavedPlace({ doc: selected, scrollTop: event.currentTarget.scrollTop });
+                  if (selected && !packageId)
+                    writeSavedPlace({ doc: selected, scrollTop: event.currentTarget.scrollTop });
                 }}
                 className="min-h-0 flex-1 overflow-y-auto pe-1"
               >
@@ -813,7 +939,11 @@ export function DocsViewerModal({
                   </p>
                 ) : docError || !doc ? (
                   <p className="py-2 text-xs text-[var(--muted-foreground)]">
-                    {localizeUi("ui.modals.docsviewermodal.couldNotLoadThisGuide")}
+                    {localizeUi(
+                      packageId
+                        ? "ui.modals.docsviewermodal.packageUnavailable"
+                        : "ui.modals.docsviewermodal.couldNotLoadThisGuide",
+                    )}
                   </p>
                 ) : (
                   <div
