@@ -47,9 +47,11 @@ jobs:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions: {}
+    permissions:
+      contents: read
     outputs:
       full: ${{ github.event_name == 'workflow_dispatch' || github.base_ref == 'main' }}
+      playwright: ${{ steps.playwright.outputs.version }}
     steps:
       - name: Record and verify the triggering revision
         shell: bash
@@ -61,6 +63,29 @@ jobs:
             echo "Selected branch/tag moved: expected $EXPECTED_SHA, got $GITHUB_SHA"
             exit 1
           fi
+
+      - name: Checkout package.json
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+          sparse-checkout: package.json
+          sparse-checkout-cone-mode: false
+
+      # The browser jobs run in the Playwright image of this version, which has the browsers
+      # and their Ubuntu packages, so they never download from the runner's Ubuntu mirror (#9801).
+      # As Playwright's CI guide does, they run as the runner's user (1001), who owns the checkout,
+      # and --ipc=host gives the browsers the runner's shared memory instead of Docker's 64 MB.
+      - name: Resolve Playwright version
+        id: playwright
+        shell: bash
+        run: |
+          version=$(jq -r '.devDependencies["@playwright/test"]' package.json)
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The Playwright image needs an exact @playwright/test version in package.json, not $version."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
   # The suite is CPU-bound on a 4-vCPU runner (one runner takes the same time with 4 or 8
   # workers), so wall time only drops by spreading the files over runners. The runner deals
@@ -147,6 +172,9 @@ jobs:
     # PR smoke tests run in the validate-smoke job of pull-request-checks.yml, which the
     # required pnpm-validate check depends on.
     if: github.event_name == 'push' && needs.revision.outputs.full != 'true'
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.revision.outputs.playwright }}-resolute
+      options: --user 1001 --ipc=host
     permissions:
       contents: read
     steps:
@@ -159,7 +187,6 @@ jobs:
         uses: ./.github/actions/playwright-shard
         with:
           project: desktop-chromium
-          browser: chromium
           shard: 1
           total-shards: 1
           server-project: desktop
@@ -183,7 +210,8 @@ jobs:
   # assignment, plus ~2 minutes of setup and server boot per shard, the slowest
   # shard is now about 25 min (desktop), 22 (mobile Chromium) and 24 (WebKit),
   # and no boundary shift puts more than 27 min in one shard.
-  # The 40-minute budget starts before checkout and includes action setup.
+  # The 40-minute budget starts before checkout, after the runner has pulled the
+  # Playwright image, and includes action setup.
   # Playwright gets only the remaining time, leaving five minutes of the
   # 45-minute job for reporting and failure evidence.
   # Re-measure before changing a count.
@@ -193,6 +221,9 @@ jobs:
     timeout-minutes: 45
     needs: revision
     if: needs.revision.outputs.full == 'true'
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.revision.outputs.playwright }}-resolute
+      options: --user 1001 --ipc=host
 
     permissions:
       contents: read
@@ -216,7 +247,6 @@ jobs:
         uses: ./.github/actions/playwright-shard
         with:
           project: desktop-chromium
-          browser: chromium
           shard: ${{ matrix.shard }}
           total-shards: 16
           server-project: desktop
@@ -237,6 +267,9 @@ jobs:
     timeout-minutes: 45
     needs: revision
     if: needs.revision.outputs.full == 'true'
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.revision.outputs.playwright }}-resolute
+      options: --user 1001 --ipc=host
 
     permissions:
       contents: read
@@ -260,7 +293,6 @@ jobs:
         uses: ./.github/actions/playwright-shard
         with:
           project: mobile-chromium
-          browser: chromium
           shard: ${{ matrix.shard }}
           total-shards: 14
           server-project: mobile
@@ -282,6 +314,9 @@ jobs:
     timeout-minutes: 45
     needs: revision
     if: needs.revision.outputs.full == 'true'
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.revision.outputs.playwright }}-resolute
+      options: --user 1001 --ipc=host
 
     permissions:
       contents: read
@@ -305,7 +340,6 @@ jobs:
         uses: ./.github/actions/playwright-shard
         with:
           project: mobile-webkit
-          browser: webkit
           shard: ${{ matrix.shard }}
           total-shards: 18
           server-project: mobile
