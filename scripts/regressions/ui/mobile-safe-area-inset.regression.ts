@@ -94,8 +94,8 @@ assert.match(
 );
 assert.match(
   appShellSource,
-  /const MOBILE_SHELL_PANEL_X_CLASS = "left-\(--mari-shell-inset-left\) right-\(--mari-shell-inset-right\)";/u,
-  "Phone sheets must take their sides from the shell insets",
+  /const MOBILE_SHELL_PANEL_X_CLASS =\s*"left-\[calc\(var\(--mari-shell-inset-left\)\+var\(--mari-dock-left,0px\)\)\] right-\[calc\(var\(--mari-shell-inset-right\)\+var\(--mari-dock-right,0px\)\)\]";/u,
+  "Phone sheets must take their sides from the shell insets (plus Prof. Mari's side dock, #9818)",
 );
 assert.equal(
   appShellSource.match(/MOBILE_SHELL_PANEL_X_CLASS,/gu)?.length,

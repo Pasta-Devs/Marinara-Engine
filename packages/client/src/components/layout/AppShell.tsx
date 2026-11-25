@@ -139,7 +139,12 @@ const TOP_BAR_SELECTOR = '[data-component="TopBar"]';
 // Below the TopBar, whose height a sideways phone shortens (--mari-topbar-height in globals.css).
 const MOBILE_SHELL_PANEL_TOP_CLASS = "top-[calc(env(safe-area-inset-top)_+_var(--mari-topbar-height,3rem))]";
 // Phone sheets fill the width the shell has: a phone turned sideways keeps its camera insets clear.
-const MOBILE_SHELL_PANEL_X_CLASS = "left-(--mari-shell-inset-left) right-(--mari-shell-inset-right)";
+// Overlay sheets keep out of the camera side and of Prof. Mari's side dock (#9818: she docks from 1024px, where a wide
+// sidebar setting already switches the shell to this layout). AppShell sets --mari-dock-left/right while she is docked.
+const MOBILE_SHELL_INSET_LEFT = "calc(var(--mari-shell-inset-left) + var(--mari-dock-left, 0px))";
+const MOBILE_SHELL_INSET_RIGHT = "calc(var(--mari-shell-inset-right) + var(--mari-dock-right, 0px))";
+const MOBILE_SHELL_PANEL_X_CLASS =
+  "left-[calc(var(--mari-shell-inset-left)+var(--mari-dock-left,0px))] right-[calc(var(--mari-shell-inset-right)+var(--mari-dock-right,0px))]";
 const MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS =
   "pb-[min(max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.5rem),3rem)]";
 const CENTER_COMPACT_WIDTH = 768;
@@ -1449,6 +1454,11 @@ export function AppShell({
         "mari-app mari-app-background-paint fixed inset-0 flex overflow-hidden",
         showAmbientDecor && "retro-scanlines noise-bg geometric-grid",
       )}
+      style={
+        mariDockLeft || mariDockRight
+          ? ({ "--mari-dock-left": `${mariDockLeft}px`, "--mari-dock-right": `${mariDockRight}px` } as CSSProperties)
+          : undefined
+      }
     >
       {/* Y2K decorative stars */}
       {showAmbientDecor && (
@@ -1653,8 +1663,7 @@ export function AppShell({
               )}
               style={
                 {
-                  "--mari-right-panel-width":
-                    "calc(100vw - var(--mari-shell-inset-left) - var(--mari-shell-inset-right))",
+                  "--mari-right-panel-width": `calc(100vw - ${MOBILE_SHELL_INSET_LEFT} - ${MOBILE_SHELL_INSET_RIGHT})`,
                 } as CSSProperties
               }
             >
