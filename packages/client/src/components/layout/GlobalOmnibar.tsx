@@ -68,6 +68,7 @@ import {
   advanceMariHandoff,
   isApplePlatform,
   isAskMariShortcut,
+  isOmnibarShortcut,
   recordCommandUse,
   writeCommandRankingState,
   writeCommandCenterSessionState,
@@ -1613,6 +1614,24 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+  // #9818: ⌘K with her open goes to Search, like Back, instead of closing the whole omnibar (the host's toggle).
+  // Floating, the app stays usable, so closing her on the search shortcut lost her for nothing.
+  const mariToSearch = useEffectEvent((event: globalThis.KeyboardEvent) => {
+    if (pane !== "mari") return;
+    event.preventDefault();
+    leaveDetail();
+  });
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || !isOmnibarShortcut(event)) return;
+      const dialog = event.target instanceof Element ? event.target.closest('[aria-modal="true"]') : null;
+      if (dialog && !dialog.closest('[data-component="GlobalOmnibar"]')) return;
+      mariToSearch(event);
+    };
+    // Capture: runs before the host's bubble listener, which skips a handled (defaultPrevented) key.
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, []);
   // UX-02: a card action (Accept, Undo) removes the button that had focus, so focus falls to the page and
   // the dialog never hears Escape. From the page, Escape still goes back from her window.
   const escapeFromPage = useEffectEvent((event: globalThis.KeyboardEvent) => {
@@ -2457,18 +2476,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         ) : null}
       </div>
 
-      {/* Where a drag would snap her, drawn under her window while she is held over that edge. */}
-      {float.preview ? (
-        <div
-          aria-hidden="true"
-          className="mari-float-zone-preview"
-          style={{
-            left: float.preview.left,
-            top: float.preview.top,
-            width: float.preview.width,
-            height: float.preview.height,
-          }}
-        />
+      {/* Where a drag would snap her, drawn under her window while she is held over that edge. use-mari-float moves it. */}
+      {float.active ? (
+        <div ref={float.previewRef} aria-hidden="true" data-shown="false" className="mari-float-zone-preview" />
       ) : null}
 
       <AnimatePresence>

@@ -5507,72 +5507,199 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   user-select: none;
 }
 
+/* A dropped window glides into its zone or spot (use-mari-float sets data-float-settling for one glide). */
+[data-mari-float] > .mari-float-panel[data-float-settling] {
+  transition:
+    left 200ms ease-out,
+    top 200ms ease-out,
+    width 200ms ease-out,
+    height 200ms ease-out;
+}
+
+/* Grips sit inside her edges (her panel clips its rounded corners). Above everything in her window. */
 .mari-float-resize {
   position: absolute;
-  z-index: 60;
+  z-index: 1000;
   touch-action: none;
 }
-.mari-float-resize[data-edge="n"],
-.mari-float-resize[data-edge="s"] {
-  inset-inline: 0.75rem;
+.mari-float-resize:is([data-edge="n"], [data-edge="s"]) {
+  inset-inline: 1.5rem;
   height: 0.5rem;
   cursor: ns-resize;
 }
-.mari-float-resize[data-edge="e"],
-.mari-float-resize[data-edge="w"] {
-  inset-block: 0.75rem;
+.mari-float-resize:is([data-edge="e"], [data-edge="w"]) {
+  inset-block: 1.5rem;
   width: 0.5rem;
   cursor: ew-resize;
 }
-.mari-float-resize[data-edge="n"] {
+/* Corners take a wider square, so the grip appears as the pointer gets close. */
+.mari-float-resize:is([data-edge="ne"], [data-edge="nw"], [data-edge="se"], [data-edge="sw"]) {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+/* The top corners stay small: her close and settings buttons sit just inside them. */
+.mari-float-resize:is([data-edge="ne"], [data-edge="nw"]) {
+  width: 1rem;
+  height: 1rem;
+}
+.mari-float-resize:is([data-edge="n"], [data-edge="ne"], [data-edge="nw"]) {
   top: 0;
 }
-.mari-float-resize[data-edge="s"] {
+.mari-float-resize:is([data-edge="s"], [data-edge="se"], [data-edge="sw"]) {
   bottom: 0;
 }
-.mari-float-resize[data-edge="e"] {
+.mari-float-resize:is([data-edge="e"], [data-edge="ne"], [data-edge="se"]) {
   right: 0;
 }
-.mari-float-resize[data-edge="w"] {
+.mari-float-resize:is([data-edge="w"], [data-edge="nw"], [data-edge="sw"]) {
   left: 0;
 }
-.mari-float-resize[data-edge="ne"],
-.mari-float-resize[data-edge="nw"],
-.mari-float-resize[data-edge="se"],
-.mari-float-resize[data-edge="sw"] {
-  width: 0.75rem;
-  height: 0.75rem;
-}
-.mari-float-resize[data-edge="ne"] {
-  top: 0;
-  right: 0;
+.mari-float-resize:is([data-edge="ne"], [data-edge="sw"]) {
   cursor: nesw-resize;
 }
-.mari-float-resize[data-edge="sw"] {
-  bottom: 0;
-  left: 0;
-  cursor: nesw-resize;
-}
-.mari-float-resize[data-edge="nw"] {
-  top: 0;
-  left: 0;
-  cursor: nwse-resize;
-}
-.mari-float-resize[data-edge="se"] {
-  bottom: 0;
-  right: 0;
+.mari-float-resize:is([data-edge="nw"], [data-edge="se"]) {
   cursor: nwse-resize;
 }
 
-/* Where a drop at this edge would snap her. */
+/* Edges: a thin accent line on the border, like a sidebar's resize edge. Custom cursors without resize
+   shapes still see where they can drag. */
+.mari-float-resize:is([data-edge="n"], [data-edge="s"], [data-edge="e"], [data-edge="w"])::after {
+  content: "";
+  position: absolute;
+  border-radius: 1px;
+  background: var(--marinara-chat-chrome-accent);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.mari-float-resize:is([data-edge="n"], [data-edge="s"])::after {
+  inset-inline: 0;
+  height: 2px;
+}
+.mari-float-resize:is([data-edge="e"], [data-edge="w"])::after {
+  inset-block: 0;
+  width: 2px;
+}
+.mari-float-resize[data-edge="n"]::after {
+  top: 0;
+}
+.mari-float-resize[data-edge="s"]::after {
+  bottom: 0;
+}
+.mari-float-resize[data-edge="e"]::after {
+  right: 0;
+}
+.mari-float-resize[data-edge="w"]::after {
+  left: 0;
+}
+.mari-float-resize:hover::after {
+  opacity: 1;
+}
+
+/* Corners: the chat windows' corner grip (.mari-window__resize-grip), turned to its corner, shown near it. */
+.mari-float-resize__grip {
+  position: absolute;
+  display: flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--marinara-chat-chrome-button-border-hover);
+  border-radius: calc(var(--radius) - 0.125rem);
+  background: var(--marinara-chat-chrome-button-bg-hover);
+  color: var(--marinara-chat-chrome-accent);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+.mari-float-resize__grip::after {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-color: currentColor;
+  border-style: solid;
+  border-width: 0;
+}
+.mari-float-resize[data-edge="se"] .mari-float-resize__grip {
+  right: 0.25rem;
+  bottom: 0.25rem;
+}
+.mari-float-resize[data-edge="se"] .mari-float-resize__grip::after {
+  border-right-width: 2px;
+  border-bottom-width: 2px;
+}
+.mari-float-resize[data-edge="sw"] .mari-float-resize__grip {
+  left: 0.25rem;
+  bottom: 0.25rem;
+}
+.mari-float-resize[data-edge="sw"] .mari-float-resize__grip::after {
+  border-left-width: 2px;
+  border-bottom-width: 2px;
+}
+.mari-float-resize[data-edge="ne"] .mari-float-resize__grip {
+  right: 0.125rem;
+  top: 0.125rem;
+}
+.mari-float-resize[data-edge="ne"] .mari-float-resize__grip::after {
+  border-right-width: 2px;
+  border-top-width: 2px;
+}
+.mari-float-resize[data-edge="nw"] .mari-float-resize__grip {
+  left: 0.125rem;
+  top: 0.125rem;
+}
+.mari-float-resize[data-edge="nw"] .mari-float-resize__grip::after {
+  border-left-width: 2px;
+  border-top-width: 2px;
+}
+.mari-float-resize:hover .mari-float-resize__grip,
+[data-mari-float-dragging] .mari-float-resize:active .mari-float-resize__grip {
+  opacity: 1;
+}
+
+/* Where a drop at this edge would snap her: it grows out of her window into the zone, like Windows Snap.
+   Fill and outline follow the chat chrome accent, the outline in its gradient when the theme has one. */
 .mari-float-zone-preview {
   position: fixed;
-  border-radius: 1rem;
-  border: 2px solid color-mix(in oklab, var(--primary) 60%, transparent);
-  background: color-mix(in oklab, var(--primary) 12%, transparent);
-  pointer-events: none;
   /* Under her window, which comes first in the overlay. */
   z-index: -1;
+  left: var(--mari-float-left, 0);
+  top: var(--mari-float-top, 0);
+  width: var(--mari-float-width, 0);
+  height: var(--mari-float-height, 0);
+  border-radius: 1rem;
+  background: color-mix(in oklab, var(--marinara-chat-chrome-accent) 14%, transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    left 180ms ease-out,
+    top 180ms ease-out,
+    width 180ms ease-out,
+    height 180ms ease-out,
+    opacity 150ms ease-out;
+}
+.mari-float-zone-preview::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: var(--marinara-chat-chrome-accent-gradient, var(--marinara-chat-chrome-accent));
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+.mari-float-zone-preview[data-shown="true"] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-mari-float] > .mari-float-panel[data-float-settling],
+  .mari-float-zone-preview,
+  .mari-float-resize::after,
+  .mari-float-resize__grip {
+    transition: none;
+  }
 }
 
 /* Slice 6: below 1024px, with an editor open, Prof. Mari is a bottom sheet under it:

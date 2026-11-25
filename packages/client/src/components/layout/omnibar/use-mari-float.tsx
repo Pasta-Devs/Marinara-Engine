@@ -33,6 +33,16 @@ function writeRect(panel: HTMLElement | null, rect: MariFloatRect) {
   panel.style.setProperty("--mari-float-height", `${rect.height}px`);
 }
 
+/** The zone outline grows out of her window into the zone (and back), like Windows Snap; CSS transitions it. */
+function writePreview(preview: HTMLElement | null, rect: MariFloatRect, shown: boolean) {
+  if (!preview) return;
+  writeRect(preview, rect);
+  preview.dataset.shown = shown ? "true" : "false";
+}
+
+/** How long a dropped window glides into its place (matches the CSS transition). */
+const SETTLE_MS = 200;
+
 function clearRect(panel: HTMLElement | null) {
   for (const name of ["left", "top", "width", "height"]) panel?.style.removeProperty(`--mari-float-${name}`);
 }
@@ -51,8 +61,8 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
   const available = mariSurface && desktop && !companion;
   const active = available && floating;
   const [view, setView] = useState(readView);
-  // The zone a drag would drop her into, shown as an outline under her.
-  const [preview, setPreview] = useState<MariFloatZone | null>(null);
+  // The outline of the zone a drag would drop her into, drawn under her. Moved by hand, never by React state.
+  const previewRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
 
   // A layout effect: a window resized while she was docked must not paint one frame at the old size on Float.
@@ -105,14 +115,20 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
       gestureRef.current = false;
       // Moves are coalesced per frame, so the release point can be past the last move: take it into account.
       const final = up.type === "pointerup" && last ? (onMove(up as globalThis.PointerEvent) ?? last) : null;
-      // After that last onMove, which sets the preview again.
       setDragging(false);
-      setPreview(null);
       if (final) onEnd(final);
       // Draw what the store now says. A drop into the zone she was already in changes nothing the layout
-      // effect watches, so without this she would stay where the drag left her.
+      // effect watches, so without this she would stay where the drag left her. She glides there.
       const ui = useUIStore.getState();
-      writeRect(panelRef.current, drawnMariFloatRect(ui.mariFloatRect, ui.mariFloatZone, readView(), remPx()));
+      const settled = drawnMariFloatRect(ui.mariFloatRect, ui.mariFloatZone, readView(), remPx());
+      const panel = panelRef.current;
+      if (panel) {
+        panel.dataset.floatSettling = "true";
+        window.setTimeout(() => delete panel.dataset.floatSettling, SETTLE_MS + 50);
+      }
+      writeRect(panel, settled);
+      // The outline melts into where she landed.
+      writePreview(previewRef.current, settled, false);
     };
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", end);
@@ -148,8 +164,10 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
         if (!moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return null;
         moved = true;
         target = mariFloatZoneAt(move.clientX, move.clientY, view);
-        setPreview(target);
-        return clampMariFloatRect({ ...origin, left: origin.left + dx, top: origin.top + dy }, view);
+        const next = clampMariFloatRect({ ...origin, left: origin.left + dx, top: origin.top + dy }, view);
+        // Outside a zone the hidden outline rides along with her, so the next zone grows out of her window.
+        writePreview(previewRef.current, target ? mariFloatZoneRect(target, view) : next, target !== null);
+        return next;
       },
       (last) => {
         // Dropped in a zone, she keeps the free place she was dragged from for when she leaves it again.
@@ -185,14 +203,17 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
     active,
     zone,
     dragging,
-    preview: active && preview ? mariFloatZoneRect(preview, view) : null,
+    previewRef,
     onHeaderPointerDown,
     onResizePointerDown,
     toggle,
   };
 }
 
-/** The eight edge and corner grips of her floating window. Mouse and pen only; Dock back is the keyboard's way out. */
+/**
+ * The eight edge and corner grips of her floating window. Near an edge an accent line shows it can be dragged;
+ * near a corner, a corner grip like the chat windows' one. Mouse and pen only; Dock back is the keyboard's way out.
+ */
 export function MariFloatResizeHandles({
   onResizePointerDown,
 }: {
@@ -209,7 +230,9 @@ export function MariFloatResizeHandles({
           data-edge={edge}
           className="mari-float-resize"
           onPointerDown={onResizePointerDown(edge)}
-        />
+        >
+          {edge.length === 2 ? <span className="mari-float-resize__grip" /> : null}
+        </div>
       ))}
     </>
   );
