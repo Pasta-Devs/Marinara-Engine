@@ -654,6 +654,14 @@ export function getGameDynamicImagePromptTimeoutMs() {
  * reloads do, so the same .env line would flap between boots and reloads.
  */
 const CONSTRAINED_PLATFORM_DEFAULT_MAX_RESIDENT_CHATS = 8;
+/**
+ * Desktop default. Load-and-keep used to be the desktop default, so every chat opened since launch,
+ * and every chat a sweep such as the theme row previews touched, stayed in memory until a restart.
+ * On large libraries that alone filled Node's heap (about 2 GiB on an 8 GiB Windows PC) and the
+ * server died with "JavaScript heap out of memory". 32 is far more chats than anyone switches
+ * between, and an evicted chat reloads from its own shard files in milliseconds.
+ */
+const DESKTOP_DEFAULT_MAX_RESIDENT_CHATS = 32;
 
 let cachedSteamOsDetection: boolean | null = null;
 
@@ -684,14 +692,14 @@ function constrainedPlatformDetected(): boolean {
 
 /** The parameter is a test seam; production callers use the detected value. */
 export function platformDefaultMaxResidentChatUnits(constrained = constrainedPlatformDetected()): number {
-  return constrained ? CONSTRAINED_PLATFORM_DEFAULT_MAX_RESIDENT_CHATS : 0;
+  return constrained ? CONSTRAINED_PLATFORM_DEFAULT_MAX_RESIDENT_CHATS : DESKTOP_DEFAULT_MAX_RESIDENT_CHATS;
 }
 
 /**
  * Resident chat-unit cap for the lazy file store (#5592 Phase 2 PR-B).
- * When unset or invalid, the platform default applies: 8 on SteamOS (#5838),
- * otherwise 0, which disables eviction entirely and preserves load-and-keep
- * behavior. Read per sweep so .env hot reloads apply without a restart. The
+ * When unset or invalid, the platform default applies: 8 on SteamOS (#5838)
+ * and Termux, otherwise 32. An explicit 0 disables eviction entirely and
+ * restores load-and-keep behavior. Read per sweep so .env hot reloads apply without a restart. The
  * floor of 2 keeps multi-chat operations (branching, cross-chat notes) from
  * thrashing their own working set.
  */
