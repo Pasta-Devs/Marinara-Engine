@@ -7312,7 +7312,15 @@ async function* readProfileImportStream(res: Response): AsyncGenerator<ProfileIm
   }
 }
 
-function ProfileImportControl() {
+function ProfileImportControl({
+  leadingActions,
+  children,
+}: {
+  /** Backup buttons that share the Import button's row (one wrapping row on desktop, stacked on touch), so the actions line up. */
+  leadingActions?: React.ReactNode;
+  /** Shown under the action row (the list of saved backups). */
+  children?: React.ReactNode;
+}) {
   const { t: localizeUi } = useUiTranslation();
   const profileImportWarningCopy = getProfileImportWarningCopy(localizeUi);
   const qc = useQueryClient();
@@ -7721,6 +7729,26 @@ function ProfileImportControl() {
   return (
     <div id={getSettingsSectionAnchorId("profile-marinara")} className="scroll-mt-3">
       <div className="flex flex-col gap-2.5">
+        <div className="mari-settings-action-row flex flex-col gap-2">
+          {leadingActions}
+          {/* While a scanned file is reviewed, its "Choose what to import" list below stands in for this button. */}
+          {!profileReview && (
+            <button
+              type="button"
+              onClick={() => profileImportInputRef.current?.click()}
+              disabled={profileImportBusy}
+              className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
+            >
+              {profileImportBusy && !profileUndoRunning ? <Spinner size="sm" /> : <Download size="0.8125rem" />}
+              {profileImportBusy && !profileUndoRunning
+                ? profileImportProgress?.status === "reading" || profileImportProgress?.status === "preview"
+                  ? localizeUi("ui.panels.importsettings.scanningProfile")
+                  : localizeUi("ui.panels.importsettings.importingProfile")
+                : localizeUi("ui.panels.importsettings.importProfileJsonZip")}
+            </button>
+          )}
+        </div>
+        {children}
         <ToggleSetting
           label={localizeUi("ui.panels.importsettings.keepCurrentVersions")}
           checked={profileKeepExisting}
@@ -7728,7 +7756,7 @@ function ProfileImportControl() {
           help={localizeUi("ui.panels.importsettings.keepCurrentVersionsHelp")}
           disabled={profileImportBusy || Boolean(profileReview)}
         />
-        {profileReview ? (
+        {profileReview && (
           <div ref={profileReviewRef} className="ov-pimp__review scroll-mt-3">
             {profileReview.contents.kinds.length > 0 ? (
               <ProfileImportChoices
@@ -7794,20 +7822,6 @@ function ProfileImportControl() {
               )}
             </div>
           </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => profileImportInputRef.current?.click()}
-            disabled={profileImportBusy}
-            className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
-          >
-            {profileImportBusy && !profileUndoRunning ? <Spinner size="sm" /> : <Download size="0.8125rem" />}
-            {profileImportBusy && !profileUndoRunning
-              ? profileImportProgress?.status === "reading" || profileImportProgress?.status === "preview"
-                ? localizeUi("ui.panels.importsettings.scanningProfile")
-                : localizeUi("ui.panels.importsettings.importingProfile")
-              : localizeUi("ui.panels.importsettings.importProfileJsonZip")}
-          </button>
         )}
         <input
           ref={profileImportInputRef}
@@ -9349,72 +9363,78 @@ function AdvancedSettings({ withMessageSections = true }: { withMessageSections?
               </div>
             </div>
           )}
-          <button
-            type="button"
-            onClick={handleCreateBackup}
-            disabled={creatingBackup}
-            className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
-          >
-            {creatingBackup ? (
+          <ProfileImportControl
+            leadingActions={
               <>
-                <Spinner size="sm" />
-                {localizeUi("ui.panels.advancedsettings.creatingBackup")}
-              </>
-            ) : (
-              <>
-                <Download size="0.8125rem" />
-                {localizeUi("ui.panels.advancedsettings.downloadBackup")}
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setExportProfileDialogOpen(true)}
-            disabled={exportingProfile}
-            className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
-          >
-            {exportingProfile ? (
-              <>
-                <Spinner size="sm" />
-                {localizeUi("ui.panels.advancedsettings.exporting")}
-              </>
-            ) : (
-              <>
-                <Upload size="0.8125rem" />
-                {localizeUi("settings.transfer.exportProfile.title")}
-              </>
-            )}
-          </button>
-          {backups && backups.length > 0 && (
-            <div className="flex flex-col gap-1 mt-1">
-              <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.advancedsettings.existingBackups")}
-              </span>
-              {backups.map((b) => (
-                <div
-                  key={b.name}
-                  className="flex items-center justify-between rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 ring-1 ring-[var(--border)]"
+                <button
+                  type="button"
+                  onClick={handleCreateBackup}
+                  disabled={creatingBackup}
+                  className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
                 >
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[0.6875rem] font-medium truncate">{b.name}</span>
-                    <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
-                      {new Date(b.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => deleteBackupMutation.mutate(b.name)}
-                    aria-label={localizeUi("settings.actions.deleteBackup")}
-                    title={localizeUi("settings.actions.deleteBackup")}
-                    className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger ml-2")}
+                  {creatingBackup ? (
+                    <>
+                      <Spinner size="sm" />
+                      {localizeUi("ui.panels.advancedsettings.creatingBackup")}
+                    </>
+                  ) : (
+                    <>
+                      <Download size="0.8125rem" />
+                      {localizeUi("ui.panels.advancedsettings.downloadBackup")}
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExportProfileDialogOpen(true)}
+                  disabled={exportingProfile}
+                  className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
+                >
+                  {exportingProfile ? (
+                    <>
+                      <Spinner size="sm" />
+                      {localizeUi("ui.panels.advancedsettings.exporting")}
+                    </>
+                  ) : (
+                    <>
+                      <Upload size="0.8125rem" />
+                      {localizeUi("settings.transfer.exportProfile.title")}
+                    </>
+                  )}
+                </button>
+              </>
+            }
+          >
+            {backups && backups.length > 0 && (
+              <div className="flex flex-col gap-1 mt-1">
+                <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                  {localizeUi("ui.panels.advancedsettings.existingBackups")}
+                </span>
+                {backups.map((b) => (
+                  <div
+                    key={b.name}
+                    className="flex items-center justify-between rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 ring-1 ring-[var(--border)]"
                   >
-                    <Trash2 size="0.75rem" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <ProfileImportControl />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[0.6875rem] font-medium truncate">{b.name}</span>
+                      <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                        {new Date(b.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => deleteBackupMutation.mutate(b.name)}
+                      aria-label={localizeUi("settings.actions.deleteBackup")}
+                      title={localizeUi("settings.actions.deleteBackup")}
+                      className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger ml-2")}
+                    >
+                      <Trash2 size="0.75rem" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ProfileImportControl>
           <FeatureSwitchesSettings switches={["messageTrash"]} />
         </div>
       </SettingsSection>
