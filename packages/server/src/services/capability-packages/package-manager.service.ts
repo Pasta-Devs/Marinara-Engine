@@ -91,8 +91,14 @@ import { openZipArchive, type ZipArchive, type ZipEntry, type ZipEntryBudget } f
 import { getBuildBranch } from "../../config/build-info.js";
 import { sidecarSpeechService } from "../sidecar/sidecar-speech.service.js";
 import { writeFileAtomic } from "../../utils/atomic-write.js";
+import { getMonorepoRoot } from "../../config/runtime-config.js";
+import { createPackageDocumentationReader } from "./package-documentation.service.js";
 
 const ROOT = join(DATA_DIR, "capability-packages");
+const readPackageDocumentation = createPackageDocumentationReader({
+  workspaceRoot: getMonorepoRoot(),
+  cacheRoot: join(ROOT, "documentation-cache-v1"),
+});
 const VERSIONS = join(ROOT, "versions");
 const REGISTRY = join(ROOT, "installed.json");
 const UPDATE_DECISIONS = join(ROOT, "update-decisions-v1.json");
@@ -15982,6 +15988,39 @@ export const capabilityPackageManager = {
     return [...(notes?.packages[packageId]?.versions ?? [])].sort((left, right) =>
       compareCapabilityPackageVersions(right.version, left.version),
     );
+  },
+
+  async documentation(packageId: string, guideId = "overview", knownEntry?: StampedCapabilityCatalogPackage) {
+    let entry = knownEntry;
+    if (!entry) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const catalog = await Promise.race([
+          this.catalog(),
+          new Promise<null>((resolve) => {
+            timer = setTimeout(() => resolve(null), 2_000);
+          }),
+        ]);
+        entry = catalog?.packages.find((candidate) => candidate.manifest.id === packageId);
+      } catch {
+        /* An offline catalog must not hide a previously validated guide. */
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    if (entry)
+      return readPackageDocumentation(
+        {
+          catalogUrl: entry.preview && PREVIEW_CATALOG_URL ? PREVIEW_CATALOG_URL : CATALOG_URL,
+          packageId,
+          version: entry.manifest.version,
+          documentationUrl: entry.documentationUrl,
+        },
+        guideId,
+      );
+    const cached = await readPackageDocumentation({ catalogUrl: CATALOG_URL, packageId }, guideId);
+    if (cached.status !== "unavailable" || !PREVIEW_CATALOG_URL) return cached;
+    return readPackageDocumentation({ catalogUrl: PREVIEW_CATALOG_URL, packageId }, guideId);
   },
 
   async declineUpdate(packageId: string, version: string) {
