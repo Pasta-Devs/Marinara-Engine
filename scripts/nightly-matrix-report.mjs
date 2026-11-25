@@ -1,8 +1,17 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { appendFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 // Pull requests into staging run only the smoke suite, so one that breaks a full-matrix spec merges green and the
@@ -11,10 +20,13 @@ import { pathToFileURL } from "node:url";
 // branch and names the pull requests merged in between. The nightly-issue job files the text in one issue on staging.
 
 export const ISSUE_TITLE = "[Issue]: The nightly full browser matrix fails on staging";
-// GitHub refuses an issue body or comment over 65,536 characters.
+// GitHub refuses an issue body or comment over 65,536 characters. Limits count UTF-8 bytes, which is never fewer.
 export const BODY_LIMIT = 60_000;
-// A step summary holds 1 MiB, so the run's summary can list every failure the issue has to leave out.
-const SUMMARY_LIMIT = 900_000;
+// A step summary holds 1 MiB. The body and the comment get this much each, so the run's summary can list every
+// failure the issue has to leave out.
+const SUMMARY_LIMIT = 450_000;
+// What a shard uploads when Playwright wrote no report, so a re-run replaces the results of the attempt before it.
+export const NO_REPORT = { noReport: true };
 export const RESULTS_ARTIFACT_PREFIX = "playwright-results-";
 const SHARD_JOB = /^(desktop-chromium|mobile-chromium|mobile-webkit) (\d+)\/\d+$/u;
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "gu");
@@ -46,7 +58,7 @@ export function slimReport(report) {
   return {
     config: { rootDir: report.config?.rootDir },
     errors: (report.errors ?? []).map((error) => ({ message: String(error.message ?? "").slice(0, 2000) })),
-    stats: { unexpected: report.stats?.unexpected ?? 0 },
+    stats: { expected: report.stats?.expected ?? 0, unexpected: report.stats?.unexpected ?? 0 },
     suites: (report.suites ?? []).map(suite),
   };
 }
@@ -79,7 +91,8 @@ export function readShardReports(dir) {
     if (!name.startsWith(RESULTS_ARTIFACT_PREFIX) || !statSync(folder).isDirectory()) continue;
     const reports = readdirSync(folder)
       .filter((file) => file.endsWith(".json"))
-      .map((file) => JSON.parse(readFileSync(join(folder, file), "utf8")));
+      .map((file) => JSON.parse(readFileSync(join(folder, file), "utf8")))
+      .filter((report) => !report.noReport);
     shards.set(name.slice(RESULTS_ARTIFACT_PREFIX.length), reports);
   }
   return shards;
@@ -128,25 +141,30 @@ function testLines(results) {
     .map(([name, projects]) => `- ${code(name)} (${[...new Set(projects)].sort().join(", ")})`);
 }
 
-/** Appends lines while the text stays under the limit, then says how many were left out. */
+/** Appends lines while the text stays under the limit in UTF-8 bytes, then says how many were left out. */
 function withinLimit(head, lines, limit) {
   let text = head;
+  let size = Buffer.byteLength(head);
   for (const [index, line] of lines.entries()) {
     const more = `\n_…and ${lines.length - index} more. The run's summary lists them all._\n`;
-    if (text.length + line.length + 1 + more.length > limit) return `${text}${more}`;
+    const lineSize = Buffer.byteLength(line) + 1;
+    if (size + lineSize + Buffer.byteLength(more) > limit) return `${text}${more}`;
     text += `${line}\n`;
+    size += lineSize;
   }
   return text;
 }
 
 /**
  * The issue body, the comment for this run and the run summary.
- * shards: [{ name, conclusion, hasResults, failures, errors }] for every browser shard job of the run.
+ * shards: [{ name, conclusion, hasResults, passed, failures, errors }] for every browser shard job of the run.
  */
 export function renderReport({ run, previousRun, comparison, shards, pulls, compareUrl, limit = BODY_LIMIT }) {
   const { failing, broke, unseen, fixed } = comparison;
-  const unfinished = shards.filter((shard) => shard.conclusion !== "success");
-  const state = failing.length === 0 && unfinished.length === 0 ? "passing" : "failing";
+  const unfinished = shards.filter((shard) => shard.conclusion !== "success" || !shard.hasResults);
+  // A pass closes the issue, so it needs every shard's report and at least one test that ran and passed.
+  const ranTests = shards.some((shard) => shard.passed > 0);
+  const state = failing.length === 0 && unfinished.length === 0 && ranTests ? "passing" : "failing";
   const date = run.date ? ` (${run.date})` : "";
   const where = `run ${runLink(run)} on ${shortSha(run.sha)}${date}`;
 
@@ -167,7 +185,7 @@ export function renderReport({ run, previousRun, comparison, shards, pulls, comp
     .map((shard) => {
       const why = shard.hasResults
         ? (shard.errors[0] ?? `the job ended as ${shard.conclusion}`)
-        : `no results: the job ended as ${shard.conclusion} before Playwright wrote its report`;
+        : `no results: the job ended as ${shard.conclusion} without a Playwright report`;
       return `- ${shard.name}: ${code(why)}`;
     });
   const head = [
@@ -176,6 +194,7 @@ export function renderReport({ run, previousRun, comparison, shards, pulls, comp
     `**Latest run:** ${where}: ${plural(countTests(failing), "test fails", "tests fail")}${counts ? ` (${counts})` : ""}.`,
     "",
     ...(shardLines.length > 0 ? ["**Shards that failed without a failing test:**", "", ...shardLines, ""] : []),
+    ...(ranTests ? [] : ["No test ran and passed in this run, so it does not count as a pass.", ""]),
     ...(failing.length > 0 ? ["### Failing tests", "", ""] : []),
   ].join("\n");
   const failingLines = testLines(failing);
@@ -265,6 +284,7 @@ function main() {
       name: job.name,
       conclusion: job.conclusion,
       hasResults: reports.length > 0,
+      passed: reports.reduce((sum, report) => sum + (report.stats?.expected ?? 0), 0),
       failures: reports.reduce((sum, report) => sum + (report.stats?.unexpected ?? 0), 0),
       errors: reports
         .flatMap((report) => report.errors ?? [])
@@ -290,10 +310,12 @@ function main() {
       "[.workflow_runs[] | {id, head_sha, html_url, conclusion}]",
     ),
   );
-  const before = runs.find((candidate) => candidate.id < Number(runId) && candidate.conclusion !== "cancelled");
+  // A run that stopped before its shards (a moved expected_sha, say) has no results, so the one before it is tried.
   let previous = null;
   let previousRun = null;
-  if (before) {
+  for (const before of runs.filter(
+    (candidate) => candidate.id < Number(runId) && candidate.conclusion !== "cancelled",
+  )) {
     const dir = mkdtempSync(join(tmpdir(), "nightly-previous-"));
     try {
       gh(
@@ -307,11 +329,15 @@ function main() {
         "--dir",
         dir,
       );
-      previous = mergeResults(readShardReports(dir));
-      previousRun = { id: before.id, url: before.html_url, sha: before.head_sha };
     } catch (error) {
       console.warn(`Run ${before.id} has no shard results to compare with: ${error.message ?? error}`);
+      continue;
     }
+    const results = mergeResults(readShardReports(dir));
+    if (results.size === 0) continue;
+    previous = results;
+    previousRun = { id: before.id, url: before.html_url, sha: before.head_sha };
+    break;
   }
 
   let pulls = [];
@@ -352,11 +378,13 @@ function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  // `--slim <report.json>`: a shard shrinks its report in place before uploading it. A shard that never wrote one has
-  // nothing to upload.
+  // `--slim <report.json>`: a shard shrinks its report in place before uploading it, or writes NO_REPORT when
+  // Playwright wrote none.
   if (process.argv[2] === "--slim") {
     const file = process.argv[3];
-    if (file && existsSync(file))
-      writeFileSync(file, JSON.stringify(slimReport(JSON.parse(readFileSync(file, "utf8")))));
+    if (!file) throw new Error("Usage: node scripts/nightly-matrix-report.mjs --slim <report.json>");
+    mkdirSync(dirname(file), { recursive: true });
+    const report = existsSync(file) ? slimReport(JSON.parse(readFileSync(file, "utf8"))) : NO_REPORT;
+    writeFileSync(file, JSON.stringify(report));
   } else main();
 }

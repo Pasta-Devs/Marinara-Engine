@@ -110,7 +110,8 @@ runs:
           --shard=${{ inputs.shard }}/${{ inputs.total-shards }}
 
     # Only a full run started by workflow_dispatch (the nightly or a manual run) reports, and its report compares the
-    # results with the previous such run. The shard keeps only each test's status. A re-run shard replaces its results.
+    # results with the previous such run. The shard keeps only each test's status, or a placeholder when Playwright
+    # wrote no report, so a re-run shard always replaces the results of the attempt before it.
     - name: Keep ${{ inputs.project }} shard ${{ inputs.shard }} test statuses
       if: always() && inputs.smoke != 'true' && github.event_name == 'workflow_dispatch'
       shell: bash

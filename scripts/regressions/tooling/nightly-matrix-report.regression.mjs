@@ -3,8 +3,10 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   ISSUE_TITLE,
+  NO_REPORT,
   collectResults,
   compareRuns,
   mergeResults,
@@ -41,7 +43,10 @@ const report = (project, tests) => ({
     },
   ],
   errors: [],
-  stats: { unexpected: Object.values(tests).filter((status) => status === "unexpected").length },
+  stats: {
+    expected: Object.values(tests).filter((status) => status === "expected").length,
+    unexpected: Object.values(tests).filter((status) => status === "unexpected").length,
+  },
 });
 const results = (...reports) => mergeResults(new Map(reports.map((entry, index) => [String(index), [entry]])));
 
@@ -51,6 +56,7 @@ const shard = (name, conclusion, failures = 0, extra = {}) => ({
   name,
   conclusion,
   hasResults: true,
+  passed: 1,
   failures,
   errors: [],
   ...extra,
@@ -91,14 +97,19 @@ const fileIssue = (env) => {
       `gh() {
         printf 'gh %s\\n' "$*" >&2
         case "$1 $2" in
-          "api "*) printf '%s' "$OPEN_ISSUES" ;;
+          # The server's creator filter, then the step's own --jq filter (its last argument) over the open issues.
+          "api "*) [[ "$2" == *"creator=github-actions%5Bbot%5D"* ]] || return 1
+            jq -c '[.[] | select(.user.login == "github-actions[bot]")]' <<<"$OPEN_ISSUES" | jq -r "\${@: -1}" ;;
           "issue create") printf 'stdin %s\\n' "$(cat)" >&2; echo "https://github.com/o/r/issues/77" ;;
           *) if [[ "$*" == *"--body-file -"* ]]; then printf 'stdin %s\\n' "$(cat)" >&2; fi ;;
         esac
       }
       ${issueScript}`,
     ],
-    { encoding: "utf8", env: { PATH: process.env.PATH, GH_REPO: "o/r", TITLE: ISSUE_TITLE, OPEN_ISSUES: "", ...env } },
+    {
+      encoding: "utf8",
+      env: { PATH: process.env.PATH, GH_REPO: "o/r", TITLE: ISSUE_TITLE, OPEN_ISSUES: "[]", ...env },
+    },
   );
   assert.equal(result.status, 0, result.stderr);
   return result.stderr;
@@ -227,6 +238,34 @@ await runNamedCases([
       assert.equal(broken.state, "failing");
       assert.match(broken.body, /^- mobile-webkit 7\/18: `Timed out waiting 2400s for the test suite to run`$/mu);
       assert.match(broken.body, /^- mobile-chromium 3\/14: `no results: the job ended as cancelled/mu);
+
+      // A green shard without a report, or a run in which no test ran and passed, is not a pass either.
+      const noReport = renderReport({
+        run,
+        previousRun,
+        comparison,
+        shards: [
+          shard("desktop-chromium 1/16", "success"),
+          shard("mobile-webkit 2/18", "success", 0, { hasResults: false }),
+        ],
+        pulls: [],
+        compareUrl: "",
+      });
+      assert.equal(noReport.state, "failing");
+      assert.match(
+        noReport.body,
+        /^- mobile-webkit 2\/18: `no results: the job ended as success without a Playwright report`$/mu,
+      );
+      const nothingRan = renderReport({
+        run,
+        previousRun,
+        comparison: compareRuns(results(report("desktop-chromium", { a: "skipped" })), previous),
+        shards: [shard("desktop-chromium 1/16", "success", 0, { passed: 0 })],
+        pulls: [],
+        compareUrl: "",
+      });
+      assert.equal(nothingRan.state, "failing");
+      assert.match(nothingRan.body, /No test ran and passed in this run, so it does not count as a pass\./u);
     },
   },
   {
@@ -244,7 +283,8 @@ await runNamedCases([
         compareUrl: "",
         limit: 20_000,
       });
-      assert.ok(rendered.body.length <= 20_000, `body is ${rendered.body.length} characters`);
+      // The limit counts UTF-8 bytes, so the "›" in every line cannot push it over.
+      assert.ok(Buffer.byteLength(rendered.body) <= 20_000, `body is ${Buffer.byteLength(rendered.body)} bytes`);
       const listed = rendered.body.match(/^- `.*`.*$/gmu);
       assert.ok(listed.length > 50 && listed.length < 600);
       for (const line of listed) assert.match(line, /^- `[^`]*` \(mobile-webkit\)$/u);
@@ -270,12 +310,21 @@ await runNamedCases([
       assert.match(opened, /^stdin list$/mu);
       assert.match(opened, /^gh issue comment 77 --body-file -\nstdin new$/mu);
 
-      // Only the first open issue with the title is used; no comment when nothing started failing.
-      const updated = fileIssue({ STATE: "failing", BODY: "list", COMMENT: "", OPEN_ISSUES: "12\n15" });
+      // Only an issue the bot opened with this exact title counts, never a person's or a pull request; the first one
+      // listed is used, and nothing is commented when nothing started failing.
+      const bot = { login: "github-actions[bot]" };
+      const openIssues = JSON.stringify([
+        { number: 5, title: ISSUE_TITLE, user: { login: "SpicyMarinara" } },
+        { number: 9, title: ISSUE_TITLE, user: bot, pull_request: {} },
+        { number: 11, title: `${ISSUE_TITLE} (old)`, user: bot },
+        { number: 12, title: ISSUE_TITLE, user: bot },
+        { number: 15, title: ISSUE_TITLE, user: bot },
+      ]);
+      const updated = fileIssue({ STATE: "failing", BODY: "list", COMMENT: "", OPEN_ISSUES: openIssues });
       assert.match(updated, /^gh issue edit 12 --body-file -\nstdin list$/mu);
-      assert.doesNotMatch(updated, /issue (?:create|comment)|15/u);
+      assert.doesNotMatch(updated, /issue (?:create|comment)|issue \w+ (?:5|9|11|15) /u);
 
-      const closed = fileIssue({ STATE: "passing", BODY: "", COMMENT: "passed", OPEN_ISSUES: "12" });
+      const closed = fileIssue({ STATE: "passing", BODY: "", COMMENT: "passed", OPEN_ISSUES: openIssues });
       assert.match(closed, /^gh issue comment 12 --body-file -\nstdin passed\ngh issue close 12$/mu);
       assert.doesNotMatch(closed, /issue (?:create|edit)/u);
 
@@ -294,7 +343,21 @@ await runNamedCases([
       assert.ok(JSON.stringify(slim).length < 2_000);
       assert.deepEqual([...collectResults(slim).values()], [...collectResults(full).values()]);
       assert.deepEqual(slim.errors, [{ message: "Timed out waiting 2400s for the test suite to run" }]);
-      assert.equal(slim.stats.unexpected, 1);
+      assert.deepEqual(slim.stats, { expected: 1, unexpected: 1 });
+
+      // A shard whose Playwright wrote no report uploads a placeholder, so a re-run replaces its earlier results.
+      const dir = mkdtempSync(join(tmpdir(), "nightly-slim-"));
+      try {
+        const file = join(dir, "playwright-results", "results.json");
+        const script = new URL("../../nightly-matrix-report.mjs", import.meta.url);
+        const slimmed = spawnSync(process.execPath, [fileURLToPath(script), "--slim", file], {
+          encoding: "utf8",
+        });
+        assert.equal(slimmed.status, 0, slimmed.stderr);
+        assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), NO_REPORT);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     },
   },
   {
@@ -306,12 +369,15 @@ await runNamedCases([
           ["playwright-results-desktop-chromium-1", report("desktop-chromium", { a: "unexpected" })],
           ["playwright-results-mobile-webkit-12", report("mobile-webkit", { b: "expected" })],
           ["playwright-desktop-chromium-shard-1-failure", report("desktop-chromium", { c: "unexpected" })],
+          ["playwright-results-mobile-chromium-3", NO_REPORT],
         ]) {
           mkdirSync(join(dir, name));
           writeFileSync(join(dir, name, "results.json"), JSON.stringify(entry));
         }
         const shards = readShardReports(dir);
-        assert.deepEqual([...shards.keys()].sort(), ["desktop-chromium-1", "mobile-webkit-12"]);
+        assert.deepEqual([...shards.keys()].sort(), ["desktop-chromium-1", "mobile-chromium-3", "mobile-webkit-12"]);
+        // The placeholder counts as no report.
+        assert.deepEqual(shards.get("mobile-chromium-3"), []);
         assert.deepEqual([...mergeResults(shards).keys()].sort(), [
           "desktop-chromium › e2e/chat.e2e.ts › Chat › a",
           "mobile-webkit › e2e/chat.e2e.ts › Chat › b",
