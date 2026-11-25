@@ -6695,6 +6695,10 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
               await list.getByRole("option").nth(index).click();
               await page.getByRole("button", { name: "Use this greeting", exact: true }).click();
               await expect(list).toBeHidden();
+              // Its "Switched to …" toast (with Undo) lies over the rows on a phone and keeps itself while hovered.
+              const switched = page.locator("[data-sonner-toast]").filter({ hasText: "Switched to" });
+              await switched.getByRole("button", { name: "Close toast", exact: true }).click();
+              await expect(switched).toHaveCount(0);
             } else {
               const field = control.getByRole("textbox");
               await field.fill(String(index + 1));
