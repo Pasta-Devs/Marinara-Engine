@@ -97,6 +97,19 @@ type Source = { summary: ImageTagDatasetSummary; records: ImageTagRecord[] };
 type Artifact = Source & { version: 1 };
 const queues = new Map<string, Promise<unknown>>();
 
+/** Profile asset promotion and rollback must share the dataset writers' queue. */
+export async function withImageTagDatasetMutation<T>(dataDir: string, task: () => Promise<T>): Promise<T> {
+  const directory = resolve(dataDir, "image-tag-datasets");
+  const previous = queues.get(directory) ?? Promise.resolve();
+  const next = previous.then(task, task);
+  queues.set(directory, next);
+  try {
+    return await next;
+  } finally {
+    if (queues.get(directory) === next) queues.delete(directory);
+  }
+}
+
 export class ImageTagDatasetError extends Error {
   constructor(
     message: string,
@@ -124,14 +137,7 @@ export function createImageTagDatasetStore(dataDir: string, write: typeof writeF
   }
 
   async function locked<T>(task: () => Promise<T>): Promise<T> {
-    const previous = queues.get(directory) ?? Promise.resolve();
-    const next = previous.then(task, task);
-    queues.set(directory, next);
-    try {
-      return await next;
-    } finally {
-      if (queues.get(directory) === next) queues.delete(directory);
-    }
+    return withImageTagDatasetMutation(dataDir, task);
   }
 
   async function load() {

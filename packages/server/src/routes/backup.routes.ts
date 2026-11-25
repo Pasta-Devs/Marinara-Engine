@@ -67,6 +67,7 @@ import {
   normalizeNameAliases,
 } from "@marinara-engine/shared";
 import { getDataDir } from "../utils/data-dir.js";
+import { withImageTagDatasetMutation } from "../services/image-tags/datasets.js";
 import { uniqueExportName } from "../utils/export-stream.js";
 import { getFileStorageDir } from "../config/runtime-config.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
@@ -1668,7 +1669,9 @@ async function importProfileStorageSnapshot(
     }
   };
   return withProfileImportLifecycleLock(() =>
-    longTermMemoryVaultMutation ? longTermMemoryVaultMutation(runProfileImport) : runProfileImport(),
+    withImageTagDatasetMutation(getDataDir(), () =>
+      longTermMemoryVaultMutation ? longTermMemoryVaultMutation(runProfileImport) : runProfileImport(),
+    ),
   );
 }
 

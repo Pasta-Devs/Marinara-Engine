@@ -8,8 +8,14 @@ import { join, resolve } from "node:path";
 import {
   createImageTagDatasetStore,
   ImageTagDatasetError,
+  withImageTagDatasetMutation,
 } from "../../../packages/server/src/services/image-tags/datasets.js";
 import { writeFileAtomic } from "../../../packages/server/src/utils/atomic-write.js";
+import {
+  cleanupStagedProfileAssets,
+  promoteStagedProfileAssets,
+  stageProfileImportAssets,
+} from "../../../packages/server/src/services/import/profile-import-assets.js";
 import { runNamedCases } from "../fixtures/named-cases.js";
 
 type Store = ReturnType<typeof createImageTagDatasetStore>;
@@ -56,6 +62,75 @@ async function onlySource(store: Store) {
 }
 
 await runNamedCases([
+  {
+    name: "profile asset restoration drains older writes and later settings preserve the restored records",
+    async run() {
+      await withTempRoot(async (root) => {
+        const store = createImageTagDatasetStore(root);
+        const original = await store.importCsv(csvBytes(FOUR_COL), { originalName: "original.csv" });
+        const path = artifactPath(root, original.id);
+        const oldBytes = await readFile(path);
+        await store.importCsv(csvBytes(REPLACEMENT_COL), { originalName: "restored.csv", replaceId: original.id });
+        const restoredBytes = await readFile(path);
+        await writeFileAtomic(path, oldBytes);
+        const staged = await stageProfileImportAssets(root, [
+          {
+            path: `image-tag-datasets/${original.id}.json`,
+            expectedSize: restoredBytes.length,
+            read: () => restoredBytes,
+          },
+        ]);
+        const gate = () => {
+          let release!: () => void;
+          const promise = new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return { promise, release: () => release() };
+        };
+        const writeStarted = gate();
+        const finishWrite = gate();
+        const promoted = gate();
+        const finishRestore = gate();
+        const slowStore = createImageTagDatasetStore(root, async (...args) => {
+          writeStarted.release();
+          await finishWrite.promise;
+          return writeFileAtomic(...args);
+        });
+        const pendingSave = slowStore.update(original.id, { enabled: false });
+        await writeStarted.promise;
+        let restoreEntered = false;
+        let laterSaveFinished = false;
+        const restore = withImageTagDatasetMutation(root, async () => {
+          restoreEntered = true;
+          await promoteStagedProfileAssets(staged);
+          promoted.release();
+          await finishRestore.promise;
+        });
+        const laterSave = store.update(original.id, { name: "Saved after restore" }).then(() => {
+          laterSaveFinished = true;
+        });
+        try {
+          assert.equal(restoreEntered, false, "restore waits for the in-flight old artifact writer");
+          finishWrite.release();
+          await pendingSave;
+          await promoted.promise;
+          assert.equal(laterSaveFinished, false, "later settings wait through asset promotion and rollback scope");
+          finishRestore.release();
+          await Promise.all([restore, laterSave]);
+          const summary = await onlySource(store);
+          assert.equal(summary.name, "Saved after restore");
+          assert.equal(summary.enabled, true, "restore wins over the older settings write");
+          assert.equal((await searchOne(store, "Fresh_Tag")).totalMatches, 1);
+          assert.equal((await searchOne(store, "Miku_Hatsune")).totalMatches, 0);
+        } finally {
+          finishWrite.release();
+          finishRestore.release();
+          await Promise.allSettled([pendingSave, restore, laterSave]);
+          await cleanupStagedProfileAssets(staged);
+        }
+      });
+    },
+  },
   {
     name: "imports four-column bytes, lists metadata, and a new store searches canonical, alias and punctuation",
     async run() {
