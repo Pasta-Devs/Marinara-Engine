@@ -62,7 +62,13 @@ for (const theme of ["dark", "light"] as const)
       await request.post(`/api/chats/${ids.chat}/messages`, { data: { role: "user", content: "Mira looks up." } });
 
       await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
-      await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false, theme });
+      await seedUIState(page, {
+        hasCompletedOnboarding: true,
+        sidebarOpen: false,
+        rightPanelOpen: false,
+        theme,
+        chatHelpSeenModes: ["conversation", "roleplay", "game"],
+      });
       await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
       await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), ids.chat);
       await page.goto("/");

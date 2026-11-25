@@ -27,7 +27,8 @@ test("Request timeout saves on the Text to Speech card and on an audio connectio
   const { id } = await created.json();
   try {
     const saved = await request.put("/api/tts/config", {
-      data: { ...original, enabled: false, source: "openai", requestTimeoutMs: 60_000 },
+      // No Audio connection as the source: the card shows its own timeout only for a direct source.
+      data: { ...original, enabled: false, source: "openai", connectionId: "", requestTimeoutMs: 60_000 },
     });
     expect(saved.ok()).toBeTruthy();
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));

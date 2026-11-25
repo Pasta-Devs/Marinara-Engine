@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { seedUIState } from "./ui-state-fixture.js";
+import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 
@@ -39,6 +39,7 @@ test("a saved lorebook set fills a new roleplay's lorebooks without changing the
     const chat = (await chatResponse.json()) as { id: string };
     chatIds.push(chat.id);
 
+    await isolateSyncedUISettings(page);
     await seedUIState(page, {
       hasCompletedOnboarding: true,
       sidebarOpen: false,
