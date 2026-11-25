@@ -87,7 +87,23 @@ async function openSetup(page: Page, owner: { id: string; name: string } | null)
   await page.goto("/");
   const setup = page.locator('[data-avatar-setup="3d-avatars"]');
   await expect(setup).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
-  if (owner) await chooseCharacter(page, setup.getByLabel("Character or persona"), "Personas", owner.name);
+  if (owner) {
+    // Scrolling the agent page down shrinks its banner header (a 300 ms transition), which moves the setup up once
+    // the scroll has landed. Scroll the field into view and wait until it has held still for 10 frames, or the tap
+    // lands where it was.
+    const field = setup.getByLabel("Character or persona");
+    await field.scrollIntoViewIfNeeded();
+    await field.evaluate(async (element) => {
+      let last = Number.NaN;
+      for (let still = 0; still < 10;) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        const top = element.getBoundingClientRect().top;
+        still = top === last ? still + 1 : 0;
+        last = top;
+      }
+    });
+    await chooseCharacter(page, field, "Personas", owner.name);
+  }
   return setup;
 }
 

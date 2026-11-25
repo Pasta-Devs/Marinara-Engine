@@ -140,7 +140,10 @@ for (const theme of ["dark", "light"] as const) {
         }),
       )
       .toBe(true);
-    await save.click();
+    // A phone taps the button in one gesture. A mouse press blurs the field first, the app then closes the keyboard
+    // and the editor grows back, so the button has moved before the mouse is released.
+    if (mobile) await save.tap();
+    else await save.click();
     await expect(page.locator("[data-keyboard-fixture]")).toHaveAttribute("data-saved", "Typed Keyboard text");
     await expect(editor).toHaveCount(0);
   });
