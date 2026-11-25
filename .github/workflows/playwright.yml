@@ -453,7 +453,7 @@ jobs:
 
   # Its write token runs no repository code or action. It files the text nightly-report wrote in one issue this
   # workflow opened and assigned to the maintainer: each run rewrites the list and comments new failures, and a passing
-  # run closes the issue.
+  # run closes the issue. A run files nothing once a newer full run has.
   nightly-issue:
     name: nightly-issue
     runs-on: ubuntu-latest
@@ -462,6 +462,7 @@ jobs:
     if: ${{ !cancelled() && needs.nightly-report.result == 'success' && github.ref == 'refs/heads/staging' }}
 
     permissions:
+      actions: read
       issues: write
 
     steps:
@@ -490,6 +491,19 @@ jobs:
               printf '%s' "$COMMENT" | gh issue comment "$issue" --body-file -
             fi
           }
+          # A re-run job reuses its run's report, so re-running an older run's job would undo a newer run's filing: an
+          # older pass would close the issue a newer failure opened. Once a newer full run on staging has filed its
+          # report, this one is out of date. A retry of the newest run still files.
+          newer=$(gh api "repos/$GH_REPO/actions/workflows/playwright.yml/runs?branch=staging&event=workflow_dispatch&per_page=100" \
+            --jq '.workflow_runs[] | select(.id > (env.GITHUB_RUN_ID | tonumber)) | .id')
+          for run in $newer; do
+            filed=$(gh api "repos/$GH_REPO/actions/runs/$run/jobs?filter=all&per_page=100" --paginate \
+              --jq '.jobs[] | select(.name == "nightly-issue" and .conclusion == "success") | .id')
+            if [[ -n "$filed" ]]; then
+              echo "Run $run filed a newer report, so this run's report is not filed."
+              exit 0
+            fi
+          done
           if [[ "$STATE" == passing ]]; then
             if [[ -n "$issue" ]]; then
               comment

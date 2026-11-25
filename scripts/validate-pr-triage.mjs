@@ -133,7 +133,7 @@ export function validatePullRequestTriage() {
     ['gh api --method POST "repos/$GH_REPO/actions/workflows/playwright.yml/dispatches" -f ref=staging'],
   );
   // The full-run report runs repository code with a read-only token; the job that files it has the only write token
-  // and runs no repository code or action, on staging alone.
+  // and runs no repository code or action, on staging alone. It reads the workflow's runs to skip an out-of-date report.
   const nightlyReport = extractJob(browserWorkflow, "nightly-report");
   assert.match(nightlyReport, /github\.event_name == 'workflow_dispatch'/u);
   assert.doesNotMatch(nightlyReport, /^\s+[\w-]+: write\s*$/mu);
@@ -142,7 +142,7 @@ export function validatePullRequestTriage() {
   assert.match(nightlyIssue, /needs\.nightly-report\.result == 'success' && github\.ref == 'refs\/heads\/staging'/u);
   assert.deepEqual(
     [...nightlyIssue.matchAll(/^\s+([\w-]+): (read|write)\s*$/gmu)].map((match) => `${match[1]}: ${match[2]}`),
-    ["issues: write"],
+    ["actions: read", "issues: write"],
   );
   assert.doesNotMatch(nightlyIssue, /uses:|\b(?:node|pnpm|npx|bash \.|\.\/)/u);
   const browserRevision = extractJob(browserWorkflow, "revision");

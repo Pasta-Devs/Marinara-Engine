@@ -144,14 +144,24 @@ export function compareRuns(current, history) {
   return { failing, broke, unseen, intermittent, fixed };
 }
 
-/** The pull requests whose merge commits are in a compare range, read from the commit messages. */
-export function mergedPullRequests(messages) {
-  const pulls = new Map();
-  for (const message of messages) {
+/**
+ * The pull requests merged in a compare range, oldest first. They are the branch's own commits, followed from head back
+ * through first parents: merge commits ("Merge pull request #N from owner/branch") and squash commits ("Title (#N)").
+ * The commits inside a merged pull request are skipped, so an issue number at the end of one is not taken for a merge.
+ * commits: [{ sha, parents, message }], parents as SHAs.
+ */
+export function mergedPullRequests(commits, head) {
+  const bySha = new Map(commits.map((commit) => [commit.sha, commit]));
+  const own = [];
+  for (let commit = bySha.get(head); commit; commit = bySha.get(commit.parents[0])) own.unshift(commit);
+  const pulls = [];
+  for (const { message } of own) {
     const merge = /^Merge pull request #(\d+) from (\S+)/u.exec(message);
-    if (merge) pulls.set(Number(merge[1]), merge[2]);
+    const squash = /\(#(\d+)\)$/u.exec(message.split("\n")[0].trim());
+    if (merge) pulls.push({ number: Number(merge[1]), branch: merge[2] });
+    else if (squash) pulls.push({ number: Number(squash[1]), branch: "" });
   }
-  return [...pulls].map(([number, branch]) => ({ number, branch }));
+  return pulls;
 }
 
 /** One Markdown line per failing test, with the projects it fails on. */
@@ -166,7 +176,8 @@ function testLines(results) {
 /** A pull request's line in a comment, mentioning its author so they hear of it. */
 function pullLine(pull) {
   const author = LOGIN.test(pull.author ?? "") ? ` by @${pull.author}` : "";
-  return `- #${pull.number}${author} (${code(pull.branch)})`;
+  // A squash commit does not name the branch.
+  return `- #${pull.number}${author}${pull.branch ? ` (${code(pull.branch)})` : ""}`;
 }
 
 /** Appends lines while the text stays under the limit in UTF-8 bytes, then says how many were left out. */
@@ -394,16 +405,17 @@ function main() {
   let compareUrl = "";
   if (newest && newest.sha !== sha) {
     compareUrl = `${server}/${repo}/compare/${newest.sha}...${sha}`;
-    const messages = jsonLines(
+    const commits = jsonLines(
       gh(
         "api",
         `repos/${repo}/compare/${newest.sha}...${sha}`,
         "--paginate",
         "--jq",
-        ".commits[].commit.message | @json",
+        ".commits[] | {sha, parents: [.parents[].sha], message: .commit.message} | @json",
       ),
     );
-    // The merge commit names the head repository's owner, not the author, so each pull request is looked up.
+    // A merge commit names the head repository's owner, not the author, and a squash commit names neither, so each
+    // pull request is looked up.
     const author = (number) => {
       try {
         return gh("api", `repos/${repo}/pulls/${number}`, "--jq", ".user.login").trim();
@@ -412,7 +424,7 @@ function main() {
         return "";
       }
     };
-    pulls = mergedPullRequests(messages).map((pull) => ({ ...pull, author: author(pull.number) }));
+    pulls = mergedPullRequests(commits, sha).map((pull) => ({ ...pull, author: author(pull.number) }));
   }
 
   const report = renderReport({

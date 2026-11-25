@@ -115,21 +115,52 @@ const issueScript = issueStep
   .split("\n")
   .map((line) => line.replace(/^ {10}/u, ""))
   .join("\n");
-const fileIssue = (env) => {
+// The step's --jq filters as Node functions, so the stub needs no jq. A filter the step changes has no twin here, and the
+// test fails until one is added.
+const jqTwins = {
+  ".[] | select(.pull_request == null and .title == env.TITLE) | .number": (issues, env) =>
+    issues.filter((issue) => issue.pull_request == null && issue.title === env.TITLE).map((issue) => issue.number),
+  '.[] | select(.user.login == "github-actions[bot]" and (.body | contains(env.MARK))) | .id': (comments, env) =>
+    comments
+      .filter((comment) => comment.user.login === "github-actions[bot]" && comment.body.includes(env.MARK))
+      .map((comment) => comment.id),
+  ".workflow_runs[] | select(.id > (env.GITHUB_RUN_ID | tonumber)) | .id": (runs, env) =>
+    runs.workflow_runs.filter((entry) => entry.id > Number(env.GITHUB_RUN_ID)).map((entry) => entry.id),
+  '.jobs[] | select(.name == "nightly-issue" and .conclusion == "success") | .id': (jobs) =>
+    jobs.jobs.filter((job) => job.name === "nightly-issue" && job.conclusion === "success").map((job) => job.id),
+};
+// Runs the twin of the filter in its argument over the JSON on stdin and prints one value a line, as gh --jq does.
+const jqTwin = `const twins = { ${Object.entries(jqTwins)
+  .map(([filter, twin]) => `${JSON.stringify(filter)}: ${twin}`)
+  .join(", ")} };
+const twin = twins[process.argv[1]];
+if (!twin) throw new Error("No Node twin for the step's --jq filter " + process.argv[1]);
+for (const value of twin(JSON.parse(require("node:fs").readFileSync(0, "utf8")), process.env)) console.log(value);`;
+const bot = { login: "github-actions[bot]" };
+// What the server answers: the open issues (before its creator filter), the issue's comments, the ids of the
+// workflow's full runs on staging, newest first, and each run's jobs by run id.
+const fileIssue = ({ issues = [], comments = [], runs = [], jobs = {}, ...env }) => {
   const result = spawnSync(
     "bash",
     [
       "--noprofile",
       "--norc",
       "-c",
-      `gh() {
+      `jq_twin() { printf '%s' "$1" | "$NODE" -e "$JQ_TWIN" "$2"; }
+      gh() {
         printf 'gh %s\\n' "$*" >&2
         case "$1 $2" in
-          # The step's own --jq filter (its last argument) runs over the comments, or over the open issues after the
-          # server's creator filter.
-          "api "*/comments*) jq -r "\${@: -1}" <<<"$COMMENTS" ;;
+          # The step's own --jq filter (its last argument) runs over what the server answers to its query.
+          "api "*/comments*) jq_twin "$COMMENTS" "\${@: -1}" ;;
+          "api "*/actions/workflows/playwright.yml/runs*)
+            [[ "$2" == *"branch=staging&event=workflow_dispatch"* ]] || return 1
+            jq_twin "$RUNS" "\${@: -1}" ;;
+          "api "*/actions/runs/*/jobs*) [[ "$2" == *"filter=all"* ]] || return 1
+            local id=\${2#*/actions/runs/}
+            local jobs="JOBS_\${id%%/*}"
+            jq_twin "\${!jobs:-$NO_JOBS}" "\${@: -1}" ;;
           "api "*) [[ "$2" == *"creator=github-actions%5Bbot%5D"* ]] || return 1
-            jq -c '[.[] | select(.user.login == "github-actions[bot]")]' <<<"$OPEN_ISSUES" | jq -r "\${@: -1}" ;;
+            jq_twin "$OPEN_ISSUES" "\${@: -1}" ;;
           "issue create") printf 'stdin %s\\n' "$(cat)" >&2; echo "https://github.com/o/r/issues/77" ;;
           *) if [[ "$*" == *"--body-file -"* ]]; then printf 'stdin %s\\n' "$(cat)" >&2; fi ;;
         esac
@@ -140,17 +171,22 @@ const fileIssue = (env) => {
       encoding: "utf8",
       env: {
         PATH: process.env.PATH,
+        NODE: process.execPath,
+        JQ_TWIN: jqTwin,
         GH_REPO: "o/r",
         GITHUB_RUN_ID: run.id,
         TITLE: ISSUE_TITLE,
-        OPEN_ISSUES: "[]",
-        COMMENTS: "[]",
+        OPEN_ISSUES: JSON.stringify(issues.filter((issue) => issue.user.login === bot.login)),
+        COMMENTS: JSON.stringify(comments),
+        RUNS: JSON.stringify({ workflow_runs: runs.map((id) => ({ id })) }),
+        NO_JOBS: JSON.stringify({ jobs: [] }),
+        ...Object.fromEntries(Object.entries(jobs).map(([id, list]) => [`JOBS_${id}`, JSON.stringify({ jobs: list })])),
         ...env,
       },
     },
   );
   assert.equal(result.status, 0, result.stderr);
-  return result.stderr;
+  return `${result.stderr}${result.stdout}`;
 };
 
 await runNamedCases([
@@ -233,15 +269,23 @@ await runNamedCases([
   {
     name: "the comment names the new failures and mentions the authors of the pull requests merged since",
     run: () => {
-      const pulls = mergedPullRequests([
-        "Merge pull request #9774 from Pasta-Devs/fix/9765-rp-history-images\n\nfix(rp): keep history images",
-        "fix(rp): a commit inside that pull request",
-        "Merge pull request #9787 from stonebystone/feat/ruleset-rank-display\n\nfeat: rank display",
-        "Merge pull request #9774 from Pasta-Devs/fix/9765-rp-history-images",
-      ]);
+      // Staging since the earlier run's commit "base": #9774 by a merge commit, #9801 squashed, #9787 by a merge commit.
+      // The commits inside the merged pull requests are not merges, though one ends with an issue number.
+      const commit = (sha, parents, message) => ({ sha, parents, message });
+      const pulls = mergedPullRequests(
+        [
+          commit("inside1", ["base"], "fix(rp): keep history images (#9765)"),
+          commit("m9774", ["base", "inside1"], "Merge pull request #9774 from Pasta-Devs/fix/9765-rp-history-images"),
+          commit("s9801", ["m9774"], "fix(chat): restore history (#9801)\n\n* fix(chat): a squashed commit (#9800)"),
+          commit("inside2", ["m9774"], "feat: rank display (#9786)"),
+          commit("m9787", ["s9801", "inside2"], "Merge pull request #9787 from stonebystone/feat/rank\n\nfeat: rank"),
+        ],
+        "m9787",
+      );
       assert.deepEqual(pulls, [
         { number: 9774, branch: "Pasta-Devs/fix/9765-rp-history-images" },
-        { number: 9787, branch: "stonebystone/feat/ruleset-rank-display" },
+        { number: 9801, branch: "" },
+        { number: 9787, branch: "stonebystone/feat/rank" },
       ]);
       const rendered = renderReport({
         run,
@@ -251,7 +295,8 @@ await runNamedCases([
         // The merge commit names the head repository's owner; the author comes from the pull request.
         pulls: [
           { ...pulls[0], author: "SpicyMarinara" },
-          { ...pulls[1], author: "stonebystone" },
+          { ...pulls[1], author: "octocat" },
+          { ...pulls[2], author: "stonebystone" },
           { number: 9790, branch: "Pasta-Devs/deps", author: "dependabot[bot]" },
         ],
         compareUrl: "https://github.com/o/r/compare/a...b",
@@ -272,6 +317,8 @@ await runNamedCases([
         /^Pull requests merged since \[100\]\(.*\)\. If yours is listed, check whether it broke/mu,
       );
       assert.match(rendered.comment, /^- #9774 by @SpicyMarinara \(`Pasta-Devs\/fix\/9765-rp-history-images`\)$/mu);
+      // A squash commit does not name the branch.
+      assert.match(rendered.comment, /^- #9801 by @octocat$/mu);
       assert.match(rendered.comment, /^- #9787 by @stonebystone /mu);
       // A login that is not a plain user name is not mentioned.
       assert.match(rendered.comment, /^- #9790 \(`Pasta-Devs\/deps`\)$/mu);
@@ -441,15 +488,14 @@ await runNamedCases([
         pulls: [],
         compareUrl: "",
       });
-      const issues = JSON.stringify([{ number: 12, title: ISSUE_TITLE, user: { login: "github-actions[bot]" } }]);
-      const comments = (...entries) =>
-        JSON.stringify(entries.map(([login, body]) => ({ id: 1, user: { login }, body })));
+      const issues = [{ number: 12, title: ISSUE_TITLE, user: bot }];
+      const comments = (...entries) => entries.map(([login, body]) => ({ id: 1, user: { login }, body }));
       const again = fileIssue({
         STATE: "failing",
         BODY: "list",
         COMMENT: rendered.comment,
-        OPEN_ISSUES: issues,
-        COMMENTS: comments(["github-actions[bot]", rendered.comment]),
+        issues,
+        comments: comments(["github-actions[bot]", rendered.comment]),
       });
       assert.match(again, /^gh issue edit 12 --body-file -$/mu);
       assert.doesNotMatch(again, /gh issue comment/u);
@@ -461,32 +507,83 @@ await runNamedCases([
           STATE: "failing",
           BODY: "list",
           COMMENT: rendered.comment,
-          OPEN_ISSUES: issues,
-          COMMENTS: other,
+          issues,
+          comments: other,
         });
         assert.match(posted, /^gh issue comment 12 --body-file -$/mu);
       }
 
       // Only an issue the bot opened with this exact title counts, never a person's or a pull request; the first one
       // listed is used, and nothing is commented when nothing started failing.
-      const bot = { login: "github-actions[bot]" };
-      const openIssues = JSON.stringify([
+      const openIssues = [
         { number: 5, title: ISSUE_TITLE, user: { login: "SpicyMarinara" } },
         { number: 9, title: ISSUE_TITLE, user: bot, pull_request: {} },
         { number: 11, title: `${ISSUE_TITLE} (old)`, user: bot },
         { number: 12, title: ISSUE_TITLE, user: bot },
         { number: 15, title: ISSUE_TITLE, user: bot },
-      ]);
-      const updated = fileIssue({ STATE: "failing", BODY: "list", COMMENT: "", OPEN_ISSUES: openIssues });
+      ];
+      const updated = fileIssue({ STATE: "failing", BODY: "list", COMMENT: "", issues: openIssues });
       assert.match(updated, /^gh issue edit 12 --body-file -\nstdin list$/mu);
       assert.doesNotMatch(updated, /issue (?:create|comment)|issue \w+ (?:5|9|11|15) /u);
 
-      const closed = fileIssue({ STATE: "passing", BODY: "", COMMENT: "passed", OPEN_ISSUES: openIssues });
+      const closed = fileIssue({ STATE: "passing", BODY: "", COMMENT: "passed", issues: openIssues });
       assert.match(closed, /^gh issue comment 12 --body-file -\nstdin passed\ngh issue close 12$/mu);
       assert.doesNotMatch(closed, /issue (?:create|edit)/u);
 
       // A pass with no open issue files nothing.
       assert.doesNotMatch(fileIssue({ STATE: "passing", BODY: "", COMMENT: "passed" }), /gh issue/u);
+    },
+  },
+  {
+    name: "a re-run of an older run files nothing once a newer full run has filed, and a retry of the newest run still files",
+    run: () => {
+      if (process.platform === "win32") return console.log("Skipping the Bash issue step on Windows.");
+      const issues = [{ number: 12, title: ISSUE_TITLE, user: bot }];
+      const issueJob = (conclusion) => [
+        { id: 1, name: "nightly-report", conclusion: "success" },
+        { id: 2, name: "nightly-issue", conclusion },
+      ];
+      // This run is 200. Run 300 came after it and filed its report, so this run's pass is out of date and must not
+      // close the issue 300 opened, nor this run's failure open one.
+      for (const [STATE, COMMENT] of [
+        ["passing", "passed"],
+        ["failing", "new"],
+      ]) {
+        const stale = fileIssue({
+          STATE,
+          BODY: "list",
+          COMMENT,
+          issues: STATE === "passing" ? issues : [],
+          runs: [300, 200, 100],
+          jobs: { 300: issueJob("success") },
+        });
+        assert.match(stale, /^gh api repos\/o\/r\/actions\/runs\/300\/jobs\?filter=all&per_page=100 /mu);
+        assert.match(stale, /^Run 300 filed a newer report, so this run's report is not filed\.$/mu);
+        assert.doesNotMatch(stale, /gh issue/u);
+      }
+
+      // A newer run that never filed (it failed before its report, or its issue job failed) does not count.
+      const unfiled = fileIssue({
+        STATE: "passing",
+        BODY: "",
+        COMMENT: "passed",
+        issues,
+        runs: [400, 300, 200],
+        jobs: { 400: issueJob("skipped"), 300: issueJob("failure") },
+      });
+      assert.match(unfiled, /^gh issue close 12$/mu);
+
+      // A retry of the newest run files again, even though its first attempt filed.
+      const retry = fileIssue({
+        STATE: "passing",
+        BODY: "",
+        COMMENT: "passed",
+        issues,
+        runs: [200, 100],
+        jobs: { 200: issueJob("success"), 100: issueJob("success") },
+      });
+      assert.doesNotMatch(retry, /actions\/runs\/\d+\/jobs/u);
+      assert.match(retry, /^gh issue close 12$/mu);
     },
   },
   {
