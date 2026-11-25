@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runNamedCases } from "../fixtures/named-cases.ts";
 
 // GitHub runs workflow_run, check_run and check_suite workflows on the default branch, so their check runs land on
 // main's head commit whatever pull request they serve. A concurrency group there cancels superseded runs, and each
@@ -10,31 +11,46 @@ import { join } from "node:path";
 // (The owner-approval evaluator's supersede check is covered by scripts/test-owner-approval.mjs.)
 const workflows = new URL("../../../.github/workflows/", import.meta.url);
 const read = (name) => readFileSync(new URL(name, workflows), "utf8").replace(/\r\n/gu, "\n");
-const defaultBranchEvents = ["workflow_run", "check_run", "check_suite"];
-const onDefaultBranch = [];
-for (const name of readdirSync(workflows).filter((file) => /\.ya?ml$/u.test(file))) {
-  const source = read(name);
-  const on = /^on:(.*)\n((?:(?: .*)?\n)*)/mu.exec(source);
-  assert.ok(on, `${name} must declare its triggers`);
-  const events = on[1].trim()
-    ? on[1]
-        .replace(/[[\]]/gu, "")
-        .split(",")
-        .map((event) => event.trim())
-    : [...on[2].matchAll(/^ {2}([a-z_]+):/gmu)].map((match) => match[1]);
-  if (!events.some((event) => defaultBranchEvents.includes(event))) continue;
-  onDefaultBranch.push(name);
-  assert.doesNotMatch(source, /^\s*concurrency:/mu, `${name} runs on main, where a cancelled run is a failed check`);
-}
-for (const name of ["owner-approval-review.yml", "dottore-review-approve.yml", "coderabbit-review-gate.yml"]) {
-  assert.ok(onDefaultBranch.includes(name), `${name} must be found as a workflow GitHub runs on the default branch`);
-}
+const cases = [
+  {
+    name: "no workflow GitHub runs on the default branch cancels its superseded runs",
+    run: () => {
+      const defaultBranchEvents = ["workflow_run", "check_run", "check_suite"];
+      const onDefaultBranch = [];
+      for (const name of readdirSync(workflows).filter((file) => /\.ya?ml$/u.test(file))) {
+        const source = read(name);
+        const on = /^on:(.*)\n((?:(?: .*)?\n)*)/mu.exec(source);
+        assert.ok(on, `${name} must declare its triggers`);
+        const events = on[1].trim()
+          ? on[1]
+              .replace(/[[\]]/gu, "")
+              .split(",")
+              .map((event) => event.trim())
+          : [...on[2].matchAll(/^ {2}([a-z_]+):/gmu)].map((match) => match[1]);
+        if (!events.some((event) => defaultBranchEvents.includes(event))) continue;
+        onDefaultBranch.push(name);
+        assert.doesNotMatch(
+          source,
+          /^\s*concurrency:/mu,
+          `${name} runs on main, where a cancelled run is a failed check`,
+        );
+      }
+      for (const name of ["owner-approval-review.yml", "dottore-review-approve.yml", "coderabbit-review-gate.yml"]) {
+        assert.ok(
+          onDefaultBranch.includes(name),
+          `${name} must be found as a workflow GitHub runs on the default branch`,
+        );
+      }
+    },
+  },
+];
 
 // The dispatch's step runs on Ubuntu; native Windows does not require its Bash and jq tools.
 if (process.platform === "win32") {
   console.log(
     "Skipping the POSIX Dottore approval dispatch on Windows; exercise it on Ubuntu or macOS with Bash and jq.",
   );
+  await runNamedCases(cases);
   process.exit(0);
 }
 
@@ -124,11 +140,7 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
       readPullRequest: made.some((args) => args[0] === "pr" && args[1] === "view"),
     };
   }
-  const cases = [];
-  const expect = (name, fn) => {
-    fn();
-    cases.push(name);
-  };
+  const expect = (name, run) => cases.push({ name, run });
 
   expect("the newest dispatch for a discharged head asks for the approval", () => {
     const { dispatches } = run({
@@ -159,9 +171,26 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
   expect("a dispatch that cannot list the newer ones still asks for the approval", () => {
     assert.equal(run({ env: { DISPATCH_LIST_FAILS: "1" } }).dispatches.length, 1);
   });
-  console.log(
-    `Superseded runs regression passed (${onDefaultBranch.length} default-branch workflows, ${cases.length} cases).`,
-  );
+  expect("a newer dispatch that failed or was cancelled does not stop a re-run of this one", () => {
+    for (const conclusion of ["failure", "cancelled", "startup_failure", "timed_out"]) {
+      const { dispatches } = run({
+        runs: [[{ id: 501, status: "completed", conclusion, display_title: title(head) }]],
+      });
+      assert.equal(dispatches.length, 1, conclusion);
+    }
+  });
+  expect("a newer dispatch that is running or succeeded still replaces this one", () => {
+    for (const newer of [
+      { status: "queued", conclusion: null },
+      { status: "in_progress", conclusion: null },
+      { status: "completed", conclusion: "success" },
+    ]) {
+      const { dispatches, readPullRequest } = run({ runs: [[{ id: 501, ...newer, display_title: title(head) }]] });
+      assert.equal(dispatches.length, 0, JSON.stringify(newer));
+      assert.equal(readPullRequest, false, JSON.stringify(newer));
+    }
+  });
+  await runNamedCases(cases);
 } finally {
   rmSync(temp, { recursive: true, force: true });
 }

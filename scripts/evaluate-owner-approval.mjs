@@ -68,9 +68,11 @@ async function newerReviewSignal({ env, request, token, repositoryPath, pullNumb
         run.id > signalRunId &&
         // A fork's run that waits for approval to start may never start an evaluator.
         run.conclusion !== "action_required" &&
-        (run.head_sha === env.SIGNAL_HEAD_SHA ||
-          run.head_sha === headSha ||
-          run.pull_requests?.some((pullRequest) => pullRequest.number === pullNumber)),
+        // A commit can head more than one pull request, so a run that lists pull requests must list this one. Only a
+        // fork's run, which lists none, is matched by its head.
+        (run.pull_requests?.length > 0
+          ? run.pull_requests.some((pullRequest) => pullRequest.number === pullNumber)
+          : run.head_sha === env.SIGNAL_HEAD_SHA || run.head_sha === headSha),
     );
   } catch (error) {
     // Publishing a current evaluation twice is harmless; skipping the newest one is not.
@@ -105,7 +107,8 @@ export async function evaluateOwnerApproval({ env = process.env, request = githu
   requireValue(authorLogin, "pull request author login");
   requireValue(headSha, "pull request head SHA");
 
-  // Checked before the evaluation and again just before the status is written, so an older run never overwrites it.
+  // Checked before the evaluation and again before every attempt to write the status, so an older run does not write
+  // over a newer one's.
   const superseded = async () => {
     if (!(await newerReviewSignal({ env, request, token: githubToken, repositoryPath, pullNumber, headSha }))) {
       return false;
@@ -184,10 +187,9 @@ export async function evaluateOwnerApproval({ env = process.env, request = githu
     );
   }
 
-  if (await superseded()) return { skipped: true, superseded: true };
-
   const maximumPublishAttempts = 3;
   for (let attempt = 1; ; attempt += 1) {
+    if (await superseded()) return { skipped: true, superseded: true };
     try {
       await publishStatus();
       break;

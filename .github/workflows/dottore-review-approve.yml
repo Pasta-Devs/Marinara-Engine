@@ -38,10 +38,13 @@ jobs:
           # Inert: reads the event and PR metadata and dispatches the trusted workflow; runs no PR code.
           # A newer dispatch for this head checks it again and dispatches in this one's place. Checked first and again
           # just before the dispatch, so a run that a newer one overtakes while it reads the PR does not dispatch too.
+          # A newer one that failed or was cancelled may have stopped before it dispatched, so it does not count: a
+          # re-run of this run keeps its run ID and must still be able to dispatch.
           end_if_superseded() {
             local newer
             if ! newer=$(gh api "repos/${{ github.repository }}/actions/workflows/dottore-review-approve.yml/runs?per_page=100" \
-              --jq '[.workflow_runs[] | select(.id > ($ENV.GITHUB_RUN_ID | tonumber) and .display_title == "Dottore Approval Dispatch for " + $ENV.HEAD_SHA)] | length'); then
+              --jq '[.workflow_runs[] | select(.id > ($ENV.GITHUB_RUN_ID | tonumber) and .display_title == "Dottore Approval Dispatch for " + $ENV.HEAD_SHA
+                and (.conclusion | IN("failure", "cancelled", "startup_failure", "timed_out") | not))] | length'); then
               # A second approval check is harmless: it finds the head approved or not ready.
               echo "::warning::Could not list newer dispatches for $HEAD_SHA; dispatching anyway."
               return 0
