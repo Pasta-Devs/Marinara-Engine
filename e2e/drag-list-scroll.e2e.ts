@@ -23,8 +23,8 @@ async function touch(target: Locator, type: string, touches: Finger[], changedTo
 
 /**
  * The panel lists are windowed (b234d7e0bd, and the chat list since #9493): only rows near the view are built. Sweeps
- * the list half a screen at a time, from the top again after its end, until `row` is built, so a row above the view
- * is reached too (the chat list scrolls itself to the open chat, its last row). `inList` is any built row of the list.
+ * the list a screen at a time, from the top again after its end, until `row` is built, so a row above the view is
+ * reached too (the chat list scrolls itself to the open chat, its last row). `inList` is any built row of the list.
  */
 async function buildRow(row: Locator, inList: Locator) {
   await expect(async () => {
@@ -38,7 +38,7 @@ async function buildRow(row: Locator, inList: Locator) {
           parent = parent.parentElement;
         if (!parent) return;
         const atEnd = parent.scrollTop + parent.clientHeight >= parent.scrollHeight - 1;
-        parent.scrollTop = atEnd ? 0 : parent.scrollTop + parent.clientHeight / 2;
+        parent.scrollTop = atEnd ? 0 : parent.scrollTop + parent.clientHeight;
       });
     await expect(row).toHaveCount(1, { timeout: 1_000 });
   }).toPass({ timeout: 20_000 });
@@ -101,8 +101,9 @@ for (const kind of ["chat", "character", "persona"] as const) {
       if (kind === "chat") {
         // The chat list scrolls the active chat (its last row) into view, smoothly and a moment after it
         // loads. Let that finish first, or it scrolls the list away from the rows built and centred below.
+        // The windowed list builds the row once that scroll reaches it.
         const activeRow = panel.locator(`[data-chat-id="${chat.id}"]`);
-        await expect(activeRow).toBeInViewport();
+        await expect(activeRow).toHaveCount(1);
         // Waits until the row stops moving.
         await activeRow.scrollIntoViewIfNeeded();
       }
