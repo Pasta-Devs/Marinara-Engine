@@ -623,8 +623,9 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
       title={localize("Regex scripts")}
       meta={`${scripts.length} ${localize(scripts.length === 1 ? "script" : "scripts")} · ${enabledCount} ${localize("enabled")}`}
       tools={[
-        { label: localize("Import"), icon: Download, onClick: () => setImportOpen(true) },
+        // New folder first, then Import, as on every other Library page.
         { label: localize("New folder"), icon: FolderPlus, onClick: regexFolders.manual.create, compact: true },
+        { label: localize("Import"), icon: Download, onClick: () => setImportOpen(true) },
       ]}
       listLabel={localize("Scripts")}
       listNote={localize("in run order")}

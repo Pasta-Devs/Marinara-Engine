@@ -307,8 +307,9 @@ export function OvProfilesViewer({ children }: { children: ReactNode }) {
       title={localize("Settings profiles")}
       meta={counts}
       tools={[
-        { label: localize("Import"), icon: Download, onClick: () => fileRef.current?.click() },
+        // New folder first, then Import, as on every other Library page.
         { label: localize("New folder"), icon: FolderPlus, onClick: folders.create, compact: true },
+        { label: localize("Import"), icon: Download, onClick: () => fileRef.current?.click() },
       ]}
       listLabel={t("ui.panels.profilessection.profiles")}
       search={search}
