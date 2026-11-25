@@ -25,6 +25,8 @@ async function touch(target: Locator, type: string, touches: Finger[], changedTo
  * The panel lists are windowed (b234d7e0bd, and the chat list since #9493): only rows near the view are built. Sweeps
  * the list a screen at a time, from the top again after its end, until `row` is built, so a row above the view is
  * reached too (the chat list scrolls itself to the open chat, its last row). `inList` is any built row of the list.
+ * Ends with the row in view and holding still: a row counted just after the list scrolled can still be the old
+ * window's, and it is unbuilt when the list re-renders for its new position.
  */
 async function buildRow(row: Locator, inList: Locator) {
   await expect(async () => {
@@ -40,7 +42,7 @@ async function buildRow(row: Locator, inList: Locator) {
         const atEnd = parent.scrollTop + parent.clientHeight >= parent.scrollHeight - 1;
         parent.scrollTop = atEnd ? 0 : parent.scrollTop + parent.clientHeight;
       });
-    await expect(row).toHaveCount(1, { timeout: 1_000 });
+    await row.scrollIntoViewIfNeeded({ timeout: 1_000 });
   }).toPass({ timeout: 20_000 });
 }
 
