@@ -18,12 +18,15 @@ test.beforeEach(async ({ request }) => {
   original = await originalResponse.json();
 });
 test.afterEach(async ({ request }) => {
-  if (audioConnectionId) await request.delete(`/api/connections/${audioConnectionId}`);
+  const removed = audioConnectionId ? await request.delete(`/api/connections/${audioConnectionId}`) : undefined;
   audioConnectionId = undefined;
   // Only a snapshot this test captured goes back; a failed capture would otherwise write {} or the last test's copy.
-  if (!original) return;
-  const restored = await request.put("/api/tts/config", { data: original });
-  expect(restored.ok()).toBeTruthy();
+  if (original) {
+    const restored = await request.put("/api/tts/config", { data: original });
+    expect(restored.ok()).toBeTruthy();
+  }
+  // Checked after the restore, so a failed deletion is reported without skipping it.
+  if (removed) expect(removed.ok(), `deleting the Audio connection returned ${removed.status()}`).toBeTruthy();
 });
 
 test("PCM speech format persists through the settings UI and reload", async ({ page, request }) => {
