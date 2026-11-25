@@ -1672,6 +1672,11 @@ function buildBatchSystemPrompt(
 ): string {
   const parts: string[] = [];
   const contextSources = getBatchContextSources(configs);
+  // Label lines only when the shared block will actually be in the prompt.
+  const hasSharedGameState =
+    configs.length > 1 &&
+    contextSources.trackerData &&
+    buildCurrentGameStateJson(context.gameState, trackerSectionsForAgents(configs)) !== null;
 
   // ── Role ──
   parts.push(`<role>`);
@@ -1697,7 +1702,7 @@ function buildBatchSystemPrompt(
     parts.push(`<agent_task id="${escapeXmlAttribute(config.type)}" name="${escapeXmlAttribute(config.name)}">`);
     parts.push(template);
     // The batch shares one <current_game_state>; say which keys in it are this agent's.
-    const trackerKeysLine = configs.length > 1 && context.gameState ? buildAgentTrackerKeysLine(config) : null;
+    const trackerKeysLine = hasSharedGameState ? buildAgentTrackerKeysLine(config) : null;
     if (trackerKeysLine) parts.push(trackerKeysLine);
     const attachedLorebook = buildCustomAgentTriggeredLorebookBlock(config, context);
     if (attachedLorebook) parts.push(attachedLorebook);

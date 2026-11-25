@@ -1233,6 +1233,7 @@ export function AgentEditor() {
       setLocalSecretPlotPrompt("");
       setLocalCustomCapabilities({});
       setLocalContextSources(getAgentContextSources({ settings: defaultSettings }));
+      setLocalTrackerDataSections(getAgentTrackerDataSections(defaultSettings));
       setLocalResultType("context_injection");
       setLocalOutputOptions({ jsonContextOutput: false, hideOutput: false });
       setLocalIncludePreGenInjections(false);
@@ -1309,6 +1310,7 @@ export function AgentEditor() {
       setLocalSecretPlotPrompt("");
       setLocalCustomCapabilities({});
       setLocalContextSources({ ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES });
+      setLocalTrackerDataSections(null);
       setLocalResultType("context_injection");
       setLocalOutputOptions({ jsonContextOutput: false, hideOutput: false });
       setLocalIncludePreGenInjections(false);
