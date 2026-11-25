@@ -9,9 +9,10 @@ const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.u
 // Every spec in a shard talks to one server. A test that runs out of time never finishes its own body, so the voice
 // settings are put back in afterEach, which still runs then. Otherwise the next spec finds the voice on a deleted
 // Audio connection.
-let original: Record<string, unknown> = {};
+let original: Record<string, unknown> | undefined;
 let audioConnectionId: string | undefined;
 test.beforeEach(async ({ request }) => {
+  original = undefined;
   const originalResponse = await request.get("/api/tts/config");
   expect(originalResponse.ok()).toBeTruthy();
   original = await originalResponse.json();
@@ -19,6 +20,8 @@ test.beforeEach(async ({ request }) => {
 test.afterEach(async ({ request }) => {
   if (audioConnectionId) await request.delete(`/api/connections/${audioConnectionId}`);
   audioConnectionId = undefined;
+  // Only a snapshot this test captured goes back; a failed capture would otherwise write {} or the last test's copy.
+  if (!original) return;
   const restored = await request.put("/api/tts/config", { data: original });
   expect(restored.ok()).toBeTruthy();
 });
