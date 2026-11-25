@@ -1911,31 +1911,36 @@ export function AgentEditor() {
             payload.connectionId === storedConnection
           )
             delete patch.connectionId;
+          const settingsBefore = parseAgentSettingsRecord(loadedSave.config.settings);
+          const settingsNow = parseAgentSettingsRecord(dbConfig.settings);
           const rebasedSettings = rebaseUntouchedKeys(
             payload.settings,
             loadedSave.payload.settings,
-            parseAgentSettingsRecord(loadedSave.config.settings),
-            parseAgentSettingsRecord(dbConfig.settings),
+            settingsBefore,
+            settingsNow,
           );
           // Off / All / Pick spans two keys (the trackerData flag and the section list), which
-          // rebase one by one. When this editor changed the mode, save it whole so a concurrent
-          // edit cannot leave half of another mode behind.
-          const trackerDataMode = (settings: Record<string, unknown>) => {
-            const sources = settings.contextSources as { trackerData?: unknown } | undefined;
-            return JSON.stringify([
-              sources?.trackerData ?? null,
-              settings[AGENT_TRACKER_DATA_SECTIONS_SETTING] ?? null,
-            ]);
-          };
-          if (trackerDataMode(payload.settings) !== trackerDataMode(loadedSave.payload.settings)) {
+          // rebase one by one. Rebase the mode as one unit: this editor's mode when it changed it,
+          // else another editor's when that changed, so no save keeps half of each.
+          const trackerDataFlag = (settings: Record<string, unknown>) =>
+            (settings.contextSources as { trackerData?: unknown } | undefined)?.trackerData;
+          const trackerDataMode = (settings: Record<string, unknown>) =>
+            JSON.stringify([trackerDataFlag(settings) ?? null, settings[AGENT_TRACKER_DATA_SECTIONS_SETTING] ?? null]);
+          const modeSource =
+            trackerDataMode(payload.settings) !== trackerDataMode(loadedSave.payload.settings)
+              ? payload.settings
+              : trackerDataMode(settingsBefore) !== trackerDataMode(settingsNow)
+                ? settingsNow
+                : null;
+          if (modeSource) {
             const rebasedSources = rebasedSettings.contextSources;
             rebasedSettings.contextSources = {
               ...(rebasedSources && typeof rebasedSources === "object" ? rebasedSources : {}),
-              trackerData: (payload.settings.contextSources as { trackerData?: unknown } | undefined)?.trackerData,
+              trackerData: trackerDataFlag(modeSource),
             };
-            const pickedSections = payload.settings[AGENT_TRACKER_DATA_SECTIONS_SETTING];
-            if (pickedSections === undefined) delete rebasedSettings[AGENT_TRACKER_DATA_SECTIONS_SETTING];
-            else rebasedSettings[AGENT_TRACKER_DATA_SECTIONS_SETTING] = pickedSections;
+            const sections = modeSource[AGENT_TRACKER_DATA_SECTIONS_SETTING];
+            if (sections === undefined) delete rebasedSettings[AGENT_TRACKER_DATA_SECTIONS_SETTING];
+            else rebasedSettings[AGENT_TRACKER_DATA_SECTIONS_SETTING] = sections;
           }
           patch.settings = rebasedSettings;
         }
