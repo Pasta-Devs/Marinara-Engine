@@ -3,6 +3,7 @@ import { openChatTool } from "./chat-settings-tools.js";
 // button or by dragging them out), and each chat saves its window layout, which settings profiles carry too.
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { resetChatView } from "./chat-settings-tools.js";
 
@@ -855,12 +856,13 @@ test.describe("Pop-out drawers on desktop", () => {
           async () => (await profiles()).find((entry) => entry.name === profileName)?.settings.metadata?.windowLayout,
         )
         .toMatchObject({ detached: [CHAT_NAME_WINDOW], windows: { "chat-settings": { pinned: true } } });
-      const select = settings.getByRole("combobox", { name: "Profile", exact: true });
-      await expect(select.locator("option:checked")).toHaveText(profileName);
+      // The Profile field opens the shared picker window (#9246); its trigger shows the applied profile.
+      const profile = settings.locator("[data-profile-picker-trigger]");
+      await expect(profile).toHaveText(profileName);
 
       // The Default profile has no layout, so applying it leaves the layout as it is.
-      await select.selectOption({ label: "Default" });
-      await expect(select.locator("option:checked")).toHaveText("Default");
+      await chooseOption(page, profile, "Default");
+      await expect(profile).toHaveText("Default");
       await expect(settings.locator("[data-chat-settings-top-row]")).toBeVisible();
       await expect(popped).toBeVisible();
       expectSameBox(await box(popped), placed, "after the Default profile");
@@ -871,7 +873,7 @@ test.describe("Pop-out drawers on desktop", () => {
       await expect(popped).toHaveCount(0);
       await expect(settings).toHaveAttribute("data-pinned", "false");
       await expect.poll(() => readSavedLayout(request, chat.id)).toBeNull();
-      await select.selectOption({ label: profileName });
+      await chooseOption(page, profile, profileName);
       await expect(settings.locator("[data-chat-settings-top-row]")).toHaveCount(0);
       await settle(popped);
       expectSameBox(await box(popped), placed, "from the saved profile");

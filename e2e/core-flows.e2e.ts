@@ -10680,9 +10680,10 @@ test("prompt preset transfers discard deprecated generation parameters", async (
     const compatibleStoredResponse = await request.get(`/api/prompts/${compatibleImport.presetId}`);
     const compatibleStored = (await compatibleStoredResponse.json()) as { parameters: string };
     const compatibleParameters = JSON.parse(compatibleStored.parameters) as Record<string, unknown>;
-    expect(compatibleParameters).not.toHaveProperty("temperature");
+    // A SillyTavern preset keeps its samplers and reasoning effort; its output length stays on the connection
+    // (#9647).
+    expect(compatibleParameters).toMatchObject({ temperature: 0.19, reasoningEffort: "low" });
     expect(compatibleParameters).not.toHaveProperty("maxTokens");
-    expect(compatibleParameters).not.toHaveProperty("reasoningEffort");
     const compatibleSectionsResponse = await request.get(`/api/prompts/${compatibleImport.presetId}/sections`);
     expect(await compatibleSectionsResponse.json()).toContainEqual(
       expect.objectContaining({ content: "Compatible prompt content survives import." }),

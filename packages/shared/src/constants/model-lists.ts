@@ -366,6 +366,9 @@ export function resolveProviderReasoningEffort(args: {
   )
     return null;
   const off = !effort || effort === "none";
+  // Codex has no Off: Default (null) or "none" sends nothing, so Codex keeps its own level for the model, even where
+  // the API would turn Off into the lightest level.
+  if (providerLower === "openai_chatgpt" && off) return null;
   // Nearest documented level, with ties going upwards. https://platform.claude.com/docs/en/build-with-claude/effort
   const nearest = (
     levels: Exclude<ProviderReasoningEffort, null>[],

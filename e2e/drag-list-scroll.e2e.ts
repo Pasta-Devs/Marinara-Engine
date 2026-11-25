@@ -520,8 +520,13 @@ test("connection cards sort and move, and folders keep their saved drag order", 
     await page.goto("/");
     await clickTopbarPanel(page, "connections");
     const panel = page.locator(`[data-component="RightPanel${mobile ? "Mobile" : "Desktop"}"]`);
-    // A narrow panel keeps the search full width, so the sort choice lives in the more-actions menu there.
-    const sortLabels: Record<string, RegExp> = { "name-asc": /^A.Z$/, "name-desc": /^Z.A$/, custom: /^Custom$/ };
+    // A narrow panel keeps the search full width, so the sort choice lives in the more-actions menu there. The choices
+    // read "Sort: A–Z" (#9760).
+    const sortLabels: Record<string, RegExp> = {
+      "name-asc": /^Sort: A.Z$/,
+      "name-desc": /^Sort: Z.A$/,
+      custom: /^Sort: Custom$/,
+    };
     const openMenu = () => panel.getByRole("button", { name: /more actions/i }).click();
     const expectSort = async (value: string) => {
       await openMenu();

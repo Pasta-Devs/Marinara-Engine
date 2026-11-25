@@ -25,9 +25,10 @@ export const PANEL_SEARCH_MIN_MODELS = 8;
 
 /**
  * Checks the panel's search box against the Models the panel holds: visible from 8, absent below. Returns the box
- * when it shows, else null.
+ * when it shows, else null. `container` is the Connections panel or a sidebar that holds it.
  */
-export async function panelSearch(panel: Locator) {
+export async function panelSearch(container: Locator) {
+  const panel = container.locator(":scope[data-connections-panel], [data-connections-panel]");
   await expect(panel).toHaveAttribute("data-connections-models", /^\d+$/u);
   const models = Number(await panel.getAttribute("data-connections-models"));
   const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
