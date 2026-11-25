@@ -36,6 +36,7 @@ const assertBuilt = (result) => assert.equal(result.status, 0, `${result.stdout}
 try {
   for (const file of [
     "scripts/run-server.mjs",
+    "scripts/read-launcher-env.mjs",
     "packages/server/scripts/build.mjs",
     "packages/server/scripts/write-build-meta.mjs",
   ]) {

@@ -279,6 +279,8 @@ const MEMORY_RECALL_IMPORT_BODY_LIMIT_BYTES = 25 * 1024 * 1024;
 const MEMORY_RECALL_IMPORT_BATCH_SIZE = 500;
 const PROFESSOR_MARI_INTERNAL_CHAT_MARKER = "professor-mari";
 const CHAT_ROW_PREVIEW_MAX_LENGTH = 140;
+/** The row-preview sweep lets loaded chats go after this many, back down to the resident cap. */
+const ROW_PREVIEW_TRIM_EVERY_CHATS = 16;
 const SUMMARY_COMBINE_DEFAULT_CONTEXT_TOKENS = 32_768;
 const SUMMARY_COMBINE_MESSAGE_OVERHEAD_TOKENS = 64;
 
@@ -1161,8 +1163,14 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.get("/row-previews", async (req, reply) => {
     const chats = await storage.list();
     const previews: Record<string, { role: string; characterId: string | null; text: string }> = {};
+    let chatsRead = 0;
     for (const chat of chats) {
       if (shouldHideProfessorMariChat(chat)) continue;
+      // Reading one line loads that whole chat. Let the loaded ones go as the sweep moves on, or one
+      // request brings the entire library into memory at once (heap out of memory on big profiles).
+      if (++chatsRead % ROW_PREVIEW_TRIM_EVERY_CHATS === 0) {
+        await app.db._fileStore?.trimResidentChatUnits?.(Number.MAX_SAFE_INTEGER).catch(() => {});
+      }
       const [latest] = await storage.listMessagePreviews(chat.id, 1);
       if (!latest) continue;
       const text = latest.content.trim().replace(/\s+/gu, " ").slice(0, CHAT_ROW_PREVIEW_MAX_LENGTH);
