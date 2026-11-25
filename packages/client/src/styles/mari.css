@@ -5529,6 +5529,13 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   bottom: 0;
 }
 
+/* Beside an editor, a firm pull on her header tears her off into a floating window (use-mari-float). */
+[data-mari-companion="panel"] > .mari-companion-panel > header {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
 /* A dropped window glides into its zone or spot (use-mari-float sets data-float-settling for one glide). */
 [data-mari-float][data-float-settling] > :is(.mari-float-panel, .mari-float-frame) {
   transition:
@@ -5571,6 +5578,10 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   background: color-mix(in oklab, var(--marinara-chat-chrome-accent) 14%, transparent);
   pointer-events: none;
   opacity: 0;
+  /* Hidden, it only fades: it rides along with her without moving visibly (use-mari-float). */
+  transition: opacity 120ms ease-out;
+}
+.mari-float-zone-preview[data-shown="true"] {
   transition:
     left 180ms ease-out,
     top 180ms ease-out,

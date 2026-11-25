@@ -2187,7 +2187,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         </h2>
         <header
           className="relative z-50 shrink-0 overflow-visible pt-[env(safe-area-inset-top)]"
-          onPointerDown={float.active ? float.onHeaderPointerDown : undefined}
+          onPointerDown={float.active || companionShape === "panel" ? float.onHeaderPointerDown : undefined}
         >
           <div
             className={cn(

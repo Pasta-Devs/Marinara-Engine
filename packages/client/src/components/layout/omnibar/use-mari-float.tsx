@@ -49,12 +49,32 @@ function writeRect(panel: HTMLElement | null, rect: MariFloatRect) {
   panel.style.setProperty("--mari-float-height", `${rect.height}px`);
 }
 
-/** The zone outline grows out of her window into the zone (and back), like Windows Snap; CSS transitions it. */
+/** How long the outline takes to fade (matches the CSS transition); it stays put meanwhile. */
+const PREVIEW_FADE_MS = 120;
+
+/**
+ * The zone outline grows out of her window into the zone, like Windows Snap (CSS transitions it while shown).
+ * Leaving the zone, it fades where it is instead of shrinking back across the screen; once faded it rides along
+ * with her, hidden, so the next zone grows out of her window again.
+ */
 function writePreview(preview: HTMLElement | null, rect: MariFloatRect, shown: boolean) {
   if (!preview) return;
+  if (!shown) {
+    if (preview.dataset.shown === "true") {
+      preview.dataset.shown = "false";
+      preview.dataset.hiddenAt = String(performance.now());
+      return;
+    }
+    if (performance.now() - Number(preview.dataset.hiddenAt ?? 0) < PREVIEW_FADE_MS) return;
+  }
   writeRect(preview, rect);
   preview.dataset.shown = shown ? "true" : "false";
 }
+
+/** How far her companion panel has to be pulled before it tears off into a floating window: a deliberate pull. */
+const TEAR_OFF_PX = 72;
+/** How much of that pull the panel shows before it tears, as resistance. */
+const TEAR_OFF_GIVE = 0.12;
 
 /** How long a dropped window glides into its place (matches the CSS transition). */
 const SETTLE_MS = 200;
@@ -174,23 +194,55 @@ export function useMariFloat(
     handle.addEventListener("lostpointercapture", end);
   };
 
+  /** Beside an editor (desktop), her header pulls her out of the companion panel into a floating window. */
+  const companionPanel = companion && desktop;
+
   const onHeaderPointerDown = (event: PointerEvent<HTMLElement>) => {
-    if (!active || gestureRef.current || event.button !== 0 || (event.target as Element).closest(HEADER_CONTROLS))
+    if (
+      !(active || companionPanel) ||
+      gestureRef.current ||
+      event.button !== 0 ||
+      (event.target as Element).closest(HEADER_CONTROLS)
+    )
       return;
     // No text selection or focus change while she is moved.
     event.preventDefault();
     const view = readView();
-    const start = drawnRef.current;
     const ui = useUIStore.getState();
     const startX = event.clientX;
     const startY = event.clientY;
-    // A snapped window leaves its zone at its free size, still under the pointer.
-    const origin = ui.mariFloatZone
-      ? clampMariFloatRect(
-          unsnapMariFloatRect(ui.mariFloatRect ?? startMariFloatRect(view, remPx()), start, { x: startX, y: startY }),
-          view,
-        )
-      : start;
+    const panel = panelRef.current;
+    // The companion panel: drawn where it is; it has to tear off before she moves.
+    const tearing = !active && panel !== null;
+    let torn = !tearing;
+    const companionRect = panel?.getBoundingClientRect();
+    const start: MariFloatRect =
+      tearing && companionRect
+        ? {
+            left: companionRect.left,
+            top: companionRect.top,
+            width: companionRect.width,
+            height: companionRect.height,
+          }
+        : drawnRef.current;
+    // A snapped (or companion) window leaves its place at its free size, still under the pointer.
+    const origin =
+      ui.mariFloatZone || tearing
+        ? clampMariFloatRect(
+            unsnapMariFloatRect(ui.mariFloatRect ?? startMariFloatRect(view, remPx()), start, {
+              x: startX,
+              y: startY,
+            }),
+            view,
+          )
+        : start;
+    // Leaving a side dock gives the app its room back at once, not on release.
+    const fromDock = active && (ui.mariFloatZone === "left" || ui.mariFloatZone === "right");
+    const releaseGive = () => panel?.style.removeProperty("translate");
+    if (tearing) {
+      for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
+        event.currentTarget.addEventListener(type, releaseGive, { once: true });
+    }
     let target: MariFloatZone | null = null;
     let moved = false;
     track(
@@ -198,7 +250,21 @@ export function useMariFloat(
       (move) => {
         const dx = move.clientX - startX;
         const dy = move.clientY - startY;
+        if (!torn) {
+          // Resistance first: the panel gives a little; past the pull she tears off and floats under the pointer.
+          if (Math.hypot(dx, dy) < TEAR_OFF_PX) {
+            panel?.style.setProperty("translate", `${dx * TEAR_OFF_GIVE}px ${dy * TEAR_OFF_GIVE}px`);
+            return null;
+          }
+          torn = true;
+          releaseGive();
+          const store = useUIStore.getState();
+          store.setMariFloatPlace(origin, null);
+          store.setMariFloating(true);
+          store.setMariCompanionDocked(false);
+        }
         if (!moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return null;
+        if (!moved && fromDock) useUIStore.getState().setMariFloatDock(null);
         moved = true;
         target = mariFloatZoneAt(move.clientX, move.clientY, view);
         const next = clampMariFloatRect({ ...origin, left: origin.left + dx, top: origin.top + dy }, view);
@@ -214,8 +280,14 @@ export function useMariFloat(
           return;
         }
         // Dropped in a zone, she keeps the free place she was dragged from for when she leaves it again.
-        if (target) ui.setMariFloatPlace(ui.mariFloatZone ? (ui.mariFloatRect ?? origin) : start, target);
+        const free = tearing ? origin : ui.mariFloatZone ? (ui.mariFloatRect ?? origin) : start;
+        if (target) ui.setMariFloatPlace(free, target);
         else ui.setMariFloatPlace(last, null);
+        // Back into a side dock (the same one too, which changes nothing the publishing effect watches): the app
+        // makes room again.
+        if (target === "left" || target === "right") {
+          ui.setMariFloatDock({ side: target, width: mariFloatDockWidth(ui.mariFloatDockWidth, view, remPx()) });
+        }
       },
     );
   };
