@@ -294,6 +294,36 @@ export function screenList(ids) {
         await list.scrollIntoViewIfNeeded();
       },
     },
+    {
+      id: "settings-profile-import-nothing-new",
+      // The same page with "Keep my current versions" on and a file that holds nothing new: the note
+      // names the file and lists what it holds.
+      run: open.settings("data"),
+      then: async (page) => {
+        const input = page.locator('input[type="file"][accept=".json,.zip,application/json,application/zip"]');
+        if (!(await input.count())) {
+          const data = page.getByRole("button", { name: /^Data\b/ }).filter({ visible: true });
+          if (await data.count()) await data.first().click();
+          await input.waitFor({ state: "attached", timeout: 10_000 }).catch(() => {});
+        }
+        if (!(await input.count())) return "not on this layout";
+        const backup = page.getByRole("button", { name: /^Backup & restore\b/ }).filter({ visible: true });
+        if (await backup.count()) await backup.first().click();
+        const keep = page.getByRole("switch", { name: /Keep my current versions/ }).filter({ visible: true });
+        if ((await keep.count()) && (await keep.first().getAttribute("aria-checked")) !== "true") {
+          await keep.first().click();
+        }
+        const profile = await page.evaluate(async () => (await fetch("/api/backup/export-profile")).text());
+        await input.first().setInputFiles({
+          name: "marinara-profile.json",
+          mimeType: "application/json",
+          buffer: Buffer.from(profile),
+        });
+        const note = page.locator(".ov-pimp__review .ov-pimp__note").first();
+        await note.waitFor({ state: "visible", timeout: 30_000 });
+        await note.scrollIntoViewIfNeeded();
+      },
+    },
     { id: "chats-list", group: "core", run: open.sidePane("chats") },
     { id: "library-pane", run: open.sidePane("library") },
     { id: "characters", group: "core", run: open.library("characters") },

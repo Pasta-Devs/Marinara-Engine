@@ -3,7 +3,7 @@
 // picked item by item (characters, personas, lorebooks, presets, chats) open to a checklist. Same
 // look as the SillyTavern import's category list (ov-stimp / ov-stcat). The server checks the choice
 // again before it writes anything.
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Bot,
@@ -20,6 +20,7 @@ import {
   Plug,
   Puzzle,
   Regex,
+  Search,
   Settings,
   SlidersHorizontal,
   UserRound,
@@ -154,6 +155,9 @@ function KindCheckbox({
   );
 }
 
+/** Longer item lists get a search box. */
+const SEARCH_FROM_ITEMS = 8;
+
 /** One kind's row. Memoized on its own entry, so ticking an item redraws only that kind. */
 const ProfileImportKindRow = memo(function ProfileImportKindRow({
   kind,
@@ -170,6 +174,19 @@ const ProfileImportKindRow = memo(function ProfileImportKindRow({
   const items = kind.items ?? [];
   const itemized = items.length > 0;
   const [expanded, setExpanded] = useState(false);
+  const [query, setQuery] = useState("");
+  // A to Z, so one character among a hundred can be found; the search narrows it further.
+  const sortedItems = useMemo(
+    () =>
+      [...items].sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" }),
+      ),
+    [items],
+  );
+  const needle = query.trim().toLocaleLowerCase();
+  const shownItems = needle
+    ? sortedItems.filter((item) => (item.name || "").toLocaleLowerCase().includes(needle))
+    : sortedItems;
   const picked = entry?.picked ?? new Set<string>();
   const on = isEntryOn(kind, entry);
   const partial = itemized && picked.size > 0 && picked.size < items.length;
@@ -232,9 +249,26 @@ const ProfileImportKindRow = memo(function ProfileImportKindRow({
           </span>
         )}
       </div>
+      {itemized && expanded && items.length > SEARCH_FROM_ITEMS && (
+        <div className="ov-pimp__search">
+          <label className="ov-search">
+            <Search size={14} aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={localizeUi("ui.panels.importsettings.profileChoose.searchKind", { kind: name })}
+              aria-label={localizeUi("ui.panels.importsettings.profileChoose.searchKind", { kind: name })}
+            />
+          </label>
+        </div>
+      )}
       {itemized && expanded && (
         <div className="ov-stcat__items">
-          {items.map((item) => {
+          {shownItems.length === 0 && (
+            <div className="ov-pimp__nomatch">{localizeUi("ui.panels.importsettings.profileChoose.noMatches")}</div>
+          )}
+          {shownItems.map((item) => {
             const itemDetails: string[] = [];
             if (item.mode)
               itemDetails.push(localizeUi(`ui.panels.importsettings.profileChoose.mode.${item.mode}`, item.mode));

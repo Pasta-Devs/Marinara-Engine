@@ -3344,7 +3344,8 @@
   font-size: 0.875rem;
 }
 /* Phones: an item's details go under its name. */
-:root[data-overhaul="mobile"] .ov-stcat__items {
+:root[data-overhaul="mobile"] .ov-stcat__items,
+:root[data-overhaul="mobile"] .ov-pimp__search {
   padding-left: 0.5rem;
 }
 :root[data-overhaul="mobile"] .ov-stcat__item {
