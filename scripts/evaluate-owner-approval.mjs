@@ -50,6 +50,41 @@ async function listPullRequestReviews(request, token, repositoryPath, pullNumber
   return reviews;
 }
 
+// GitHub runs the review evaluator (owner-approval-review.yml) on the default branch, so a run cancelled by a
+// concurrency group shows as a failed check on main. Instead, a run ends without publishing when a newer review signal
+// for the same pull request has completed; that signal's own run publishes. pull-request-triage.yml sets no
+// SIGNAL_RUN_ID.
+async function newerReviewSignal({ env, request, token, repositoryPath, pullNumber, headSha }) {
+  const signalRunId = Number(env.SIGNAL_RUN_ID);
+  if (!signalRunId) return false;
+  const workflowId = encodeURIComponent(requireValue(env.SIGNAL_WORKFLOW_ID, "SIGNAL_WORKFLOW_ID"));
+  try {
+    // Runs come newest first, so the first page holds every newer one unless 100 reviews arrived since.
+    const { workflow_runs: runs = [] } = await request({
+      token,
+      path: `/repos/${repositoryPath}/actions/workflows/${workflowId}/runs?per_page=100`,
+    });
+    return runs.some(
+      (run) =>
+        run.id > signalRunId &&
+        // An evaluator starts only when its signal completes, so a newer signal still queued or running has written
+        // nothing yet, and one stuck in the queue would never write. A fork's run that waits for approval to start
+        // reports completed too, but may never start an evaluator.
+        run.status === "completed" &&
+        run.conclusion !== "action_required" &&
+        // A commit can head more than one pull request, so a run that lists pull requests must list this one. Only a
+        // fork's run, which lists none, is matched by its head.
+        (run.pull_requests?.length > 0
+          ? run.pull_requests.some((pullRequest) => pullRequest.number === pullNumber)
+          : run.head_sha === env.SIGNAL_HEAD_SHA || run.head_sha === headSha),
+    );
+  } catch (error) {
+    // Publishing a current evaluation twice is harmless; skipping the newest one is not.
+    console.warn(`Could not list newer review signals (status ${error?.status ?? "unknown"}); publishing anyway.`);
+    return false;
+  }
+}
+
 export async function evaluateOwnerApproval({ env = process.env, request = githubRequest } = {}) {
   const repository = requireValue(env.GITHUB_REPOSITORY, "GITHUB_REPOSITORY");
   const githubToken = requireValue(env.GITHUB_TOKEN, "GITHUB_TOKEN");
@@ -75,6 +110,17 @@ export async function evaluateOwnerApproval({ env = process.env, request = githu
   const headSha = pullRequest.head?.sha;
   requireValue(authorLogin, "pull request author login");
   requireValue(headSha, "pull request head SHA");
+
+  // Checked before the evaluation and again before every attempt to write the status, so an older run does not write
+  // over a newer one's.
+  const superseded = async () => {
+    if (!(await newerReviewSignal({ env, request, token: githubToken, repositoryPath, pullNumber, headSha }))) {
+      return false;
+    }
+    console.info(`::notice::A newer review signal for #${pullNumber} has its own run, which publishes the status.`);
+    return true;
+  };
+  if (await superseded()) return { skipped: true, superseded: true };
 
   let state = "failure";
   let description = "Outside contribution requires current SpicyMarinara approval.";
@@ -147,6 +193,7 @@ export async function evaluateOwnerApproval({ env = process.env, request = githu
 
   const maximumPublishAttempts = 3;
   for (let attempt = 1; ; attempt += 1) {
+    if (await superseded()) return { skipped: true, superseded: true };
     try {
       await publishStatus();
       break;
