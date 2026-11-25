@@ -134,7 +134,8 @@ export function validatePullRequestTriage() {
   );
   const browserRevision = extractJob(browserWorkflow, "revision");
   assert.match(browserRevision, /if: github\.event_name != 'schedule'/u);
-  assert.match(browserRevision, /permissions: \{\}/u);
+  // It reads only package.json, for the Playwright image version.
+  assert.match(browserRevision, /permissions:\n\s+contents: read\n\s+outputs:/u);
   assert.match(
     browserRevision,
     /full: \$\{\{ github\.event_name == 'workflow_dispatch' \|\| github\.base_ref == 'main' \}\}/u,

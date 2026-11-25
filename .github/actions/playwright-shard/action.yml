@@ -1,16 +1,14 @@
 name: Run one Playwright shard
 description: >-
-  Set up pnpm/Node, restore the Playwright browser cache, and run one shard of
-  one browser project. Each shard job runs on its own runner with its own app
+  Set up pnpm/Node and run one shard of one browser project. The calling job
+  runs in the Playwright container image, which has the browsers and their
+  Ubuntu packages. Each shard job runs on its own runner with its own app
   servers, which is what makes sharding safe despite fullyParallel: false —
   that setting guards test isolation within ONE run's shared servers, and
   shards never share a run (#5622).
 inputs:
   project:
     description: Playwright project name (desktop-chromium, mobile-chromium, mobile-webkit)
-    required: true
-  browser:
-    description: Browser bundle to install (chromium, webkit)
     required: true
   shard:
     description: 1-based shard index
@@ -43,32 +41,16 @@ runs:
       with:
         run_install: false
 
+    # No pnpm cache: the container's store path differs from the runner's, so the cache
+    # would save a second copy for these jobs alone, and a fresh install takes about 11 s.
     - name: Set up Node.js
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: 24
-        cache: pnpm
 
     - name: Install dependencies
       shell: bash
       run: pnpm install --frozen-lockfile
-
-    - name: Resolve Playwright version
-      id: playwright-version
-      shell: bash
-      run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-
-    - name: Cache Playwright browsers
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ inputs.browser }}-${{ steps.playwright-version.outputs.version }}
-
-    - name: Install ${{ inputs.browser }}
-      # On a cache hit the download is a no-op; --with-deps still installs the
-      # OS packages, which are not cacheable.
-      shell: bash
-      run: pnpm exec playwright install --with-deps ${{ inputs.browser }}
 
     - name: Run Chromium smoke suite
       if: inputs.smoke == 'true'
