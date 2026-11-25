@@ -1,8 +1,9 @@
 name: Run one Playwright shard
 description: >-
-  Set up pnpm/Node, restore the Playwright browser cache, and run one shard of
-  one browser project. Each shard job runs on its own runner with its own app
-  servers, which is what makes sharding safe despite fullyParallel: false —
+  Set up pnpm/Node, restore the Playwright browser and Ubuntu package caches,
+  and run one shard of one browser project. Each shard job runs on its own
+  runner with its own app servers, which is what makes sharding safe despite
+  fullyParallel: false —
   that setting guards test isolation within ONE run's shared servers, and
   shards never share a run (#5622).
 inputs:
@@ -64,11 +65,31 @@ runs:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ inputs.browser }}-${{ steps.playwright-version.outputs.version }}
 
-    - name: Install ${{ inputs.browser }}
-      # On a cache hit the download is a no-op; --with-deps still installs the
-      # OS packages, which are not cacheable.
+    # The Ubuntu packages are cached per runner image, which changes about weekly:
+    # the first shard on a new image downloads them from the mirror and saves them.
+    - name: Resolve runner image
+      id: runner-image
       shell: bash
-      run: pnpm exec playwright install --with-deps ${{ inputs.browser }}
+      run: echo "image=${ImageOS:-unknown}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+
+    - name: Restore ${{ inputs.browser }} Ubuntu packages
+      id: os-packages
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/playwright-debs
+        key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.runner-image.outputs.image }}-${{ inputs.browser }}-${{ steps.playwright-version.outputs.version }}
+
+    - name: Install ${{ inputs.browser }}
+      id: install-browser
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/install-browser.sh" ${{ inputs.browser }} "$RUNNER_TEMP/playwright-debs"
+
+    - name: Save ${{ inputs.browser }} Ubuntu packages
+      if: steps.install-browser.outputs.save == 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/playwright-debs
+        key: ${{ steps.os-packages.outputs.cache-primary-key }}
 
     - name: Run Chromium smoke suite
       if: inputs.smoke == 'true'
