@@ -34,6 +34,8 @@ const Fastify = requireServer(
 ) as typeof import("../../../packages/server/node_modules/fastify/fastify.js").default;
 const multipart = requireServer("@fastify/multipart");
 const { imageTagDatasetRoutes } = await import("../../../packages/server/src/routes/image-tag-datasets.routes.js");
+const { loginRoutes, hasBrowserSession } = await import("../../../packages/server/src/middleware/basic-auth.js");
+const credential = await import("../../../packages/server/src/config/login-credential.js");
 const prefix = "/api/image-tag-datasets";
 const local = { remoteAddress: "127.0.0.1", headers: { host: "127.0.0.1:6972" } };
 const csv = 'name,category,post_count,aliases\r\nblue_hair,0,42,"azure hair,blue locks"\r\n初音ミク,4,8,miku\r\n';
@@ -56,6 +58,8 @@ async function fixture(run: (app: ReturnType<typeof Fastify>) => Promise<void>) 
   const app = Fastify({ logger: false });
   try {
     await app.register(multipart);
+    await app.register(loginRoutes);
+    app.get("/fixture/session", (request) => ({ signedIn: hasBrowserSession(request) }));
     await app.register(imageTagDatasetRoutes, { prefix });
     await app.ready();
     await run(app);
@@ -209,6 +213,56 @@ try {
           assert.equal(invalidSearch.statusCode, 400, invalidSearch.body);
           assert.equal(await readFile(path, "utf8"), before);
         });
+      },
+    },
+    {
+      name: "a real signed-in remote browser still needs the admin secret for dataset access",
+      async run() {
+        await credential.setStoredLogin("dataset-owner", "test-password-not-a-real-secret");
+        const secret = credential.createStoredAdminSecret();
+        try {
+          await fixture(async (app) => {
+            const remote = { remoteAddress: "192.0.2.90", headers: local.headers };
+            const signedIn = await app.inject({
+              method: "POST",
+              url: "/login",
+              ...remote,
+              headers: { ...local.headers, "content-type": "application/x-www-form-urlencoded" },
+              payload: new URLSearchParams({
+                user: "dataset-owner",
+                password: "test-password-not-a-real-secret",
+              }).toString(),
+            });
+            assert.equal(signedIn.statusCode, 303, signedIn.body);
+            const cookie = String(signedIn.headers["set-cookie"]).split(";")[0]!;
+            const headers = { ...local.headers, cookie };
+            const session = await app.inject({ method: "GET", url: "/fixture/session", ...remote, headers });
+            assert.equal(session.json().signedIn, true);
+            for (const request of [
+              { method: "GET" as const, url: `${prefix}/` },
+              { method: "POST" as const, url: `${prefix}/search`, payload: { queries: ["cat"] } },
+              { method: "POST" as const, url: `${prefix}/import`, ...body() },
+              { method: "PATCH" as const, url: `${prefix}/${randomUUID()}`, payload: { enabled: false } },
+              { method: "DELETE" as const, url: `${prefix}/${randomUUID()}` },
+            ]) {
+              const denied = await app.inject({ ...request, ...remote, headers: { ...request.headers, ...headers } });
+              assert.equal(denied.statusCode, 403, denied.body);
+            }
+            const upload = body();
+            const allowed = await app.inject({
+              method: "POST",
+              url: `${prefix}/import`,
+              ...remote,
+              ...upload,
+              headers: { ...upload.headers, ...headers, "x-admin-secret": secret },
+            });
+            assert.equal(allowed.statusCode, 201, allowed.body);
+          });
+        } finally {
+          credential.clearStoredLogin();
+          credential.clearStoredAdminSecret();
+          credential.deleteAllSessions();
+        }
       },
     },
     {

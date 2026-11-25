@@ -93,7 +93,7 @@ export function ImageTagDatasetsSettings() {
         </p>
       )}
       {datasets.isError && (
-        <div role="alert" className="space-y-2 text-xs text-[var(--destructive)]">
+        <div role="alert" className="space-y-2 text-xs text-[var(--marinara-app-accent-static)]">
           <p>{t("settings.imageTagDatasets.loadFailed")}</p>
           <button className={buttonClass} onClick={() => void datasets.refetch()}>
             {t("settings.imageTagDatasets.retry")}
@@ -169,7 +169,7 @@ export function ImageTagDatasetsSettings() {
                     {t("settings.imageTagDatasets.report")}
                   </button>
                   <button
-                    className={`${buttonClass} text-[var(--destructive)]`}
+                    className={`${buttonClass} text-[var(--marinara-app-accent-static)]`}
                     disabled={busy}
                     onClick={() => void deleteSource(source.id, source.name)}
                   >
@@ -180,7 +180,7 @@ export function ImageTagDatasetsSettings() {
             ))}
             {datasets.data.unavailableSources.map((id) => (
               <li key={id} className="space-y-2 py-3">
-                <p className="break-all text-xs text-[var(--destructive)]">
+                <p className="break-all text-xs text-[var(--marinara-app-accent-static)]">
                   {t("settings.imageTagDatasets.unavailable", { id })}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -195,7 +195,7 @@ export function ImageTagDatasetsSettings() {
                     {t("settings.imageTagDatasets.replace")}
                   </button>
                   <button
-                    className={`${buttonClass} text-[var(--destructive)]`}
+                    className={`${buttonClass} text-[var(--marinara-app-accent-static)]`}
                     disabled={busy}
                     onClick={() => void deleteSource(id, id)}
                   >
@@ -389,7 +389,7 @@ export function ImageTagDatasetsSettings() {
         </div>
       )}
       {error && (
-        <p role="alert" className="break-words text-xs text-[var(--destructive)]">
+        <p role="alert" className="break-words text-xs text-[var(--marinara-app-accent-static)]">
           {error}
         </p>
       )}

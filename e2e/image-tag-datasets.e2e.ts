@@ -7,6 +7,7 @@ import { chooseOption } from "./select-field.js";
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 
 async function openManager(page: Page) {
+  await page.addInitScript(() => localStorage.setItem("marinara-tap-timings", "1"));
   await isolateSyncedUISettings(page);
   await seedUIState(page, {
     hasCompletedOnboarding: true,
@@ -48,7 +49,8 @@ test("image tag library imports, searches and manages server data without an ins
   page,
   browser,
 }, info) => {
-  test.setTimeout(150_000);
+  test.setTimeout(90_000);
+  page.setDefaultTimeout(10_000);
   const token = randomUUID().replaceAll("-", "");
   const filename = `canonical-tags-${token}.csv`;
   const canonical = `blue_hair_${token}`;
@@ -82,7 +84,7 @@ test("image tag library imports, searches and manages server data without an ins
     sourceId = (await imported.json()).id;
     const sourceSwitch = section.getByRole("switch", { name: filename, exact: true });
     await expect(sourceSwitch).toBeChecked();
-    const sourceRow = section.locator("li").filter({ has: sourceSwitch });
+    const sourceRow = sourceSwitch.locator("xpath=ancestor::li[1]");
     await expect(
       section.getByText("Imported 3 tags. Skipped 1 invalid rows, 1 duplicates and 0 blank rows.", { exact: true }),
     ).toBeVisible();
@@ -135,20 +137,20 @@ test("image tag library imports, searches and manages server data without an ins
     }
 
     const general = sourceRow.getByRole("checkbox", { name: "General (1)", exact: true });
-    await general.uncheck();
+    await general.click();
     await expect(general).not.toBeChecked();
     await searchFor(page, section, canonical);
     await expect(section.locator("code")).toHaveCount(0);
     await expect(section.getByText("Showing 0 of 0 matches.", { exact: true })).toBeVisible();
-    await general.check();
+    await general.click();
     await expect(general).toBeChecked();
 
-    await sourceSwitch.uncheck();
+    await sourceSwitch.click();
     await expect(sourceSwitch).not.toBeChecked();
     await expect(general).toBeDisabled();
     await searchFor(page, section, canonical);
     await expect(section.locator("code")).toHaveCount(0);
-    await sourceSwitch.check();
+    await sourceSwitch.click();
     await expect(sourceSwitch).toBeChecked();
     await searchFor(page, section, canonical);
     await expect(section.locator("code")).toHaveText([canonical]);
@@ -194,6 +196,10 @@ test("image tag library imports, searches and manages server data without an ins
     expect((await deletion).status()).toBe(204);
     await expect(sourceSwitch).toHaveCount(0);
     sourceId = undefined;
+    await info.attach("tap-timings", {
+      body: await page.locator('[data-component="TapTimings"]').innerText(),
+      contentType: "text/plain",
+    });
     expect(pageErrors).toEqual([]);
   } finally {
     await otherContext?.close();

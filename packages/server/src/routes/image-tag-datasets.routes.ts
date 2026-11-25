@@ -7,7 +7,7 @@ import { getDataDir } from "../utils/data-dir.js";
 export async function imageTagDatasetRoutes(app: FastifyInstance) {
   const store = createImageTagDatasetStore(getDataDir());
   app.addHook("onRequest", async (request, reply) => {
-    requirePrivilegedAccess(request, reply, { signedIn: true, feature: "Image tag datasets" });
+    requirePrivilegedAccess(request, reply, { feature: "Image tag datasets" });
   });
 
   app.get("/", async () => store.list());

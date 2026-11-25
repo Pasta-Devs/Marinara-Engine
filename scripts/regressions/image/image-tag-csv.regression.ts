@@ -255,6 +255,73 @@ await runNamedCases([
     },
   },
   {
+    name: "malformed-width leading rows do not choose the shape of following data",
+    run() {
+      for (const prefix of ["not a CSV row", "one,two", "one,two,three,four,five"]) {
+        const split = parseImageTagCsv(`${prefix}\nkept,12,alias`, { category: 4 });
+        assert.deepEqual(split.records, [{ name: "kept", category: 4, postCount: 12, aliases: ["alias"] }]);
+        assert.deepEqual(split.report.issues, [{ row: 1, code: "invalid_columns" }]);
+        assert.equal(split.report.invalidRows, 1);
+        const full = parseImageTagCsv(`${prefix}\nkept,0,12,alias`);
+        assert.deepEqual(full.records, [{ name: "kept", category: 0, postCount: 12, aliases: ["alias"] }]);
+        assert.deepEqual(full.report.issues, [{ row: 1, code: "invalid_columns" }]);
+      }
+    },
+  },
+  {
+    name: "comma-only and overflowing empty-column records are invalid rather than blank",
+    run() {
+      const { records, report } = parseImageTagCsv(["", "   ", ",", ",,,,", ",".repeat(100), "kept,0,3,"].join("\n"));
+      assert.deepEqual(records, [{ name: "kept", category: 0, postCount: 3, aliases: [] }]);
+      assert.equal(report.blankRows, 2);
+      assert.equal(report.invalidRows, 3);
+      assert.equal(report.totalRows, 6);
+      assert.deepEqual(report.issues, [
+        { row: 3, code: "invalid_columns" },
+        { row: 4, code: "invalid_columns" },
+        { row: 5, code: "invalid_columns" },
+      ]);
+      const emptyNames = parseImageTagCsv(",,,\nvalid,0,2,");
+      assert.equal(emptyNames.report.blankRows, 0);
+      assert.deepEqual(emptyNames.report.issues, [{ row: 1, code: "invalid_name" }]);
+    },
+  },
+  {
+    name: "bare CR separates records while quoted CR remains an invalid field control",
+    run() {
+      const { records, report } = parseImageTagCsv(
+        'name,category,post_count,aliases\rfirst,0,1,\rsecond,4,2,"alias"\r"bad\rname",0,3,\rthird,5,4,\r',
+      );
+      assert.deepEqual(records, [
+        { name: "first", category: 0, postCount: 1, aliases: [] },
+        { name: "second", category: 4, postCount: 2, aliases: ["alias"] },
+        { name: "third", category: 5, postCount: 4, aliases: [] },
+      ]);
+      assert.equal(report.totalRows, 5);
+      assert.equal(report.headerRows, 1);
+      assert.deepEqual(report.issues, [{ row: 4, code: "invalid_name" }]);
+      const edgeControls = parseImageTagCsv('"trimmed\r",0,1,\rkept,0,2,"alias\r"\rfinal,0,3,');
+      assert.deepEqual(edgeControls.records, [{ name: "final", category: 0, postCount: 3, aliases: [] }]);
+      assert.deepEqual(edgeControls.report.issues, [
+        { row: 1, code: "invalid_name" },
+        { row: 2, code: "invalid_aliases" },
+      ]);
+    },
+  },
+  {
+    name: "names that normalize to an empty search query are reported as invalid",
+    run() {
+      const { records, report } = parseImageTagCsv("_,0,1,\n___,4,2,\n_ _ ,1,3,\nkept_under_score,0,4,");
+      assert.deepEqual(records, [{ name: "kept_under_score", category: 0, postCount: 4, aliases: [] }]);
+      assert.equal(report.invalidRows, 3);
+      assert.deepEqual(report.issues, [
+        { row: 1, code: "invalid_name" },
+        { row: 2, code: "invalid_name" },
+        { row: 3, code: "invalid_name" },
+      ]);
+    },
+  },
+  {
     name: "normalizes query whitespace and case without dropping punctuation",
     run() {
       assert.equal(normalizeImageTagQuery("  Miku__Hatsune   (v2) "), "miku hatsune (v2)");

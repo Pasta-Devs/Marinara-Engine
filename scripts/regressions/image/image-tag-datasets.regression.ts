@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
 import { mkdtemp, open, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
@@ -340,6 +342,100 @@ await runNamedCases([
     },
   },
   {
+    name: "queued imports fingerprint the same immutable bytes they parsed",
+    async run() {
+      await withTempRoot(async (root) => {
+        let entered!: () => void;
+        let release!: () => void;
+        const firstWriteStarted = new Promise<void>((resolve) => {
+          entered = resolve;
+        });
+        const firstWriteReleased = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        let firstWrite = true;
+        const writer: typeof writeFileAtomic = async (path, data, options) => {
+          if (firstWrite) {
+            firstWrite = false;
+            entered();
+            await firstWriteReleased;
+          }
+          await writeFileAtomic(path, data, options);
+        };
+        const store = createImageTagDatasetStore(root, writer);
+        const first = store.importCsv(csvBytes("first,0,1,"), { originalName: "first.csv" });
+        await firstWriteStarted;
+        const bytes = Buffer.from("queued,0,2,");
+        const expectedFingerprint = createHash("sha256").update(bytes).digest("hex");
+        const second = store.importCsv(bytes, { originalName: "queued.csv" });
+        bytes.fill(0x78);
+        release();
+        await first;
+        const imported = await second;
+
+        assert.equal(imported.fingerprint, expectedFingerprint);
+        assert.equal((await searchOne(store, "queued")).matches[0]?.sourceIds[0], imported.id);
+        const reopened = createImageTagDatasetStore(root);
+        assert.equal(
+          (await reopened.list()).sources.find((source) => source.id === imported.id)?.fingerprint,
+          expectedFingerprint,
+        );
+      });
+    },
+  },
+  {
+    name: "undefined patch properties preserve required stored settings",
+    async run() {
+      await withTempRoot(async (root) => {
+        const store = createImageTagDatasetStore(root);
+        const imported = await store.importCsv(csvBytes("kept,0,1,"), { originalName: "kept.csv" });
+        await store.update(imported.id, { enabled: false, enabledCategories: [0] });
+        const updated = await store.update(imported.id, {
+          name: undefined,
+          enabled: undefined,
+          enabledCategories: undefined,
+        });
+
+        assert.equal(updated.name, imported.name);
+        assert.equal(updated.enabled, false);
+        assert.deepEqual(updated.enabledCategories, [0]);
+        const reopened = createImageTagDatasetStore(root);
+        assert.deepEqual(await reopened.list(), { sources: [updated], unavailableSources: [] });
+        assert.equal((await reopened.search({ queries: ["kept"] })).status, "disabled");
+      });
+    },
+  },
+  {
+    name: "a source removed after directory listing is absent rather than unavailable",
+    async run() {
+      await withTempRoot(async (root) => {
+        const store = createImageTagDatasetStore(root);
+        const imported = await store.importCsv(csvBytes("removed,0,1,"), { originalName: "removed.csv" });
+        const target = artifactPath(root, imported.id);
+        const originalLstat = fs.lstat;
+        let removed = false;
+        Object.assign(fs, {
+          lstat: async (path: Parameters<typeof fs.lstat>[0]) => {
+            if (String(path) === target && !removed) {
+              removed = true;
+              await fs.unlink(target);
+            }
+            return originalLstat(path);
+          },
+        });
+        syncBuiltinESMExports();
+        try {
+          assert.deepEqual(await store.list(), { sources: [], unavailableSources: [] });
+          assert.equal(removed, true, "the fixture removed the source between readdir and lstat");
+          assert.equal((await store.search({ queries: ["removed"] })).status, "no_datasets");
+        } finally {
+          Object.assign(fs, { lstat: originalLstat });
+          syncBuiltinESMExports();
+        }
+      });
+    },
+  },
+  {
     name: "a rejecting atomic writer leaves the old artifact and search intact",
     async run() {
       await withTempRoot(async (root) => {
@@ -381,23 +477,35 @@ await runNamedCases([
     name: "the queue recovers from a rejected write and serializes overlapping updates and imports",
     async run() {
       await withTempRoot(async (root) => {
+        let entered!: () => void;
+        let release!: () => void;
+        const firstWriteStarted = new Promise<void>((resolve) => {
+          entered = resolve;
+        });
+        const firstWriteReleased = new Promise<void>((resolve) => {
+          release = resolve;
+        });
         let failures = 1;
         const flakyWrite: typeof writeFileAtomic = async (path, data, options) => {
           if (failures > 0) {
             failures -= 1;
+            entered();
+            await firstWriteReleased;
             throw new Error("transient write failure");
           }
           await writeFileAtomic(path, data, options);
         };
         const store = createImageTagDatasetStore(root, flakyWrite);
 
-        await assert.rejects(
+        const rejected = assert.rejects(
           store.importCsv(csvBytes(FOUR_COL), { originalName: "first.csv" }),
           /transient write failure/,
         );
-        assert.deepEqual(await store.list(), { sources: [], unavailableSources: [] });
-
-        const first = await store.importCsv(csvBytes(FOUR_COL), { originalName: "first.csv" });
+        await firstWriteStarted;
+        const queuedRecovery = store.importCsv(csvBytes(FOUR_COL), { originalName: "first.csv" });
+        release();
+        await rejected;
+        const first = await queuedRecovery;
         await Promise.all([
           store.update(first.id, { name: "Concurrent Name" }),
           store.update(first.id, { enabled: false }),

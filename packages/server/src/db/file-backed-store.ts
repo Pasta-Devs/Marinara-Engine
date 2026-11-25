@@ -389,7 +389,9 @@ type InsertValuesBuilder = Executable<number> & {
 // overwrite that owner's avatar.json. Existing rows and avatar files need no conversion.
 // Format 11 moves persona authored fields into a CharacterData card in `data` (like characters);
 // older builds would read personas as empty. Rows are converted on load; shards copied to .pre-v11.
-export const STORAGE_VERSION = 11;
+// Format 12 adds server-owned image tag dataset artifacts, including their backup/restore support.
+// Older builds omit this directory from exports; no existing table rows need conversion.
+export const STORAGE_VERSION = 12;
 export const STORAGE_WRITER_LEASE_FILENAME = ".writer-lease";
 export const STORAGE_WRITER_OWNER_FILENAME = "owner.json";
 export const STORAGE_WRITER_LIVENESS_FILENAME = "live.sock";

@@ -81,7 +81,10 @@ function* parseCsv(text: string): Generator<CsvRecord> {
 
   const finishField = () => {
     // Keep only enough columns to recognize an invalid row, even for comma-heavy uploads.
-    if (cells.length < 5) cells.push(fieldOverflow ? "x".repeat(maxField) : field.trim());
+    if (cells.length < 5) {
+      // Quoted line breaks are field controls, including at the edges; trimming must not repair them.
+      cells.push(fieldOverflow || hasControlCharacters(field) ? "x".repeat(maxField) : field.trim());
+    }
     field = "";
     fieldOverflow = false;
     fieldStarted = false;
@@ -129,9 +132,9 @@ function* parseCsv(text: string): Generator<CsvRecord> {
         index += 1;
         continue;
       }
-      if (character === "\n" || (character === "\r" && text.charAt(index + 1) === "\n")) {
+      if (character === "\n" || character === "\r") {
         yield finishRecord();
-        index += character === "\r" ? 2 : 1;
+        index += character === "\r" && text.charAt(index + 1) === "\n" ? 2 : 1;
         continue;
       }
       throw new Error(`Malformed CSV: unexpected character after a closing quote in record ${row}`);
@@ -144,9 +147,9 @@ function* parseCsv(text: string): Generator<CsvRecord> {
       continue;
     }
 
-    if (character === "\n" || (character === "\r" && text.charAt(index + 1) === "\n")) {
+    if (character === "\n" || character === "\r") {
       yield finishRecord();
-      index += character === "\r" ? 2 : 1;
+      index += character === "\r" && text.charAt(index + 1) === "\n" ? 2 : 1;
       continue;
     }
 
@@ -172,7 +175,7 @@ function* parseCsv(text: string): Generator<CsvRecord> {
 }
 
 function isBlank(cells: string[]): boolean {
-  return cells.every((cell) => cell.trim().length === 0);
+  return cells.length === 1 && cells[0]!.length === 0;
 }
 
 function detectHeader(cells: string[]): Shape | null {
@@ -231,7 +234,11 @@ function parseRow(cells: string[], shape: Shape, fixedCategory: ImageTagCategory
   if (cells.length !== shape) return { issue: "invalid_columns" };
 
   const name = (cells[0] ?? "").trim();
-  if (name.length === 0 || name.length > IMAGE_TAG_LIMITS.fieldCharacters || hasControlCharacters(name)) {
+  if (
+    normalizeImageTagQuery(name).length === 0 ||
+    name.length > IMAGE_TAG_LIMITS.fieldCharacters ||
+    hasControlCharacters(name)
+  ) {
     return { issue: "invalid_name" };
   }
 
@@ -286,16 +293,23 @@ export function parseImageTagCsv(
   };
 
   let shape: Shape | undefined;
+  let firstNonblank = true;
   for (const record of csvRecords) {
     report.totalRows += 1;
     if (isBlank(record.cells)) {
       report.blankRows += 1;
       continue;
     }
-    // Match the entire first nonblank record, never a literal tag such as "name".
+    // A malformed-width row is reported but cannot choose the format of later data.
     if (shape === undefined) {
-      const header = detectHeader(record.cells);
-      shape = header ?? (record.cells.length === 3 ? 3 : 4);
+      const header = firstNonblank ? detectHeader(record.cells) : null;
+      firstNonblank = false;
+      if (record.cells.length !== 3 && record.cells.length !== 4) {
+        report.invalidRows += 1;
+        addIssue(record.row, "invalid_columns");
+        continue;
+      }
+      shape = header ?? (record.cells.length as Shape);
       if (shape === 3 && fixedCategory === undefined) {
         throw new Error("Three-column image tag CSV requires an explicit category option");
       }

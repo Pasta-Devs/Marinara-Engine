@@ -147,8 +147,10 @@ export function createImageTagDatasetStore(dataDir: string, write: typeof writeF
     for (const id of cache.keys()) if (!present.has(id)) cache.delete(id);
     for (const filename of names) {
       const id = filename.slice(0, -5);
+      let observedSize = 0;
       try {
         const info = await lstat(pathFor(id));
+        observedSize = info.size;
         bytes += info.size;
         if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_STORED_BYTES)
           throw new Error("Invalid image tag dataset file");
@@ -174,6 +176,11 @@ export function createImageTagDatasetStore(dataDir: string, write: typeof writeF
         sources.push(source);
       } catch (error) {
         cache.delete(id);
+        // Removal can race a listing or an uncached read; a vanished source is not corrupt.
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          bytes -= observedSize;
+          continue;
+        }
         unavailableSources.push(id);
         logger.warn(error, "Unable to load image tag dataset %s", id);
       }
@@ -197,9 +204,12 @@ export function createImageTagDatasetStore(dataDir: string, write: typeof writeF
       if (!checked.success) throw new ImageTagDatasetError("Invalid image tag import options");
       if (bytes.byteLength > IMAGE_TAG_LIMITS.uploadBytes)
         throw new ImageTagDatasetError("Image tag CSV exceeds the upload limit", 413);
+      // The caller may reuse its buffer while this import waits behind another writer.
+      const snapshot = Buffer.from(bytes);
+      const fingerprint = createHash("sha256").update(snapshot).digest("hex");
       let text: string;
       try {
-        text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+        text = new TextDecoder("utf-8", { fatal: true }).decode(snapshot);
       } catch {
         throw new ImageTagDatasetError("Image tag CSV must use UTF-8 encoding");
       }
@@ -216,7 +226,6 @@ export function createImageTagDatasetStore(dataDir: string, write: typeof writeF
           : undefined;
         if (checked.data.replaceId && !old && !unavailableSources.includes(checked.data.replaceId))
           throw new ImageTagDatasetError("Image tag dataset not found", 404);
-        const fingerprint = createHash("sha256").update(bytes).digest("hex");
         // Category is part of a split CSV's meaning even when the original bytes are identical.
         const duplicate = sources.find(
           (source) =>
@@ -271,8 +280,11 @@ export function createImageTagDatasetStore(dataDir: string, write: typeof writeF
         const { sources, bytes: storedBytes } = await load();
         const source = sources.find((candidate) => candidate.summary.id === id);
         if (!source) throw new ImageTagDatasetError("Image tag dataset not found", 404);
-        const summary = { ...source.summary, ...checked.data, updatedAt: new Date().toISOString() };
-        if (checked.data.enabledCategories) summary.enabledCategories = [...new Set(checked.data.enabledCategories)];
+        const summary = { ...source.summary, updatedAt: new Date().toISOString() };
+        if (checked.data.name !== undefined) summary.name = checked.data.name;
+        if (checked.data.enabled !== undefined) summary.enabled = checked.data.enabled;
+        if (checked.data.enabledCategories !== undefined)
+          summary.enabledCategories = [...new Set(checked.data.enabledCategories)];
         const updated = { summary, records: source.records };
         const oldSize = (await lstat(pathFor(id))).size;
         if (storedBytes - oldSize + Buffer.byteLength(JSON.stringify({ version: 1, ...updated })) > MAX_STORED_BYTES) {

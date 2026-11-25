@@ -158,6 +158,7 @@ function buildSearchableRecords(
     }
   }
 
+  for (const record of records) record.sourceIds.sort(compareStrings);
   return { records, selectedSource, enabledCategory };
 }
 
@@ -216,47 +217,36 @@ function compareCandidates(a: Candidate, b: Candidate): number {
   );
 }
 
-function findCandidates(records: SearchableRecord[], query: string, mode: ImageTagSearchMode): Candidate[] {
-  const candidates = new Map<string, Candidate>();
-
+function findCandidates(records: SearchableRecord[], query: string, mode: ImageTagSearchMode, allowance: number) {
+  const candidates: Candidate[] = [];
+  let totalMatches = 0;
   for (const record of records) {
     const match = matchRecord(record, query, mode);
     if (!match) continue;
-
-    const key = `${record.category}\u0000${record.canonicalName}`;
-    const existing = candidates.get(key);
-    if (!existing) {
-      const candidate: Candidate = {
-        canonicalName: record.canonicalName,
-        category: record.category,
-        postCount: record.postCount,
-        sourceIds: [...record.sourceIds],
-        tier: match.tier,
-      };
-      if (match.alias !== undefined) candidate.matchedAlias = match.alias;
-      candidates.set(key, candidate);
-      continue;
+    totalMatches += 1;
+    if (allowance === 0) continue;
+    const candidate: Candidate = {
+      canonicalName: record.canonicalName,
+      category: record.category,
+      postCount: record.postCount,
+      sourceIds: record.sourceIds,
+      tier: match.tier,
+      ...(match.alias === undefined ? {} : { matchedAlias: match.alias }),
+    };
+    // Keep only the requested best matches; broad queries never retain a candidate for every installed tag.
+    let low = 0;
+    let high = candidates.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (compareCandidates(candidate, candidates[middle]!) < 0) high = middle;
+      else low = middle + 1;
     }
-
-    existing.postCount = Math.max(existing.postCount, record.postCount);
-    for (const id of record.sourceIds) if (!existing.sourceIds.includes(id)) existing.sourceIds.push(id);
-
-    if (
-      match.tier < existing.tier ||
-      (match.tier === existing.tier &&
-        match.alias !== undefined &&
-        (existing.matchedAlias === undefined || match.alias < existing.matchedAlias))
-    ) {
-      existing.tier = match.tier;
-      if (match.alias === undefined) delete existing.matchedAlias;
-      else existing.matchedAlias = match.alias;
+    if (low < allowance) {
+      candidates.splice(low, 0, candidate);
+      if (candidates.length > allowance) candidates.pop();
     }
   }
-
-  const sorted = [...candidates.values()];
-  for (const candidate of sorted) candidate.sourceIds.sort(compareStrings);
-  sorted.sort(compareCandidates);
-  return sorted;
+  return { candidates, totalMatches };
 }
 
 function serializedBytes(response: ImageTagSearchResponse): number {
@@ -314,9 +304,11 @@ export function searchImageTagRecords(
     if (query === undefined || result === undefined) continue;
 
     const normalizedQuery = normalizeImageTagQuery(query);
-    const candidates = normalizedQuery ? findCandidates(searchable.records, normalizedQuery, validated.mode) : [];
     const allowance = Math.min(validated.limit, remainingResults);
-    const matches: ImageTagSearchMatch[] = candidates.slice(0, allowance).map((candidate) => {
+    const { candidates, totalMatches } = normalizedQuery
+      ? findCandidates(searchable.records, normalizedQuery, validated.mode, allowance)
+      : { candidates: [], totalMatches: 0 };
+    const matches: ImageTagSearchMatch[] = candidates.map((candidate) => {
       const match: ImageTagSearchMatch = {
         canonicalName: candidate.canonicalName,
         category: candidate.category,
@@ -328,8 +320,8 @@ export function searchImageTagRecords(
     });
 
     result.matches = matches;
-    result.totalMatches = candidates.length;
-    result.truncated = candidates.length > matches.length;
+    result.totalMatches = totalMatches;
+    result.truncated = totalMatches > matches.length;
     remainingResults -= matches.length;
   }
 
