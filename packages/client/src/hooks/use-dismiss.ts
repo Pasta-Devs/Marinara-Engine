@@ -15,6 +15,11 @@ export interface DismissOptions {
    * swallowed, so a toggle button does not open it again.
    */
   openerRef?: RefObject<Element | null>;
+  /**
+   * The opener belongs to the layer: it toggles the layer itself and may be dragged with it open (the phone Chat tools
+   * bubble), so a press on it is not outside.
+   */
+  openerInside?: boolean;
 }
 
 /**
@@ -33,14 +38,14 @@ export function useDismiss(
   ref: RefObject<Element | null>,
   open: boolean,
   onDismiss: () => void,
-  { outsideClick = true, escape = true, back = true, openerRef }: DismissOptions = {},
+  { outsideClick = true, escape = true, back = true, openerRef, openerInside = false }: DismissOptions = {},
 ) {
   const dismissRef = useRef(onDismiss);
   // Options are read at event time, so changing them never re-registers an open layer above its submenu.
-  const optionsRef = useRef({ outsideClick, escape, back, openerRef });
+  const optionsRef = useRef({ outsideClick, escape, back, openerRef, openerInside });
   useEffect(() => {
     dismissRef.current = onDismiss;
-    optionsRef.current = { outsideClick, escape, back, openerRef };
+    optionsRef.current = { outsideClick, escape, back, openerRef, openerInside };
   });
 
   useEffect(() => {
@@ -57,6 +62,7 @@ export function useDismiss(
       const element = ref.current;
       if (!element || !(target instanceof view.Node)) return false;
       if (element.contains(target) || layer.isInsideLayerAbove(target)) return false;
+      if (optionsRef.current.openerInside && optionsRef.current.openerRef?.current?.contains(target)) return false;
       return !isBrowserExtensionUi(target);
     };
 

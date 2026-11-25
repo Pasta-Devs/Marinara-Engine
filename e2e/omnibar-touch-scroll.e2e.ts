@@ -69,10 +69,18 @@ test("Search still scrolls by touch after a tapped result opened a record", asyn
     const touch = touchInput(await page.context().newCDPSession(page));
     const omnibar = page.locator('[data-component="GlobalOmnibar"]');
     const search = omnibar.getByRole("searchbox", { name: "Search Marinara" });
+    // A group shows its first 8 rows and a Show more row that opens the rest (#9493), so the list is long enough to
+    // scroll once it is open.
+    const searchAll = async () => {
+      await search.fill("touch scroll");
+      const characters = omnibar.locator('[data-result-id^="character:"]');
+      await expect(characters).toHaveCount(8);
+      await omnibar.getByText("Show 16 more", { exact: true }).click();
+      await expect(characters).toHaveCount(24);
+    };
 
     await openByPull(page, touch);
-    await search.fill("touch scroll");
-    await expect(omnibar.locator('[data-result-id^="character:"]')).toHaveCount(24);
+    await searchAll();
     await swipeResults(page, touch);
 
     // Tap a character row in view: Search closes and the character opens.
@@ -81,8 +89,7 @@ test("Search still scrolls by touch after a tapped result opened a record", asyn
     await expect(omnibar).toBeHidden();
 
     await openByPull(page, touch);
-    await search.fill("touch scroll");
-    await expect(omnibar.locator('[data-result-id^="character:"]')).toHaveCount(24);
+    await searchAll();
     await swipeResults(page, touch);
 
     // Closed again, the page behind still scrolls by touch.

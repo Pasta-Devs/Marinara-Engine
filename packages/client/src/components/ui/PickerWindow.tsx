@@ -8,6 +8,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
+import { registerLayer } from "../../lib/layer-stack";
 import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
 import { useInsideModal } from "./modal-context";
@@ -160,6 +161,15 @@ export function PickerWindow({
       observer?.disconnect();
     };
   }, [phone, anchorRef]);
+
+  // A host that closes through useDismiss (a message's note menu) listens in the capture phase, before the panel can
+  // stop a press. As a layer above the host, a press on a row no longer closes the host and unmounts the field before
+  // the pick lands. The phone sheet is a Modal, which registers itself.
+  useEffect(() => {
+    if (phone) return;
+    const layer = registerLayer({ kind: "popover", getElement: () => panelRef.current });
+    return layer.release;
+  }, [phone]);
 
   // Close on a click outside the popover or its trigger, and on Escape.
   useEffect(() => {

@@ -126,12 +126,13 @@ export function ChatToolsMenu() {
   useEffect(() => {
     if (open) panelRef.current?.focus({ preventScroll: true });
   }, [open]);
-  // Escape, or a press outside, closes it; keyboard focus that was inside goes back to the bubble.
+  // Escape, or a press outside, closes it; keyboard focus that was inside goes back to the bubble. The bubble opens and
+  // closes the stack itself, and dragging it moves the open stack along.
   useDismiss(
     panelRef,
     open,
     () => close(panelRef.current?.contains(panelRef.current.ownerDocument.activeElement) ?? false),
-    { openerRef: bubbleRef },
+    { openerRef: bubbleRef, openerInside: true },
   );
 
   if (!hasEntries) return null;
