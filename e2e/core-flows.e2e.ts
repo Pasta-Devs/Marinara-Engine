@@ -8211,6 +8211,10 @@ test("Roleplay side panels synchronize their slide with the desktop shell resize
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
+    // The test docks the sidebar on the left, a synced setting: keep that off the server other tests read.
+    await page.route("**/api/app-settings/ui", (route) =>
+      route.request().method() === "GET" ? route.fallback() : route.fulfill({ json: { success: true } }),
+    );
     await page.goto("/");
     const charactersButton = page.getByTitle("Characters");
     await expect(charactersButton).toBeVisible();
@@ -8252,6 +8256,27 @@ test("Roleplay side panels synchronize their slide with the desktop shell resize
     await expect(panel).toHaveClass(/mari-shell-panel-exit-right/);
     await expect(slot).toHaveCSS("width", "0px");
     expect((await centerContent.boundingBox())?.width ?? 0).toBeGreaterThan(centerWidthWithChats);
+
+    // Docked on the left, the same slot opens before the center and slides in from and out to the left.
+    await page.evaluate(async () => {
+      const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+        useUIStore: { getState: () => { setSidebarSide: (side: "left" | "right") => void } };
+      };
+      useUIStore.getState().setSidebarSide("left");
+    });
+    await expect(slot).toHaveAttribute("data-sidebar-side", "left");
+    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await expect(slot).not.toHaveCSS("width", "0px");
+    await expect(panel).toHaveClass(/mari-shell-panel-enter-left/);
+    await settle();
+    const leftSlotBox = (await slot.boundingBox())!;
+    const centerBoxWithLeftChats = (await centerContent.boundingBox())!;
+    expect(leftSlotBox.width).toBeGreaterThan(0);
+    expect(leftSlotBox.x + leftSlotBox.width).toBeLessThanOrEqual(centerBoxWithLeftChats.x + 1);
+    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await expect(panel).toHaveClass(/mari-shell-panel-exit-left/);
+    await expect(slot).toHaveCSS("width", "0px");
+    expect((await centerContent.boundingBox())?.width ?? 0).toBeGreaterThan(centerBoxWithLeftChats.width);
 
     const slotTransitions = await slot.evaluate((element) => getComputedStyle(element).transitionProperty);
     const panelTransitions = await panel.evaluate((element) => getComputedStyle(element).transitionProperty);
@@ -13979,7 +14004,7 @@ test("custom generation parameters become reusable chat controls", async ({ page
     const drawer = page.locator(".mari-chat-settings-drawer");
     await drawer.getByText("Advanced Parameters", { exact: true }).click();
     await expect(drawer.locator('textarea[placeholder="<thinking>"]')).toHaveAttribute("placeholder", "<thinking>");
-    // Not "Min P": #9647 made Min P a built-in field, so a custom one by that name would show twice.
+    // Not "Min P": #9647 made Min P a built-in field, so a custom min_p shows a second Min P control here (#9816).
     await expect(drawer.getByText("Typical P", { exact: true })).toBeVisible();
     const minPInput = drawer.getByRole("textbox", { name: "Typical P", exact: true });
     const [frequencyInputBox, presenceInputBox, minPInputBox] = await Promise.all([
