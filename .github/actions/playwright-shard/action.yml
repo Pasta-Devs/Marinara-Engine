@@ -110,7 +110,12 @@ runs:
           --shard=${{ inputs.shard }}/${{ inputs.total-shards }}
 
     # Only a full run started by workflow_dispatch (the nightly or a manual run) reports, and its report compares the
-    # results with the previous such run. A re-run shard replaces its earlier results.
+    # results with the previous such run. The shard keeps only each test's status. A re-run shard replaces its results.
+    - name: Keep ${{ inputs.project }} shard ${{ inputs.shard }} test statuses
+      if: always() && inputs.smoke != 'true' && github.event_name == 'workflow_dispatch'
+      shell: bash
+      run: node scripts/nightly-matrix-report.mjs --slim "$RUNNER_TEMP/playwright-results/results.json"
+
     - name: Upload ${{ inputs.project }} shard ${{ inputs.shard }} results
       if: always() && inputs.smoke != 'true' && github.event_name == 'workflow_dispatch'
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -5,11 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   ISSUE_TITLE,
+  collectResults,
   compareRuns,
   mergeResults,
   mergedPullRequests,
   readShardReports,
   renderReport,
+  slimReport,
 } from "../../nightly-matrix-report.mjs";
 import { extractJob, extractNamedStep } from "../../validate-pr-triage.mjs";
 import { runNamedCases } from "../fixtures/named-cases.ts";
@@ -279,6 +281,20 @@ await runNamedCases([
 
       // A pass with no open issue files nothing.
       assert.doesNotMatch(fileIssue({ STATE: "passing", BODY: "", COMMENT: "passed" }), /gh issue/u);
+    },
+  },
+  {
+    name: "a shard keeps every test's status and error but drops its screenshots",
+    run: () => {
+      const full = report("mobile-chromium", { a: "unexpected", b: "expected" });
+      const spec = full.suites[0].suites[0].specs[0];
+      spec.tests[0].results = [{ status: "failed", attachments: [{ name: "shot.png", body: "x".repeat(100_000) }] }];
+      full.errors = [{ message: "Timed out waiting 2400s for the test suite to run", stack: "y".repeat(10_000) }];
+      const slim = slimReport(full);
+      assert.ok(JSON.stringify(slim).length < 2_000);
+      assert.deepEqual([...collectResults(slim).values()], [...collectResults(full).values()]);
+      assert.deepEqual(slim.errors, [{ message: "Timed out waiting 2400s for the test suite to run" }]);
+      assert.equal(slim.stats.unexpected, 1);
     },
   },
   {

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { appendFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -28,6 +28,28 @@ const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
 const code = (text) => `\`${String(text).replace(/[`\r\n]+/gu, "'")}\``;
 const runLink = (run) => `[${run.id}](${run.url})`;
 const shortSha = (sha) => code(sha.slice(0, 10));
+
+/**
+ * Only what the report reads from a Playwright JSON report. A shard's full report carries its screenshots as base64
+ * (one mobile-chromium shard's was 3.4 MB), so each shard keeps this instead.
+ */
+export function slimReport(report) {
+  const suite = (entry) => ({
+    title: entry.title,
+    specs: (entry.specs ?? []).map((spec) => ({
+      title: spec.title,
+      file: spec.file,
+      tests: (spec.tests ?? []).map(({ projectName, status }) => ({ projectName, status })),
+    })),
+    suites: (entry.suites ?? []).map(suite),
+  });
+  return {
+    config: { rootDir: report.config?.rootDir },
+    errors: (report.errors ?? []).map((error) => ({ message: String(error.message ?? "").slice(0, 2000) })),
+    stats: { unexpected: report.stats?.unexpected ?? 0 },
+    suites: (report.suites ?? []).map(suite),
+  };
+}
 
 /** Adds every test of one Playwright JSON report to results, keyed by project, spec file and title path. */
 export function collectResults(report, results = new Map()) {
@@ -329,4 +351,12 @@ function main() {
   console.info(report.summary);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  // `--slim <report.json>`: a shard shrinks its report in place before uploading it. A shard that never wrote one has
+  // nothing to upload.
+  if (process.argv[2] === "--slim") {
+    const file = process.argv[3];
+    if (file && existsSync(file))
+      writeFileSync(file, JSON.stringify(slimReport(JSON.parse(readFileSync(file, "utf8")))));
+  } else main();
+}
