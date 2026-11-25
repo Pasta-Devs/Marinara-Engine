@@ -23,9 +23,12 @@ cached=("$debs"/*.deb)
 
 if ((${#cached[@]} > 0)); then
   # The cache key names the runner image, browser and Playwright version, so these are exactly
-  # the packages the first install on this image needed, and apt has nothing to download.
-  # (--no-download would break this: apt then installs local .deb files by relative path.)
-  if sudo apt-get install --yes --no-install-recommends "${cached[@]}"; then
+  # the packages the first install on this image needed. The image ships apt's package lists,
+  # and apt downloads a package from the mirror rather than use a local file of the same version,
+  # so apt gets an empty lists folder and can only install these files. (--no-download would not
+  # do it: apt then hands dpkg the local files by relative path and fails.)
+  no_lists=$(mktemp -d)
+  if sudo apt-get install --yes --no-install-recommends -o Dir::State::Lists="$no_lists" "${cached[@]}"; then
     exec pnpm exec playwright install "$browser"
   fi
   echo "::warning::The cached $browser packages did not install, so they are downloaded again."

@@ -96,9 +96,13 @@ if (process.platform !== "win32") {
     const stubs = {
       sudo: 'exec "$@"',
       // apt-get clean empties apt's cache; apt-get install of .deb files installs them (or fails, for a broken cache).
+      // Like apt on the runner image, it downloads them from the mirror instead while it can read the image's
+      // package lists, which list the same versions.
       "apt-get": `case "$1" in
   clean) rm -f "$APT_ARCHIVES"/*.deb ;;
-  install) for arg; do case "$arg" in /*.deb) [ -z "$FAKE_BROKEN_CACHE" ] || exit 100; echo "package \${arg##*/}" >> "$FAKE_SYSTEM" ;; esac; done ;;
+  install)
+    case "$*" in *Dir::State::Lists=*) ;; *) [ -z "$FAKE_MIRROR_DOWN" ] || exit 100 ;; esac
+    for arg; do case "$arg" in /*.deb) [ -z "$FAKE_BROKEN_CACHE" ] || exit 100; echo "package \${arg##*/}" >> "$FAKE_SYSTEM" ;; esac; done ;;
 esac`,
       // pnpm exec playwright install [--with-deps] <browser>; --with-deps downloads one package from the mirror.
       pnpm: `shift 3
@@ -136,6 +140,7 @@ exec "$@"`,
           ...fakes,
           PATH: `${bin}:${process.env.PATH}`,
           APT_ARCHIVES: archives,
+          TMPDIR: dir,
           GITHUB_OUTPUT: join(dir, "output"),
           FAKE_SYSTEM: join(dir, "system"),
         },
