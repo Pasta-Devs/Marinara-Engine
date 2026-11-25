@@ -5174,6 +5174,7 @@
   "game.ruleset.sheet.practice": "{{value}}%",
   "game.ruleset.sheet.practiceAria": "Practice toward the next rank of {{name}} for {{who}}, in percent",
   "game.ruleset.sheet.range": "{{min}} to {{max}}",
+  "game.ruleset.sheet.rankAria": "rank {{rank}} of {{top}}, {{value}}",
   "game.ruleset.sheet.refusal.ambiguousCharacter": "more than one party member goes by that name",
   "game.ruleset.sheet.refusal.ambiguousEntry": "more than one thing on the sheet goes by that name",
   "game.ruleset.sheet.refusal.ambiguousPool": "more than one resource goes by that name",

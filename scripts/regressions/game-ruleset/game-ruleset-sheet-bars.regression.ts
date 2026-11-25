@@ -25,6 +25,7 @@ import {
   renderRulesetSheetBlock,
   rulesetRankDisplayText,
   rulesetTierRank,
+  rulesetTopRank,
 } from "../../../packages/shared/src/index.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-ruleset-sheet-bars-"));
@@ -132,6 +133,23 @@ try {
   assert.equal(rulesetRankDisplayText(twelve, "t11"), "XI");
   twelve.sheet.rankDisplay = "dots";
   assert.equal(rulesetRankDisplayText(twelve, "t11"), "●".repeat(11));
+  // A sheet that offers fewer tiers counts only those (untrained is always rank 0).
+  const narrowed = ranked("dots");
+  narrowed.sheet.saveTiers = ["untrained", "trained"];
+  narrowed.sheet.skillTiers = ["expert"];
+  assert.equal(rulesetRankDisplayText(narrowed, "trained", "save"), "●", "a save offered one rank shows one dot");
+  assert.equal(rulesetRankDisplayText(narrowed, "expert", "skill"), "●");
+  assert.equal(rulesetTierRank(narrowed, "expert", "skill"), 1);
+  assert.equal(rulesetTopRank(narrowed, "skill", "expert"), 1);
+  assert.equal(
+    rulesetRankDisplayText(narrowed, "trained", "skill"),
+    "●○",
+    "a stored tier the editor no longer offers counts against the whole ladder",
+  );
+  assert.equal(rulesetRankDisplayText(narrowed, "expert", "save"), "●●", "and so does a save's");
+  narrowed.sheet.rankDisplay = "roman";
+  assert.equal(rulesetRankDisplayText(narrowed, "expert", "skill"), "I");
+
   // The Game Master reads the same sheet whatever the player sees.
   const blockOf = (definition: ReturnType<typeof ranked>) => {
     const build = defaultRulesetSheetBuild(definition);

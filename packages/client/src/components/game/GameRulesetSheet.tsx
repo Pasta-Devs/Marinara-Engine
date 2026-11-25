@@ -23,6 +23,7 @@ import {
   rulesetPartyDefinition,
   rulesetRankDisplayText,
   rulesetTierRank,
+  rulesetTopRank,
   readRulesetPartySheet,
   readResolvedSheetCommandTags,
   rulesetSheetStamp,
@@ -845,10 +846,11 @@ export function GameRulesetSheet({
     entry.tier !== untrainedTier &&
     entry.tier !== topTier &&
     rulesetSkillKeepsPractice(definition, entry.id);
-  // The rank as the ruleset asks it shown (1.837); null where it shows the check value.
-  const rankText = (tier: string | undefined) => {
-    const shown = rulesetRankDisplayText(definition, tier);
-    return shown === null ? null : text(shown);
+  // The rank as the ruleset asks it shown (1.837); null where it shows the check value. Only a tier's own
+  // name is the ruleset's word to translate: "2" or "II" is not.
+  const rankText = (tier: string | undefined, kind: "skill" | "save") => {
+    const shown = rulesetRankDisplayText(definition, tier, kind);
+    return shown !== null && definition.sheet.rankDisplay === "label" ? text(shown) : shown;
   };
   const trained = [
     ...definition.sheet.skills.map((skill) => ({
@@ -878,7 +880,15 @@ export function GameRulesetSheet({
           0,
         ),
     })),
-  ].filter((entry) => entry.tier !== undefined && entry.tier !== untrainedTier);
+  ]
+    .filter((entry) => entry.tier !== undefined && entry.tier !== untrainedTier)
+    .map((entry) => ({
+      ...entry,
+      rank: rulesetTierRank(definition, entry.tier, entry.kind),
+      top: rulesetTopRank(definition, entry.kind, entry.tier),
+      shown: rankText(entry.tier, entry.kind),
+      value: rulesetCheckValueText(definition, entry.modifier, localizeUi),
+    }));
 
   const startEditing = () => {
     // Labelled with this layout, and never older than the sheet already was. Everything else the
@@ -1603,18 +1613,29 @@ export function GameRulesetSheet({
                           className="mari-ruleset-sheet__rank rounded-lg border border-[var(--border)] px-1.5 py-0.5 text-[0.6875rem] text-[var(--foreground)]"
                           {...{ [entry.kind === "skill" ? "data-skill" : "data-save"]: entry.id }}
                           data-tier={entry.tier}
-                          data-rank={rulesetTierRank(definition, entry.tier)}
-                          // Shown as its rank, the check value is still a hover away.
-                          title={
-                            rankText(entry.tier) === null
-                              ? undefined
-                              : rulesetCheckValueText(definition, entry.modifier, localizeUi)
-                          }
+                          data-rank={entry.rank}
+                          // Shown as its rank, the check value is still a hover away on a computer.
+                          title={entry.shown === null ? undefined : entry.value}
                         >
                           {text(entry.label)}{" "}
-                          <span className="mari-ruleset-sheet__rank-value tabular-nums">
-                            {rankText(entry.tier) ?? rulesetCheckValueText(definition, entry.modifier, localizeUi)}
-                          </span>
+                          {entry.shown === null ? (
+                            <span className="mari-ruleset-sheet__rank-value tabular-nums">{entry.value}</span>
+                          ) : (
+                            <>
+                              {/* Dots read aloud as "black circle, white circle"; a screen reader gets the
+                                  rank and the check value in words instead. */}
+                              <span className="mari-ruleset-sheet__rank-value tabular-nums" aria-hidden="true">
+                                {entry.shown}
+                              </span>
+                              <span className="sr-only">
+                                {localizeUi("game.ruleset.sheet.rankAria", {
+                                  rank: entry.rank,
+                                  top: entry.top,
+                                  value: entry.value,
+                                })}
+                              </span>
+                            </>
+                          )}
                           {practiceShown(entry) &&
                             (settled ? (
                               <span className="mari-ruleset-sheet__practice ml-1 tabular-nums text-[var(--muted-foreground)]">

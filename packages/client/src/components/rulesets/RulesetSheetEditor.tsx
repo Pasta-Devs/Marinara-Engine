@@ -170,7 +170,7 @@ function TrainedRows({
                 className="mari-ruleset-sheet-editor__rank grid grid-cols-[minmax(0,1fr)_minmax(0,7rem)_3.25rem_2.25rem] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1"
                 {...{ [`data-${kind}`]: entry.id }}
                 data-tier={chosen[entry.id] ?? untrainedTier}
-                data-rank={rulesetTierRank(definition, chosen[entry.id])}
+                data-rank={rulesetTierRank(definition, chosen[entry.id], kind)}
               >
                 <span className="min-w-0 truncate text-xs text-[var(--foreground)]" title={rt(entry.label)}>
                   {rt(entry.label)}

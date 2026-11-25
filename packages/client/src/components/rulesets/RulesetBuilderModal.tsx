@@ -748,7 +748,6 @@ export function RulesetBuilderModal({
             <Select
               value={draft.rankDisplay ?? "value"}
               label={localizeUi("rulesetBuilder.rankDisplay")}
-              title={localizeUi("rulesetBuilder.rankDisplayHelp")}
               onChange={(next) =>
                 set({ rankDisplay: next === "value" ? undefined : (next as RulesetBuilderRankDisplay) })
               }
@@ -759,6 +758,9 @@ export function RulesetBuilderModal({
               }))}
             />
           </div>
+          <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+            {localizeUi("rulesetBuilder.rankDisplayHelp")}
+          </p>
           <label className="flex items-center gap-2 pt-1 text-xs text-[var(--foreground)]">
             <Checkbox checked={draft.practice === true} onChange={(event) => set({ practice: event.target.checked })} />
             {localizeUi("rulesetBuilder.practice")}
