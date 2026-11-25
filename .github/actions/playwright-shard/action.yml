@@ -89,6 +89,8 @@ runs:
       env:
         PLAYWRIGHT_ONLY_PROJECT: ${{ inputs.server-project }}
         GLOBAL_TIMEOUT_MINUTES: ${{ inputs.global-timeout-minutes }}
+        # The json reporter writes every test's result here for the nightly-report job (scripts/nightly-matrix-report.mjs).
+        PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/playwright-results/results.json
       run: |
         timeout_ms=0
         if (( GLOBAL_TIMEOUT_MINUTES > 0 )); then
@@ -103,5 +105,18 @@ runs:
         pnpm exec playwright test -c playwright.config.ts \
           --project=${{ inputs.project }} \
           --fully-parallel --workers=1 \
+          --reporter=github,list,json \
           --global-timeout="$timeout_ms" \
           --shard=${{ inputs.shard }}/${{ inputs.total-shards }}
+
+    # Only a full run started by workflow_dispatch (the nightly or a manual run) reports, and its report compares the
+    # results with the previous such run. A re-run shard replaces its earlier results.
+    - name: Upload ${{ inputs.project }} shard ${{ inputs.shard }} results
+      if: always() && inputs.smoke != 'true' && github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: playwright-results-${{ inputs.project }}-${{ inputs.shard }}
+        path: ${{ runner.temp }}/playwright-results/
+        if-no-files-found: ignore
+        overwrite: true
+        retention-days: 14

@@ -22,7 +22,7 @@ for (const file of REGRESSION_TIMEOUTS_MS.keys()) {
 if (process.platform !== "win32") {
   // Exercise the action's actual shell command; setup must consume the shard's budget too.
   const action = readFileSync(new URL("../../../.github/actions/playwright-shard/action.yml", import.meta.url), "utf8");
-  const shardRun = action.match(/      run: (>-|\|)\n([\s\S]+)$/u);
+  const shardRun = action.match(/      run: (>-|\|)\n([\s\S]+?)(?=\n\n {4}\S|$)/u);
   assert(shardRun, "the shard action must expose its run command");
   const lines = shardRun[2]
     .trimEnd()

@@ -403,3 +403,93 @@ jobs:
           fi
           echo "Shard result: $SHARDS_RESULT"
           exit 1
+
+  # Pull requests into staging run only the smoke suite, so a spec they break first fails here, in a run nobody is
+  # told about. A full run started by workflow_dispatch reports what fails, what started failing since the previous
+  # such run on its branch, and the pull requests merged in between (scripts/nightly-matrix-report.mjs). This job only
+  # reads; nightly-issue files the text on staging.
+  nightly-report:
+    name: nightly-report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [revision, desktop-chromium-shards, mobile-chromium-shards, mobile-webkit-shards]
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && needs.revision.result == 'success' }}
+
+    permissions:
+      actions: read
+      contents: read
+
+    outputs:
+      state: ${{ steps.report.outputs.state }}
+      title: ${{ steps.report.outputs.title }}
+      body: ${{ steps.report.outputs.body }}
+      comment: ${{ steps.report.outputs.comment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Download shard results
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: playwright-results
+          pattern: playwright-results-*
+
+      - name: Compare with the previous full run
+        id: report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULTS_DIR: playwright-results
+        run: node scripts/nightly-matrix-report.mjs
+
+  # Its write token runs no repository code or action. It files the text nightly-report wrote in one issue this
+  # workflow opened: each run rewrites the list and comments new failures, and a passing run closes the issue.
+  nightly-issue:
+    name: nightly-issue
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: nightly-report
+    if: ${{ !cancelled() && needs.nightly-report.result == 'success' && github.ref == 'refs/heads/staging' }}
+
+    permissions:
+      issues: write
+
+    steps:
+      - name: File the report in the nightly matrix issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          STATE: ${{ needs.nightly-report.outputs.state }}
+          TITLE: ${{ needs.nightly-report.outputs.title }}
+          BODY: ${{ needs.nightly-report.outputs.body }}
+          COMMENT: ${{ needs.nightly-report.outputs.comment }}
+        run: |
+          set -euo pipefail
+          # Only an open issue this workflow opened is edited, never one a person wrote.
+          issue=$(gh api "repos/$GH_REPO/issues?state=open&creator=github-actions%5Bbot%5D&per_page=100" --paginate \
+            --jq '.[] | select(.pull_request == null and .title == env.TITLE) | .number')
+          issue=${issue%%$'\n'*}
+          if [[ "$STATE" == passing ]]; then
+            if [[ -n "$issue" ]]; then
+              printf '%s' "$COMMENT" | gh issue comment "$issue" --body-file -
+              gh issue close "$issue"
+            fi
+            exit 0
+          fi
+          if [[ -n "$issue" ]]; then
+            printf '%s' "$BODY" | gh issue edit "$issue" --body-file -
+          else
+            url=$(printf '%s' "$BODY" | gh issue create --title "$TITLE" --label bug --body-file -)
+            issue=${url##*/}
+          fi
+          if [[ -n "$COMMENT" ]]; then
+            printf '%s' "$COMMENT" | gh issue comment "$issue" --body-file -
+          fi
