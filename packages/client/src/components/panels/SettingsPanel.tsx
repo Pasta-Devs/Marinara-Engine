@@ -7140,9 +7140,28 @@ type ProfileImportPreviewResult = {
   keepsExisting?: boolean;
   /** What the file holds, by kind and item, for "Choose what to import". */
   contents?: ProfileImportContents;
+  /** With "Keep my current versions": what the whole file holds, before what is already here is left out. */
+  fileContents?: Array<Omit<ProfileImportContents["kinds"][number], "items">>;
   error?: string;
   message?: string;
 };
+
+/** "12 characters, 3 chats, 40 files": what a file holds, for the "nothing to add" note. */
+function summarizeProfileFileContents(
+  kinds: NonNullable<ProfileImportPreviewResult["fileContents"]>,
+  localizeUi: (key: string, values?: Record<string, unknown>) => string,
+) {
+  return kinds
+    .map((kind) => {
+      const name = localizeUi(`ui.panels.importsettings.profileChoose.kinds.${kind.key}`);
+      const amounts = [
+        kind.count > 0 ? String(kind.count) : null,
+        kind.files > 0 ? localizeUi("ui.panels.importsettings.profileChoose.files", { count: kind.files }) : null,
+      ].filter(Boolean);
+      return amounts.length > 0 ? `${name} (${amounts.join(", ")})` : name;
+    })
+    .join(", ");
+}
 
 /** A scanned profile waiting on "Choose what to import". */
 type ProfileImportReview = {
@@ -7719,7 +7738,21 @@ function ProfileImportControl() {
                 fileName={profileReview.file.name}
               />
             ) : (
-              <div className="ov-pimp__note">{localizeUi("ui.panels.importsettings.profileChoose.nothingNew")}</div>
+              <div className="ov-pimp__note">
+                {(() => {
+                  const fileKinds = profileReview.preview.fileContents;
+                  if (!fileKinds) return localizeUi("ui.panels.importsettings.profileChoose.nothingNew");
+                  if (fileKinds.length === 0) {
+                    return localizeUi("ui.panels.importsettings.profileChoose.fileEmpty", {
+                      file: profileReview.file.name,
+                    });
+                  }
+                  return localizeUi("ui.panels.importsettings.profileChoose.nothingNewHolds", {
+                    file: profileReview.file.name,
+                    contents: summarizeProfileFileContents(fileKinds, localizeUi),
+                  });
+                })()}
+              </div>
             )}
             {profileReview.preview.warnings?.length ? (
               <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[0.6875rem] text-amber-700 dark:text-amber-200">

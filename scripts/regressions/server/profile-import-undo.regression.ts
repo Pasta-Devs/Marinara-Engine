@@ -287,6 +287,64 @@ try {
     "an import that replaces nothing saves no copy and leaves the previous Undo as it was",
   );
 
+  // An import into an emptied library, then Undo: the import added Dee, her chat and dee.txt, which
+  // its safety copy doesn't have, so Undo removes them again instead of leaving them in place.
+  const dee = (await characters.create({ name: "Dee", description: "added by import" } as any))!.id;
+  const deeChat = (await chats.create({ name: "Dee chat", mode: "conversation", characterIds: [dee] } as any))!;
+  const deeMessage = (await chats.createMessage({
+    chatId: deeChat.id,
+    role: "user",
+    characterId: null,
+    content: "hello",
+  } as any))!;
+  await writeSource("dee.txt", "added by import");
+  const withDee = await app.inject({ method: "GET", url: "/api/backup/export-profile" });
+  assert.equal(withDee.statusCode, 200, withDee.body);
+  await characters.remove(dee);
+  await chats.remove(deeChat.id);
+  await fs.rm(join(sources, "dee.txt"));
+
+  // "Keep my current versions" lists what is missing, and also what the whole file holds.
+  const keepPreview = await app.inject({
+    method: "POST",
+    url: "/api/backup/import-profile?preview=true&keepExisting=true",
+    headers: { "content-type": "application/json" },
+    payload: withDee.body,
+  });
+  assert.equal(keepPreview.statusCode, 200, keepPreview.body);
+  const keepNames = keepPreview.json().contents.kinds.find((kind: any) => kind.key === "characters")?.items;
+  assert.deepEqual(
+    keepNames?.map((item: any) => item.name),
+    ["Dee"],
+    "only the deleted character is offered",
+  );
+  const wholeFile = keepPreview.json().fileContents;
+  assert.ok(Array.isArray(wholeFile), "the preview says what the whole file holds");
+  assert.ok(
+    wholeFile.find((kind: any) => kind.key === "characters").count >= 4,
+    "the whole file's characters are counted, including the ones already here",
+  );
+  assert.ok(
+    wholeFile.every((kind: any) => kind.items === undefined),
+    "the whole-file summary carries counts, not item lists",
+  );
+  await app.inject({ method: "DELETE", url: `/api/backup/import-profile-preview/${keepPreview.json().previewToken}` });
+
+  assert.equal((await importProfile(withDee.body)).statusCode, 200);
+  assert.equal(await descriptionOf(dee), "added by import", "the import added Dee back");
+  assert.equal(await readSource("dee.txt"), "added by import");
+  assert.equal((await undo()).statusCode, 200);
+  assert.equal(await characters.getById(dee), null, "undo removed the character the import added");
+  assert.equal(await chats.getById(deeChat.id), null, "undo removed the chat the import added");
+  assert.equal(await chats.getMessage(deeMessage.id), null, "undo removed that chat's messages");
+  assert.equal(
+    await readSource("dee.txt").catch(() => "removed"),
+    "removed",
+    "undo removed the file the import added",
+  );
+  assert.equal(await descriptionOf(ada), "mine", "undo left items that were already here as they were");
+  assert.equal(await readSource("notes.txt"), "mine");
+
   // A profile from a much older version (no storage snapshot) always adds next to existing items, so
   // with the switch on its preview must not promise that current versions are kept.
   const legacyPreview = await app.inject({

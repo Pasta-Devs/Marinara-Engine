@@ -76,6 +76,7 @@ import { uniqueExportName } from "../utils/export-stream.js";
 import { getFileStorageDir } from "../config/runtime-config.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import { flushDB, type DB } from "../db/connection.js";
+import { inArray } from "../db/file-query.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { BACKUP_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { startSseKeepalive } from "./generate/sse.js";
@@ -3164,6 +3165,8 @@ async function hydrateProfileArchiveStorageSnapshot(
   zip: ProfileZipArchive,
   basePath: string,
   envelope: ExportEnvelope,
+  /** Only these tables are read; the others are left empty. Undo reads just the tables it puts back. */
+  onlyTables?: ReadonlySet<string>,
 ) {
   const data = envelope.data as Record<string, unknown>;
   const archiveSnapshot = data.fileStorage;
@@ -3173,7 +3176,7 @@ async function hydrateProfileArchiveStorageSnapshot(
   let memoryWarningLogged = false;
   for (const tableName of FILE_BACKED_TABLES) {
     const descriptor = archiveSnapshot.tables[tableName];
-    if (!descriptor) {
+    if (!descriptor || (onlyTables && !onlyTables.has(tableName))) {
       tables[tableName] = [];
       continue;
     }
@@ -3225,7 +3228,7 @@ async function hydrateProfileArchiveStorageSnapshot(
   } satisfies ProfileStorageSnapshot;
 }
 
-async function readProfileEnvelopeFromArchive(zip: ProfileZipArchive) {
+async function readProfileEnvelopeFromArchive(zip: ProfileZipArchive, onlyTables?: ReadonlySet<string>) {
   const profileEntry =
     zip.entries.find((entry) => !entry.isDirectory && entry.entryName === "marinara-profile.json") ??
     zip.entries.find((entry) => !entry.isDirectory && entry.entryName.endsWith("/marinara-profile.json"));
@@ -3259,7 +3262,7 @@ async function readProfileEnvelopeFromArchive(zip: ProfileZipArchive) {
     const profileBuffer = await readProfileArchiveEntryBuffer(zip, profileEntry, profileEntrySize);
     const envelope = JSON.parse(profileBuffer.toString("utf8")) as ExportEnvelope;
     const basePath = profileArchiveBasePath(profileEntry.entryName);
-    await hydrateProfileArchiveStorageSnapshot(zip, basePath, envelope);
+    await hydrateProfileArchiveStorageSnapshot(zip, basePath, envelope, onlyTables);
     return { envelope, basePath };
   } catch (err) {
     if (err instanceof ProfileImportRequestError) throw err;
@@ -3415,9 +3418,12 @@ async function readProfileArchiveAsset(
 }
 
 /** Read a profile or full-backup ZIP already on disk; the caller owns the file. */
-async function readProfileImportArchive(archivePath: string): Promise<ProfileImportInput> {
+async function readProfileImportArchive(
+  archivePath: string,
+  onlyTables?: ReadonlySet<string>,
+): Promise<ProfileImportInput> {
   const zip = await readProfileZipArchive(archivePath);
-  const { envelope, basePath } = await readProfileEnvelopeFromArchive(zip);
+  const { envelope, basePath } = await readProfileEnvelopeFromArchive(zip, onlyTables);
   const warnings: ProfileImportWarning[] = [];
   const archiveAssets = validateProfileArchiveAssets(zip, basePath, envelope, warnings);
   return {
@@ -3743,6 +3749,57 @@ function onlyRowsAndFilesWritten(
     tables,
     files: snapshot.files.filter((file) => files.has(normalizeProfileAssetPath(file?.path) ?? "")),
   };
+}
+
+/**
+ * What the last import added that wasn't here before it: the rows and files it wrote that its safety
+ * copy doesn't have. Undo removes them, so undoing an import into an emptied library empties it again.
+ */
+function rowsAndFilesAdded(copy: ProfileStorageSnapshot, writes: ProfileImportWrites): ProfileImportWrites {
+  const rows: Record<string, string[]> = {};
+  for (const [tableName, keys] of Object.entries(writes.rows)) {
+    const table = profileTableObjects.get(tableName);
+    const keyColumn = table ? schemaPrimaryKeyColumn(table)?.key : undefined;
+    if (!keyColumn || !Array.isArray(keys)) continue;
+    const before = new Set((copy.tables[tableName] ?? []).map((row) => String(row[keyColumn])));
+    const added = keys.filter((key) => typeof key === "string" && !before.has(key));
+    if (added.length > 0) rows[tableName] = [...new Set(added)];
+  }
+  const filesBefore = new Set(copy.files.map((file) => normalizeProfileAssetPath(file?.path) ?? ""));
+  const files = writes.files.flatMap((path) => {
+    const safePath = normalizeProfileAssetPath(path);
+    // The long-term memory vault is restored whole by its own package; Undo leaves it alone.
+    return safePath && !filesBefore.has(safePath) && !safePath.startsWith("long-term-memory/") ? [safePath] : [];
+  });
+  return { rows, files: [...new Set(files)] };
+}
+
+/** Undo: delete the rows the import added, children first, inside the undo's transaction. */
+async function removeRowsAdded(tx: DB, rows: ProfileImportWrites["rows"]) {
+  for (const tableName of [...FILE_BACKED_TABLES].reverse()) {
+    const keys = rows[tableName];
+    const table = profileTableObjects.get(tableName);
+    const keyColumn = table ? schemaPrimaryKeyColumn(table)?.key : undefined;
+    if (!keys?.length || !table || !keyColumn) continue;
+    for (let start = 0; start < keys.length; start += 500) {
+      await tx
+        .delete(table as any)
+        .where(inArray((table as any)[keyColumn], keys.slice(start, start + 500)))
+        .run();
+    }
+  }
+}
+
+/** Undo: remove the files the import added. A file that can't be removed is logged and left. */
+async function removeFilesAdded(paths: string[]) {
+  const dataDir = getDataDir();
+  for (const path of paths) {
+    try {
+      await rm(resolveInside(dataDir, path), { force: true });
+    } catch (error) {
+      logger.warn(error, "[backup] Undo could not remove the imported file %s", path);
+    }
+  }
 }
 
 /**
@@ -4355,6 +4412,8 @@ export async function backupRoutes(app: FastifyInstance) {
     }
     let importInput: ProfileImportInput;
     const undoRecord = undo ? await readUndoRecord(app.db) : null;
+    /** Undo: what the last import added (not in its safety copy), removed along with putting rows back. */
+    let undoRemovals: ProfileImportWrites | null = null;
     if (undo) {
       if (!undoRecord) {
         return reply.status(404).send({
@@ -4363,11 +4422,16 @@ export async function backupRoutes(app: FastifyInstance) {
         });
       }
       try {
-        importInput = await readProfileImportArchive(join(getBackupsRoot(), undoRecord.copy));
+        // Only the tables the import wrote: a whole-library copy would otherwise be loaded into memory.
+        importInput = await readProfileImportArchive(
+          join(getBackupsRoot(), undoRecord.copy),
+          new Set(Object.keys(undoRecord.rows)),
+        );
         const safetyData = importInput.envelope?.data as Record<string, unknown> | undefined;
         if (!safetyData || !isProfileStorageSnapshot(safetyData.fileStorage)) {
           throw new ProfileImportRequestError("The safety copy from before the last import could not be read.");
         }
+        undoRemovals = rowsAndFilesAdded(safetyData.fileStorage, undoRecord);
         safetyData.fileStorage = onlyRowsAndFilesWritten(safetyData.fileStorage, undoRecord);
         // The copy's asset check covered every file; only the ones being put back matter here.
         const filesWritten = new Set(undoRecord.files);
@@ -4418,6 +4482,12 @@ export async function backupRoutes(app: FastifyInstance) {
           (row) => row.key !== PROFILE_IMPORT_UNDO_SETTING,
         );
       }
+      // With "Keep my current versions" on, the review page also says what the whole file holds, so
+      // "nothing to add" can tell a file that is all here already from a file that holds little.
+      const fileContents =
+        previewOnly && keepExisting && isProfileStorageSnapshot(data.fileStorage)
+          ? describeProfileSnapshotContents(data.fileStorage).kinds.map(({ items: _items, ...kind }) => kind)
+          : undefined;
       if (keepExisting && isProfileStorageSnapshot(data.fileStorage)) {
         data.fileStorage = await withoutWhatAlreadyExists(app.db, data.fileStorage);
       }
@@ -4473,6 +4543,7 @@ export async function backupRoutes(app: FastifyInstance) {
           previewToken,
           totalItems,
           contents,
+          ...(fileContents ? { fileContents } : {}),
           // Older profiles, and "Keep my current versions", only add items, so they need no safety copy
           // and leave nothing to undo.
           undoable: !keepExisting && isProfileStorageSnapshot(data.fileStorage),
@@ -4551,6 +4622,7 @@ export async function backupRoutes(app: FastifyInstance) {
                       if (currentCopy !== undoRecord?.copy) {
                         throw new Error("Nothing was undone, because another import or undo finished first.");
                       }
+                      if (undoRemovals) await removeRowsAdded(tx, undoRemovals.rows);
                       return undoSettings.remove(PROFILE_IMPORT_UNDO_SETTING);
                     }
                     replacedCopy = currentCopy;
@@ -4569,6 +4641,7 @@ export async function backupRoutes(app: FastifyInstance) {
             throw error;
           }
           // The copy an undo used, or the one this import's record replaced, is no longer needed.
+          if (undoRemovals?.files.length) await removeFilesAdded(undoRemovals.files);
           const unusedCopy = undo ? undoRecord?.copy : replacedCopy;
           if (unusedCopy) await removePreImportBackup(unusedCopy);
           const payload = { success: true, imported, warnings };
