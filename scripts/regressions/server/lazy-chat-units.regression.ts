@@ -1206,8 +1206,37 @@ const loadedUnitsOf = (db: Awaited<ReturnType<typeof createFileNativeDB>>) => db
     assert.deepEqual(seen.get("message_swipes")?.sort(), chatIds.map((chat) => `s-${chat}`).sort(), "every swipe once");
     assert.ok(maxResident <= 20, `the scan holds one batch of chats at a time (saw ${maxResident})`);
     assert.equal(db._fileStore.getFullyResidentLazyTables().size, 0, "the scan leases nothing");
+
+    // A write that moves a row to another chat mid-scan could make batches miss or repeat it.
+    let moved = false;
+    const interrupted = await db._fileStore.scanLazyTablesByChat(["messages"], async () => {
+      if (moved) return;
+      moved = true;
+      await db
+        .update(messages)
+        .set({ chatId: chatIds[39] })
+        .where(eq(messages.id, `m-${chatIds[0]}`));
+    });
+    assert.equal(interrupted.size, 0, "a row moved between chats mid-scan sends the caller to the whole-table read");
   } finally {
     delete process.env.MARINARA_MAX_RESIDENT_CHATS;
+    await db._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+{
+  // A chat id too long for a readable file name is stored under a hashed name that cannot name its
+  // chat, so the scan must not claim the table: the caller reads it whole instead of skipping rows.
+  const dir = tempStorageDir();
+  const longChat = "a".repeat(121);
+  writeShard(dir, "chats", longChat, [chatRow(longChat)]);
+  writeShard(dir, "messages", longChat, [messageRow("m-long", longChat, "long")]);
+  const db = await createFileNativeDB();
+  try {
+    const scanned = await db._fileStore.scanLazyTablesByChat(["messages"], async () => {});
+    assert.equal(scanned.size, 0, "a hashed shard name falls back to the whole-table read");
+  } finally {
     await db._fileStore.close();
     rmSync(dir, { recursive: true, force: true });
   }

@@ -227,7 +227,9 @@ export type FileNativeStoreController = {
    * before the next loads, so a backup no longer needs the whole library in memory at once. Rows
    * arrive exactly as an unprojected select returns them. Returns the tables it covered; any other
    * table (not lazy, already fully resident, or an install with misfiled rows) is the caller's to
-   * read with a plain select.
+   * read with a plain select. An empty result after rows were visited means the scan could not be
+   * trusted (misfiled rows found while loading, or a write moved a row to another chat): discard
+   * what was visited and read every table with a plain select.
    */
   scanLazyTablesByChat: (
     tables: readonly string[],
@@ -2916,6 +2918,10 @@ class FileTableStore {
   private lastUnboundedLeaseUse = 0;
   /** One pending deferred flush that lets read-only loads and idle leases shrink memory too. */
   private residencyTrimTimer: ReturnType<typeof setTimeout> | null = null;
+  private residencyTrimDue = 0;
+  /** Running scanLazyTablesByChat calls, and whether a write moved a lazy row to another chat meanwhile. */
+  private activeLazyScans = 0;
+  private lazyScanRowMoved = false;
   private unitLastTouch = new Map<string, number>();
   /**
    * messageIds of swipes currently resolving to the unassigned shard. When
@@ -3926,6 +3932,7 @@ class FileTableStore {
                 // rewrites arbitrary columns) — dirty BOTH the old and new
                 // shard or the old file keeps a stale duplicate (#4708).
                 affectedRows.push(existing, candidate);
+                this.noteLazyRowMove(meta.name, existing, candidate);
                 nextRows[duplicateIndex] = candidate;
               } else {
                 if (!uniqueIndex || !addToUniqueRowIndex(meta, uniqueIndex, row)) {
@@ -4009,6 +4016,7 @@ class FileTableStore {
                 const affectedRows: Row[] = [];
                 for (const index of changedIndexes) {
                   affectedRows.push(target[index]!, nextRows[index]!);
+                  this.noteLazyRowMove(meta.name, target[index]!, nextRows[index]!);
                 }
                 const shardKeys = this.shardKeysForRows(meta.name, affectedRows);
                 // An update that rewrites the shard column moves rows into a
@@ -4464,39 +4472,65 @@ class FileTableStore {
     const scanned = new Set(
       tables.filter((table) => LAZY_UNIT_TABLES.has(table) && !this.fullyResidentTables.has(table)),
     );
-    // Misfiled rows can live in another chat's file, so a row's chat is not always where its file
-    // is. Those installs keep the old whole-table read, like releaseIdleTableLeases.
-    if (scanned.size === 0 || this.pinnedUnits.size > 1 || this.messageStrayFilesByUnit.size > 0) return new Set();
+    if (scanned.size === 0 || this.lazyScanUnsafe()) return new Set();
     await this.flush(true, true);
     const units = new Set<string>([...this.loadedUnits, ...this.pinnedUnits]);
     for (const table of LAZY_UNIT_LOAD_ORDER) {
       for (const encoded of this.lazyDiscoveredShards.get(table) ?? []) {
         const key = decodeShardKey(encoded);
-        if (key) units.add(key);
+        // A hashed file name (a very long chat id) cannot name its chat: read those tables whole.
+        if (key === null) return new Set();
+        units.add(key);
       }
     }
     const strategies = new Map(
       [...scanned].map((table) => [table, getFileTableShardStrategy(table as FileBackedTable)] as const),
     );
     const ordered = [...units];
-    for (let start = 0; start < ordered.length; start += LAZY_SCAN_BATCH_UNITS) {
-      const batch = new Set(ordered.slice(start, start + LAZY_SCAN_BATCH_UNITS));
-      this.ensureUnitsLoaded(batch);
-      const rowsByTable = new Map<string, Row[]>();
-      for (const table of scanned) {
-        // A lease taken by another request mid-scan holds the whole table, so read only this batch.
-        const strategy = strategies.get(table)!;
-        rowsByTable.set(
-          table,
-          (this.tables.get(table) ?? [])
-            .filter((row) => batch.has(this.unitKeyOfRowForEviction(strategy, row)))
-            .map((row) => unpackVectorColumns(table, cloneRow(row))),
-        );
+    this.activeLazyScans += 1;
+    if (this.activeLazyScans === 1) this.lazyScanRowMoved = false;
+    try {
+      for (let start = 0; start < ordered.length; start += LAZY_SCAN_BATCH_UNITS) {
+        const batch = new Set(ordered.slice(start, start + LAZY_SCAN_BATCH_UNITS));
+        this.ensureUnitsLoaded(batch);
+        // Loading can uncover misfiled rows (they pin units), and a write between batches can move
+        // a row to another chat. Either way batches could miss or repeat rows: the caller then
+        // discards what it got and reads those tables whole.
+        if (this.lazyScanUnsafe() || this.lazyScanRowMoved) return new Set();
+        const rowsByTable = new Map<string, Row[]>();
+        for (const table of scanned) {
+          // A lease taken by another request mid-scan holds the whole table, so read only this batch.
+          const strategy = strategies.get(table)!;
+          rowsByTable.set(
+            table,
+            (this.tables.get(table) ?? [])
+              .filter((row) => batch.has(this.unitKeyOfRowForEviction(strategy, row)))
+              .map((row) => unpackVectorColumns(table, cloneRow(row))),
+          );
+        }
+        await visit(rowsByTable);
+        await this.trimResidentChatUnits(Number.MAX_SAFE_INTEGER);
       }
-      await visit(rowsByTable);
-      await this.trimResidentChatUnits(Number.MAX_SAFE_INTEGER);
+      return this.lazyScanRowMoved ? new Set() : scanned;
+    } finally {
+      this.activeLazyScans -= 1;
     }
-    return scanned;
+  }
+
+  /** Corruption-healing state (misfiled rows, pinned units) that per-chat reading cannot account for. */
+  private lazyScanUnsafe() {
+    if (this.pinnedUnits.size > 1 || this.messageStrayFilesByUnit.size > 0) return true;
+    for (const ids of this.strayResidentIds.values()) if (ids.size > 0) return true;
+    return false;
+  }
+
+  /** Flags a running chat-by-chat scan when a write moves a lazy row from one chat to another. */
+  private noteLazyRowMove(table: string, before: Row, after: Row) {
+    if (this.activeLazyScans === 0 || !LAZY_UNIT_TABLES.has(table)) return;
+    const strategy = getFileTableShardStrategy(table as FileBackedTable);
+    if (this.unitKeyOfRowForEviction(strategy, before) !== this.unitKeyOfRowForEviction(strategy, after)) {
+      this.lazyScanRowMoved = true;
+    }
   }
 
   getResidentLazyRows(table: string): ReadonlyArray<Row> {
@@ -4590,6 +4624,7 @@ class FileTableStore {
       const canonical = row.chatId || UNASSIGNED_SHARD_KEY;
       const adoptsOrphans = previous === undefined && this.orphanSwipeMessageIds.delete(row.id);
       if ((previous !== undefined && previous !== canonical) || adoptsOrphans) {
+        if (this.activeLazyScans > 0) this.lazyScanRowMoved = true;
         movedSwipeShards.add(previous ?? UNASSIGNED_SHARD_KEY);
         movedSwipeShards.add(canonical);
       }
@@ -4866,7 +4901,15 @@ class FileTableStore {
    * point; nothing is evicted from here directly.
    */
   private scheduleResidencyTrim(delayMs: number) {
-    if (this.residencyTrimTimer || this.writesClosed || LAZY_UNIT_TABLES.size === 0) return;
+    if (this.writesClosed || LAZY_UNIT_TABLES.size === 0) return;
+    const due = Date.now() + delayMs;
+    // An earlier request replaces a later one (a lease timer must not hold back an over-cap trim);
+    // the flush tail re-arms the lease check if the lease is still too young to release.
+    if (this.residencyTrimTimer) {
+      if (this.residencyTrimDue <= due) return;
+      clearTimeout(this.residencyTrimTimer);
+    }
+    this.residencyTrimDue = due;
     // Outside any transaction's async context: a timer inherits it, and a flush that thinks it runs
     // inside a transaction neither evicts nor releases.
     this.residencyTrimTimer = this.txContext.exit(() =>
