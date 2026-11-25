@@ -102,7 +102,7 @@ async function openFixture(
             ? undefined
             : guideId === "setup"
               ? `# Set up\n\nChoose a character.\n\n## Steps\n\n${"Read the instructions for this step.\n\n".repeat(50)}## Troubleshooting\n\n[Return to start](#set-up)`
-              : '# Guide fixture\n\nRead the [Set up](docs/setup.md) guide.\n\n[Heading via GitHub](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/guide-fixture/docs/setup.md#troubleshooting)\n\n`[Inline UI](http://localhost:3000)`\n\n```md\n```js\n[Local UI](http://localhost:3000)\n[Guide](docs/setup.md)\n<details>\n```\n\n<script>window.__guideExecuted = true</script>\n\n<svg onload="window.__guideExecuted=true"></svg>\n\n[Unsafe](javascript:alert(1))\n\n![Unsafe image](data:image/svg+xml,evil)',
+              : '# Guide fixture\n\nRead the [Set up](docs/setup.md) guide.\n\n[Use `Set up`](docs/setup.md)\n\n[Heading via GitHub](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/guide-fixture/docs/setup.md#troubleshooting)\n\n`[Inline UI](http://localhost:3000)`\n\n```md\n```js\n[Local UI](http://localhost:3000)\n[Guide](docs/setup.md)\n<details>\n```\n\n<script>window.__guideExecuted = true</script>\n\n<svg onload="window.__guideExecuted=true"></svg>\n\n[Unsafe](javascript:alert(1))\n\n![Unsafe image](data:image/svg+xml,evil)',
         retrievedAt: "2026-11-25T00:00:00.000Z",
       },
     });
@@ -186,6 +186,10 @@ test("package guide links preserve code examples, GitHub aliases and headings", 
   await openFixture(page);
   await page.getByRole("button", { name: "Read how this agent works" }).click();
   const dialog = page.getByRole("dialog", { name: "Guide fixture guides", exact: true });
+  await expect(dialog.getByRole("link", { name: "Use `Set up`", exact: true })).toHaveAttribute(
+    "href",
+    topics[1]!.sourceUrl,
+  );
   await expect(dialog.locator("pre code")).toHaveText(
     "```js\n[Local UI](http://localhost:3000)\n[Guide](docs/setup.md)\n<details>",
   );

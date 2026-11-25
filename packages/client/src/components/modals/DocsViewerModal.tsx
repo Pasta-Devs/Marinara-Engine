@@ -317,10 +317,7 @@ function prepareDocMarkdown(raw: string, docPath: string, sourceUrl?: string): s
       );
   };
   const rewriteInline = (line: string) =>
-    line
-      .split(/(`[^`]*`)/gu)
-      .map((part, index) => (index % 2 ? part : rewriteLinks(part)))
-      .join("");
+    line.replace(/`[^`]*`|!?\[[^[\]]*\]\([^\s()]+\)/gu, (part) => (part.startsWith("`") ? part : rewriteLinks(part)));
   const out: string[] = [];
   let inCode = false;
   for (const line of raw.replace(/\r\n/g, "\n").split("\n")) {
