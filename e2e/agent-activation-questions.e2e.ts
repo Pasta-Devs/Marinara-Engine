@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
-import { hideExistingItems, openJobSettings, openJobsPage } from "./connections-panel.js";
+import { hideExistingItems, openJobSettings, openJobsPage, showConnectionsList } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -528,6 +528,8 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
       useUIStore.getState().closeAllDetails();
       useUIStore.getState().openRightPanel("connections");
     });
+    // The panel keeps the Jobs page the editor was opened from (#9760); the lender's row is on the list.
+    await showConnectionsList(page);
     const lenderActions = page.getByRole("button", { name: `Actions for ${lenderName}`, exact: true });
     await lenderActions.scrollIntoViewIfNeeded();
     await lenderActions.click();
