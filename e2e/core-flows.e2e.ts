@@ -23491,33 +23491,43 @@ test("a ?chat= launch link opens that chat once and leaves the address clean", a
   }
 });
 
-test("page backing keeps the app running when the browser refuses canvas reads", async ({ page }) => {
-  // WebKit throws InvalidStateError from getImageData under memory pressure (#7241).
+test("shell surfaces and the page backing keep their colors when canvas reads come back random", async ({ page }) => {
+  // #9791: Firefox's resistFingerprinting (and canvas blockers) return random canvas pixels, which painted
+  // the sidebar and editors a new random color on every load. WebKit can also refuse the read (#7241).
   await page.addInitScript(() => {
-    CanvasRenderingContext2D.prototype.getImageData = () => {
-      throw new DOMException("Unable to get image data from canvas", "InvalidStateError");
-    };
+    const getImageData = CanvasRenderingContext2D.prototype.getImageData;
+    CanvasRenderingContext2D.prototype.getImageData = function (this: CanvasRenderingContext2D, ...args) {
+      const image = getImageData.apply(this, args);
+      crypto.getRandomValues(image.data);
+      return image;
+    } as typeof getImageData;
   });
   await page.goto("/");
   await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
+  const html = page.locator("html");
+  const rootValue = (name: string) =>
+    html.evaluate((element, property) => getComputedStyle(element).getPropertyValue(property).trim(), name);
+  // The theme's card over its background, as the sidebar and the editors paint it.
+  await expect.poll(() => rootValue("--marinara-shell-surface")).toMatch(/^rgb\(1[78], 17, (19|20)\)$/);
+  const shellSurface = await rootValue("--marinara-shell-surface");
+  expect(await rootValue("--sidebar")).toBe(shellSurface);
+  expect(await rootValue("--marinara-editor-bg")).toBe(shellSurface);
+
   await page.evaluate(async () => {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
     useUIStore.getState().saveUiStyleOverride("app", { background: "#234567" });
   });
   await expect(page.getByText("Marinara hit a recoverable UI error.")).toHaveCount(0);
-  // Without the canvas, the backing keeps the theme's own background color, unflattened.
-  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(35, 69, 103)");
-  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(35, 69, 103)");
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#234567");
+  // The top bar's surface over the chosen color backs the page and the browser chrome.
+  const backing = /^rgb\(2[45], 3[56], 4[67]\)$/;
   await expect
-    .poll(() => page.locator("html").evaluate((element) => element.style.getPropertyValue("--marinara-page-backing")))
-    .toBe("#234567");
-  // Its contrast can't be checked either, so editors and fields keep the theme's own surface.
-  await expect
-    .poll(() =>
-      page.locator("html").evaluate((element) => getComputedStyle(element).getPropertyValue("--background").trim()),
-    )
-    .toBe("#050312");
+    .poll(() => html.evaluate((element) => element.style.getPropertyValue("--marinara-page-backing")))
+    .toMatch(backing);
+  await expect(html).toHaveCSS("background-color", backing);
+  await expect(page.locator("body")).toHaveCSS("background-color", backing);
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", backing);
+  // The theme's text stays readable on it, so editors and fields take it as well.
+  await expect.poll(() => rootValue("--background")).toBe("#234567");
 });
 
 test("a dark app background in Light mode leaves editors and fields on the theme's surface", async ({ page }) => {

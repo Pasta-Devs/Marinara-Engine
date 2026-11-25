@@ -61,6 +61,7 @@ import {
   getCssColorFallback,
   getCssGradientColorStops,
   isCssGradient,
+  paintSrgbColor,
   RAINBOW_GRADIENT_PRESET,
   READABLE_TEXT_CONTRAST,
 } from "./lib/css-colors";
@@ -756,45 +757,40 @@ export function App() {
       if (background) root.style.setProperty("--marinara-app-background-color", literalBackground);
       // Flatten translucent shell surfaces over the app background. Browser
       // chrome needs an opaque color, and sidebars retain the Home menu surface.
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 1;
-      const context = canvas.getContext("2d");
-      // WebKit can refuse canvas reads under memory pressure (InvalidStateError);
-      // keep the unflattened color then instead of crashing the app shell.
+      // The canvas only parses each color (fillStyle reads it back normalized); the blending is done here.
+      // Its pixels can't be trusted: Firefox's resistFingerprinting and canvas blockers hand back random
+      // ones, which painted the sidebar and editors a random color (#9791), and WebKit can refuse to read
+      // them under memory pressure (#7241).
+      const context = document.createElement("canvas").getContext("2d");
       if (context) {
-        try {
-          context.fillStyle = defaultBackground;
-          context.fillRect(0, 0, 1, 1);
-          context.fillStyle = literalBackground;
-          context.fillRect(0, 0, 1, 1);
-          const backgroundPixels = context.getImageData(0, 0, 1, 1);
-          if (background) {
-            // Editors, libraries and fields paint --background under the app's text: the Whole app part's
-            // text color when it has one, otherwise the chrome text color. A dark app background in Light
-            // mode (or a light one in Dark) would leave that text unreadable there, so the app background
-            // becomes --background only while that text stays readable on it. Otherwise it still paints
-            // the backdrop and those surfaces keep the theme's (#9741).
-            context.fillStyle =
-              getCssColorFallback(appTextColor, "") ||
-              computedStyle.getPropertyValue("--marinara-chat-chrome-text").trim();
-            context.fillRect(0, 0, 1, 1);
-            const textContrast = contrastRatio(backgroundPixels.data, context.getImageData(0, 0, 1, 1).data);
-            if (textContrast >= READABLE_TEXT_CONTRAST) root.style.setProperty("--background", resolvedBackground);
-            context.putImageData(backgroundPixels, 0, 0);
+        const paint = (below: readonly number[], color: string) => {
+          context.fillStyle = "transparent";
+          // Wrapped in an sRGB mix, oklch() or an oklab mix reads back as color(srgb …) or rgba() as well.
+          context.fillStyle = `color-mix(in srgb, ${color} 100%, transparent)`;
+          return paintSrgbColor(below, String(context.fillStyle));
+        };
+        const toRgb = (channels: readonly number[]) => `rgb(${channels.map(Math.round).join(", ")})`;
+        const backdrop = paint(paint([0, 0, 0], defaultBackground), literalBackground);
+        if (background) {
+          // Editors, libraries and fields paint --background under the app's text: the Whole app part's
+          // text color when it has one, otherwise the chrome text color. A dark app background in Light
+          // mode (or a light one in Dark) would leave that text unreadable there, so the app background
+          // becomes --background only while that text stays readable on it. Otherwise it still paints
+          // the backdrop and those surfaces keep the theme's (#9741).
+          const text = paint(
+            backdrop,
+            getCssColorFallback(appTextColor, "") ||
+              computedStyle.getPropertyValue("--marinara-chat-chrome-text").trim(),
+          );
+          if (contrastRatio(backdrop, text) >= READABLE_TEXT_CONTRAST) {
+            root.style.setProperty("--background", resolvedBackground);
           }
-          context.fillStyle = computedStyle.getPropertyValue("--card").trim();
-          context.fillRect(0, 0, 1, 1);
-          const [red, green, blue] = context.getImageData(0, 0, 1, 1).data;
-          const shellSurface = `rgb(${red}, ${green}, ${blue})`;
-          root.style.setProperty("--marinara-shell-surface", shellSurface);
-          context.putImageData(backgroundPixels, 0, 0);
-          context.fillStyle = computedStyle.getPropertyValue("--marinara-topbar-surface").trim();
-          context.fillRect(0, 0, 1, 1);
-          const [topbarRed, topbarGreen, topbarBlue] = context.getImageData(0, 0, 1, 1).data;
-          literalBackground = `rgb(${topbarRed}, ${topbarGreen}, ${topbarBlue})`;
-        } catch (error) {
-          console.warn("[theme] Could not read the canvas to flatten the page backing", error);
         }
+        root.style.setProperty(
+          "--marinara-shell-surface",
+          toRgb(paint(backdrop, computedStyle.getPropertyValue("--card").trim())),
+        );
+        literalBackground = toRgb(paint(backdrop, computedStyle.getPropertyValue("--marinara-topbar-surface").trim()));
       }
       root.style.setProperty("--marinara-page-backing", literalBackground);
       root.style.setProperty("background-color", literalBackground, "important");
