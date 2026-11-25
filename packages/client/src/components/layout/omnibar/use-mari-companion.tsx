@@ -50,6 +50,26 @@ const remPx = () => parseFloat(getComputedStyle(document.documentElement).fontSi
 const halfRem = (value: number) => Math.floor(value * 2) / 2;
 
 /**
+ * Where her companion panel would sit beside the open editor, in viewport px, or null when no editor has room for
+ * it. The floating window's left snap zone previews this rectangle in an editor (#9818). Mirrors place() below.
+ */
+export function mariCompanionDockRect(): { left: number; top: number; width: number; height: number } | null {
+  const ui = useUIStore.getState();
+  const root = ui.mariCompanionRoot;
+  if (!root) return null;
+  const shell = root.closest<HTMLElement>(".mari-editor-shell") ?? root;
+  const header = shell.querySelector<HTMLElement>(".mari-editor-header");
+  const rem = remPx();
+  const s = shell.getBoundingClientRect();
+  const fit = halfRem(Math.min(MARI_COMPANION_WIDTH_MAX_REM, (s.width - 3 * GAP_PX) / rem - MIN_COLUMN_REM));
+  if (fit < MARI_COMPANION_WIDTH_MIN_REM) return null;
+  const width = Math.max(MARI_COMPANION_WIDTH_MIN_REM, Math.min(ui.mariCompanionWidthRem, fit)) * rem;
+  const top = (header?.getBoundingClientRect().bottom ?? s.top) + GAP_PX;
+  const bottom = window.innerHeight - Math.max(GAP_PX, window.innerHeight - s.bottom + GAP_PX);
+  return { left: s.left + GAP_PX, top, width, height: Math.max(0, bottom - top) };
+}
+
+/**
  * Prof. Mari's desktop companion: while an editor that opts in (`useMariCompanionEditor`) is open
  * and its shell has room for her panel plus a sane field column, her window becomes a solid panel
  * fixed at the left, 12px below the editor header bar. Only the editor's field column moves right,

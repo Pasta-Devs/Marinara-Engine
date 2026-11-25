@@ -2169,10 +2169,13 @@ export function HomeProfessorMariChat({
     setWorkspaceDestination(next ? "chats" : "chat");
   }, [chatHistoryOpen, isBusy, localizeUi]);
 
+  // Home closes the Home page's chat window. Her omnibar window is not that one: floating or docked (#9818) it stays
+  // open beside the app, and closing it here sent her back to the search.
   useEffect(() => {
+    if (omnibarMode) return;
     window.addEventListener("marinara:home-professor-mari-close", closeChatWindow);
     return () => window.removeEventListener("marinara:home-professor-mari-close", closeChatWindow);
-  }, [closeChatWindow]);
+  }, [closeChatWindow, omnibarMode]);
 
   // The omnibar can hand us a past conversation to open. The effect lives after
   // handleSelectProfessorChat so it can call it directly.

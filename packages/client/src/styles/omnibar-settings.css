@@ -404,9 +404,6 @@
 
 .omnibar-settings-sheet[data-sizing="search"]
   .omnibar-settings-sheet__card
-  > section:not(:has([data-size-group="search"])),
-.omnibar-settings-sheet[data-sizing="mari"]
-  .omnibar-settings-sheet__card
-  > section:not(:has([data-size-group="mari"])) {
+  > section:not(:has([data-size-group="search"])) {
   display: none;
 }

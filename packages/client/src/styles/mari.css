@@ -2181,11 +2181,10 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 
 /* R53: a split at 44rem gives each side 20rem, which is too narrow for a diff.
    The shell already animates its height when she takes over; this is the same
-   motion on the other axis, and it needs no state passed up from the panel.
-   The user's window width can only widen this split, never narrow it. */
+   motion on the other axis, and it needs no state passed up from the panel. */
 @media (min-width: 40rem) {
   .mari-workspace-shell:has([data-mari-panel="open"]) {
-    max-width: max(68rem, min(var(--mari-window-width, 68rem), 92vw));
+    max-width: 68rem;
   }
 }
 
@@ -5468,6 +5467,149 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 
 @media (prefers-reduced-motion: reduce) {
   .mari-companion-resize::after {
+    transition: none;
+  }
+}
+
+/* #9818: Prof. Mari floating (desktop). Same solid panel as the companion, placed by use-mari-float. No backdrop:
+   the overlay around her lets presses through to the app. */
+[data-component="GlobalOmnibar"][data-pane="mari"][data-mari-float] > .mari-float-panel {
+  position: fixed;
+  left: var(--mari-float-left, 12px);
+  top: var(--mari-float-top, 12px);
+  width: var(--mari-float-width, 44rem);
+  height: var(--mari-float-height, 48rem);
+  max-width: none;
+  max-height: none;
+  border-radius: 1rem;
+  box-shadow:
+    0 0 0 1px var(--border),
+    0 1.5rem 3.75rem -0.75rem rgb(0 0 0 / 0.55);
+  pointer-events: auto;
+}
+
+/* The header is her grip; its buttons and tabs keep their own cursors. */
+[data-mari-float] > .mari-float-panel > header {
+  cursor: grab;
+  user-select: none;
+  /* A touch screen at desktop width must move her, not pan the page and cancel the drag. */
+  touch-action: none;
+}
+
+[data-mari-float-dragging] > .mari-float-panel > header,
+[data-mari-float-dragging] {
+  cursor: grabbing;
+}
+
+/* While she is moved or resized, her content must not catch the pointer or select text. */
+[data-mari-float-dragging] > .mari-float-panel > * {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Docked at a side she is a sidebar: flush with the screen edge, square, one divider toward the app, and only her
+   inner edge resizes her, along her whole height. */
+[data-component="GlobalOmnibar"][data-pane="mari"]:is([data-mari-float="left"], [data-mari-float="right"])
+  > .mari-float-panel {
+  border-radius: 0;
+  box-shadow: none;
+}
+[data-mari-float="left"] > .mari-float-panel {
+  border-right: 1px solid var(--border);
+}
+[data-mari-float="right"] > .mari-float-panel {
+  border-left: 1px solid var(--border);
+}
+[data-mari-float="left"] > .mari-float-frame > .mari-window__resize-handle:not([data-edge="e"]),
+[data-mari-float="right"] > .mari-float-frame > .mari-window__resize-handle:not([data-edge="w"]) {
+  display: none;
+}
+:is([data-mari-float="left"], [data-mari-float="right"]) > .mari-float-frame > .mari-window__resize-handle {
+  top: 0;
+  bottom: 0;
+}
+
+/* Beside an editor, a firm pull on her header tears her off into a floating window (use-mari-float). */
+[data-mari-companion="panel"] > .mari-companion-panel > header {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+/* A dropped window glides into its zone or spot (use-mari-float sets data-float-settling for one glide). */
+[data-mari-float][data-float-settling] > :is(.mari-float-panel, .mari-float-frame) {
+  transition:
+    left 200ms ease-out,
+    top 200ms ease-out,
+    width 200ms ease-out,
+    height 200ms ease-out;
+}
+
+/* Her resize handles: the chat windows' ones (.mari-window__resize-handle, globals.css), in a frame over her
+   panel so they sit on its border like theirs; the panel clips its rounded corners. Above her, under nothing. */
+[data-mari-float] > .mari-float-frame {
+  position: fixed;
+  left: var(--mari-float-left, 12px);
+  top: var(--mari-float-top, 12px);
+  width: var(--mari-float-width, 44rem);
+  height: var(--mari-float-height, 48rem);
+  pointer-events: none;
+}
+.mari-float-frame > .mari-window__resize-handle {
+  pointer-events: auto;
+}
+/* Like a chat window: the bottom-right grip shows while the pointer is in her window. */
+[data-mari-float]:has(> .mari-float-panel:hover) .mari-window__resize-grip[data-corner="se"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Where a drop at this edge would snap her: it grows out of her window into the zone, like Windows Snap.
+   Fill and outline follow the chat chrome accent. */
+.mari-float-zone-preview {
+  position: fixed;
+  /* Under her window, which comes first in the overlay. */
+  z-index: -1;
+  left: var(--mari-float-left, 0);
+  top: var(--mari-float-top, 0);
+  width: var(--mari-float-width, 0);
+  height: var(--mari-float-height, 0);
+  border-radius: 1rem;
+  background: color-mix(in oklab, var(--marinara-chat-chrome-accent) 14%, transparent);
+  pointer-events: none;
+  opacity: 0;
+  /* Hidden, it only fades: it rides along with her without moving visibly (use-mari-float). */
+  transition: opacity 120ms ease-out;
+}
+.mari-float-zone-preview[data-shown="true"] {
+  transition:
+    left 180ms ease-out,
+    top 180ms ease-out,
+    width 180ms ease-out,
+    height 180ms ease-out,
+    opacity 150ms ease-out;
+}
+.mari-float-zone-preview::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  /* The solid accent: it follows the theme and the accent pulse. The accent-gradient token is a fixed
+     rainbow when the pulse is off, which ignored the theme. */
+  background: var(--marinara-chat-chrome-accent);
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+.mari-float-zone-preview[data-shown="true"] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-mari-float][data-float-settling] > :is(.mari-float-panel, .mari-float-frame),
+  .mari-float-zone-preview,
+  .mari-float-zone-preview[data-shown="true"] {
     transition: none;
   }
 }

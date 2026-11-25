@@ -11,7 +11,19 @@ Her window opens. You can also reach her from any screen: type in Search and pic
 
 Type your message in plain language and press <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line. If you turn off **Enter sends to Professor Mari** in her settings, <kbd>Enter</kbd> adds a new line and <kbd>Ctrl</kbd>+<kbd>Enter</kbd> or the Send button sends. The toggle is saved per device, so you can turn it off on your phone and keep it on at your computer. Your first message unlocks the **Hello World** achievement.
 
-All her settings are under **Settings → General → Search and Professor Mari settings → Open**, or the gear in Search. On a computer, the **Height** and **Width** sliders under **Professor Mari window** resize her window. On a phone, her window fills the screen.
+All her settings are under **Settings → General → Search and Professor Mari settings → Open**, or the gear in Search. On a phone, her window fills the screen.
+
+### Float her beside your work (computer)
+
+Her window opens in the middle of the screen, over a dimmed app. To keep using the app while she is open, click **Float Prof. Mari** in her header (the picture-in-picture button). The button shows when the app window is at least 1024 pixels wide.
+
+- A floating Mari has no dimmed background, and clicking elsewhere does not close her, so you can copy text from a field into her chat.
+- Drag her header to move her. Drag an edge or a corner to resize her.
+- Drop her at the left or right edge of the screen to dock her there, like a sidebar: the app makes room for her. Drag her inner edge to change how wide she is. Drop her at the top edge to fill the screen below the top bar. An outline shows where she will land. Drag her away from the edge to get her old size back.
+- Next to an editor, dropping her at the left edge docks her as the editor companion. Pull her header firmly to tear her back out into a floating window.
+- She reopens floating, where you left her.
+- Press <kbd>Esc</kbd> inside her window, or click **X**, to close her. Click **Dock Prof. Mari back** (the same button) to return to the centred window.
+- Opening Search (<kbd>Ctrl</kbd>+<kbd>J</kbd> inside her, or **Back to Search**) shows the usual centred Search. Going back to her puts her where she floated.
 
 ## Make a character with Mari
 

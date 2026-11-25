@@ -676,8 +676,8 @@
 
    Classes:     .mari-window, .mari-window__header, .mari-window__title,
                 .mari-window__controls, .mari-window__control, .mari-window__body,
-                .mari-window__resize-handle, .mari-window__resize-grip (the
-                corner's resize cue, shown on hover or focus); .mari-drawer, .mari-drawer__header,
+                .mari-window__resize-handle, .mari-window__resize-grip (a
+                corner's resize cue, [data-corner]); .mari-drawer, .mari-drawer__header,
                 .mari-drawer__icon, .mari-drawer__title, .mari-drawer__count,
                 .mari-drawer__summary, .mari-drawer__help, .mari-drawer__actions,
                 .mari-drawer__popout, .mari-drawer__arrow, .mari-drawer__body;
@@ -1019,6 +1019,17 @@
     border-bottom-right-radius: inherit;
   }
 
+  /* #9818: the app's room for Prof. Mari docked at a side; it slides like the sidebar. */
+  .mari-dock-space {
+    transition: width 200ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mari-dock-space {
+      transition: none;
+    }
+  }
+
   .mari-window__resize-handle {
     --mari-window-resize-hit: var(--mari-window-resize-handle-size, 0.5rem);
     --mari-window-resize-offset: calc(2px - var(--mari-window-resize-hit));
@@ -1051,6 +1062,13 @@
     height: calc(var(--mari-window-resize-hit) * 1.5);
   }
 
+  /* The bottom corners take a wider square, so their grip appears as the pointer gets close. The top ones stay
+     small: the window controls sit right next to them. */
+  .mari-window__resize-handle:is([data-edge="se"], [data-edge="sw"]) {
+    width: calc(var(--mari-window-resize-hit) * 2.5);
+    height: calc(var(--mari-window-resize-hit) * 2.5);
+  }
+
   .mari-window__resize-handle:is([data-edge="n"], [data-edge="ne"], [data-edge="nw"]) {
     top: var(--mari-window-resize-offset);
   }
@@ -1075,8 +1093,53 @@
     cursor: nwse-resize;
   }
 
-  /* The resize cue in the bottom-right corner, like Echo Chamber's: shown while the pointer or focus is
-     in the window. It belongs to the corner handle, so dragging it resizes. Locked windows have none. */
+  /* Edges: a thin accent line on the border near it, like a sidebar's resize edge, so custom cursors without
+     resize shapes still show where a window can be dragged. */
+  .mari-window__resize-handle:is([data-edge="n"], [data-edge="s"], [data-edge="e"], [data-edge="w"])::after {
+    content: "";
+    position: absolute;
+    border-radius: 1px;
+    background: var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-accent)));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+  }
+
+  .mari-window__resize-handle:is([data-edge="n"], [data-edge="s"])::after {
+    left: 0;
+    right: 0;
+    height: 2px;
+  }
+
+  .mari-window__resize-handle:is([data-edge="e"], [data-edge="w"])::after {
+    top: 0;
+    bottom: 0;
+    width: 2px;
+  }
+
+  .mari-window__resize-handle[data-edge="n"]::after {
+    bottom: 0;
+  }
+
+  .mari-window__resize-handle[data-edge="s"]::after {
+    top: 0;
+  }
+
+  .mari-window__resize-handle[data-edge="e"]::after {
+    left: 0;
+  }
+
+  .mari-window__resize-handle[data-edge="w"]::after {
+    right: 0;
+  }
+
+  .mari-window__resize-handle:hover::after {
+    opacity: 1;
+  }
+
+  /* The corner resize cue (<WindowResizeGrip>), like Echo Chamber's, just outside the corner. The bottom-right
+     one shows while the pointer or focus is in the window; each corner shows its own when the pointer gets
+     close. It belongs to the corner handle, so dragging it resizes. Locked windows have none. */
   .mari-window__resize-grip {
     position: absolute;
     right: -2px;
@@ -1101,11 +1164,35 @@
     content: "";
     width: 0.625rem;
     height: 0.625rem;
-    border-right: 2px solid currentColor;
-    border-bottom: 2px solid currentColor;
+    border: 0 solid currentColor;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
   }
 
-  .mari-window:is(:hover, :focus-within) .mari-window__resize-grip {
+  .mari-window__resize-grip:is([data-corner="sw"], [data-corner="nw"]) {
+    right: auto;
+    left: -2px;
+  }
+
+  .mari-window__resize-grip:is([data-corner="ne"], [data-corner="nw"]) {
+    bottom: auto;
+    top: -2px;
+  }
+
+  .mari-window__resize-grip[data-corner="sw"]::after {
+    border-width: 0 0 2px 2px;
+  }
+
+  .mari-window__resize-grip[data-corner="ne"]::after {
+    border-width: 2px 2px 0 0;
+  }
+
+  .mari-window__resize-grip[data-corner="nw"]::after {
+    border-width: 2px 0 0 2px;
+  }
+
+  .mari-window:is(:hover, :focus-within) .mari-window__resize-grip[data-corner="se"],
+  .mari-window__resize-handle:is(:hover, :focus-visible) .mari-window__resize-grip {
     opacity: 1;
     pointer-events: auto;
   }
@@ -1126,7 +1213,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .mari-window__resize-grip {
+    .mari-window__resize-grip,
+    .mari-window__resize-handle::after {
       transition: none;
     }
   }

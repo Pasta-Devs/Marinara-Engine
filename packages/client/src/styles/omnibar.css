@@ -47,10 +47,6 @@
   html[data-mari-ios-webkit] [data-component="GlobalOmnibar"][data-pane="mari"] {
     position: absolute;
   }
-
-  [data-component="GlobalOmnibar"] .omnibar-settings-section:has([data-size-group="mari"]) {
-    display: none;
-  }
 }
 
 @media (max-width: 1440px) and (orientation: landscape) and (hover: none) and (any-pointer: coarse) {
