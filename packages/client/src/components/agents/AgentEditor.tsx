@@ -89,6 +89,9 @@ import {
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { CommandCenterSegmentedChoice } from "../command-center/CommandCenterSegmentedChoice";
+import { PickerChevron, useFieldWindow } from "../ui/PickerField";
+import { PickerFolderList } from "../ui/PickerFolderList";
+import { PickerWindow } from "../ui/PickerWindow";
 import {
   BUILT_IN_AGENTS,
   agentSupportsActivationGate,
@@ -2914,7 +2917,7 @@ export function AgentEditor() {
                       <TrackerDataSourceRow
                         key={source.id}
                         label={localizeUi(source.label)}
-                        description={localizeUi(source.description)}
+                        description={localizeUi("ui.agents.agenteditor.contextSource.trackerData.pickDescription")}
                         enabled={localContextSources.trackerData}
                         sections={localTrackerDataSections}
                         onChange={(enabled, sections) => {
@@ -5545,35 +5548,7 @@ function TrackerDataSourceRow({
           { value: "pick", label: localizeUi("ui.agents.agenteditor.trackerDataMode.pick") },
         ]}
       />
-      {mode === "pick" && (
-        <div
-          className="flex flex-wrap gap-1.5"
-          role="group"
-          aria-label={localizeUi("ui.agents.agenteditor.trackerDataMode.pick")}
-        >
-          {AGENT_TRACKER_DATA_SECTIONS.map((section) => {
-            const active = sections?.includes(section) === true;
-            return (
-              <button
-                key={section}
-                type="button"
-                aria-pressed={active}
-                onClick={() => toggleSection(section)}
-                className={cn(
-                  // Same sizes and selected look as the segmented choice above (44 px tap target on phones).
-                  "inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold ring-1 transition-all sm:min-h-7",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
-                  active
-                    ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm ring-transparent"
-                    : "text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] hover:text-[var(--foreground)]",
-                )}
-              >
-                {localizeUi(TRACKER_DATA_SECTION_LABELS[section])}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {mode === "pick" && <TrackerDataSectionsField sections={sections ?? []} onToggle={toggleSection} />}
     </div>
   );
 }
@@ -5587,6 +5562,71 @@ const TRACKER_DATA_SECTION_LABELS: Record<AgentTrackerDataSection, string> = {
   customFields: "ui.agents.agenteditor.trackerDataSection.customFields",
   inventory: "ui.agents.agenteditor.trackerDataSection.inventory",
 };
+
+const TRACKER_DATA_SECTION_HINTS: Record<AgentTrackerDataSection, string> = {
+  scene: "ui.agents.agenteditor.trackerDataSectionHint.scene",
+  world: "ui.agents.agenteditor.trackerDataSectionHint.world",
+  characters: "ui.agents.agenteditor.trackerDataSectionHint.characters",
+  persona: "ui.agents.agenteditor.trackerDataSectionHint.persona",
+  quests: "ui.agents.agenteditor.trackerDataSectionHint.quests",
+  customFields: "ui.agents.agenteditor.trackerDataSectionHint.customFields",
+  inventory: "ui.agents.agenteditor.trackerDataSectionHint.inventory",
+};
+
+/**
+ * The picked sections as a field that opens the shared picker window (a popover on desktop, a
+ * sheet on a phone), like Select; rows toggle and the window stays open while picking.
+ */
+function TrackerDataSectionsField({
+  sections,
+  onToggle,
+}: {
+  sections: readonly AgentTrackerDataSection[];
+  onToggle: (section: AgentTrackerDataSection) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const { open, triggerRef, close, toggle } = useFieldWindow(false);
+  const label = localizeUi("ui.agents.agenteditor.trackerDataSections");
+  const summary = AGENT_TRACKER_DATA_SECTIONS.filter((section) => sections.includes(section))
+    .map((section) => localizeUi(TRACKER_DATA_SECTION_LABELS[section]))
+    .join(", ");
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={toggle}
+        className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-left text-xs text-[var(--foreground)]"
+      >
+        <span className="min-w-0 flex-1 truncate">{summary}</span>
+        <PickerChevron open={open} />
+      </button>
+      {open && (
+        <PickerWindow title={label} anchorRef={triggerRef} onClose={close} hug>
+          <PickerFolderList
+            items={AGENT_TRACKER_DATA_SECTIONS.map((section) => ({
+              id: section,
+              label: localizeUi(TRACKER_DATA_SECTION_LABELS[section]),
+              subtitle: localizeUi(TRACKER_DATA_SECTION_HINTS[section]),
+            }))}
+            folders={[]}
+            selectedIds={sections}
+            multiple
+            onToggle={(id) => onToggle(id as AgentTrackerDataSection)}
+            searchable={false}
+            listLabel={label}
+            searchLabel={localizeUi("ui.select.search")}
+            emptyLabel={localizeUi("ui.select.empty")}
+            noMatchesLabel={localizeUi("ui.select.noMatches")}
+          />
+        </PickerWindow>
+      )}
+    </>
+  );
+}
 
 function ToolCard({
   tool,
