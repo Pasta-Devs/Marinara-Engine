@@ -4,15 +4,17 @@ import { copyToClipboard } from "../lib/utils";
 
 /** Enhance committed markdown without changing the shared chat/HTML renderer. */
 export function useCodeBlockCopy(container: HTMLElement | null, rendered: ReactNode) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   useEffect(() => {
     if (!container || !rendered) return;
+    // A button's click outlives the run that made it, and `t` stays in the language it was made in, so labels
+    // use i18n.t (the language now). A language switch still gives a new `t`, which reruns this to relabel.
     const label = (button: HTMLButtonElement) => {
       const state = button.dataset.copyState;
-      const text = t(
+      const text = i18n.t(
         state === "copied" ? "markdown.copied" : state === "failed" ? "markdown.copyFailed" : "markdown.copy",
       );
-      const name = state ? text : t("markdown.copyCode");
+      const name = state ? text : i18n.t("markdown.copyCode");
       // Only a change is written: the same words again would make the live region read them out again.
       if (button.textContent !== text) button.textContent = text;
       if (button.getAttribute("aria-label") !== name) button.setAttribute("aria-label", name);
@@ -43,5 +45,5 @@ export function useCodeBlockCopy(container: HTMLElement | null, rendered: ReactN
       }
       label(button);
     });
-  }, [container, rendered, t]);
+  }, [container, rendered, i18n, t]);
 }
