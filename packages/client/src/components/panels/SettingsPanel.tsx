@@ -108,6 +108,15 @@ import {
 import { ThemeImportPreview, type ThemeInstallChoice } from "./settings/ThemeImportPreview";
 import { ThemeCreditsButton, ThemeLabels } from "./settings/ThemeCredits";
 import { ThemeGallery } from "./settings/ThemeGallery";
+import {
+  buildInitialProfileImportChoice,
+  buildProfileImportSelection,
+  countProfileImportChoice,
+  ProfileImportChoices,
+  type ProfileImportChoice,
+  type ProfileImportChoiceUpdate,
+  type ProfileImportContents,
+} from "./settings/ProfileImportChoices";
 import { AccessibilitySettings } from "./settings/AccessibilitySettings";
 import { getChatWidgetFontFamily } from "../../lib/font-family";
 import { forceRefreshSpa } from "@/lib/browser-runtime";
@@ -7129,8 +7138,22 @@ type ProfileImportPreviewResult = {
   undoable?: boolean;
   /** True when "Keep my current versions" applies; older profiles always add next to existing items. */
   keepsExisting?: boolean;
+  /** What the file holds, by kind and item, for "Choose what to import". */
+  contents?: ProfileImportContents;
   error?: string;
   message?: string;
+};
+
+/** A scanned profile waiting on "Choose what to import". */
+type ProfileImportReview = {
+  file: File;
+  isZip: boolean;
+  profileText: string;
+  keepQuery: string;
+  previewToken?: string;
+  preview: ProfileImportPreviewResult;
+  contents: ProfileImportContents;
+  choice: ProfileImportChoice;
 };
 
 function formatProfileImportDuration(seconds: number) {
@@ -7180,26 +7203,6 @@ function formatProfileImportStats(stats: ProfileImportStats | undefined, localiz
     .join(", ");
 }
 
-function getProfileImportItemCount(stats?: ProfileImportStats) {
-  if (!stats) return 0;
-  const counts: Array<number | undefined> = [
-    stats.characters,
-    stats.personas,
-    stats.lorebooks,
-    stats.presets,
-    stats.agents,
-    stats.themes,
-    stats.chats,
-    stats.messages,
-    stats.connections,
-    stats.customTools,
-    stats.mariInstructions,
-    stats.personalExtensions,
-    stats.files,
-  ];
-  return counts.reduce<number>((total, count) => total + (typeof count === "number" && count > 0 ? count : 0), 0);
-}
-
 function getProfileImportWarningCopy(localizeUi: TFunction): ProfileImportWarningCopy {
   return {
     missingAssetSummary: (count) => localizeUi("ui.panels.importsettings.profileImportMissingAssets", { count }),
@@ -7220,22 +7223,6 @@ function getProfileImportErrorMessage(data: unknown) {
     if (typeof record.error === "string") return record.error;
   }
   return "Unknown error";
-}
-
-function formatProfileImportConfirmationMessage(preview: ProfileImportPreviewResult, localizeUi: TFunction) {
-  const warnings = normalizeProfileImportWarnings(preview.warnings);
-  const found = formatProfileImportStats(preview.imported, localizeUi) || "no counted records";
-  const warningCopy = getProfileImportWarningCopy(localizeUi);
-  const warningDetail =
-    warnings.length > 0
-      ? `${formatProfileImportWarningSummary(warnings, warningCopy)} ${formatProfileImportWarningDetails(warnings, warningCopy)}`
-      : "";
-  const effect = preview.keepsExisting
-    ? localizeUi("ui.panels.importsettings.profileImportKeepWarning")
-    : preview.undoable === false
-      ? localizeUi("ui.panels.importsettings.profileImportAddOnlyWarning")
-      : localizeUi("ui.panels.importsettings.profileImportReplaceWarning");
-  return [`Found: ${found}.`, warningDetail, effect].filter(Boolean).join("\n");
 }
 
 function getDownloadFilename(res: Response, fallback: string) {
@@ -7313,6 +7300,18 @@ function ProfileImportControl() {
   const [profileImportProgress, setProfileImportProgress] = useState<ProfileImportProgressState | null>(null);
   const [profileUndoRunning, setProfileUndoRunning] = useState(false);
   const [profileKeepExisting, setProfileKeepExisting] = useState(false);
+  const [profileReview, setProfileReview] = useState<ProfileImportReview | null>(null);
+  const profileReviewRef = useRef<HTMLDivElement>(null);
+  const setProfileReviewChoice = useCallback(
+    (update: ProfileImportChoiceUpdate) =>
+      setProfileReview((current) =>
+        current ? { ...current, choice: typeof update === "function" ? update(current.choice) : update } : current,
+      ),
+    [],
+  );
+  useEffect(() => {
+    if (profileReview) profileReviewRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [Boolean(profileReview)]); // eslint-disable-line react-hooks/exhaustive-deps
   const profileImportBusy =
     profileImportProgress?.status === "reading" ||
     profileImportProgress?.status === "preview" ||
@@ -7416,83 +7415,20 @@ function ProfileImportControl() {
         throw new Error(preview.message ?? preview.error ?? "Unknown error");
       }
       previewToken = preview.previewToken;
-      const previewWarnings = normalizeProfileImportWarnings(preview.warnings);
-      const previewTotalItems = Math.max(1, getProfileImportItemCount(preview.imported));
-      setProfileImportProgress({
-        status: "preview",
-        label: "Review profile import",
-        completedItems: 0,
-        totalItems: previewTotalItems,
-        startedAt,
-        elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-        imported: preview.imported,
-        warnings: previewWarnings,
+      const contents: ProfileImportContents = preview.contents ?? { kinds: [] };
+      // The page below lists what the file holds; nothing is written until "Import selected".
+      setProfileReview({
+        file,
+        isZip,
+        profileText,
+        keepQuery,
+        previewToken,
+        preview: { ...preview, warnings: normalizeProfileImportWarnings(preview.warnings) },
+        contents,
+        choice: buildInitialProfileImportChoice(contents),
       });
-
-      const confirmed = await showConfirmDialog({
-        title: localizeUi("ui.panels.importsettings.importProfile"),
-        message: formatProfileImportConfirmationMessage(preview, localizeUi),
-        confirmLabel: localizeUi("ui.chat.chatbranchselector.import"),
-        cancelLabel: "Cancel",
-        tone: "destructive",
-      });
-      if (!confirmed) {
-        await releaseProfilePreview();
-        setProfileImportProgress(null);
-        e.target.value = "";
-        return;
-      }
-
-      if (!isZip) {
-        // Re-parse the cached text after the confirmation boundary so malformed
-        // JSON still reports as a profile-file error before we start streaming.
-        const envelope = JSON.parse(profileText) as { type?: string };
-        if (envelope.type !== "marinara_profile") {
-          setProfileImportProgress({
-            status: "error",
-            label: "Profile import failed",
-            completedItems: 0,
-            totalItems: 1,
-            startedAt,
-            elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-            error: "Not a valid profile export file.",
-          });
-          toast.error(localizeUi("ui.panels.importsettings.notAValidProfileExportFile"));
-          e.target.value = "";
-          return;
-        }
-      }
-      setProfileImportProgress((current) =>
-        current
-          ? {
-              ...current,
-              status: "starting",
-              label: previewToken
-                ? "Starting profile import"
-                : isZip
-                  ? "Uploading profile archive"
-                  : "Starting profile import",
-              elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-            }
-          : current,
-      );
-      const res = await api.raw(`/backup/import-profile${keepQuery ? `?${keepQuery}` : ""}`, {
-        method: "POST",
-        headers: {
-          Accept: "text/event-stream",
-          // "Tag imported" / "Tag source": restored characters, personas, lorebooks, presets and chats get
-          // the tags "Imported" and "Backup" unless unchecked.
-          "X-Import-Tags": JSON.stringify(profileImportTags.choice),
-          ...(previewToken ? { "X-Profile-Preview-Token": previewToken } : {}),
-        },
-        body: previewToken ? undefined : makeImportBody(isZip, profileText),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-        throw new Error(data.message ?? data.error ?? res.statusText ?? "Unknown error");
-      }
-      await followProfileImportStream(res, startedAt, false);
       previewToken = undefined;
+      setProfileImportProgress(null);
     } catch (err) {
       await releaseProfilePreview();
       const message =
@@ -7509,10 +7445,91 @@ function ProfileImportControl() {
         error: message.replace(/^Import failed:\s*/, ""),
       });
       toast.error(message);
+    }
+    e.target.value = "";
+  };
+
+  const cancelProfileReview = async () => {
+    const review = profileReview;
+    setProfileReview(null);
+    if (!review?.previewToken) return;
+    await api
+      .raw(`/backup/import-profile-preview/${encodeURIComponent(review.previewToken)}`, { method: "DELETE" })
+      .catch(() => {});
+  };
+
+  /** Imports what was ticked on "Choose what to import". The server checks the choice again. */
+  const runReviewedProfileImport = async () => {
+    const review = profileReview;
+    if (!review) return;
+    const selection = buildProfileImportSelection(review.contents, review.choice);
+    if (selection.kinds.length === 0) {
+      toast.error(localizeUi("ui.panels.importsettings.profileChoose.nothingChosen"));
+      return;
+    }
+    setProfileReview(null);
+    const startedAt = Date.now();
+    const totalItems = Math.max(1, countProfileImportChoice(review.contents, review.choice).selected);
+    setProfileImportProgress({
+      status: "starting",
+      label: review.previewToken
+        ? "Starting profile import"
+        : review.isZip
+          ? "Uploading profile archive"
+          : "Starting profile import",
+      completedItems: 0,
+      totalItems,
+      startedAt,
+      elapsedSeconds: 0,
+    });
+    try {
+      const body: BodyInit = review.previewToken
+        ? JSON.stringify({ selection })
+        : review.isZip
+          ? (() => {
+              const form = new FormData();
+              form.append("file", review.file, review.file.name);
+              return form;
+            })()
+          : review.profileText;
+      const res = await api.raw(`/backup/import-profile${review.keepQuery ? `?${review.keepQuery}` : ""}`, {
+        method: "POST",
+        headers: {
+          Accept: "text/event-stream",
+          // "Tag imported" / "Tag source": restored characters, personas, lorebooks, presets and chats get
+          // the tags "Imported" and "Backup" unless unchecked.
+          "X-Import-Tags": JSON.stringify(profileImportTags.choice),
+          ...(review.previewToken
+            ? { "X-Profile-Preview-Token": review.previewToken, "Content-Type": "application/json" }
+            : {}),
+        },
+        body,
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+        throw new Error(data.message ?? data.error ?? res.statusText ?? "Unknown error");
+      }
+      await followProfileImportStream(res, startedAt, false);
+    } catch (err) {
+      if (review.previewToken) {
+        await api
+          .raw(`/backup/import-profile-preview/${encodeURIComponent(review.previewToken)}`, { method: "DELETE" })
+          .catch(() => {});
+      }
+      const message = `Import failed: ${err instanceof Error ? err.message : "network/server error"}`;
+      setProfileImportProgress({
+        status: "error",
+        label: "Profile import failed",
+        completedItems: 0,
+        totalItems: 1,
+        startedAt,
+        elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+        error: message.replace(/^Import failed:\s*/, ""),
+      });
+      toast.error(message);
       // A failed import can still have replaced or cleared the safety copy.
       void qc.invalidateQueries({ queryKey: ["backups", "import-profile-undo"] });
     }
-    e.target.value = "";
   };
 
   /** Follows an import's progress stream until it finishes; throws when the server reports an error. */
@@ -7690,21 +7707,75 @@ function ProfileImportControl() {
           checked={profileKeepExisting}
           onChange={setProfileKeepExisting}
           help={localizeUi("ui.panels.importsettings.keepCurrentVersionsHelp")}
-          disabled={profileImportBusy}
+          disabled={profileImportBusy || Boolean(profileReview)}
         />
-        <button
-          type="button"
-          onClick={() => profileImportInputRef.current?.click()}
-          disabled={profileImportBusy}
-          className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
-        >
-          {profileImportBusy && !profileUndoRunning ? <Spinner size="sm" /> : <Download size="0.8125rem" />}
-          {profileImportBusy && !profileUndoRunning
-            ? profileImportProgress?.status === "reading" || profileImportProgress?.status === "preview"
-              ? localizeUi("ui.panels.importsettings.scanningProfile")
-              : localizeUi("ui.panels.importsettings.importingProfile")
-            : localizeUi("ui.panels.importsettings.importProfileJsonZip")}
-        </button>
+        {profileReview ? (
+          <div ref={profileReviewRef} className="ov-pimp__review scroll-mt-3">
+            {profileReview.contents.kinds.length > 0 ? (
+              <ProfileImportChoices
+                contents={profileReview.contents}
+                choice={profileReview.choice}
+                onChange={setProfileReviewChoice}
+                fileName={profileReview.file.name}
+              />
+            ) : (
+              <div className="ov-pimp__note">{localizeUi("ui.panels.importsettings.profileChoose.nothingNew")}</div>
+            )}
+            {profileReview.preview.warnings?.length ? (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[0.6875rem] text-amber-700 dark:text-amber-200">
+                <div className="font-medium">
+                  {formatProfileImportWarningSummary(profileReview.preview.warnings, profileImportWarningCopy)}
+                </div>
+                {formatProfileImportWarningDetails(profileReview.preview.warnings, profileImportWarningCopy) && (
+                  <div className="mt-0.5 break-words text-amber-700/80 dark:text-amber-100/80">
+                    {formatProfileImportWarningDetails(profileReview.preview.warnings, profileImportWarningCopy)}
+                  </div>
+                )}
+              </div>
+            ) : null}
+            {profileReview.contents.kinds.length > 0 && (
+              <div className="ov-pimp__note">
+                {profileReview.preview.keepsExisting
+                  ? localizeUi("ui.panels.importsettings.profileChoose.keepNote")
+                  : profileReview.preview.undoable === false
+                    ? localizeUi("ui.panels.importsettings.profileChoose.addOnlyNote")
+                    : localizeUi("ui.panels.importsettings.profileChoose.replaceNote")}
+              </div>
+            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => void cancelProfileReview()} className={SETTINGS_BUTTON_CLASS}>
+                {localizeUi("ui.panels.importsettings.cancel")}
+              </button>
+              {profileReview.contents.kinds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void runReviewedProfileImport()}
+                  disabled={
+                    buildProfileImportSelection(profileReview.contents, profileReview.choice).kinds.length === 0
+                  }
+                  className={SETTINGS_PRIMARY_BUTTON_CLASS}
+                >
+                  <Download size="0.8125rem" />
+                  {localizeUi("ui.panels.importsettings.profileChoose.importSelected")}
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => profileImportInputRef.current?.click()}
+            disabled={profileImportBusy}
+            className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
+          >
+            {profileImportBusy && !profileUndoRunning ? <Spinner size="sm" /> : <Download size="0.8125rem" />}
+            {profileImportBusy && !profileUndoRunning
+              ? profileImportProgress?.status === "reading" || profileImportProgress?.status === "preview"
+                ? localizeUi("ui.panels.importsettings.scanningProfile")
+                : localizeUi("ui.panels.importsettings.importingProfile")
+              : localizeUi("ui.panels.importsettings.importProfileJsonZip")}
+          </button>
+        )}
         <input
           ref={profileImportInputRef}
           type="file"
@@ -7722,7 +7793,7 @@ function ProfileImportControl() {
               <button
                 type="button"
                 onClick={() => void handleUndoProfileImport()}
-                disabled={profileImportBusy}
+                disabled={profileImportBusy || Boolean(profileReview)}
                 className={cn(SETTINGS_BUTTON_CLASS, "w-full")}
               >
                 {profileUndoRunning ? <Spinner size="sm" /> : <RotateCcw size="0.8125rem" />}
@@ -7734,7 +7805,7 @@ function ProfileImportControl() {
             <button
               type="button"
               onClick={() => void handleDeleteSafetyCopy()}
-              disabled={profileImportBusy}
+              disabled={profileImportBusy || Boolean(profileReview)}
               className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
             >
               <Trash2 size="0.8125rem" />

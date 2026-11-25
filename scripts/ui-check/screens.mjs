@@ -262,6 +262,38 @@ export function screenList(ids) {
         await section.scrollIntoViewIfNeeded();
       },
     },
+    {
+      id: "settings-profile-import",
+      // Settings › Data › Backup & restore after picking a profile file: "Choose what to import", with
+      // the Characters and Chats item lists open. The file is this test server's own profile export.
+      run: open.settings("data"),
+      then: async (page) => {
+        const input = page.locator('input[type="file"][accept=".json,.zip,application/json,application/zip"]');
+        // Phones list the Settings tabs first; Data opens as its own page.
+        if (!(await input.count())) {
+          const data = page.getByRole("button", { name: /^Data\b/ }).filter({ visible: true });
+          if (await data.count()) await data.first().click();
+          await input.waitFor({ state: "attached", timeout: 10_000 }).catch(() => {});
+        }
+        if (!(await input.count())) return "not on this layout";
+        // Phones: Backup & restore is its own page inside Data.
+        const backup = page.getByRole("button", { name: /^Backup & restore\b/ }).filter({ visible: true });
+        if (await backup.count()) await backup.first().click();
+        const profile = await page.evaluate(async () => (await fetch("/api/backup/export-profile")).text());
+        await input.first().setInputFiles({
+          name: "marinara-profile.json",
+          mimeType: "application/json",
+          buffer: Buffer.from(profile),
+        });
+        const list = page.locator(".ov-pimp").first();
+        await list.waitFor({ state: "visible", timeout: 30_000 });
+        for (const kind of ["Characters", "Chats"]) {
+          const toggle = page.getByRole("button", { name: `Show ${kind}` }).filter({ visible: true });
+          if (await toggle.count()) await toggle.first().click();
+        }
+        await list.scrollIntoViewIfNeeded();
+      },
+    },
     { id: "chats-list", group: "core", run: open.sidePane("chats") },
     { id: "library-pane", run: open.sidePane("library") },
     { id: "characters", group: "core", run: open.library("characters") },

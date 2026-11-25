@@ -94,6 +94,15 @@ import {
   type StagedProfileImportAssets,
 } from "../services/import/profile-import-assets.js";
 import { ProfileImportRequestError } from "../services/import/profile-import-errors.js";
+import {
+  applyLegacyProfileImportSelection,
+  applyProfileImportSelection,
+  describeLegacyProfileContents,
+  describeProfileSnapshotContents,
+  parseProfileImportSelection,
+  ProfileImportSelectionError,
+  type ProfileImportSelection,
+} from "../services/backup/profile-import-selection.js";
 import { planProfileNoodleImport, type ProfileNoodleImportWarning } from "../services/import/profile-import-noodle.js";
 import { getCapabilityService } from "../services/capability-packages/capability-service-registry.service.js";
 import { computePersonalExtensionHash } from "../services/extensions/personal-extension-hash.js";
@@ -4330,6 +4339,20 @@ export async function backupRoutes(app: FastifyInstance) {
     const keepExisting = !undo && query?.keepExisting === "true";
     const providedPreviewToken =
       typeof req.headers["x-profile-preview-token"] === "string" ? req.headers["x-profile-preview-token"].trim() : "";
+    // "Choose what to import": the kinds and items ticked on the review page. It comes with the
+    // preview token, because the file itself was already sent with the preview.
+    let selection: ProfileImportSelection | null = null;
+    if (!undo && !previewOnly && providedPreviewToken) {
+      try {
+        selection = parseProfileImportSelection((req.body as { selection?: unknown } | undefined)?.selection);
+      } catch (err) {
+        if (err instanceof ProfileImportSelectionError) {
+          // The preview stays reserved for this file; a corrected choice can still use it.
+          return reply.status(400).send({ error: "Invalid import choice", message: err.message });
+        }
+        throw err;
+      }
+    }
     let importInput: ProfileImportInput;
     const undoRecord = undo ? await readUndoRecord(app.db) : null;
     if (undo) {
@@ -4386,7 +4409,7 @@ export async function backupRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "Invalid profile export" });
       }
 
-      const data = envelope.data as Record<string, any>;
+      let data = envelope.data as Record<string, any>;
       const warnings = importInput.warnings ?? [];
       // The Undo record belongs to this install; a profile can't bring or replace one.
       const importedSettings = isProfileStorageSnapshot(data.fileStorage) ? data.fileStorage.tables.app_settings : null;
@@ -4397,6 +4420,28 @@ export async function backupRoutes(app: FastifyInstance) {
       }
       if (keepExisting && isProfileStorageSnapshot(data.fileStorage)) {
         data.fileStorage = await withoutWhatAlreadyExists(app.db, data.fileStorage);
+      }
+      // What the file holds, listed before the choice so the review page can offer all of it.
+      const contents = previewOnly
+        ? isProfileStorageSnapshot(data.fileStorage)
+          ? describeProfileSnapshotContents(data.fileStorage)
+          : describeLegacyProfileContents(data)
+        : undefined;
+      if (selection) {
+        if (isProfileStorageSnapshot(data.fileStorage)) {
+          data.fileStorage = applyProfileImportSelection(data.fileStorage, selection);
+          // Warnings about files that were left out no longer apply.
+          const keptFiles = new Set(
+            data.fileStorage.files.map((file: { path?: unknown }) => normalizeProfileAssetPath(file?.path) ?? ""),
+          );
+          const keptWarnings = warnings.filter(
+            (warning) =>
+              (warning.type !== "missing_asset" && warning.type !== "skipped_asset") || keptFiles.has(warning.path),
+          );
+          warnings.splice(0, warnings.length, ...keptWarnings);
+        } else {
+          data = applyLegacyProfileImportSelection(data, selection);
+        }
       }
       const profileStoragePreviewStats = isProfileStorageSnapshot(data.fileStorage)
         ? previewProfileStorageSnapshotStats(data.fileStorage, importInput.readAsset, warnings)
@@ -4427,6 +4472,7 @@ export async function backupRoutes(app: FastifyInstance) {
           warnings,
           previewToken,
           totalItems,
+          contents,
           // Older profiles, and "Keep my current versions", only add items, so they need no safety copy
           // and leave nothing to undo.
           undoable: !keepExisting && isProfileStorageSnapshot(data.fileStorage),

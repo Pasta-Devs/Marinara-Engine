@@ -3354,6 +3354,36 @@
   flex: 1;
   justify-content: center;
 }
+/* Import Profile's "Choose what to import": a kind's counts go under its name; the file name drops, and the
+   heading's "selected" count goes under the title when they don't fit on one line. */
+:root[data-overhaul="mobile"] .ov-pimp .ov-stimp__catshead {
+  flex-wrap: wrap;
+}
+/* The Settings page lets its section headings overflow; the list keeps its own clipping and scroller. */
+:root[data-overhaul="mobile"] .ov-pimp.ov-stimp__cats {
+  overflow: hidden;
+}
+:root[data-overhaul="mobile"] .ov-pimp.ov-stimp__cats .ov-stcat__items {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+:root[data-overhaul="mobile"] .ov-pimp.ov-stimp__cats .ov-stcat__itemname {
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+:root[data-overhaul="mobile"] .ov-pimp__kind {
+  font-size: 0.9375rem;
+}
+:root[data-overhaul="mobile"] .ov-pimp__detail {
+  flex-basis: 100%;
+  font-size: 0.875rem;
+}
+:root[data-overhaul="mobile"] .ov-pimp__file {
+  display: none;
+}
+:root[data-overhaul="mobile"] .ov-pimp__note {
+  font-size: 0.875rem;
+}
 
 /* Library landing pages on phones: title and + New (just "New": the title names the item) on top; Import, the filter dropdown and the
    List / Gallery switch on the next line; search and sort share one line; galleries show at

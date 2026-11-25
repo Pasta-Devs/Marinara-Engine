@@ -9581,6 +9581,71 @@ input.ov-edhead__title:focus {
   gap: 0.5rem;
 }
 
+/* Import Profile's "Choose what to import" (Settings > Data > Backup & restore): the SillyTavern
+   import's category list, with a checkbox on each kind. */
+.ov-pimp__title {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+.ov-pimp__title > span:first-child {
+  white-space: nowrap;
+}
+.ov-pimp__file {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-pimp__kind {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  cursor: pointer;
+}
+.ov-pimp__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.5rem;
+  min-width: 0;
+}
+.ov-pimp__text .ov-stcat__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ov-pimp__detail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-pimp .ov-stcat.is-off .ov-stcat__name,
+.ov-pimp .ov-stcat.is-off .ov-stcat__icon {
+  color: var(--ov-muted);
+}
+.ov-pimp .ov-stimp__catshead .ov-stcat__tools {
+  flex: none;
+}
+.ov-pimp__review {
+  display: grid;
+  gap: 0.625rem;
+}
+.ov-pimp__note {
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+
 /* "Already in your library": one row per card that may update a character (name left, choice right). */
 .ov-cupd {
   display: grid;
