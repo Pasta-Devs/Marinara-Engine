@@ -1019,6 +1019,7 @@ for (const [preset, theme] of [
         frame: await surfaceAppearance(swipeFrame),
         arrow: await surfaceAppearance(swipeArrow),
         font: await swipeInput.evaluate((node) => getComputedStyle(node).fontFamily),
+        edge: await swipeFrame.evaluate((node) => getComputedStyle(node).borderTopColor),
       };
       const send = page.locator(".mari-chat-send-btn").first();
       const sendFill = await send.evaluate((node) => getComputedStyle(node).backgroundColor);
@@ -1066,6 +1067,10 @@ for (const [preset, theme] of [
         else expect(shaped.radius).not.toBe(old.radius);
       }
       if (preset === "dottore") {
+        // The cut-corner layer draws the capsule's edge, which stays as unseen as its own border.
+        await expect
+          .poll(() => swipeFrame.evaluate((node) => getComputedStyle(node, "::after").borderTopColor))
+          .toBe(originalSwipe.edge);
         expect(await send.evaluate((node) => getComputedStyle(node, "::after").backgroundColor)).toBe(sendFill);
         const frame = (element: Locator) =>
           element.evaluate((node) => getComputedStyle(node, "::before").backgroundColor);
