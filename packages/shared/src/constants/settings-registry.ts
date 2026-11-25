@@ -18,6 +18,7 @@ export type SettingsSectionId =
   | "game-playback"
   | "overall-generations"
   | "image-generation"
+  | "image-tag-datasets"
   | "video-generation"
   | "game-assets"
   | "app-style"
@@ -190,6 +191,13 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     label: "Video Generation",
     description: "Video duration, clip behavior, and reusable video settings.",
     aliases: ["video", "clip", "duration", "conversation call", "animated", "scene"],
+  },
+  {
+    id: "image-tag-datasets",
+    tab: "generations",
+    label: "Image tag datasets",
+    description: "Import and search image tag libraries.",
+    aliases: ["csv", "danbooru", "booru", "tag library", "canonical tags", "datasets"],
   },
   {
     id: "game-assets",

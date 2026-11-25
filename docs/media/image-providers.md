@@ -23,7 +23,7 @@ If it did not work: **Test image** fails when the key or address is wrong. Check
 Use **Settings → Generations → Image tag datasets** to keep a searchable Danbooru tag library on your server. You do not need to install Illustrator to use the library.
 
 1. Open **Find CSV snapshots on Hugging Face** and download a CSV snapshot.
-2. Choose it under **CSV file**. For an original four-column CSV, leave **Category for a split CSV** set to **Read categories from the file**.
+2. Click **Choose CSV** to select the file. For an original four-column CSV, leave **Category for a split CSV** set to **Read categories from the file**.
 3. For a three-column file that you previously split by category, choose its category instead.
 4. Click **Import CSV**. The import report shows how many tags were accepted and which records were skipped.
 5. Enter a name or alias under **Search tags**, choose **Match type**, then click **Search tags**. Results show canonical names, categories, post counts and source names.

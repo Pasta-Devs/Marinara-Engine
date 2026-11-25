@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from "react";
+import { Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   IMAGE_TAG_CATEGORIES,
@@ -17,10 +18,9 @@ import {
 import { showConfirmDialog, showPromptDialog } from "../../../lib/app-dialogs";
 import { Checkbox } from "../../ui/Checkbox";
 import { Select } from "../../ui/Select";
-import { ToggleSetting } from "./SettingControls";
+import { SETTINGS_BUTTON_CLASS, SETTINGS_PRIMARY_FULL_BUTTON_CLASS, ToggleSetting } from "./SettingControls";
 
-const buttonClass =
-  "min-h-11 rounded-md border border-[var(--border)] px-3 py-2 text-xs text-[var(--foreground)] hover:bg-[var(--secondary)] disabled:opacity-50 active:scale-95 sm:min-h-7 sm:px-2.5 sm:py-1.5 sm:text-[0.6875rem] sm:pointer-coarse:min-h-11";
+const buttonClass = SETTINGS_BUTTON_CLASS;
 const inputClass =
   "min-h-11 w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-base text-[var(--foreground)] sm:h-9 sm:min-h-0 sm:px-2.5 sm:text-xs sm:pointer-coarse:min-h-11";
 
@@ -33,6 +33,7 @@ export function ImageTagDatasetsSettings() {
   const search = useSearchImageTagDatasets();
   const inputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
+  const chooseFileRef = useRef<HTMLButtonElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [category, setCategory] = useState("file");
   const [replaceId, setReplaceId] = useState<string | undefined>();
@@ -160,7 +161,7 @@ export function ImageTagDatasetsSettings() {
                     onClick={() => {
                       setReplaceId(source.id);
                       setReport(null);
-                      fileRef.current?.focus();
+                      chooseFileRef.current?.focus();
                     }}
                   >
                     {t("settings.imageTagDatasets.replace")}
@@ -189,7 +190,7 @@ export function ImageTagDatasetsSettings() {
                     disabled={busy}
                     onClick={() => {
                       setReplaceId(id);
-                      fileRef.current?.focus();
+                      chooseFileRef.current?.focus();
                     }}
                   >
                     {t("settings.imageTagDatasets.replace")}
@@ -245,9 +246,21 @@ export function ImageTagDatasetsSettings() {
               type="file"
               accept=".csv,text/csv"
               disabled={busy}
-              className={`${inputClass} file:mr-2 file:rounded file:border-0 file:bg-[var(--secondary)] file:p-2 file:text-[var(--foreground)]`}
+              className="sr-only"
+              tabIndex={-1}
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
+            <button
+              ref={chooseFileRef}
+              type="button"
+              className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
+              disabled={busy}
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload size="0.8125rem" />
+              {t("settings.imageTagDatasets.chooseCsv")}
+            </button>
+            {file && <p className="break-all text-xs text-[var(--muted-foreground)]">{file.name}</p>}
             <label className="block text-xs text-[var(--foreground)]">{t("settings.imageTagDatasets.category")}</label>
             <Select
               label={t("settings.imageTagDatasets.category")}
@@ -264,7 +277,8 @@ export function ImageTagDatasetsSettings() {
               {t("settings.imageTagDatasets.formatHelp")}
             </p>
             <div className="flex flex-wrap gap-2">
-              <button type="submit" className={buttonClass} disabled={busy || !file}>
+              <button type="submit" className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS} disabled={busy || !file}>
+                <Upload size="0.8125rem" />
                 {upload.isPending ? t("settings.imageTagDatasets.importing") : t("settings.imageTagDatasets.import")}
               </button>
               {replaceId && (

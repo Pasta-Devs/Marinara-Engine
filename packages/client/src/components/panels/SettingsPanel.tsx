@@ -5352,7 +5352,10 @@ function GenerationsSettings() {
           </div>
         </>
       )}
-      <SettingsSection title={localizeUi("settings.imageTagDatasets.title")}>
+      <SettingsSection
+        title={localizeUi("settings.imageTagDatasets.title")}
+        {...getSettingsSectionAnchorProps("image-tag-datasets")}
+      >
         <ImageTagDatasetsSettings />
       </SettingsSection>
     </div>

@@ -31,7 +31,7 @@ async function openManager(page: Page) {
     .filter({ has: page.getByText("Image tag datasets", { exact: true }) })
     .last();
   await expect(section).toBeVisible();
-  await expect(section.getByLabel("CSV file", { exact: true })).toBeVisible();
+  await expect(section.getByRole("button", { name: "Choose CSV", exact: true })).toBeVisible();
   return section;
 }
 
@@ -71,10 +71,14 @@ test("image tag library imports, searches and manages server data without an ins
   page.on("pageerror", (error) => pageErrors.push(error.message));
   try {
     const section = await openManager(page);
+    await page.getByRole("button", { name: /^Quick Access/ }).click();
+    await page.getByRole("button", { name: "Image tag datasets", exact: true }).click();
+    await expect(section).toHaveAttribute("id", "settings-section-image-tag-datasets");
+    await expect(section.getByText("Image tag datasets", { exact: true })).toBeInViewport();
     await page.screenshot({ path: info.outputPath("image-tag-datasets-empty.png"), animations: "disabled" });
-    await section
-      .getByLabel("CSV file", { exact: true })
-      .setInputFiles({ name: filename, mimeType: "text/csv", buffer: Buffer.from(csv, "utf8") });
+    const picker = page.waitForEvent("filechooser");
+    await section.getByRole("button", { name: "Choose CSV", exact: true }).click();
+    await (await picker).setFiles({ name: filename, mimeType: "text/csv", buffer: Buffer.from(csv, "utf8") });
     const importResponse = page.waitForResponse(
       (reply) => reply.url().endsWith("/api/image-tag-datasets/import") && reply.request().method() === "POST",
     );
