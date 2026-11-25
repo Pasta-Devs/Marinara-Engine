@@ -4912,8 +4912,9 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   cursor: not-allowed;
 }
 
-/* Lines above the visible ones fade out at the top edge once the field scrolls. */
-.mari-workspace-composer__input[data-scrolled] {
+/* Lines above the visible ones fade out at the top edge once the field scrolls, and their marks with them. */
+.mari-workspace-composer__input[data-scrolled],
+.mari-workspace-composer__text:has(+ .mari-workspace-composer__input[data-scrolled]) {
   mask-image: linear-gradient(to bottom, transparent 0, #000 1.25rem);
 }
 
