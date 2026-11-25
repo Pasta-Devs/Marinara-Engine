@@ -32,23 +32,17 @@ import type {
   AgentResultType,
   AgentCallDebugEvent,
   MacroContext,
-  PresentCharacter,
-  TrackerHiddenFields,
   WrapFormat,
   GenerationParameterSendMap,
 } from "@marinara-engine/shared";
 import {
   AGENT_RESULT_TYPE_VALUES,
-  characterTrackerLockKey,
-  compactQuestProgressForContext,
   customAgentHasCapability,
   DEFAULT_AGENT_CONTEXT_SIZE,
   DEFAULT_AGENT_MAX_TOKENS,
   DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES,
-  isTrackerFieldHidden,
   isTrackerRowsUpdate,
   MIN_AGENT_MAX_TOKENS,
-  normalizeTrackerHiddenFields,
   normalizeCustomAgentCapabilities,
   getAgentCardContextMode,
   getAgentContextSources,
@@ -100,6 +94,19 @@ import {
 } from "./beholder-state.js";
 import { formatOptionalVideoOffer } from "../generation/image-prompt-instructions.js";
 import { isRecord } from "../../utils/large-json.js";
+import {
+  buildAgentTrackerKeysLine,
+  buildCommittedTrackerSummary,
+  buildCurrentGameStateJson,
+  compactCharacterTrackerHistoryForContext,
+  resolveAgentTrackerSections,
+  trackerSectionsForAgents,
+  trackerSectionsForAgentTypes,
+  type TrackerContextSections,
+} from "./agent-tracker-context.js";
+
+// Kept exported from here: regressions and older callers import it from the executor.
+export { compactGameStateForAgentContext } from "./agent-tracker-context.js";
 
 const MAX_AGENT_CONTEXT_MESSAGES = 200;
 const EXPRESSION_AGENT_RECENT_CONTEXT_MESSAGES = 2;
@@ -393,226 +400,6 @@ function redactSensitiveValue(value: unknown): unknown {
     redacted[key] = redactSensitiveValue(entry);
   }
   return redacted;
-}
-
-function shouldIncludeQuestContext(agentTypes: string[]): boolean {
-  return agentTypes.includes("quest");
-}
-
-function compactQuestPlayerStatsForContext(playerStats: unknown, agentTypes: string[]): unknown {
-  if (!isRecord(playerStats) || playerStats.activeQuests === undefined) {
-    return playerStats;
-  }
-
-  if (!shouldIncludeQuestContext(agentTypes)) {
-    return Object.fromEntries(Object.entries(playerStats).filter(([key]) => key !== "activeQuests"));
-  }
-
-  return {
-    ...playerStats,
-    activeQuests: compactQuestProgressForContext(playerStats.activeQuests),
-  };
-}
-
-// ── Game-state sections in agent context (#9555) ──
-// The JSON shape and key names stay as stored: tracker package prompts name paths such as
-// `playerStats.customTrackerFields`. Keys are only left out, never renamed or regrouped.
-
-type GameStateContextSection =
-  "scene" | "world" | "characters" | "persona" | "quests" | "customFields" | "inventory" | "legacyPlayer";
-
-const GAME_STATE_TOP_LEVEL_SECTIONS: Record<string, GameStateContextSection> = {
-  date: "scene",
-  time: "scene",
-  location: "scene",
-  weather: "scene",
-  temperature: "scene",
-  worldCustomFields: "world",
-  recentEvents: "world",
-  presentCharacters: "characters",
-  personaStats: "persona",
-};
-
-const PLAYER_STATS_SECTIONS: Record<string, GameStateContextSection> = {
-  status: "persona",
-  activeQuests: "quests",
-  customTrackerFields: "customFields",
-  inventoryTrackerCurrencies: "inventory",
-  inventoryTrackerEquipped: "inventory",
-  inventoryTrackerInventory: "inventory",
-  stats: "legacyPlayer",
-  attributes: "legacyPlayer",
-  skills: "legacyPlayer",
-  inventory: "legacyPlayer",
-};
-
-/** Lock key roots per section; a key matches its root exactly or as `<root>.…`. */
-const SECTION_LOCK_ROOTS: Record<GameStateContextSection, readonly string[]> = {
-  scene: [],
-  world: ["world"],
-  characters: ["characters"],
-  persona: ["persona"],
-  quests: ["quests"],
-  customFields: ["player.custom"],
-  inventory: ["player.inventoryTracker"],
-  legacyPlayer: ["player.inventory"],
-};
-
-/** Each tracker sees its own section and the scene line (date, time, location, weather, temperature). */
-const TRACKER_CONTEXT_SECTIONS: Record<string, readonly GameStateContextSection[]> = {
-  "world-state": ["scene", "world"],
-  "character-tracker": ["scene", "characters"],
-  "persona-stats": ["scene", "persona"],
-  quest: ["scene", "quests"],
-  "custom-tracker": ["scene", "customFields"],
-  "inventory-tracker": ["scene", "inventory"],
-};
-
-/** Every other agent (non-trackers, custom and package agents) sees all sections but quest progress. */
-const NON_TRACKER_CONTEXT_SECTIONS: readonly GameStateContextSection[] = [
-  "scene",
-  "world",
-  "characters",
-  "persona",
-  "customFields",
-  "inventory",
-  "legacyPlayer",
-];
-
-/** A batch sends one block, so it carries the union of its members' sections. */
-function gameStateContextSections(agentTypes: string[]): Set<GameStateContextSection> {
-  const sections = new Set<GameStateContextSection>();
-  for (const type of agentTypes) {
-    const own = Object.hasOwn(TRACKER_CONTEXT_SECTIONS, type) ? TRACKER_CONTEXT_SECTIONS[type] : undefined;
-    for (const section of own ?? NON_TRACKER_CONTEXT_SECTIONS) sections.add(section);
-  }
-  return sections;
-}
-
-/**
- * The character-row fields an agent may read. An allowlist, so a field added to the row for the
- * server or the UI (avatar path, crop, portrait framing, id aliases) stays out until listed here.
- */
-const CHARACTER_ROW_CONTEXT_FIELDS = [
-  "characterId",
-  "name",
-  "emoji",
-  "mood",
-  "action",
-  "appearance",
-  "outfit",
-  "thoughts",
-  "customFields",
-  "stats",
-] as const;
-
-function allowlistCharacterRowsForContext(presentCharacters: unknown): unknown {
-  if (!Array.isArray(presentCharacters)) return presentCharacters;
-  return presentCharacters.filter(isRecord).map((character) => {
-    const row: Record<string, unknown> = {};
-    for (const field of CHARACTER_ROW_CONTEXT_FIELDS) {
-      if (character[field] !== undefined) row[field] = character[field];
-    }
-    return row;
-  });
-}
-
-function filterPlayerStatsForContext(
-  playerStats: unknown,
-  sections: Set<GameStateContextSection>,
-): Record<string, unknown> | undefined {
-  if (!isRecord(playerStats)) return undefined;
-  const next: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(playerStats)) {
-    const section = PLAYER_STATS_SECTIONS[key];
-    if (!section || !sections.has(section)) continue;
-    next[key] = key === "activeQuests" ? compactQuestProgressForContext(value) : value;
-  }
-  return Object.keys(next).length > 0 ? next : undefined;
-}
-
-function filterFieldLocksForContext(
-  fieldLocks: unknown,
-  sections: Set<GameStateContextSection>,
-): Record<string, unknown> | undefined {
-  if (!isRecord(fieldLocks)) return undefined;
-  const roots = [...sections].flatMap((section) => SECTION_LOCK_ROOTS[section]);
-  const next = Object.fromEntries(
-    Object.entries(fieldLocks).filter(([key]) => roots.some((root) => key === root || key.startsWith(`${root}.`))),
-  );
-  return Object.keys(next).length > 0 ? next : undefined;
-}
-
-const HIDEABLE_CHARACTER_TRACKER_FIELDS = ["mood", "appearance", "outfit", "thoughts"] as const;
-
-function compactPresentCharactersForHiddenFields(
-  presentCharacters: unknown,
-  hiddenFields: TrackerHiddenFields,
-): unknown {
-  if (!Array.isArray(presentCharacters) || Object.keys(hiddenFields).length === 0) return presentCharacters;
-
-  let changed = false;
-  const compacted = presentCharacters.map((character, index) => {
-    if (!isRecord(character)) return character;
-    let next: Record<string, unknown> | null = null;
-
-    for (const field of HIDEABLE_CHARACTER_TRACKER_FIELDS) {
-      const key = characterTrackerLockKey(character as Pick<PresentCharacter, "characterId" | "name">, index, field);
-      if (field in character && isTrackerFieldHidden(hiddenFields, key)) {
-        next ??= { ...character };
-        delete next[field];
-        changed = true;
-      }
-    }
-
-    return next ?? character;
-  });
-
-  return changed ? compacted : presentCharacters;
-}
-
-function omitHiddenFieldLocksForContext(fieldLocks: unknown, hiddenFields: TrackerHiddenFields): unknown {
-  if (!isRecord(fieldLocks) || Object.keys(hiddenFields).length === 0) return fieldLocks;
-
-  let changed = false;
-  const nextEntries = Object.entries(fieldLocks).filter(([key]) => {
-    const keep = !isTrackerFieldHidden(hiddenFields, key);
-    if (!keep) changed = true;
-    return keep;
-  });
-
-  return changed ? Object.fromEntries(nextEntries) : fieldLocks;
-}
-
-export function compactGameStateForAgentContext(gameState: unknown, agentTypes: string[]): unknown {
-  if (!isRecord(gameState)) {
-    return gameState;
-  }
-
-  const sections = gameStateContextSections(agentTypes);
-  const hiddenFields = normalizeTrackerHiddenFields(gameState.hiddenTrackerFields);
-
-  // Built from scratch: row metadata (ids, swipe, timestamps, manual overrides), hidden-field
-  // bookkeeping and Game Mode ruleset state never reach an agent, nor does any key not mapped above.
-  const next: Record<string, unknown> = {};
-  for (const [key, section] of Object.entries(GAME_STATE_TOP_LEVEL_SECTIONS)) {
-    if (!sections.has(section) || gameState[key] === undefined) continue;
-    next[key] = gameState[key];
-  }
-  if (next.presentCharacters !== undefined) {
-    // Hidden fields first: their lock keys need the full row's characterId and name.
-    next.presentCharacters = allowlistCharacterRowsForContext(
-      compactPresentCharactersForHiddenFields(next.presentCharacters, hiddenFields),
-    );
-  }
-  const playerStats = filterPlayerStatsForContext(gameState.playerStats, sections);
-  if (playerStats) next.playerStats = playerStats;
-  const fieldLocks = filterFieldLocksForContext(
-    omitHiddenFieldLocksForContext(gameState.fieldLocks, hiddenFields),
-    sections,
-  );
-  if (fieldLocks) next.fieldLocks = fieldLocks;
-  return next;
 }
 
 type RenderedAgentTemplateMap = Map<string, string>;
@@ -1714,6 +1501,7 @@ export async function executeAgentBatch(
         configs.map((config) => config.type),
         {
           includeTrackerData: batchContextSources.trackerData,
+          trackerSections: trackerSectionsForAgents(configs),
           outputFormatBlock: buildAgentOutputFormatBlock(configs, context, renderedTemplates),
         },
       ),
@@ -1908,6 +1696,9 @@ function buildBatchSystemPrompt(
     parts.push(``);
     parts.push(`<agent_task id="${escapeXmlAttribute(config.type)}" name="${escapeXmlAttribute(config.name)}">`);
     parts.push(template);
+    // The batch shares one <current_game_state>; say which keys in it are this agent's.
+    const trackerKeysLine = configs.length > 1 && context.gameState ? buildAgentTrackerKeysLine(config) : null;
+    if (trackerKeysLine) parts.push(trackerKeysLine);
     const attachedLorebook = buildCustomAgentTriggeredLorebookBlock(config, context);
     if (attachedLorebook) parts.push(attachedLorebook);
     parts.push(`</agent_task>`);
@@ -1921,6 +1712,10 @@ function buildBatchSystemPrompt(
     contextSources,
     anyAgentProducesImagePrompt(configs),
     configs.some((config) => agentAttachesCardAppearance(config, context)),
+    {
+      trackerSections: trackerSectionsForAgents(configs),
+      cyoaChoices: configs.some((config) => resolveAgentResultType(config) === "cyoa_choices"),
+    },
   );
   if (extras) {
     parts.push(``);
@@ -2462,6 +2257,10 @@ function buildStandardAgentMessages(config: AgentExecConfig, template: string, c
     contextSources,
     agentProducesImagePrompt(config),
     agentAttachesCardAppearance(config, context),
+    {
+      trackerSections: resolveAgentTrackerSections(config),
+      cyoaChoices: resolveAgentResultType(config) === "cyoa_choices",
+    },
   );
   if (extras) {
     systemParts.push(``);
@@ -2493,6 +2292,7 @@ function buildStandardAgentMessages(config: AgentExecConfig, template: string, c
   return buildAgentMessages(systemParts.join("\n"), context, config.type, agentContextSize, [config.type], {
     includeMessageIds: normalizeCustomAgentCapabilities(config.settings).edit_messages === true,
     includeTrackerData: contextSources.trackerData,
+    trackerSections: resolveAgentTrackerSections(config),
     preserveAssistantResponseMarkup: resultType === "text_rewrite",
     outputFormatBlock: buildAgentOutputFormatBlock([config], context, renderedTemplates),
     includeImagePromptInstructions:
@@ -2905,29 +2705,11 @@ function escapeXmlAttribute(value: string): string {
 
 function buildCommittedTrackerStateContext(
   msg: AgentContext["recentMessages"][number],
-  contextAgentTypes: string[],
+  trackerSections: TrackerContextSections,
   options: { includeMessageIds?: boolean },
 ): string | null {
-  const gs = msg.gameState
-    ? (compactGameStateForAgentContext(msg.gameState, contextAgentTypes) as typeof msg.gameState)
-    : null;
-  if (!gs) return null;
-
-  const trackerSummary: Record<string, unknown> = {};
-  if (gs.date || gs.time || gs.location || gs.weather || gs.temperature) {
-    trackerSummary.scene = {
-      ...(gs.date ? { date: gs.date } : {}),
-      ...(gs.time ? { time: gs.time } : {}),
-      ...(gs.location ? { location: gs.location } : {}),
-      ...(gs.weather ? { weather: gs.weather } : {}),
-      ...(gs.temperature ? { temperature: gs.temperature } : {}),
-    };
-  }
-  if (gs.presentCharacters?.length) trackerSummary.presentCharacters = gs.presentCharacters;
-  if (gs.recentEvents?.length) trackerSummary.recentEvents = gs.recentEvents;
-  if (gs.playerStats) trackerSummary.playerStats = compactQuestPlayerStatsForContext(gs.playerStats, contextAgentTypes);
-  if (gs.personaStats?.length) trackerSummary.personaStats = gs.personaStats;
-  if (Object.keys(trackerSummary).length === 0) return null;
+  const trackerSummary = buildCommittedTrackerSummary(msg.gameState, trackerSections);
+  if (!trackerSummary) return null;
 
   const messageIdAttr = options.includeMessageIds && msg.id ? ` message_id="${escapeXmlAttribute(msg.id)}"` : "";
   return [
@@ -2996,6 +2778,8 @@ function buildAgentMessages(
   options: {
     includeMessageIds?: boolean;
     includeTrackerData?: boolean;
+    /** The agents' resolved Tracker Data sections; defaults to the built-in map for `contextAgentTypes`. */
+    trackerSections?: TrackerContextSections;
     preserveAssistantResponseMarkup?: boolean;
     outputFormatBlock?: string;
     includeImagePromptInstructions?: boolean;
@@ -3041,7 +2825,11 @@ function buildAgentMessages(
       // user-role context block so text rewrite agents can use it without
       // accidentally treating tracker JSON as response text to preserve or edit.
       if (options.includeTrackerData !== false && msg.gameState && trackerEligible.has(msgIdx)) {
-        const trackerContext = buildCommittedTrackerStateContext(msg, contextAgentTypes, options);
+        const trackerContext = buildCommittedTrackerStateContext(
+          msg,
+          options.trackerSections ?? trackerSectionsForAgentTypes(contextAgentTypes),
+          options,
+        );
         if (trackerContext) {
           const lastAfterHistory = messages[messages.length - 1]!;
           if (lastAfterHistory.role === "user") {
@@ -3373,6 +3161,12 @@ function buildAgentExtras(
   sources: CustomAgentContextSources = ALL_AGENT_CONTEXT_SOURCES,
   imageCapable = agentTypes.includes("illustrator"),
   attachCardAppearance = false,
+  options: {
+    /** The agents' resolved Tracker Data sections; defaults to the built-in map for `agentTypes`. */
+    trackerSections?: TrackerContextSections;
+    /** Whether an agent in the request writes CYOA choices (built-in or custom result type). */
+    cyoaChoices?: boolean;
+  } = {},
 ): string {
   const parts: string[] = [];
   const wrapFormat = normalizeAgentContextWrapFormat(context.wrapFormat);
@@ -3446,9 +3240,12 @@ function buildAgentExtras(
     parts.push(formatBeholderRequestContext(context.memory._beholderState, context.persona?.name ?? "User"));
   }
 
-  if (sources.trackerData && context.gameState) {
+  const currentGameState = sources.trackerData
+    ? buildCurrentGameStateJson(context.gameState, options.trackerSections ?? trackerSectionsForAgentTypes(agentTypes))
+    : null;
+  if (currentGameState) {
     parts.push(`<current_game_state>`);
-    parts.push(JSON.stringify(compactGameStateForAgentContext(context.gameState, agentTypes)));
+    parts.push(currentGameState);
     parts.push(`</current_game_state>`);
   }
 
@@ -3523,15 +3320,8 @@ function buildAgentExtras(
     );
     // The same row allowlist as <current_game_state>: the merge still reads the full history rows
     // (avatars, crops, aliases), only the prompt copy is stripped.
-    const hiddenFields = normalizeTrackerHiddenFields(
-      isRecord(context.gameState) ? context.gameState.hiddenTrackerFields : undefined,
-    );
     parts.push(
-      JSON.stringify(
-        allowlistCharacterRowsForContext(
-          compactPresentCharactersForHiddenFields(context.characterTrackerHistory, hiddenFields),
-        ),
-      ),
+      JSON.stringify(compactCharacterTrackerHistoryForContext(context.characterTrackerHistory, context.gameState)),
     );
     parts.push(`</character_tracker_history>`);
   }
@@ -3743,8 +3533,14 @@ function buildAgentExtras(
     parts.push(`</haptic_settings>`);
   }
 
-  if (context.memory._lastCyoaChoices) {
-    const lastChoices = context.memory._lastCyoaChoices as Array<{ label: string; text: string }>;
+  // Only the agent that writes choices needs its last ones, and never as an empty block.
+  const lastCyoaChoices = context.memory._lastCyoaChoices;
+  if (
+    (options.cyoaChoices ?? agentTypes.includes("cyoa")) &&
+    Array.isArray(lastCyoaChoices) &&
+    lastCyoaChoices.length > 0
+  ) {
+    const lastChoices = lastCyoaChoices as Array<{ label: string; text: string }>;
     parts.push(`<previous_cyoa_choices>`);
     parts.push(
       `These are the choices you generated last time. Do NOT repeat them — provide fresh, meaningfully different options.`,

@@ -23,6 +23,12 @@ import {
   resolveAgentCallMaxTokens,
 } from "../agents/agent-executor.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
+import {
+  buildCurrentGameStateJson,
+  resolveAgentTrackerSections,
+  trackerSectionsForAgentTypes,
+  type TrackerContextSections,
+} from "../agents/agent-tracker-context.js";
 import { measureContextBudget, type ChatCompletionResult, type ChatMessage } from "../llm/base-provider.js";
 import { normalizeAgentMaxTokens, normalizeMaxContext } from "./generation-parameters.js";
 import { appendImagePromptInstructions, formatOptionalVideoOffer } from "./image-prompt-instructions.js";
@@ -147,7 +153,11 @@ function escapeContextAttribute(value: string): string {
 }
 
 /** Follows the Illustrator's Characters and Persona sources, as an automatic run does (#9426). */
-function buildCharacterPersonaContext(context: AgentContext, sources: CustomAgentContextSources): string {
+function buildCharacterPersonaContext(
+  context: AgentContext,
+  sources: CustomAgentContextSources,
+  trackerSections: TrackerContextSections,
+): string {
   const parts: string[] = ["<visual_identity_context>"];
   const charactersMode = getAgentCardContextMode(sources, "characters");
   if (charactersMode !== "off" && context.characters.length > 0) {
@@ -184,9 +194,12 @@ function buildCharacterPersonaContext(context: AgentContext, sources: CustomAgen
     appendContextField(parts, "Scenario", context.persona.scenario, 1_000);
     parts.push("</user_persona>");
   }
-  if (context.gameState) {
+  // Follows the Tracker Data source and its sections, compacted like every agent copy (#9745):
+  // never the stored row with its ids, avatar paths, crops and manual overrides.
+  const trackerState = sources.trackerData ? buildCurrentGameStateJson(context.gameState, trackerSections) : null;
+  if (trackerState) {
     parts.push("<current_tracker_state>");
-    parts.push(JSON.stringify(context.gameState));
+    parts.push(trackerState);
     parts.push("</current_tracker_state>");
   }
   parts.push("</visual_identity_context>");
@@ -255,6 +268,8 @@ export function buildManualIllustratorPromptMessages(args: {
   videoOffer?: Parameters<typeof formatOptionalVideoOffer>[0] | null;
   /** The Illustrator agent's Context Sources; omitted means the built-in defaults. */
   contextSources?: CustomAgentContextSources;
+  /** The Illustrator's resolved Tracker Data sections; omitted means All sections. */
+  trackerSections?: TrackerContextSections;
 }): ChatMessage[] {
   // Custom prompts may mix visual instructions with schemas or generation conditions.
   // Preserve them intact; the manual contract below overrides only when/how to return the prompt.
@@ -278,7 +293,11 @@ export function buildManualIllustratorPromptMessages(args: {
       ? `Additional Image Style instruction for the image prompt you write: ${args.styleInstruction}\nCombine it with the selected Illustrator prompt mode. It may refine rendering and visual treatment, but it must not replace or weaken the selected format, layout, framing, or text requirements. Express it as words for the image model; never copy its sentences into the JSON fields.`
       : "No visual style profile is selected. Infer only the visual treatment supported by the scene context.",
     args.characterPromptInstruction?.trim() ?? "",
-    buildCharacterPersonaContext(args.context, contextSources),
+    buildCharacterPersonaContext(
+      args.context,
+      contextSources,
+      args.trackerSections ?? trackerSectionsForAgentTypes(["illustrator"]),
+    ),
     ...(currentLocation ? [currentLocation] : []),
     ...(referenceContext ? [referenceContext] : []),
   ].join("\n\n");
@@ -341,6 +360,7 @@ export async function writeManualIllustratorPromptPlan(args: {
     request: args.request,
     videoOffer: args.videoOffer,
     contextSources: getAgentContextSources(args.illustratorAgent),
+    trackerSections: resolveAgentTrackerSections(args.illustratorAgent),
   });
   // Writer reference pictures (V-102 Fallback A): the image connection drops them, so the writer sees them.
   const writerReferences = readWriterReferencePayload(args.context.memory);
