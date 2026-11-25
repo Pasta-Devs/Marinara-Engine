@@ -7882,6 +7882,14 @@ input.ov-edhead__title:focus {
   align-self: flex-start;
   justify-self: start;
 }
+/* A Settings action row (Backup & restore: Download backup, Export profile, Import profile): the buttons that
+   became label-sized share one line and wrap onto the next at the same left edge and height. Touch layouts keep
+   them stacked full width like the page's other buttons. */
+:root[data-overhaul="on"] .mari-settings-action-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
 :root[data-overhaul="on"] .mari-chrome-control--card {
   padding: 0.4375rem 0.625rem;
 }
