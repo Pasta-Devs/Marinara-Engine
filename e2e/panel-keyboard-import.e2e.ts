@@ -50,6 +50,9 @@ test("folder rename owns Escape while nested folder actions close the panel", as
     await page.locator('[data-tour="panel-characters"]').click();
   }
   const panel = page.locator('[data-component="RightPanel"]');
+  // A panel opened from the top bar takes focus a frame after it mounts, which can pull focus off the folder header
+  // while F2 is being pressed. Wait for that first.
+  await expect.poll(() => panel.evaluate((element) => document.activeElement === element)).toBe(true);
   const folder = panel.locator('[data-character-folder-id="escape-folder"]');
   const header = folder.getByRole("button", { name: /Keep this folder/u }).first();
   await expect(header).toHaveAttribute("aria-expanded", "false");
