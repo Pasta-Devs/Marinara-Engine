@@ -87,7 +87,8 @@ export function clampMariFloatRect(rect: MariFloatRect, view: MariFloatView): Ma
 /** A side dock's width: the saved one (or the default), at least her minimum and at most half the screen. */
 export function mariFloatDockWidth(saved: number | null, view: MariFloatView, remPx: number): number {
   const width = saved ?? MARI_FLOAT_DOCK_DEFAULT_REM * remPx;
-  return Math.round(clamp(width, Math.min(MARI_FLOAT_MIN_WIDTH_PX, view.width), Math.floor(view.width / 2)));
+  const max = Math.floor(view.width / 2);
+  return Math.round(clamp(width, Math.min(MARI_FLOAT_MIN_WIDTH_PX, max), max));
 }
 
 /** A zone's rectangle; `dockWidth` is the side dock's width (mariFloatDockWidth). */
@@ -162,8 +163,12 @@ export function resizeMariFloatRect(
   let { left, top, width, height } = start;
   const right = left + width;
   const bottom = top + height;
-  if (edge.includes("e")) width = clamp(width + dx, MARI_FLOAT_MIN_WIDTH_PX, view.width - left);
-  if (edge.includes("s")) height = clamp(height + dy, MARI_FLOAT_MIN_HEIGHT_PX, view.height - top);
+  if (edge.includes("e")) {
+    width = clamp(width + dx, Math.min(MARI_FLOAT_MIN_WIDTH_PX, view.width - left), view.width - left);
+  }
+  if (edge.includes("s")) {
+    height = clamp(height + dy, Math.min(MARI_FLOAT_MIN_HEIGHT_PX, view.height - top), view.height - top);
+  }
   if (edge.includes("w")) {
     left = clamp(left + dx, 0, right - MARI_FLOAT_MIN_WIDTH_PX);
     width = right - left;

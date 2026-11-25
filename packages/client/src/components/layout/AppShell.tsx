@@ -653,6 +653,8 @@ export function AppShell({
   // #9818: Prof. Mari docked at a side is a third sidebar, outermost: the app makes room for her.
   const mariDockLeft = !shellOverlayMode && mariFloatDock?.side === "left" ? mariFloatDock.width : 0;
   const mariDockRight = !shellOverlayMode && mariFloatDock?.side === "right" ? mariFloatDock.width : 0;
+  /** Prof. Mari docked outside the sidebar on its side: the sidebar and its resize handle start after her. */
+  const mariDockSameSide = sidebarOnLeft ? mariDockLeft : mariDockRight;
   const desktopCenterWidth = Math.max(0, viewportWidth - desktopReservedSidebarWidth - mariDockLeft - mariDockRight);
   const centerSqueezedByPanels =
     !isMobile &&
@@ -903,7 +905,7 @@ export function AppShell({
 
       const onMove = (moveEvent: MouseEvent) => {
         const nextWidth = clampWidth(
-          sidebarOnLeft ? moveEvent.clientX : window.innerWidth - moveEvent.clientX,
+          (sidebarOnLeft ? moveEvent.clientX : window.innerWidth - moveEvent.clientX) - mariDockSameSide,
           SHARED_SIDEBAR_WIDTH_MIN,
           SHARED_SIDEBAR_WIDTH_MAX,
         );
@@ -930,7 +932,7 @@ export function AppShell({
       window.addEventListener("mouseup", finishResize);
       window.addEventListener("blur", finishResize);
     },
-    [setRightPanelWidth, setSidebarWidth, sharedSidebarWidth, shellOverlayMode, sidebarOnLeft],
+    [mariDockSameSide, setRightPanelWidth, setSidebarWidth, sharedSidebarWidth, shellOverlayMode, sidebarOnLeft],
   );
 
   const adjustSidebarWidth = useCallback(
@@ -1754,8 +1756,8 @@ export function AppShell({
           className="absolute inset-y-0 z-40 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--primary)]/30 focus-visible:bg-[var(--primary)]/40 focus-visible:outline-none md:block"
           style={
             sidebarOnLeft
-              ? { left: desktopSidebarOpen ? liveSidebarWidth : 0 }
-              : { right: desktopSidebarOpen ? Math.max(0, liveSidebarWidth - 4) : 0 }
+              ? { left: mariDockSameSide + (desktopSidebarOpen ? liveSidebarWidth : 0) }
+              : { right: mariDockSameSide + (desktopSidebarOpen ? Math.max(0, liveSidebarWidth - 4) : 0) }
           }
         />
       )}

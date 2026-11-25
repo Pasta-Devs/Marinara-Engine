@@ -5608,7 +5608,8 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 
 @media (prefers-reduced-motion: reduce) {
   [data-mari-float][data-float-settling] > :is(.mari-float-panel, .mari-float-frame),
-  .mari-float-zone-preview {
+  .mari-float-zone-preview,
+  .mari-float-zone-preview[data-shown="true"] {
     transition: none;
   }
 }

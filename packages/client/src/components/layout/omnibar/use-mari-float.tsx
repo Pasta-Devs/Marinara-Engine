@@ -140,11 +140,15 @@ export function useMariFloat(
   // One gesture at a time: a second press (another finger, a pen) while one runs is ignored.
   const gestureRef = useRef(false);
 
-  /** Runs one pointer gesture on `handle`; `onMove` returns the rectangle to draw, `onEnd` commits it. */
+  /**
+   * Runs one pointer gesture on `handle`; `onMove` returns the rectangle to draw, `onEnd` commits it. A gesture
+   * that ends without a release that moved her (cancelled, capture lost, a click) calls `onCancel` instead.
+   */
   const track = (
     event: PointerEvent<HTMLElement>,
     onMove: (move: globalThis.PointerEvent) => MariFloatRect | null,
     onEnd: (last: MariFloatRect) => void,
+    onCancel?: () => void,
   ) => {
     const handle = event.currentTarget;
     const pointerId = event.pointerId;
@@ -170,6 +174,7 @@ export function useMariFloat(
       const final = up.type === "pointerup" && last ? (onMove(up as globalThis.PointerEvent) ?? last) : null;
       setDragging(false);
       if (final) onEnd(final);
+      else onCancel?.();
       // Draw what the store now says. A drop into the zone she was already in changes nothing the layout
       // effect watches, so without this she would stay where the drag left her. She glides there.
       const ui = useUIStore.getState();
@@ -302,6 +307,16 @@ export function useMariFloat(
           ui.setMariFloatDock({ side: target, width: mariFloatDockWidth(ui.mariFloatDockWidth, view, remPx()) });
         }
       },
+      () => {
+        // A cancelled drag out of a dock leaves her docked: the app gets its room back.
+        const now = useUIStore.getState();
+        if (moved && fromDock && (now.mariFloatZone === "left" || now.mariFloatZone === "right")) {
+          now.setMariFloatDock({
+            side: now.mariFloatZone,
+            width: mariFloatDockWidth(now.mariFloatDockWidth, view, remPx()),
+          });
+        }
+      },
     );
   };
 
@@ -329,6 +344,12 @@ export function useMariFloat(
           // The width stays as drawn: the next render writes the same value. Only the slide comes back.
           useUIStore.getState().setMariFloatDockWidth(last.width);
           window.setTimeout(() => space?.style.removeProperty("transition"), SETTLE_MS);
+        },
+        () => {
+          // Cancelled: the room goes back to the saved width (React would not rewrite an unchanged value).
+          if (!space) return;
+          space.style.width = `${mariFloatDockWidth(useUIStore.getState().mariFloatDockWidth, view, remPx())}px`;
+          space.style.removeProperty("transition");
         },
       );
       return;
