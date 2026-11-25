@@ -1817,23 +1817,41 @@ async function collectProfileAssetZipSources(
   return sources;
 }
 
-async function writeProfileTableJsonLines(outputPath: string, tableName: string, rows: Array<Record<string, unknown>>) {
+function openProfileTableJsonLines(outputPath: string, tableName: string) {
   const stream = createWriteStream(outputPath, { mode: PRIVATE_FILE_MODE });
   let size = 0;
   let count = 0;
-  try {
-    for (const row of sanitizeProfileTableRows(tableName, rows)) {
-      const line = Buffer.from(`${JSON.stringify(row)}\n`, "utf8");
-      await writeZipBuffer(stream, line);
-      size += line.length;
-      count += 1;
-    }
-    await finishZipStream(stream);
-    return { size, count };
-  } catch (error) {
-    stream.destroy();
-    throw error;
-  }
+  return {
+    async write(rows: Array<Record<string, unknown>>) {
+      try {
+        for (const row of sanitizeProfileTableRows(tableName, rows)) {
+          const line = Buffer.from(`${JSON.stringify(row)}\n`, "utf8");
+          await writeZipBuffer(stream, line);
+          size += line.length;
+          count += 1;
+        }
+      } catch (error) {
+        stream.destroy();
+        throw error;
+      }
+    },
+    async finish() {
+      try {
+        await finishZipStream(stream);
+      } catch (error) {
+        stream.destroy();
+        throw error;
+      }
+      return { size, count };
+    },
+    destroy: () => stream.destroy(),
+  };
+}
+
+async function writeProfileTableJsonLines(outputPath: string, tableName: string, rows: Array<Record<string, unknown>>) {
+  const writer = openProfileTableJsonLines(outputPath, tableName);
+  await writer.write(rows);
+  return writer.finish();
 }
 
 async function buildProfileArchiveSources(
@@ -1850,13 +1868,48 @@ async function buildProfileArchiveSources(
   const tablesDir = join(workingDir, "profile-tables");
   await mkdir(tablesDir, { recursive: true });
 
-  for (const tableName of FILE_BACKED_TABLES) {
-    const table = profileTableObjects.get(tableName);
-    if (!table) continue;
-    const rows = (await app.db.select().from(table as any)) as Array<Record<string, unknown>>;
+  // Chat tables (messages, swipes, memories, ...) are read a few chats at a time and streamed to their
+  // files. Selecting them whole loaded the entire library into memory at once, which ran large
+  // profiles out of Node's heap during backups, including the automatic one that runs at startup.
+  const exportable = FILE_BACKED_TABLES.filter((tableName) => profileTableObjects.has(tableName));
+  const chatTableWriters = new Map<string, ReturnType<typeof openProfileTableJsonLines>>();
+  const chatTableSizes = new Map<string, { size: number; count: number }>();
+  const fileStore = app.db._fileStore;
+  if (fileStore?.scanLazyTablesByChat) {
+    try {
+      const scanned = await fileStore.scanLazyTablesByChat(exportable, async (rowsByTable) => {
+        for (const [tableName, rows] of rowsByTable) {
+          let writer = chatTableWriters.get(tableName);
+          if (!writer) {
+            writer = openProfileTableJsonLines(join(tablesDir, `${tableName}.jsonl`), tableName);
+            chatTableWriters.set(tableName, writer);
+          }
+          await writer.write(rows);
+        }
+      });
+      for (const tableName of scanned) {
+        const writer =
+          chatTableWriters.get(tableName) ??
+          openProfileTableJsonLines(join(tablesDir, `${tableName}.jsonl`), tableName);
+        chatTableWriters.delete(tableName);
+        chatTableSizes.set(tableName, await writer.finish());
+      }
+    } finally {
+      for (const writer of chatTableWriters.values()) writer.destroy();
+    }
+  }
+
+  for (const tableName of exportable) {
+    const table = profileTableObjects.get(tableName)!;
     const relativePath = `profile-tables/${tableName}.jsonl`;
     const outputPath = join(tablesDir, `${tableName}.jsonl`);
-    const { size, count } = await writeProfileTableJsonLines(outputPath, tableName, rows);
+    const { size, count } =
+      chatTableSizes.get(tableName) ??
+      (await writeProfileTableJsonLines(
+        outputPath,
+        tableName,
+        (await app.db.select().from(table as any)) as Array<Record<string, unknown>>,
+      ));
     tables[tableName] = { path: relativePath, count, size };
     tableSources.push({
       entryName: profileArchiveEntryPath(basePath, relativePath),
