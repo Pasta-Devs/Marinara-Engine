@@ -23507,9 +23507,14 @@ test("shell surfaces and the page backing keep their colors when canvas reads co
   const html = page.locator("html");
   const rootValue = (name: string) =>
     html.evaluate((element, property) => getComputedStyle(element).getPropertyValue(property).trim(), name);
-  // The theme's card over its background, as the sidebar and the editors paint it.
-  await expect.poll(() => rootValue("--marinara-shell-surface")).toMatch(/^rgb\(1[78], 17, (19|20)\)$/);
-  const shellSurface = await rootValue("--marinara-shell-surface");
+  // The Dark theme's --card (#141414d9), at `share` of its opacity, over a background, rounded as the app does.
+  const cardOver = (background: readonly number[], share = 1) => {
+    const alpha = (0xd9 / 255) * share;
+    return `rgb(${background.map((channel) => Math.round(0x14 * alpha + channel * (1 - alpha))).join(", ")})`;
+  };
+  // The card over the theme's background (#050312), as the sidebar and the editors paint it.
+  const shellSurface = cardOver([0x05, 0x03, 0x12]);
+  await expect.poll(() => rootValue("--marinara-shell-surface")).toBe(shellSurface);
   expect(await rootValue("--sidebar")).toBe(shellSurface);
   expect(await rootValue("--marinara-editor-bg")).toBe(shellSurface);
 
@@ -23518,15 +23523,16 @@ test("shell surfaces and the page backing keep their colors when canvas reads co
     useUIStore.getState().saveUiStyleOverride("app", { background: "#234567" });
   });
   await expect(page.getByText("Marinara hit a recoverable UI error.")).toHaveCount(0);
-  // The top bar's surface over the chosen color backs the page and the browser chrome.
-  const backing = /^rgb\(2[45], 3[56], 4[67]\)$/;
+  // The top bar's surface (the card at 80%) over the chosen color backs the page and the browser chrome.
+  const backing = cardOver([0x23, 0x45, 0x67], 0.8);
   await expect
     .poll(() => html.evaluate((element) => element.style.getPropertyValue("--marinara-page-backing")))
-    .toMatch(backing);
+    .toBe(backing);
   await expect(html).toHaveCSS("background-color", backing);
   await expect(page.locator("body")).toHaveCSS("background-color", backing);
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", backing);
-  // The theme's text stays readable on it, so editors and fields take it as well.
+  // The contrast check now runs without a canvas: the Dark theme's text (#d4d4d4) reads on #234567 at 6.7:1,
+  // so editors and fields take it too, as they already did wherever the canvas read worked.
   await expect.poll(() => rootValue("--background")).toBe("#234567");
 });
 

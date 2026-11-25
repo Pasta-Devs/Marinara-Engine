@@ -6,6 +6,7 @@ import {
   hexToHsv,
   hsvToHex,
   normalizeHexColor,
+  paintSrgbColor,
   READABLE_TEXT_CONTRAST,
   withAlpha,
 } from "../../../packages/client/src/lib/css-colors.js";
@@ -258,6 +259,14 @@ assert.equal(withAlpha("#ff0000", hexAlpha("#11223366")), "#ff000066", "a palett
 assert.equal(contrastRatio([255, 255, 255], [0, 0, 0]), 21);
 assert.ok(contrastRatio([13, 8, 48], [26, 26, 36]) < READABLE_TEXT_CONTRAST, "dark app background under Light text");
 assert.ok(contrastRatio([13, 8, 48], [204, 204, 204]) >= READABLE_TEXT_CONTRAST, "dark app background under Dark text");
+// Shell surfaces blend each computed color over the app background in code, not on a canvas (#9791).
+const halfRedOver = [132.5, 10, 15];
+assert.deepEqual(paintSrgbColor([10, 20, 30], "rgba(255, 0, 0, 0.5)"), halfRedOver);
+assert.deepEqual(paintSrgbColor([10, 20, 30], "color(srgb 1 0 0 / 0.5)"), halfRedOver, "color() channels are 0-1");
+assert.deepEqual(paintSrgbColor([10, 20, 30], "rgb(255, 0, 0)"), [255, 0, 0]);
+assert.deepEqual(paintSrgbColor([10, 20, 30], "rgba(0, 0, 0, 0)"), [10, 20, 30], "transparent paints nothing");
+// A hex color is never a computed value: App.tsx's hidden probe hands it over as color(srgb …).
+for (const unread of ["garbage", "#ff000080", ""]) assert.deepEqual(paintSrgbColor([10, 20, 30], unread), [10, 20, 30]);
 assert.equal(
   sanitizeAppCss(buildUiStyleOverridesCss({ "top-bar": { background: "#11223380" } })),
   ':root [data-component="TopBar"]{background:#11223380!important}',
