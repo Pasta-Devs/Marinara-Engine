@@ -243,6 +243,7 @@ const member = {
 
 for (const newer of [
   { id: 1001, head_sha: "later-sha", pull_requests: [{ number: 42 }] },
+  { id: 1001, head_sha: "later-sha", pull_requests: [{ number: 7 }, { number: 42 }] },
   // A fork's signal lists no pull requests; its head names the pull request.
   { id: 1001, head_sha: "head-sha", pull_requests: [] },
   { id: 1001, head_sha: "reviewed-sha", pull_requests: [] },
@@ -284,6 +285,42 @@ for (const newer of [
   );
   assert.equal(result.superseded, true);
   assert.equal(statuses.length, 0);
+}
+
+{
+  // Another pull request whose head is the same commit: its signal is not about this pull request, so this run still
+  // publishes this pull request's own result.
+  const notFound = Object.assign(new Error("Not Found"), { status: 404 });
+  for (const otherPullRequest of [
+    { id: 1001, head_sha: "head-sha", pull_requests: [{ number: 7 }] },
+    { id: 1001, head_sha: "reviewed-sha", pull_requests: [{ number: 7 }] },
+  ]) {
+    const { status } = await runCase({ membershipError: notFound, signalRuns: [otherPullRequest] }, signal);
+    assert.equal(status.state, "failure", JSON.stringify(otherPullRequest));
+  }
+}
+
+{
+  // A publish attempt failed, and a newer signal arrived before the retry: the retry must not write over its status.
+  const { result, statuses, getStatusAttempts } = await evaluateCase(
+    {
+      ...member,
+      statusFailures: 1,
+      signalRuns: (listing) =>
+        listing <= 2 ? [] : [{ id: 1001, head_sha: "head-sha", pull_requests: [{ number: 42 }] }],
+    },
+    signal,
+  );
+  assert.equal(result.superseded, true);
+  assert.equal(statuses.length, 0);
+  assert.equal(getStatusAttempts(), 1);
+}
+
+{
+  // With no newer signal, a failed publish attempt is still retried.
+  const { status, getStatusAttempts } = await runCase({ ...member, statusFailures: 1 }, signal);
+  assert.equal(status.state, "success");
+  assert.equal(getStatusAttempts(), 2);
 }
 
 {
