@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 // The openers are plain functions so a command palette, slash command or any
 // other surface can open the same modals without importing their components.
+import { api } from "./api-client";
 import { useChatStore } from "../stores/chat.store";
 import { isMobileShellViewport, useUIStore } from "../stores/ui.store";
 
@@ -31,4 +32,38 @@ export function openChatAtMessage(chatId: string, messageNumber?: number) {
   if (messageNumber && messageNumber > 0) chat.requestGotoMessage(chatId, messageNumber);
   chat.setActiveChatId(chatId);
   if (isMobileShellViewport()) ui.setSidebarOpen(false);
+}
+
+/** The query parameter a push notification's tap opens a chat with: `/?chat=<id>` (#9752). */
+export const CHAT_LAUNCH_PARAM = "chat";
+let launchChatId: string | null | undefined;
+
+/**
+ * Read and remove the chat a launch URL names, synchronously, so history entries made later (an open panel's
+ * back entry) never copy the parameter and a reload does not open the chat again. Null when there is none
+ * or the id is malformed.
+ */
+export function consumeChatLaunchParam(): string | null {
+  // Kept for the page's life: React's development double render calls this twice.
+  if (launchChatId !== undefined) return launchChatId;
+  const url = new URL(window.location.href);
+  const chatId = url.searchParams.get(CHAT_LAUNCH_PARAM)?.trim();
+  if (chatId !== undefined) {
+    url.searchParams.delete(CHAT_LAUNCH_PARAM);
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+  launchChatId = chatId && /^[\w-]{1,128}$/.test(chatId) ? chatId : null;
+  return launchChatId;
+}
+
+/** Open a launched chat once it is known to exist, unless the user picked another chat meanwhile. */
+export async function openLaunchedChat(chatId: string): Promise<void> {
+  const activeBefore = useChatStore.getState().activeChatId;
+  try {
+    await api.get(`/chats/${encodeURIComponent(chatId)}`);
+  } catch {
+    return;
+  }
+  if (useChatStore.getState().activeChatId !== activeBefore) return;
+  openChatAtMessage(chatId);
 }

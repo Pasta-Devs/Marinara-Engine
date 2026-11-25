@@ -22623,6 +22623,72 @@ test("iPhone chat menus stay in the visual viewport while editing", async ({ pag
   }
 });
 
+// #9768: the pill sits in the transcript's sticky header, so a transcript scroll must not close its panel.
+test("Conversation Presence stays open while the transcript scrolls under its pill", async ({ page }) => {
+  const characterResponse = await page.request.post("/api/characters", {
+    data: { data: { name: "Scrolling Presence" } },
+  });
+  expect(characterResponse.ok()).toBeTruthy();
+  const characterId = ((await characterResponse.json()) as { id: string }).id;
+  let chatId: string | null = null;
+  try {
+    const chatResponse = await page.request.post("/api/chats", {
+      data: { name: "Presence Transcript Scroll", mode: "conversation", characterIds: [characterId] },
+    });
+    expect(chatResponse.ok()).toBeTruthy();
+    chatId = ((await chatResponse.json()) as { id: string }).id;
+    for (let index = 0; index < 24; index += 1) {
+      const messageResponse = await page.request.post(`/api/chats/${chatId}/messages`, {
+        data:
+          index % 2 === 0
+            ? { role: "user", content: `Shell note ${index}` }
+            : { role: "assistant", characterId, content: `Tide note ${index}` },
+      });
+      expect(messageResponse.ok()).toBeTruthy();
+    }
+
+    await prepareFreshClient(page);
+    await page.addInitScript((activeChatId) => {
+      localStorage.setItem("marinara-active-chat-id", activeChatId);
+    }, chatId);
+    await page.goto("/");
+    await expect(page.getByText("Tide note 23", { exact: true })).toBeVisible();
+
+    const pill = page.locator('[data-chat-mode="conversation"] [data-chat-help="identity"]');
+    const transcript = page.locator('[data-chat-mode="conversation"] [data-chat-scroll]');
+    const presencePanel = page
+      .locator("body > [data-chat-floating-panel]")
+      .filter({ hasText: "Conversation Presence" });
+    const scrollTranscriptBy = (distance: number) =>
+      transcript.evaluate(async (element, delta) => {
+        const before = element.scrollTop;
+        element.scrollTop = Math.max(0, before - delta);
+        // Let the scroll event and any close it causes render before checking.
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return before - element.scrollTop;
+      }, distance);
+
+    await pill.click();
+    await expect(presencePanel).toBeVisible();
+    const pillBox = await pill.boundingBox();
+    expect(await scrollTranscriptBy(240)).toBeGreaterThan(0);
+    expect(await pill.boundingBox()).toEqual(pillBox);
+    await expect(presencePanel).toBeVisible();
+
+    // A panel whose pill did move still closes, so it never floats away from it.
+    await pill.evaluate((element) => {
+      (element as HTMLElement).style.transition = "none";
+      (element as HTMLElement).style.translate = "0 48px";
+    });
+    expect(await scrollTranscriptBy(40)).toBeGreaterThan(0);
+    await expect(presencePanel).toHaveCount(0);
+  } finally {
+    if (chatId) await page.request.delete(`/api/chats/${chatId}?force=true`).catch(() => undefined);
+    await page.request.delete(`/api/characters/${characterId}`).catch(() => undefined);
+  }
+});
+
 test("iPhone Conversation Presence keeps its last activity field reachable", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile-webkit"), "The visual-viewport pan regression is iPhone-only.");
 
@@ -23400,6 +23466,31 @@ test("mobile chat composer follows the visual viewport above the software keyboa
   }
 });
 
+test("a ?chat= launch link opens that chat once and leaves the address clean", async ({ page }) => {
+  // #9752: a tapped push notification opens Marinara at /?chat=<id>.
+  const response = await page.request.post("/api/chats", { data: { name: "Launch link chat", mode: "conversation" } });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  const activeChatId = () =>
+    page.evaluate(async () => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+      return useChatStore.getState().activeChatId as string | null;
+    });
+  try {
+    await page.goto(`/?chat=${chat.id}`);
+    await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
+    await expect.poll(activeChatId).toBe(chat.id);
+    await expect.poll(() => new URL(page.url()).search).toBe("");
+
+    await page.goto("/?chat=no-such-chat");
+    await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
+    await expect.poll(() => new URL(page.url()).search).toBe("");
+    expect(await activeChatId()).not.toBe("no-such-chat");
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
+
 test("page backing keeps the app running when the browser refuses canvas reads", async ({ page }) => {
   // WebKit throws InvalidStateError from getImageData under memory pressure (#7241).
   await page.addInitScript(() => {
@@ -23421,6 +23512,59 @@ test("page backing keeps the app running when the browser refuses canvas reads",
   await expect
     .poll(() => page.locator("html").evaluate((element) => element.style.getPropertyValue("--marinara-page-backing")))
     .toBe("#234567");
+  // Its contrast can't be checked either, so editors and fields keep the theme's own surface.
+  await expect
+    .poll(() =>
+      page.locator("html").evaluate((element) => getComputedStyle(element).getPropertyValue("--background").trim()),
+    )
+    .toBe("#050312");
+});
+
+test("a dark app background in Light mode leaves editors and fields on the theme's surface", async ({ page }) => {
+  // #9741: SillyTavern Light with a dark Whole app background painted editors dark under dark text.
+  await seedUIState(
+    page,
+    { theme: "light", visualTheme: "sillytavern", uiStyleOverrides: { app: { background: "#0d0830" } } },
+    "merge",
+  );
+  await page.goto("/");
+  await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
+  const rootValue = (name: string) =>
+    page
+      .locator("html")
+      .evaluate((element, property) => getComputedStyle(element).getPropertyValue(property).trim(), name);
+
+  // The backdrop and the washed surfaces (Home, Professor Mari) keep the chosen color; the surfaces
+  // under the app's text keep SillyTavern Light's.
+  await expect.poll(() => rootValue("--marinara-app-background-paint")).toBe("#0d0830");
+  await expect.poll(() => rootValue("--marinara-app-background-color")).toBe("#0d0830");
+  await expect.poll(() => rootValue("--background")).toBe("#e8e8ec");
+
+  const update = (change: string) =>
+    page.evaluate(async (step) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      const state = useUIStore.getState();
+      if (step === "dark") state.setTheme("dark");
+      if (step === "light") state.setTheme("light");
+      if (step === "app-text") state.saveUiStyleOverride("app", { background: "#0d0830", color: "#f4f4f5" });
+      if (step === "no-app-text") state.saveUiStyleOverride("app", { background: "#0d0830" });
+      if (step === "chrome-text") state.setChatChromeTextColor("#f4f4f5");
+    }, change);
+
+  // Dark mode's light text reads on it, so there it is the surface as before.
+  await update("dark");
+  await expect.poll(() => rootValue("--background")).toBe("#0d0830");
+
+  // In Light mode, light text the user chose makes it readable too: the Whole app part's text color...
+  await update("light");
+  await expect.poll(() => rootValue("--background")).toBe("#e8e8ec");
+  await update("app-text");
+  await expect.poll(() => rootValue("--background")).toBe("#0d0830");
+  // ...or the chrome text color that editors and libraries draw with.
+  await update("no-app-text");
+  await expect.poll(() => rootValue("--background")).toBe("#e8e8ec");
+  await update("chrome-text");
+  await expect.poll(() => rootValue("--background")).toBe("#0d0830");
 });
 
 test("mobile Roleplay releases its inactive background after a crossfade", async ({ page }, testInfo) => {

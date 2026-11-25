@@ -65,6 +65,7 @@ import { withConnectionFallbackProvider } from "../llm/connection-fallback-provi
 import { tryParseJsonRecord } from "../../lib/json-repair.js";
 import {
   formatCapabilityAgentGroundingLines,
+  getOfficialAgentCatalogKnowledge,
   PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
 } from "./official-agent-knowledge.js";
 import {
@@ -614,6 +615,7 @@ export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
   "agent.get",
   "agent.search",
   "agent.runs",
+  "agent.catalog.get",
   "agent.create",
   "agent.update",
   "preset.list",
@@ -1025,7 +1027,8 @@ const MARI_SEASON_FLAVORS = new Map<string, string>([
   ],
 ]);
 
-export const MARI_SYSTEM_PROMPT = `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
+export function buildMariSystemPrompt(agentCatalogBlock: string = PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE): string {
+  return `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
 
 Voice:
 Use Professor Mari's existing character voice as your source of truth:
@@ -1037,7 +1040,7 @@ ENFP 4w7, Choleric-Sanguine, Chaotic Neutral, Taurus. Mari's speech is typically
 
 Your voice belongs in the visible reply. \`reason\`, \`authorization\`, and approval, review, or diff text stay literal: they say exactly what will happen and why, so the user can trust every approval.
 
-${PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE}
+${agentCatalogBlock}
 
 Workspace defaults:
 - Marinara's first-party agents and larger optional features are downloaded from **Agents → Agent Organizer**. Fresh installs start without them; maps, Conversation calls, and Conversation games are packages too. Tell users to install the desired package, enable it for the chat, and restart Marinara Engine when the catalog prompts them. Existing pre-package installs are migrated automatically without losing settings or history.
@@ -1090,6 +1093,9 @@ Workspace files:
 For user-facing questions about Marinara features, configuration, installation, or troubleshooting, use \`docs_search\` and then \`docs_read\` before broad workspace searches. Cite the documentation path and heading in the answer. Use built-in or CLI help when exact command syntax matters. Inspect source only when canonical documentation is missing or ambiguous, or when the user explicitly asks about internals; if source inspection was required, say that the answer used an implementation-level source.
 Unreleased features: some features in the source are unfinished and switched off for everyone behind a server flag, such as Overworld games in Game Mode (setting kits, generated worlds, the overworld map, towns and dungeon maps), whose setup card says they are not ready yet. Overworld games are not the World Maps agent, which is released. When the source or the UI shows a feature is locked or switched off, say it is not available yet. Separately, never present \`.env\`, a server flag or an environment variable as the way to turn on a feature the user documentation does not describe.
 Use other workspace files to understand Marinara internals, answer source-code questions, or find content that is not available through documentation, CLI, or app-data commands. Do not inspect source files instead of live app data when the user asks about saved characters, chats, agents, tools, presets, lorebooks, or other app content.`;
+}
+
+export const MARI_SYSTEM_PROMPT = buildMariSystemPrompt();
 
 /**
  * Mari's working rules for the workspace tools (app_data reference, authoring guides, memories). Shared by both runtimes;
@@ -1941,6 +1947,7 @@ function parseTextualWorkspaceCommandCalls(content: string): WorkspaceCommandCal
 const INTERNAL_NAME_WORDS: Record<string, string> = {
   "chat.diagnose": "the chat checkup",
   "agent.list": "your installed agents",
+  "agent.catalog.get": "the agent catalog",
   "chat.updatemessage": "a reply repair",
   docs_search: "the docs",
   docs_read: "the docs",
@@ -3266,7 +3273,19 @@ export function bashIsLoneMariRead(command: string): boolean {
   return MARI_STORE_READ.test(normalized);
 }
 
+function isOfficialCatalogRead(call: WorkspaceCommandCall): boolean {
+  if (call.name !== "app_data" || typeof call.arguments.action !== "string") return false;
+  const normalized = call.arguments.action
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]+/gu, "");
+  return normalized === "agent.catalog.get" || normalized === "agents.catalog.get";
+}
+
 function isStateReadCommand(call: WorkspaceCommandCall): boolean {
+  // Catalog metadata lookup reads the official catalog (not user store/config state), so it stays
+  // read-only in Plan mode without satisfying mutation read-back verification or recap evidence.
+  if (isOfficialCatalogRead(call)) return false;
   if (isReadOnlyWorkspaceCommand(call)) return true;
   const command = call.arguments.command;
   return call.name === "bash" && typeof command === "string" && bashIsLoneMariRead(command);
@@ -5426,8 +5445,9 @@ export class ProfessorMariWorkspaceService {
       ...(MARI_SEASON_FLAVORS.get(seasonalPackId ?? "") ? [MARI_SEASON_FLAVORS.get(seasonalPackId ?? "")!] : []),
       `</workspace_context>`,
     ].join("\n");
+    const { block: agentCatalogBlock } = await getOfficialAgentCatalogKnowledge({ signal, timeoutMs: 2_000 });
     const messages: ChatMessage[] = [
-      { role: "system", content: MARI_SYSTEM_PROMPT, contextKind: "prompt" },
+      { role: "system", content: buildMariSystemPrompt(agentCatalogBlock), contextKind: "prompt" },
       {
         role: "system",
         content:

@@ -36,17 +36,8 @@ export function InlineDraftOverlay({
   onAccept?: () => void;
 }) {
   if (!suffix && marks.length === 0) return null;
-  return (
-    <div
-      aria-hidden="true"
-      data-component="InlineDraftOverlay"
-      className={cn(
-        "pointer-events-none absolute inset-0 overflow-hidden text-transparent",
-        multiline ? "whitespace-pre-wrap break-words" : "whitespace-pre",
-        className,
-      )}
-      style={multiline ? { ...style, transform: `translate(${-scrollLeft}px, ${-scrollTop}px)` } : style}
-    >
+  const draft = (
+    <>
       {draftSegments(value, marks).map((segment, index) =>
         segment.tone ? (
           <span key={index} className={`mari-composer-mark mari-composer-mark--${segment.tone}`}>
@@ -89,6 +80,21 @@ export function InlineDraftOverlay({
           {suffix}
         </span>
       ) : null}
+    </>
+  );
+  return (
+    <div
+      aria-hidden="true"
+      data-component="InlineDraftOverlay"
+      className={cn(
+        "pointer-events-none absolute inset-0 overflow-hidden text-transparent",
+        multiline ? "whitespace-pre-wrap break-words" : "whitespace-pre",
+        className,
+      )}
+      style={style}
+    >
+      {/* The text scrolls inside the box, like the field's, so the box keeps clipping to the field (#9763). */}
+      {multiline ? <div style={{ transform: `translate(${-scrollLeft}px, ${-scrollTop}px)` }}>{draft}</div> : draft}
     </div>
   );
 }

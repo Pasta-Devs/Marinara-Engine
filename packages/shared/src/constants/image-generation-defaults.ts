@@ -49,8 +49,8 @@ export const DEFAULT_NOVELAI_DEFAULTS: NovelAiDefaults = {
   negativePromptPrefix: "",
   sampler: "k_euler_ancestral",
   noiseSchedule: "karras",
-  steps: 28,
-  promptGuidance: 6,
+  steps: null,
+  promptGuidance: null,
   promptGuidanceRescale: 0,
   undesiredContentPreset: 0,
   dynamicResolutionBySubjectCount: true,
@@ -58,7 +58,31 @@ export const DEFAULT_NOVELAI_DEFAULTS: NovelAiDefaults = {
   styleReferenceImage: null,
   styleReferenceStrength: 0.6,
   styleReferenceFidelity: 0.5,
+  settingsVersion: 2,
 };
+
+/** The steps and prompt guidance (scale) the Engine sent to every NovelAI model before automatic settings. */
+const LEGACY_NOVELAI_STEPS = 28;
+const LEGACY_NOVELAI_PROMPT_GUIDANCE = 6;
+
+/**
+ * NovelAI's own defaults for a model, from its web client (checked 2026-11-24): what an automatic Steps or Prompt
+ * guidance sends. Every model from V3 on samples with Euler Ancestral, a Karras schedule and no guidance rescale,
+ * which DEFAULT_NOVELAI_DEFAULTS already are. 23 steps stays inside Opus's free generations (28 steps or fewer).
+ */
+export function novelAiRecommendedSettings(model: string | null | undefined): {
+  steps: number;
+  promptGuidance: number;
+} {
+  const id = (model?.trim() || "nai-diffusion-4-5-full").toLowerCase();
+  if (id.startsWith("nai-diffusion-5-full-medium")) return { steps: 14, promptGuidance: 7 };
+  if (id.startsWith("nai-diffusion-5")) return { steps: 23, promptGuidance: 7 };
+  if (id.startsWith("nai-diffusion-4-5")) return { steps: 23, promptGuidance: 5 };
+  if (id.startsWith("nai-diffusion-4")) return { steps: 23, promptGuidance: 5.5 };
+  if (id.startsWith("nai-diffusion-furry-3")) return { steps: 23, promptGuidance: 6.2 };
+  if (id.startsWith("nai-diffusion-3")) return { steps: 23, promptGuidance: 5 };
+  return { steps: LEGACY_NOVELAI_STEPS, promptGuidance: 10 };
+}
 
 export const SD_WEBUI_SAMPLER_OPTIONS = [
   { value: "", label: "Automatic / backend default" },
@@ -346,15 +370,25 @@ export function buildComfyUiLoraWorkflowReplacements(
   return replacements;
 }
 
+/** A nullable number setting: null when unset, not a number, or the legacy built-in value it was saved with. */
+function readSetting(value: unknown, legacyDefault: number | null, read: (value: number) => number): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value === legacyDefault) return null;
+  return read(value);
+}
+
 function normalizeNovelAiDefaults(rawDefaults: unknown): NovelAiDefaults {
   const raw = isRecord(rawDefaults) ? rawDefaults : {};
+  // Saved before automatic settings: the editor wrote the built-in 28 steps and guidance 6 by itself.
+  const legacy = raw.settingsVersion !== 2;
   return {
     promptPrefix: readString(raw.promptPrefix, DEFAULT_NOVELAI_DEFAULTS.promptPrefix),
     negativePromptPrefix: readString(raw.negativePromptPrefix, DEFAULT_NOVELAI_DEFAULTS.negativePromptPrefix),
     sampler: readString(raw.sampler, DEFAULT_NOVELAI_DEFAULTS.sampler),
     noiseSchedule: readString(raw.noiseSchedule, DEFAULT_NOVELAI_DEFAULTS.noiseSchedule),
-    steps: readInteger(raw.steps, DEFAULT_NOVELAI_DEFAULTS.steps, 1, 150),
-    promptGuidance: readNumber(raw.promptGuidance, DEFAULT_NOVELAI_DEFAULTS.promptGuidance, 0, 30),
+    steps: readSetting(raw.steps, legacy ? LEGACY_NOVELAI_STEPS : null, (value) => readInteger(value, 23, 1, 150)),
+    promptGuidance: readSetting(raw.promptGuidance, legacy ? LEGACY_NOVELAI_PROMPT_GUIDANCE : null, (value) =>
+      readNumber(value, 7, 0, 30),
+    ),
     promptGuidanceRescale: readNumber(raw.promptGuidanceRescale, DEFAULT_NOVELAI_DEFAULTS.promptGuidanceRescale, 0, 1),
     undesiredContentPreset: readInteger(
       raw.undesiredContentPreset,
@@ -380,6 +414,7 @@ function normalizeNovelAiDefaults(rawDefaults: unknown): NovelAiDefaults {
       0,
       1,
     ),
+    settingsVersion: 2,
   };
 }
 

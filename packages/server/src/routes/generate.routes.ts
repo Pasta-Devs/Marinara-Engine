@@ -532,7 +532,11 @@ import {
   resolveConnectionImageQuality,
 } from "../services/image/image-generation-defaults.js";
 import { generateIllustratorImageVariants } from "../services/image/illustrator-image-variants.js";
-import { generateTrackerPortrait, trackerPortraitStyleProfileId } from "../services/image/tracker-portrait.js";
+import {
+  generateTrackerPortrait,
+  trackerPortraitRewriteOption,
+  trackerPortraitStyleProfileId,
+} from "../services/image/tracker-portrait.js";
 import {
   loadImageGenerationUserSettings,
   resolveIllustratorImageSize,
@@ -671,6 +675,7 @@ import {
   resolveMemoryRecallEmbeddingSource,
 } from "../services/memory-recall-embedding.js";
 import { postToDiscordWebhook } from "../services/discord-webhook.js";
+import { publishReplyPushNotification } from "../services/push-notifications.js";
 import {
   longTermMemoryRuntimeAvailable,
   recallLongTermMemory,
@@ -1175,7 +1180,7 @@ function scopeLorebookPromptMessagesForCharacter(
       }
       return content === message.content ? message : { ...message, content };
     })
-    .filter((message) => message.content.trim().length > 0);
+    .filter((message) => message.content.trim() || message.images?.length || message.files?.length);
 }
 
 const PROFESSOR_MARI_INTERNAL_CHAT_MARKER = "professor-mari";
@@ -1987,6 +1992,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       );
     };
     const detachCloseListener = onGenerationOutputClose(reply, onClose);
+    // A socket that closed before the listener was attached never emits "close" again.
+    if (!isSseReplyWritable(reply)) onClose();
     if (requestChatMode === "conversation" && !input.impersonate) {
       conversationGenerationStartedAt = markGenerationInProgress(input.chatId);
     }
@@ -11579,6 +11586,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             fullResponse,
           );
           let savedMsg = savedReply.savedMsg;
+          // Whether the client had gone when the reply was delivered (message_saved): a push notification
+          // covers only a reply it never received.
+          let clientGoneAtDelivery = clientDisconnected;
           const savedSwipeIndex = savedReply.savedSwipeIndex;
           const replyParts = savedReply.replyParts;
           fullResponse = savedReply.fullResponse;
@@ -12171,6 +12181,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           // Persist thinking/reasoning and generation info
           if (savedMsg?.id && recoveredAlreadyAppliedSpatialTurn) {
+            clientGoneAtDelivery = clientDisconnected;
             sendSseEvent(reply, {
               type: "message_saved",
               data: savedMsg,
@@ -12515,6 +12526,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               });
             }
 
+            clientGoneAtDelivery = clientDisconnected;
             sendSseEvent(reply, {
               type: "message_saved",
               data: heldForRewrite(refreshedMsg ?? savedMsg),
@@ -12613,6 +12625,26 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 : (charInfo.find((c) => c.id === targetCharId)?.name ?? "Character");
             postToDiscordWebhook(discordWebhookUrl, { content: fullResponse, username: charName });
           }
+
+          // Push notification for a closed app (fire-and-forget; the settings decide whether it sends).
+          publishReplyPushNotification(
+            app.db,
+            {
+              chatId: input.chatId,
+              title:
+                chatMode === "game"
+                  ? chat.name?.trim() || "Game"
+                  : `New message from ${charInfo.find((c) => c.id === targetCharId)?.name ?? "Character"}`,
+              content: fullResponse,
+            },
+            {
+              autonomous: input.autonomous === true,
+              clientDisconnected: clientGoneAtDelivery,
+              regenerate: Boolean(input.regenerateMessageId),
+              impersonate: Boolean(input.impersonate),
+              content: fullResponse,
+            },
+          );
 
           // The reply this turn goes on with is a split reply's last part; the caller records the earlier ones.
           if (replyParts) fullResponse = replyParts.at(-1)!.content;
@@ -14568,6 +14600,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     styleProfileId: trackerPortraitStyleProfileId(chatMeta),
                     character,
                     includeOutfit,
+                    rewritePrompt: trackerPortraitRewriteOption(characterTrackerSettings, chatMeta, conn.id),
                     debugMode: input.debugMode,
                     onFallback,
                   }),

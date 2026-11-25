@@ -1,4 +1,9 @@
-import { SETTINGS_TABS, type MariHeldChange, type ProfessorMariAskContext } from "@marinara-engine/shared";
+import {
+  SETTINGS_TABS,
+  type MariHeldChange,
+  type MariSuggestionChip,
+  type ProfessorMariAskContext,
+} from "@marinara-engine/shared";
 import { chatResultType, recordFaceResultType, resourceResultType, type ResultType } from "./command-icons";
 
 export type ProfessorMariPresentationState =
@@ -294,4 +299,47 @@ export function withoutReviewedResults<R extends { reviewId?: string; resource: 
       !(result.reviewId && reviewed.has(`review:${result.reviewId}`)) &&
       !reviewed.has(`${resourceResultType(result.resource.kind)}:${result.resource.id}`),
   );
+}
+
+export interface MariSuggestionActionTargets {
+  chats?: readonly { id: string }[];
+  characters?: readonly { id: string }[];
+  personas?: readonly { id: string }[];
+  lorebooks?: readonly { id: string }[];
+  presets?: readonly { id: string }[];
+  agents?: readonly { id: string; type?: string }[];
+  capabilityAgents?: readonly { id: string }[];
+}
+
+/**
+ * Drop suggestion-card navigation actions when the target id is missing from the loaded app lists
+ * (e.g. a deleted record or hallucinated id), so clicking asks Mari instead of closing her window.
+ */
+export function withValidSuggestionAction(
+  chip: MariSuggestionChip,
+  targets: MariSuggestionActionTargets,
+): MariSuggestionChip {
+  const { action } = chip;
+  if (!action || action.kind === "panel") return chip;
+  let valid = false;
+  if (action.kind === "chat" || action.kind === "peek-prompt") {
+    valid = targets.chats?.some((chat) => chat.id === action.chatId) ?? false;
+  } else if (action.kind === "start-chat") {
+    valid = targets.characters?.some((character) => character.id === action.characterId) ?? false;
+  } else if (action.kind === "resource") {
+    if (action.resource === "character") {
+      valid = targets.characters?.some((character) => character.id === action.id) ?? false;
+    } else if (action.resource === "persona") {
+      valid = targets.personas?.some((persona) => persona.id === action.id) ?? false;
+    } else if (action.resource === "lorebook") {
+      valid = targets.lorebooks?.some((lorebook) => lorebook.id === action.id) ?? false;
+    } else if (action.resource === "preset") {
+      valid = targets.presets?.some((preset) => preset.id === action.id) ?? false;
+    } else if (action.resource === "agent") {
+      valid =
+        (targets.agents?.some((agent) => agent.id === action.id || agent.type === action.id) ?? false) ||
+        (targets.capabilityAgents?.some((agent) => agent.id === action.id) ?? false);
+    }
+  }
+  return valid ? chip : { ...chip, action: undefined };
 }

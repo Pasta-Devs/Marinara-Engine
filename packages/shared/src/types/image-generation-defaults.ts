@@ -37,8 +37,10 @@ export interface NovelAiDefaults {
   negativePromptPrefix: string;
   sampler: string;
   noiseSchedule: string;
-  steps: number;
-  promptGuidance: number;
+  /** Null: NovelAI's own default for the request's model (novelAiRecommendedSettings). */
+  steps: number | null;
+  /** Null: NovelAI's own default for the request's model (novelAiRecommendedSettings). */
+  promptGuidance: number | null;
   promptGuidanceRescale: number;
   undesiredContentPreset: number;
   dynamicResolutionBySubjectCount: boolean;
@@ -49,6 +51,11 @@ export interface NovelAiDefaults {
   styleReferenceImage: string | null;
   styleReferenceStrength: number;
   styleReferenceFidelity: number;
+  /**
+   * 2: steps and prompt guidance are read as saved. A profile saved before it has the old built-in 28 steps and
+   * guidance 6 the editor wrote by itself, which read as automatic once (normalizeNovelAiDefaults).
+   */
+  settingsVersion: 2;
 }
 
 export interface ImageGenerationDefaultsProfile {

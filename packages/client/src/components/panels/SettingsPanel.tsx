@@ -257,6 +257,7 @@ import {
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { OvSeg } from "../overhaul/LoreEntryParts";
 import { TrackerPanelPreview } from "./settings/TrackerPanelPreview";
+import { PushNotificationSettings } from "./settings/PushNotificationSettings";
 import { UiStyleSettings } from "./settings/UiStyleSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { useImageCanvases, VIDEO_PROMPT_TEMPLATE_KEYS } from "../image-settings/image-canvases";
@@ -2347,6 +2348,8 @@ function GeneralSettings() {
           <span className="text-[var(--muted-foreground)]">{localizeUi("settings.notifications.position.help")}</span>
         </div>
         <ConversationSoundSetting />
+        <PushNotificationSettings />
+        <PushNotificationSettings />
       </SettingsSection>
 
       <SettingsSection

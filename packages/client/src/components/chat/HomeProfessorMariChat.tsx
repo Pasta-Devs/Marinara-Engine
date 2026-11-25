@@ -64,6 +64,7 @@ import { lorebookKeys, useLorebooks } from "../../hooks/use-lorebooks";
 import { useMariComposerReferences } from "../../hooks/use-mari-composer-references";
 import { useMariDocs } from "../../hooks/use-mari-docs";
 import { agentKeys, useAgentConfigs } from "../../hooks/use-agents";
+import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import type { MariCommandId } from "../../lib/mari-commands";
 import { presetKeys, usePresets } from "../../hooks/use-presets";
 import { themeKeys, useTryThemeSwitchedByMari } from "../../hooks/use-themes";
@@ -88,6 +89,7 @@ import {
   shouldAppendMariArrival,
   shouldOfferProfessorMariStarterSuggestions,
   shouldShowProfessorMariConnectionHint,
+  withValidSuggestionAction,
   withoutProfessorMariContextFacet,
   type ProfessorMariContextFacet,
 } from "../../lib/professor-mari-presentation";
@@ -300,17 +302,6 @@ function fetchMariThreadMessages(id: string, signal?: AbortSignal) {
   return api.get<Message[]>(`/chats/${id}/messages?limit=80`, { signal });
 }
 
-/**
- * #8651: a chip's chat action can name a chat the app does not list (her own thread, an id she made up). Running it
- * closed her window and the chat view fell back to Home, every time; such a chip asks her instead, and so does one
- * whose chat the list has not confirmed yet (still loading, or failed).
- */
-function withOpenableChatAction(chip: MariSuggestionChip, chats: readonly { id: string }[] | undefined) {
-  const action = chip.action;
-  if (action?.kind !== "chat" && action?.kind !== "peek-prompt") return chip;
-  return chats?.some((chat) => chat.id === action.chatId) ? chip : { ...chip, action: undefined };
-}
-
 /** Points her context at an editor field, with the field's current text as its draft. */
 function withCapturedEditorField(
   current: ProfessorMariAskContext | null,
@@ -424,6 +415,7 @@ export function HomeProfessorMariChat({
   const completionPresets = usePresets();
   const referenceChats = useChats();
   const referenceAgents = useAgentConfigs();
+  const capabilityAgents = useCapabilityAgentRegistry();
   const referenceDocs = useMariDocs();
   const completionCandidates = useMemo(
     () => [
@@ -924,8 +916,17 @@ export function HomeProfessorMariChat({
     [chatId, loadedMessagesChatId, mariTodos, mariTodosChatId, messages, serverTodos],
   );
   const visibleSuggestionChips = useMemo(() => {
+    const targets = {
+      chats: referenceChats.data,
+      characters: completionCharacters.data,
+      personas: completionPersonas.data,
+      lorebooks: completionLorebooks.data,
+      presets: completionPresets.data,
+      agents: referenceAgents.data,
+      capabilityAgents: capabilityAgents.data,
+    };
     const storeChipsForChat = (mariChipsChatId === chatId && mariChips.length > 0 ? mariChips : savedChips).map(
-      (chip) => withOpenableChatAction(chip, referenceChats.data),
+      (chip) => withValidSuggestionAction(chip, targets),
     );
     return pendingDeferredMutations && !storeChipsForChat.some((chip) => chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id)
       ? withHeldChangeDeclineChip([
@@ -942,11 +943,17 @@ export function HomeProfessorMariChat({
             ? MARI_STARTER_CHIPS
             : [];
   }, [
+    capabilityAgents.data,
     chatId,
+    completionCharacters.data,
+    completionLorebooks.data,
+    completionPersonas.data,
+    completionPresets.data,
     mariChips,
     mariChipsChatId,
     pendingDeferredMutations,
     professorMariSuggestionsEnabled,
+    referenceAgents.data,
     referenceChats.data,
     savedChips,
     starterSuggestionsAvailable,
@@ -2303,6 +2310,8 @@ export function HomeProfessorMariChat({
   const handleRestart = useCallback(async () => {
     const chat = await startMariThread(arrivalThreadRef.current ?? null);
     await api.post("/professor-mari/workspace/reset", { clearHistory: true });
+    setArrivalChoiceChatId(null);
+    setAppendedArrival(null);
     setMessages([]);
     setLoadedMessagesChatId(chat.id);
     setDraft("");
@@ -2643,6 +2652,8 @@ export function HomeProfessorMariChat({
     setConnectionMenuOpen,
     setMessages,
     setSending,
+    setWorkspaceTimeline,
+    workspaceRunIdRef,
   });
   // #9387: the server already swapped the picture in her saved reply; show it here without reloading the thread,
   // which would drop a turn that is still streaming.
@@ -2662,6 +2673,16 @@ export function HomeProfessorMariChat({
           : item,
       ),
     );
+    const latest = messagesRef.current.at(-1);
+    if (latest?.id === replaced.id) {
+      const updatedLatest: Message = {
+        ...latest,
+        content: replaced.content,
+        extra: { ...toMessageExtra(latest), ...replaced.extra } as Message["extra"],
+      };
+      const trace = getMessageWorkspaceTrace(updatedLatest);
+      if (trace) setWorkspaceTimeline(timelineItemsFromTrace(trace, updatedLatest));
+    }
   }, []);
   const handleSubmit = async (
     overrideText?: string,
@@ -4123,6 +4144,7 @@ export function HomeProfessorMariChat({
                             focusedCharacter={focusedCharacter}
                             focusedLorebook={focusedLorebook}
                             handleDeleteMessage={handleDeleteMessage}
+                            onImageReplaced={handleImageReplaced}
                             handleNewAboutContext={handleNewAboutContext}
                             handleRegenerateMessage={handleRegenerateMessage}
                             handleSuggestionSelect={handleSuggestionSelect}

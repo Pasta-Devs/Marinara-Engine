@@ -24,6 +24,7 @@ import { npcAvatarSlug } from "../services/game/npc-avatar-utils.js";
 import {
   generateTrackerPortrait,
   TrackerPortraitConflictError,
+  trackerPortraitRewriteOption,
   trackerPortraitStyleProfileId,
 } from "../services/image/tracker-portrait.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
@@ -38,6 +39,7 @@ const trackerPortraitRequestSchema = z.object({
   name: z.string().trim().min(1).max(200),
   appearance: z.string().nullish(),
   outfit: z.string().nullish(),
+  mood: z.string().nullish(),
   includeOutfit: z.boolean(),
   debugMode: z.boolean().optional(),
 });
@@ -211,11 +213,13 @@ export async function avatarsRoutes(app: FastifyInstance) {
       return notFound(reply, "Character card not found");
     }
     const isCardScenePortrait = !!card;
+    const chatMeta = parseAgentSettingsRecord(chat.metadata);
     let characterInput: {
       name: string;
       imageAppearance?: string | null;
       appearance?: string | null;
       outfit?: string | null;
+      mood?: string | null;
     } = body.data;
     let referenceImage: string | undefined;
     let referenceLine: string | null = null;
@@ -234,6 +238,7 @@ export async function avatarsRoutes(app: FastifyInstance) {
         // Card prose appearance is only a fallback when the card's Image Appearance override is off.
         appearance: imageAppearance ? trackerLook : (trackerLook ?? cardLook),
         outfit: body.data.outfit,
+        mood: body.data.mood,
       };
       if (trackerSettings.useCardReferenceInPortraits === true) {
         const connections = createConnectionsStorage(app.db);
@@ -271,12 +276,13 @@ export async function avatarsRoutes(app: FastifyInstance) {
         db: app.db,
         connectionId,
         chatId: chat.id,
-        styleProfileId: trackerPortraitStyleProfileId(parseAgentSettingsRecord(chat.metadata)),
+        styleProfileId: trackerPortraitStyleProfileId(chatMeta),
         character: characterInput,
         includeOutfit: body.data.includeOutfit,
         uniqueFilename: isCardScenePortrait,
         referenceImage,
         referenceLine,
+        rewritePrompt: trackerPortraitRewriteOption(trackerSettings, chatMeta, chat.connectionId),
         debugMode: body.data.debugMode,
       });
       return reply.send({ avatarPath: isCardScenePortrait ? avatarPath : `${avatarPath}?v=${Date.now()}` });

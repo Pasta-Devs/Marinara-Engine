@@ -29,8 +29,10 @@ export function fillMemoryRecallSlot(messages: Array<{ content: string }>, block
   return true;
 }
 
-/** Remove an unfilled Memory Recall marker, and any message it leaves empty. */
-export function stripMemoryRecallSlot<T extends { content: string }>(messages: T[]): T[] {
+/** Remove an unfilled Memory Recall marker, and any message left with no text, images or files (#9765). */
+export function stripMemoryRecallSlot<T extends { content: string; images?: unknown[]; files?: unknown[] }>(
+  messages: T[],
+): T[] {
   if (!messages.some((message) => message.content.includes(MEMORY_RECALL_SLOT_TOKEN))) return messages;
   return messages
     .map((message) =>
@@ -41,5 +43,5 @@ export function stripMemoryRecallSlot<T extends { content: string }>(messages: T
           }
         : message,
     )
-    .filter((message) => message.content.length > 0);
+    .filter((message) => message.content.length > 0 || message.images?.length || message.files?.length);
 }

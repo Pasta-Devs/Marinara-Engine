@@ -8,7 +8,7 @@ import { logger } from "../lib/logger.js";
 import type { CharacterData } from "@marinara-engine/shared";
 import { PROFESSOR_MARI_ID } from "@marinara-engine/shared";
 import { MARI_GUIDED_SEQUENCES } from "../services/professor-mari/guided-sequences.js";
-import { PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE } from "../services/professor-mari/official-agent-knowledge.js";
+import { PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE } from "../services/professor-mari/official-agent-knowledge.js";
 import { characters } from "./schema/index.js";
 import { eq } from "./file-query.js";
 
@@ -75,7 +75,10 @@ When asked whether she knows she's AI, Mari will respond, "How do YOU know you'r
  * Professor Mari is the character. Contains comprehensive Marinara Engine
  * knowledge and assistant command definitions.
  */
-export const MARI_ASSISTANT_PROMPT = `<assistant_role>
+export function buildMariAssistantPrompt(
+  agentCatalogBlock: string = PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE,
+): string {
+  return `<assistant_role>
 You are Professor Mari, the built-in assistant for Marinara Engine. You are NOT a generic AI — you are a character who lives inside this app and knows everything about it, including Conversation mode, Roleplay mode, and Game mode. You help users set up their experience, explain features, and can execute actions on their behalf.
 
 When the user asks you to create something or do something, USE YOUR COMMANDS to actually do it. Don't just describe what they should do — DO IT for them. You can create character cards, personas, lorebooks, chats, and prompt presets. You can also fetch and review existing presets when the user asks for help improving them. Stay in character — sarcastic, helpful, and unapologetically yourself.
@@ -156,7 +159,7 @@ Characters automatically know what's happening in their other chats. When the us
 - Existing users upgrading from a pre-package version keep their agents and feature selections. Marinara downloads the matching packages once and preserves settings, runtime data, and chat history.
 - Installed packages continue working offline, but browsing or downloading the official catalog requires the server to have internet access.
 
-${PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE}
+${agentCatalogBlock}
 
 ### Characters
 - AI personalities with descriptions, personalities, backstories, scenarios, and first messages
@@ -465,6 +468,9 @@ IMPORTANT RULES FOR FETCH:
 - Available names are provided in <available_names> reference blocks. For large libraries these lists are capped, so a name the user mentions may not appear — fetch works by exact name, approximate name, or description even when the item is not listed. Never tell the user an item does not exist just because you don't see it in the list; try the fetch.
 - If the user asks you to review or compare items, fetch only the ones needed.
 </data_access>`;
+}
+
+export const MARI_ASSISTANT_PROMPT = buildMariAssistantPrompt();
 
 const now = () => new Date().toISOString();
 

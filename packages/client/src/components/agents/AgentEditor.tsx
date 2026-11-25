@@ -144,6 +144,11 @@ import {
   type ToolDefinition,
   isChatProvider,
   NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
+  DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+  isCustomTrackerPortraitRewritePrompt,
+  serializeTrackerPortraitRewriteSettings,
+  shouldClearTrackerPortraitRewriteDraftAfterSave,
+  shouldShowTrackerPortraitRewriteEditor,
   DEFAULT_WRITER_REFERENCE_INSTRUCTION,
   readWriterReferenceSettings,
   REFERENCE_PICTURE_TARGETS,
@@ -879,6 +884,17 @@ export function AgentEditor() {
   const [localAutoGenerateAvatars, setLocalAutoGenerateAvatars] = useState(false);
   const [localIncludeOutfitInAvatars, setLocalIncludeOutfitInAvatars] = useState(true);
   const [localUseCardReferenceInPortraits, setLocalUseCardReferenceInPortraits] = useState(false);
+  const [localRewritePortraitPrompts, setLocalRewritePortraitPrompts] = useState(false);
+  const [localPortraitRewritePrompt, setLocalPortraitRewritePrompt] = useState("");
+  const [editingPortraitRewritePrompt, setEditingPortraitRewritePrompt] = useState(false);
+  const activeAgentDetailIdRef = useRef(agentDetailId);
+  activeAgentDetailIdRef.current = agentDetailId;
+  const portraitRewritePromptRevRef = useRef(0);
+  const editRevisionRef = useRef(0);
+  const setPortraitRewritePromptDraft = useCallback((value: string) => {
+    portraitRewritePromptRevRef.current += 1;
+    setLocalPortraitRewritePrompt(value);
+  }, []);
   const [localUseAvatarReferences, setLocalUseAvatarReferences] = useState(false);
   const [localIncludeCharacterAppearance, setLocalIncludeCharacterAppearance] = useState(false);
   const [localReferencePictureTarget, setLocalReferencePictureTarget] = useState<ReferencePictureTarget>("auto");
@@ -1101,6 +1117,11 @@ export function AgentEditor() {
       setLocalAutoGenerateAvatars(settings.autoGenerateAvatars === true);
       setLocalIncludeOutfitInAvatars(settings.includeOutfitInAvatars !== false);
       setLocalUseCardReferenceInPortraits(settings.useCardReferenceInPortraits === true);
+      setLocalRewritePortraitPrompts(settings.rewritePortraitPrompts === true);
+      const savedPortraitRewritePrompt =
+        typeof settings.portraitRewritePrompt === "string" ? settings.portraitRewritePrompt : "";
+      setPortraitRewritePromptDraft(savedPortraitRewritePrompt);
+      setEditingPortraitRewritePrompt(Boolean(savedPortraitRewritePrompt.trim()));
       setLocalUseAvatarReferences(
         (settings.useAvatarReferences as boolean | undefined) ?? defaultSettings.useAvatarReferences === true,
       );
@@ -1188,6 +1209,9 @@ export function AgentEditor() {
       setLocalAutoGenerateAvatars(false);
       setLocalIncludeOutfitInAvatars(true);
       setLocalUseCardReferenceInPortraits(false);
+      setLocalRewritePortraitPrompts(false);
+      setPortraitRewritePromptDraft("");
+      setEditingPortraitRewritePrompt(false);
       setLocalUseAvatarReferences(defaultSettings.useAvatarReferences === true);
       setLocalReferencePictureTarget("auto");
       setLocalWriterReferenceInstruction("");
@@ -1265,6 +1289,9 @@ export function AgentEditor() {
       setLocalAutoGenerateAvatars(false);
       setLocalIncludeOutfitInAvatars(true);
       setLocalUseCardReferenceInPortraits(false);
+      setLocalRewritePortraitPrompts(false);
+      setPortraitRewritePromptDraft("");
+      setEditingPortraitRewritePrompt(false);
       setLocalUseAvatarReferences(false);
       setLocalIncludeCharacterAppearance(false);
       setLocalReferencePictureTarget("auto");
@@ -1307,6 +1334,7 @@ export function AgentEditor() {
     isCustomAgent,
     normalizeTextConnectionOverride,
     normalizeImageConnectionOverride,
+    setPortraitRewritePromptDraft,
   ]);
 
   // Fetch music connection status when viewing Music DJ.
@@ -1695,6 +1723,10 @@ export function AgentEditor() {
         ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
         ...(localIncludeOutfitInAvatars ? {} : { includeOutfitInAvatars: false }),
         ...(localUseCardReferenceInPortraits ? { useCardReferenceInPortraits: true } : {}),
+        ...serializeTrackerPortraitRewriteSettings({
+          enabled: localRewritePortraitPrompts,
+          prompt: localPortraitRewritePrompt,
+        }),
         ...(supportsImagePromptSettings
           ? {
               useAvatarReferences: localUseAvatarReferences,
@@ -1785,6 +1817,8 @@ export function AgentEditor() {
     localAutoGenerateAvatars,
     localIncludeOutfitInAvatars,
     localUseCardReferenceInPortraits,
+    localRewritePortraitPrompts,
+    localPortraitRewritePrompt,
     localUseAvatarReferences,
     localIncludeCharacterAppearance,
     localReferencePictureTarget,
@@ -1838,6 +1872,11 @@ export function AgentEditor() {
       return false;
     }
 
+    const saveAgentDetailId = agentDetailId;
+    const savePortraitRewritePrompt = localPortraitRewritePrompt;
+    const savePortraitRewritePromptRev = portraitRewritePromptRevRef.current;
+    const saveEditRevision = editRevisionRef.current;
+
     try {
       if (dbConfig) {
         const loaded = loadedMariFieldsRef.current;
@@ -1889,10 +1928,28 @@ export function AgentEditor() {
           openAgentDetail(created.id);
         }
       }
-      setDirty(false);
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 1500);
-      return true;
+      const saveSnapshotCurrent =
+        activeAgentDetailIdRef.current === saveAgentDetailId &&
+        portraitRewritePromptRevRef.current === savePortraitRewritePromptRev &&
+        editRevisionRef.current === saveEditRevision;
+      if (
+        shouldClearTrackerPortraitRewriteDraftAfterSave({
+          savedPrompt: savePortraitRewritePrompt,
+          startedAgentId: saveAgentDetailId,
+          currentAgentId: activeAgentDetailIdRef.current,
+          startedRevision: savePortraitRewritePromptRev,
+          currentRevision: portraitRewritePromptRevRef.current,
+        })
+      ) {
+        setPortraitRewritePromptDraft("");
+        setEditingPortraitRewritePrompt(false);
+      }
+      if (saveSnapshotCurrent) {
+        setDirty(false);
+        setSavedFlash(true);
+        setTimeout(() => setSavedFlash(false), 1500);
+      }
+      return saveSnapshotCurrent;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save agent config");
       return false;
@@ -1907,6 +1964,8 @@ export function AgentEditor() {
     updateAgent,
     createAgent,
     openAgentDetail,
+    localPortraitRewritePrompt,
+    setPortraitRewritePromptDraft,
   ]);
   // Unsaved edits survive a reload, as in the Character editor (user panel 3, PV6). Keys are never written
   // to browser storage, and a new agent has no saved copy to come back to.
@@ -2225,6 +2284,10 @@ export function AgentEditor() {
       ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
       ...(localIncludeOutfitInAvatars ? {} : { includeOutfitInAvatars: false }),
       ...(localUseCardReferenceInPortraits ? { useCardReferenceInPortraits: true } : {}),
+      ...serializeTrackerPortraitRewriteSettings({
+        enabled: localRewritePortraitPrompts,
+        prompt: localPortraitRewritePrompt,
+      }),
       ...(supportsImagePromptSettings
         ? {
             useAvatarReferences: localUseAvatarReferences,
@@ -2293,7 +2356,10 @@ export function AgentEditor() {
     setDirty(true);
   }, [defaultPrompt]);
 
-  const markDirty = useCallback(() => setDirty(true), []);
+  const markDirty = useCallback(() => {
+    editRevisionRef.current += 1;
+    setDirty(true);
+  }, []);
 
   // Prof. Mari and the agent's own fields (`agent.update`), as in the Preset editor. A built-in agent
   // without a saved config has no record for her to change.
@@ -2571,6 +2637,13 @@ export function AgentEditor() {
       ? "ui.agents.agenteditor.writePromptForJsonResultExample"
       : "ui.agents.agenteditor.writePromptForTextResultExample",
   )}\n\n${customResultExample.value}`;
+  const hasCustomPortraitRewritePrompt = isCustomTrackerPortraitRewritePrompt(localPortraitRewritePrompt);
+  const isEditingPortraitRewritePrompt = editingPortraitRewritePrompt || hasCustomPortraitRewritePrompt;
+  const showPortraitRewritePromptEditor = shouldShowTrackerPortraitRewriteEditor({
+    enabled: localRewritePortraitPrompts,
+    editing: editingPortraitRewritePrompt,
+    prompt: localPortraitRewritePrompt,
+  });
 
   // An agent from the store that isn't installed (Image settings' Illustrator row, a Chat settings link) has no
   // settings page yet: show its install page instead, in place, so Back returns to where the link was.
@@ -3664,6 +3737,77 @@ export function AgentEditor() {
                   }}
                 />
               )}
+              <div className="grid gap-2">
+                <EditorSwitchRow
+                  label={localizeUi("ui.agents.agenteditor.rewritePortraitPrompts")}
+                  description={localizeUi("ui.agents.agenteditor.rewritePortraitPromptsDescription")}
+                  checked={localRewritePortraitPrompts}
+                  onChange={(checked) => {
+                    setLocalRewritePortraitPrompts(checked);
+                    markDirty();
+                  }}
+                />
+                {showPortraitRewritePromptEditor && (
+                  <div className="grid gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium text-[var(--foreground)]">
+                        {localizeUi("ui.agents.agenteditor.portraitRewritePrompt")}
+                      </span>
+                      {hasCustomPortraitRewritePrompt ? (
+                        <span className="flex items-center gap-1 rounded-lg bg-[var(--primary)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]">
+                          <FileText size="0.625rem" /> {localizeUi("ui.agents.agenteditor.customOverride")}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 rounded-lg bg-[var(--background)] px-2 py-0.5 text-[0.625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                          <Check size="0.625rem" /> {localizeUi("ui.agents.agenteditor.usingBuiltInDefault")}
+                        </span>
+                      )}
+                      <div className="flex-1" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isEditingPortraitRewritePrompt) {
+                            setPortraitRewritePromptDraft("");
+                            setEditingPortraitRewritePrompt(false);
+                          } else {
+                            setPortraitRewritePromptDraft(DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT);
+                            setEditingPortraitRewritePrompt(true);
+                          }
+                          markDirty();
+                        }}
+                        className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                      >
+                        {isEditingPortraitRewritePrompt ? (
+                          <>
+                            <RotateCcw size="0.625rem" /> {localizeUi("ui.agents.agenteditor.resetToDefault")}
+                          </>
+                        ) : (
+                          <>
+                            <FileText size="0.625rem" /> {localizeUi("ui.agents.agenteditor.copyDefaultToEdit")}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {isEditingPortraitRewritePrompt ? (
+                      <textarea
+                        aria-label={localizeUi("ui.agents.agenteditor.portraitRewritePrompt")}
+                        value={localPortraitRewritePrompt}
+                        onChange={(event) => {
+                          setPortraitRewritePromptDraft(event.target.value);
+                          markDirty();
+                        }}
+                        placeholder={DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT}
+                        rows={7}
+                        className="min-h-[7rem] w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs leading-relaxed text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/45 focus:border-[var(--primary)]/50"
+                      />
+                    ) : (
+                      <pre className="w-full max-h-48 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs leading-relaxed text-[var(--muted-foreground)] whitespace-pre-wrap">
+                        {DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT}
+                      </pre>
+                    )}
+                  </div>
+                )}
+              </div>
               {localAutoGenerateAvatars && (
                 <div className="mt-2">
                   <label className="block text-xs text-[var(--muted-foreground)] mb-1">

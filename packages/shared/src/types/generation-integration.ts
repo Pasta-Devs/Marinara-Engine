@@ -299,6 +299,11 @@ export interface ImageGenRequest {
   referenceImage?: string;
   /** Optional array of base64-encoded reference images (avatars). Providers that support multiple refs use all; others use the first. */
   referenceImages?: string[];
+  /**
+   * NovelAI V5 Precise Reference: false lets the prompt dress the referenced characters ("Prefer same outfit" off),
+   * for callers whose prompt names the outfit. Default true keeps the reference's outfit, as V4.5 does.
+   */
+  preferReferenceOutfit?: boolean;
   /** The reference image already is the requested canvas (an in-place edit such as a blink picture), so
    *  providers must keep its framing rather than compose a new picture around it. */
   referenceIsCanvas?: boolean;

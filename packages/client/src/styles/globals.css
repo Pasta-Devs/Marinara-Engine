@@ -3293,7 +3293,7 @@ html[data-mari-ios-webkit] :is(.mari-modal, .mari-right-panel-content) [class*="
 /* Resolve the app background before the panel remaps its neutral-surface tokens.
    An opaque backing keeps covered settings from showing through without blur. */
 html[data-mari-ios-webkit] .mari-modal {
-  --mari-modal-opaque-bg: var(--background);
+  --mari-modal-opaque-bg: var(--marinara-app-background-color, var(--background));
 }
 
 html[data-mari-ios-webkit] .mari-modal .mari-modal-panel {
@@ -3314,7 +3314,7 @@ html[data-mari-ios-webkit]:not(
 
 /* Opt-in solid window (Connections): the chrome panel colour is translucent, so back it with the app background. */
 .mari-modal--opaque {
-  --mari-modal-opaque-bg: var(--background);
+  --mari-modal-opaque-bg: var(--marinara-app-background-color, var(--background));
 }
 
 .mari-modal--opaque .mari-modal-panel.marinara-chat-popover:not(.mari-window) {

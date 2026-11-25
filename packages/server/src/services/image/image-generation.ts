@@ -21,6 +21,7 @@ import {
   DEFAULT_AUTOMATIC1111_DEFAULTS,
   DEFAULT_COMFYUI_DEFAULTS,
   DEFAULT_NOVELAI_DEFAULTS,
+  novelAiRecommendedSettings,
   mergeNegativePrompt,
   mergePromptPrefix,
   imageConnectionMakesAnimatedGif,
@@ -2860,6 +2861,19 @@ const NOVELAI_DIRECTOR_REFERENCE_SIZES = [
   { width: 1536, height: 1024 },
   { width: 1472, height: 1472 },
 ] as const;
+/**
+ * V5's reference buckets, as NovelAI's own client lists them: about one megapixel each, for every height from 1024 to
+ * 4096 px in 64 px steps with the widest 64 px multiple under 1024×1024 pixels, and the same turned on its side.
+ */
+const NOVELAI_V5_REFERENCE_BUCKETS = Array.from({ length: 49 }, (_, index) => 1024 + index * 64).flatMap((height) => {
+  const width = Math.floor((1024 * 1024) / height / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE;
+  return width === height
+    ? [{ width, height }]
+    : [
+        { width, height },
+        { width: height, height: width },
+      ];
+});
 const NOVELAI_REFERENCE_CACHE_HMAC_KEY = randomBytes(32);
 
 function clampNovelAiDimension(value: number): number {
@@ -3009,8 +3023,9 @@ export function withNovelAiBackgroundDataset(
   return rest ? `${NOVELAI_BACKGROUND_DATASET_TAG}, ${rest}` : NOVELAI_BACKGROUND_DATASET_TAG;
 }
 
+/** Precise Reference ships on V4.5 and, since 2026-11-24, on V5. */
 function isNovelAiPreciseReferenceModel(model: string): boolean {
-  return /^nai-diffusion-(?:4-5)(?:-(?:curated|full))?(?:-inpainting)?$/i.test(model.trim());
+  return /^nai-diffusion-(?:4-5|5)(?:-(?:curated|full))?(?:-inpainting)?$/i.test(model.trim());
 }
 
 /** Normalize the edit source canvas and optional 8x8 binary infill mask to matching PNG dimensions. */
@@ -3188,7 +3203,22 @@ function selectNovelAiDirectorReferenceSize(width: number, height: number): { wi
   }, NOVELAI_DIRECTOR_REFERENCE_SIZES[0]);
 }
 
-async function prepareNovelAiDirectorReferenceImages(referenceImages: string[]): Promise<string[]> {
+/** The V5 bucket nearest the picture's aspect ratio, compared as NovelAI's client does (by log ratio). */
+function selectNovelAiV5ReferenceBucket(width: number, height: number): { width: number; height: number } {
+  const ratio = Math.log(width / height);
+  return NOVELAI_V5_REFERENCE_BUCKETS.reduce((best, candidate) =>
+    Math.abs(ratio - Math.log(candidate.width / candidate.height)) <
+    Math.abs(ratio - Math.log(best.width / best.height))
+      ? candidate
+      : best,
+  );
+}
+
+/**
+ * Fit each reference to what the model reads: V4.5 pads it onto black at one of its three sizes; V5 fills its nearest
+ * bucket, cropping the overflow from the centre and keeping any transparency, as NovelAI's client does.
+ */
+async function prepareNovelAiDirectorReferenceImages(referenceImages: string[], v5 = false): Promise<string[]> {
   if (referenceImages.length === 0) return [];
 
   const sharpFn = await tryLoadSharp();
@@ -3206,12 +3236,15 @@ async function prepareNovelAiDirectorReferenceImages(referenceImages: string[]):
         if (!metadata.width || !metadata.height) {
           throw new Error("image dimensions could not be read");
         }
-        const size = selectNovelAiDirectorReferenceSize(metadata.width, metadata.height);
+        const size = v5
+          ? selectNovelAiV5ReferenceBucket(metadata.width, metadata.height)
+          : selectNovelAiDirectorReferenceSize(metadata.width, metadata.height);
         const resized = await sharpFn(buffer, { limitInputPixels: NOVELAI_REFERENCE_MAX_INPUT_PIXELS })
-          .resize(size.width, size.height, {
-            fit: "contain",
-            background: { r: 0, g: 0, b: 0, alpha: 1 },
-          })
+          .resize(
+            size.width,
+            size.height,
+            v5 ? { fit: "cover", position: "centre" } : { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 1 } },
+          )
           .png()
           .toBuffer();
         return resized.toString("base64");
@@ -3493,16 +3526,15 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
       ? [styleReferenceImage, ...characterReferenceImages]
       : characterReferenceImages;
     if (referenceImages.length > 0 && !isNovelAiPreciseReferenceModel(baseModel)) {
-      // NovelAI only ships Precise Reference on V4.5; V5 support is still pending upstream.
-      // Render without the references rather than failing the whole illustration.
+      // Older models have no Precise Reference: render without the references rather than fail the illustration.
       logger.warn(
-        "[novelai] Dropping %d reference image(s): precise reference requires a V4.5 model, got %s",
+        "[novelai] Dropping %d reference image(s): precise reference requires a V4.5 or V5 model, got %s",
         referenceImages.length,
         baseModel,
       );
       referenceImages = [];
     }
-    directorReferenceImages = await prepareNovelAiDirectorReferenceImages(referenceImages);
+    directorReferenceImages = await prepareNovelAiDirectorReferenceImages(referenceImages, isV5);
   }
 
   const characterPromptPayload = buildNovelAiV4CharacterPromptPayload(request.characterPrompts, baseModel);
@@ -3510,6 +3542,8 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
     ? { width: editInputs.width, height: editInputs.height }
     : resolveNovelAiRequestSize(request, defaults);
 
+  // A connection that leaves Steps or Prompt guidance unset sends NovelAI's own default for the model.
+  const recommended = novelAiRecommendedSettings(baseModel);
   const parameters: Record<string, unknown> = {
     width: size.width,
     height: size.height,
@@ -3517,12 +3551,17 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
     ucPreset: defaults.undesiredContentPreset,
     negative_prompt: negativePrompt,
     seed,
-    scale: defaults.promptGuidance,
-    steps: defaults.steps,
+    scale: defaults.promptGuidance ?? recommended.promptGuidance,
+    steps: defaults.steps ?? recommended.steps,
     sampler: defaults.sampler,
   };
   if (defaults.noiseSchedule) {
     parameters.noise_schedule = defaults.noiseSchedule;
+  }
+  // As NovelAI's client sends them for Euler Ancestral on a scheduled noise (not "native"): its corrected sampling.
+  if (defaults.sampler === "k_euler_ancestral" && defaults.noiseSchedule && defaults.noiseSchedule !== "native") {
+    parameters.deliberate_euler_ancestral_bug = false;
+    parameters.prefer_brownian = true;
   }
   if (isV4) {
     parameters.cfg_rescale = defaults.promptGuidanceRescale;
@@ -3549,16 +3588,22 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
   if (directorReferenceImages.length > 0) {
     const styleReferenceOffset = styleReferenceImage ? 1 : 0;
     parameters.director_reference_images = directorReferenceImages;
+    // V5's Character & Style comes with "Prefer same outfit" on ("character&style") or off ("…_anyoutfit").
+    const characterReference =
+      isV5 && request.preferReferenceOutfit === false ? "character&style_anyoutfit" : "character&style";
     parameters.director_reference_descriptions = directorReferenceImages.map((_, index) => ({
-      caption: { base_caption: index < styleReferenceOffset ? "style" : "character&style", char_captions: [] },
+      caption: { base_caption: index < styleReferenceOffset ? "style" : characterReference, char_captions: [] },
       legacy_uc: false,
     }));
     parameters.director_reference_information_extracted = directorReferenceImages.map(() => 1);
     parameters.director_reference_strength_values = directorReferenceImages.map((_, index) =>
       index < styleReferenceOffset ? defaults.styleReferenceStrength : 1,
     );
+    // V5 has no Fidelity: NovelAI's client sends it as 1, a secondary strength of 0.
     parameters.director_reference_secondary_strength_values = directorReferenceImages.map((_, index) =>
-      index < styleReferenceOffset ? resolveNovelAiStyleReferenceSecondaryStrength(defaults.styleReferenceFidelity) : 0,
+      index < styleReferenceOffset && !isV5
+        ? resolveNovelAiStyleReferenceSecondaryStrength(defaults.styleReferenceFidelity)
+        : 0,
     );
   }
   if (editMode === "img2img" && editInputs) {

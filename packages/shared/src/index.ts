@@ -87,6 +87,7 @@ export { MAX_USER_CSS_BYTES, utf8ByteLength } from "./schemas/css-size.js";
 export * from "./schemas/app-settings.schema.js";
 export * from "./schemas/impersonate-prompt-templates.schema.js";
 export * from "./schemas/feature-settings.schema.js";
+export * from "./schemas/push-notifications.schema.js";
 export * from "./schemas/conversation-call.schema.js";
 export * from "./schemas/noodle.schema.js";
 export * from "./schemas/avatar-crop.schema.js";
@@ -183,6 +184,7 @@ export * from "./constants/settings-registry.js";
 // Feature registries
 export * from "./features/agents/agent-manifest.types.js";
 export * from "./features/agents/storyboard-agent-settings.js";
+export * from "./features/agents/tracker-portrait-rewrite-settings.js";
 export * from "./features/agents/writer-reference-settings.js";
 export {
   BUILT_IN_AGENT_MANIFESTS,

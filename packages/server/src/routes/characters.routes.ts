@@ -519,6 +519,8 @@ type AvatarGenerationBody = {
   referenceImages?: string[];
   /** What each reference picture is for, in the same order (see IMAGE_REFERENCE_ROLES). */
   referenceRoles?: string[];
+  /** NovelAI V5: false when the prompt names the outfit, so the references keep only the likeness. */
+  preferReferenceOutfit?: boolean;
   width?: number;
   height?: number;
   styleProfileId?: string | null;
@@ -1966,6 +1968,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         height,
         referenceImage: referenceImages[0],
         referenceImages: referenceImages.length > 1 ? referenceImages : undefined,
+        ...(body.preferReferenceOutfit === false ? { preferReferenceOutfit: false } : {}),
         imageEndpointId: conn.imageEndpointId || undefined,
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
         imageDefaults,
