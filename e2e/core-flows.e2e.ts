@@ -8963,7 +8963,8 @@ test("external Agent imports require the Danger Zone gate and explicit capabilit
     await clickTopbarPanel(page, "agents");
     const importAgents = page.getByTitle("Import agents");
     await expect(importAgents).toHaveCount(1);
-    await expect(importAgents).toHaveAttribute("aria-disabled", "false");
+    // The phone toolbar leaves aria-disabled out once the button works, the desktop one says "false".
+    await expect(importAgents).not.toHaveAttribute("aria-disabled", "true");
     await expect(page.getByTitle("Import agent folder")).toHaveCount(0);
     await importAgents.click();
     const importSourceDialog = page.getByRole("dialog", { name: "Import agents" });
@@ -10680,9 +10681,10 @@ test("prompt preset transfers discard deprecated generation parameters", async (
     const compatibleStoredResponse = await request.get(`/api/prompts/${compatibleImport.presetId}`);
     const compatibleStored = (await compatibleStoredResponse.json()) as { parameters: string };
     const compatibleParameters = JSON.parse(compatibleStored.parameters) as Record<string, unknown>;
-    expect(compatibleParameters).not.toHaveProperty("temperature");
+    // A SillyTavern preset keeps its samplers and reasoning effort; its output length stays on the connection
+    // (#9647).
+    expect(compatibleParameters).toMatchObject({ temperature: 0.19, reasoningEffort: "low" });
     expect(compatibleParameters).not.toHaveProperty("maxTokens");
-    expect(compatibleParameters).not.toHaveProperty("reasoningEffort");
     const compatibleSectionsResponse = await request.get(`/api/prompts/${compatibleImport.presetId}/sections`);
     expect(await compatibleSectionsResponse.json()).toContainEqual(
       expect.objectContaining({ content: "Compatible prompt content survives import." }),
@@ -13514,6 +13516,11 @@ test("Professor Mari introduces Characters and Personas in topbar order without 
   await expect(page.getByRole("heading", { name: "Welcome to Marinara Engine!", exact: true })).toBeVisible();
 
   const next = page.getByRole("button", { name: "Next", exact: true });
+  // The tour opens with Chats and its three modes, then the topbar panels (#9492).
+  for (const title of ["Chats", "Conversation Mode", "Roleplay Mode", "Game Mode"]) {
+    await next.click();
+    await expect(page.locator("h3").filter({ hasText: new RegExp(`^${title}$`) })).toBeVisible();
+  }
   await next.click();
   await expect(page.locator("h3").filter({ hasText: /^Characters$/ })).toBeVisible();
   await expect(page.locator("h3").filter({ hasText: /^Browser$/ })).toHaveCount(0);
@@ -13529,7 +13536,12 @@ test("Professor Mari replaces the Noodle tour with highlighted Home guidance", a
   await expect(page.getByRole("heading", { name: "Welcome to Marinara Engine!", exact: true })).toBeVisible();
 
   const next = page.getByRole("button", { name: "Next", exact: true });
+  // Chats and its three modes come first since the one sidebar (#9492).
   const stepsBeforeHome = [
+    "Chats",
+    "Conversation Mode",
+    "Roleplay Mode",
+    "Game Mode",
     "Characters",
     "Personas",
     "Lorebooks",
@@ -13537,10 +13549,6 @@ test("Professor Mari replaces the Noodle tour with highlighted Home guidance", a
     "Connections",
     "Agents",
     "Settings",
-    "Chats",
-    "Conversation Mode",
-    "Roleplay Mode",
-    "Game Mode",
     "Home: Your Story Hub",
   ];
   for (const title of stepsBeforeHome) {
@@ -17669,7 +17677,8 @@ test("Illustrator and Storyboard keep separate visual settings cards while agent
     await expect(
       storyboardsSubsection.getByRole("switch", { name: /Automatic Storyboard Illustrations/ }),
     ).toBeChecked();
-    const automaticAnimationsToggle = storyboardsSubsection.getByRole("checkbox", {
+    // Both automatic Storyboard settings are the shared agent switches.
+    const automaticAnimationsToggle = storyboardsSubsection.getByRole("switch", {
       name: /Automatic Storyboard Animations/,
     });
     await expect(automaticAnimationsToggle).not.toBeChecked();
@@ -24292,6 +24301,8 @@ test("clearing Roleplay trackers requires confirmation and Cancel preserves stat
     const dialog = page.getByRole("dialog").filter({ hasText: "Clear all trackers for this chat?" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    // Cancel closes the confirmation; until it is gone its own Clear Trackers button is a second match below.
+    await expect(dialog).toHaveCount(0);
     expect((await (await request.get(`/api/chats/${chat.id}/game-state`)).json()).location).toBe("Protected location");
     await openChatSettingsTool(page, "agent-activity");
     await page.getByRole("button", { name: "Clear Trackers", exact: true }).click();

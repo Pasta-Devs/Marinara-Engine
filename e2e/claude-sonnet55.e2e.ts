@@ -4,9 +4,16 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
-// Sonnet 5.5 keeps Off (sent as between_tools natively, low effort elsewhere), unlike Opus 5.5.
-for (const provider of ["anthropic", "claude_subscription"] as const) {
-  test(`Sonnet 5.5 selection and reasoning Off/max persist for ${provider}`, async ({ page, request }, info) => {
+// Sonnet 5.5 keeps Off on the API (sent as between_tools), unlike Opus 5.5. The subscription runs Off at low effort, so
+// its lightest level is Low and it offers no Off (#9604).
+for (const [provider, lightest] of [
+  ["anthropic", "Off"],
+  ["claude_subscription", "Low"],
+] as const) {
+  test(`Sonnet 5.5 selection and reasoning ${lightest}/max persist for ${provider}`, async ({
+    page,
+    request,
+  }, info) => {
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
     await seedUIState(page, {
       hasCompletedOnboarding: true,
@@ -45,10 +52,11 @@ for (const provider of ["anthropic", "claude_subscription"] as const) {
       await defaults.press("Space");
       await expect(defaults).toBeChecked();
       const reasoning = page.getByText("Reasoning Effort", { exact: true }).locator("../../..");
-      const off = reasoning.getByRole("button", { name: "Off", exact: true });
+      const lowest = reasoning.getByRole("button", { name: lightest, exact: true });
       const maximum = reasoning.getByRole("button", { name: "Max", exact: true });
+      if (lightest === "Low") await expect(reasoning.getByRole("button", { name: "Off", exact: true })).toHaveCount(0);
       for (const [button, effort] of [
-        [off, null],
+        [lowest, lightest === "Off" ? null : "low"],
         [maximum, "maximum"],
       ] as const) {
         await button.click();
