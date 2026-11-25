@@ -169,10 +169,58 @@ function classify(entries: PerformanceResourceTiming[], start: number) {
   return { api, code, media, preload };
 }
 
+type KeyboardGeometry = { visible: string; app: string; window: string; page: string };
+
+/** While the on-screen keyboard is up: what the browser reports and where the app put itself, so a phone
+ *  screenshot of a keyboard layout problem carries the numbers (Nov 25, iPhone keyboard gap). Heights @ tops. */
+function useKeyboardGeometry(enabled: boolean): KeyboardGeometry | null {
+  const [geometry, setGeometry] = useState<KeyboardGeometry | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    const root = document.documentElement;
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      if (!root.hasAttribute("data-mari-software-keyboard-open")) {
+        setGeometry(null);
+        return;
+      }
+      const viewport = window.visualViewport;
+      const shell = document.querySelector('[data-component="AppShell"]')?.getBoundingClientRect();
+      const round = (value: number | undefined) => Math.round(value ?? 0);
+      setGeometry({
+        visible: `${round(viewport?.height)}@${round(viewport?.offsetTop)}/${round(viewport?.pageTop)} ×${(viewport?.scale ?? 1).toFixed(2)}`,
+        app: `${round(shell?.height)}@${round(shell?.top)}`,
+        window: `${round(window.innerHeight)}/${round(root.clientHeight)}`,
+        page: `${round(window.scrollY)}/${round(root.scrollHeight)}`,
+      });
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(read);
+    };
+    const observer = new MutationObserver(schedule);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-mari-software-keyboard-open", "style"] });
+    window.visualViewport?.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("scroll", schedule);
+    window.addEventListener("scroll", schedule, { passive: true });
+    schedule();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.visualViewport?.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("scroll", schedule);
+      window.removeEventListener("scroll", schedule);
+      setGeometry(null);
+    };
+  }, [enabled]);
+  return geometry;
+}
+
 export function TapTimings() {
   const { t: localizeUi } = useUiTranslation();
   const enabled = useTapTimingsEnabled();
   const [rows, setRows] = useState<TapRow[]>([]);
+  const keyboard = useKeyboardGeometry(enabled);
 
   useEffect(() => {
     if (!enabled) return;
@@ -313,10 +361,20 @@ export function TapTimings() {
     <div
       aria-hidden="true"
       data-component="TapTimings"
+      data-keyboard-open={keyboard ? "true" : undefined}
       style={{
-        position: "fixed",
+        // With the keyboard up the box sits under the top bar of the part of the page still visible: fixed to
+        // the bottom it was behind the keyboard, and iPhone Safari moves the visible part over the page.
+        ...(keyboard
+          ? {
+              position: "absolute",
+              top: "calc(var(--mari-visual-viewport-offset-top, 0px) + 4rem)",
+            }
+          : {
+              position: "fixed",
+              bottom: "calc(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)) + 4.5rem)",
+            }),
         left: "max(0.5rem, var(--mari-safe-area-inset-left))",
-        bottom: "calc(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)) + 4.5rem)",
         // Over every app overlay, but not over the omnibar or Mari (it never takes taps either way).
         zIndex: "calc(var(--mari-layer-omnibar) - 1)",
         pointerEvents: "none",
@@ -332,6 +390,11 @@ export function TapTimings() {
     >
       <div style={{ opacity: 0.7 }}>{localizeUi("ui.layout.taptimings.tapShownSmoothLongestFrameLoads")}</div>
       {rows.length === 0 ? <div style={{ opacity: 0.7 }}>{localizeUi("ui.layout.taptimings.tapSomething")}</div> : null}
+      {keyboard ? (
+        <div data-tap-timings-keyboard style={{ color: "#ffe08a", whiteSpace: "normal" }}>
+          {localizeUi("ui.layout.taptimings.keyboard", keyboard)}
+        </div>
+      ) : null}
       {rows.map((row) => (
         <div
           key={row.id}

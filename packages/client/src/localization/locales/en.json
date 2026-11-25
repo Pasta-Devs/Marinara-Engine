@@ -16323,6 +16323,7 @@
   "ui.layout.taptimings.apiCode": "(api {{api}} · code {{code}})",
   "ui.layout.taptimings.apiCodeMedia": "(api {{api}} · code {{code}} · media {{media}})",
   "ui.layout.taptimings.capped": "≥{{value}}",
+  "ui.layout.taptimings.keyboard": "keyboard · visible {{visible}} · app {{app}} · window {{window}} · page {{page}}",
   "ui.layout.taptimings.preload": "+{{count}} pre",
   "ui.layout.taptimings.tapShownSmoothLongestFrameLoads": "tap → shown · smooth · longest frame · loads",
   "ui.layout.taptimings.tapSomething": "Tap something…",

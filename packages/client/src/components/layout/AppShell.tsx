@@ -477,6 +477,19 @@ export function AppShell({
     const viewportBefore = viewportMeta?.content ?? null;
     if (isIosWebKit && viewportMeta && !/maximum-scale/.test(viewportMeta.content))
       viewportMeta.content = `${viewportMeta.content}, maximum-scale=1`;
+    // iPhone Safari can change the visible area after its last resize event (the keyboard and address bar
+    // finish sliding in, or a stale first report is corrected silently), which left the app sized for the
+    // keyboard's first report with a blank band between the message box and the keyboard (Nov 25). While the
+    // keyboard is up, compare the reported numbers every 400 ms and refit when they changed: reads only.
+    let keyboardWatch = 0;
+    let lastReading = "";
+    const readViewport = () => {
+      const viewport = window.visualViewport;
+      return `${viewport?.height}|${viewport?.offsetTop}|${viewport?.pageTop}|${viewport?.scale}|${window.innerHeight}`;
+    };
+    const checkKeyboardViewport = () => {
+      if (!frame && readViewport() !== lastReading) updateVisualViewportGeometry();
+    };
     const updateVisualViewportGeometry = () => {
       if (frame) cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
@@ -546,6 +559,12 @@ export function AppShell({
         root.style.setProperty("--mari-visual-viewport-height", `${Math.max(0, Math.round(height))}px`);
         root.style.setProperty("--mari-visual-viewport-offset-top", `${Math.round(offsetTop)}px`);
         root.toggleAttribute("data-mari-software-keyboard-open", keyboardOpen);
+        lastReading = readViewport();
+        if (keyboardOpen && !keyboardWatch) keyboardWatch = window.setInterval(checkKeyboardViewport, 400);
+        else if (!keyboardOpen && keyboardWatch) {
+          window.clearInterval(keyboardWatch);
+          keyboardWatch = 0;
+        }
         dispatchChatVisualViewportChange({
           height,
           offsetTop,
@@ -596,6 +615,9 @@ export function AppShell({
     window.visualViewport?.addEventListener("resize", updateVisualViewportGeometry);
     window.visualViewport?.addEventListener("scroll", updateVisualViewportGeometry);
     window.addEventListener("resize", updateVisualViewportGeometry);
+    // Safari can scroll the page itself to reveal the field; that moves pageTop without a visual viewport
+    // scroll event (offsetTop is unchanged), and the app stayed where the page was.
+    window.addEventListener("scroll", updateVisualViewportGeometry, { passive: true });
     window.addEventListener("orientationchange", refreshAfterOrientationChange);
     window.screen.orientation?.addEventListener("change", refreshAfterOrientationChange);
     // Entering or leaving the browser's fullscreen (a Home package's, HomeBrowserHub) changes the viewport by the
@@ -608,6 +630,7 @@ export function AppShell({
 
     return () => {
       if (frame) cancelAnimationFrame(frame);
+      window.clearInterval(keyboardWatch);
       window.clearTimeout(dismissTimer);
       document.removeEventListener("focusin", noteKeyboardDismissal);
       document.removeEventListener("focusout", noteKeyboardDismissal);
@@ -616,6 +639,7 @@ export function AppShell({
       window.visualViewport?.removeEventListener("resize", updateVisualViewportGeometry);
       window.visualViewport?.removeEventListener("scroll", updateVisualViewportGeometry);
       window.removeEventListener("resize", updateVisualViewportGeometry);
+      window.removeEventListener("scroll", updateVisualViewportGeometry);
       window.removeEventListener("orientationchange", refreshAfterOrientationChange);
       window.screen.orientation?.removeEventListener("change", refreshAfterOrientationChange);
       document.removeEventListener("fullscreenchange", refreshAfterOrientationChange);
