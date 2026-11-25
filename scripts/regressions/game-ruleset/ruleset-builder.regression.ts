@@ -112,6 +112,27 @@ assert.equal(rulesetBuilderPresetOf(example("gravewatch").resolution), "pool");
   );
 }
 
+// How the sheet shows ranks reads back as chosen; the check value, the default, writes nothing.
+{
+  const draft = rulesetBuilderStarter("no-dice", "Dotted");
+  draft.skills = [{ key: rulesetBuilderKey(), label: "Climb", ability: draft.abilities[0]!.key }];
+  assert.equal((rulesetFromBuilderDraft(draft) as any).sheet.rankDisplay, undefined, "none by default");
+  for (const rankDisplay of ["label", "dots", "roman", "number"] as const) {
+    draft.rankDisplay = rankDisplay;
+    const written = parsed(rulesetFromBuilderDraft(draft));
+    assert.equal(written.sheet.rankDisplay, rankDisplay);
+    const back = rulesetBuilderDraftFrom(written as any);
+    assert.equal(back?.rankDisplay, rankDisplay, `${rankDisplay} opens as itself`);
+  }
+  // A file that spells out the default still opens, and saves without it.
+  delete draft.rankDisplay;
+  const spelled = { ...(rulesetFromBuilderDraft(draft) as any) };
+  spelled.sheet = { ...spelled.sheet, rankDisplay: "value" };
+  const opened = rulesetBuilderDraftFrom(parsed(spelled) as any);
+  assert.ok(opened, "rankDisplay: value opens in the builder");
+  assert.equal(opened.rankDisplay, undefined);
+}
+
 // The builder opens any ruleset it could write back unchanged, and no other.
 assert.equal(rulesetBuilderDraftFrom(example("ember-roads")), null, "a ruleset with combat is its author's");
 assert.equal(rulesetBuilderDraftFrom(example("gravewatch")), null);

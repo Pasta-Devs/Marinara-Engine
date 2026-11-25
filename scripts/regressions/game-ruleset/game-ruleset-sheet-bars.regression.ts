@@ -7,13 +7,26 @@
  *     `counter`, `bar` or `dots`.
  *   - A packaged ruleset that uses it, on the sheet or the party, declares 1.828; one without it
  *     installs as before.
+ *
+ * And how the sheet shows a skill's or save's rank (`sheet.rankDisplay`, Capability API 1.837):
+ *   - The schema takes `value`, `label`, `dots`, `roman` or `number`, and nothing else.
+ *   - Each shows the rank the same way for every tier, untrained included; `value`, or nothing, leaves
+ *     the check value to the sheet. The Game Master's sheet block is the same whatever it is.
+ *   - A packaged ruleset that sets it declares 1.837.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseRulesetDefinition } from "../../../packages/shared/src/index.js";
+import {
+  defaultRulesetSheetBuild,
+  parseRulesetDefinition,
+  renderRulesetSheetBlock,
+  rulesetRankDisplayText,
+  rulesetTierRank,
+  rulesetTopRank,
+} from "../../../packages/shared/src/index.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-ruleset-sheet-bars-"));
 const previousDataDir = process.env.DATA_DIR;
@@ -84,6 +97,74 @@ try {
     /1\.828/,
     "a ruleset without it is not held to 1.828",
   );
+
+  // How a rank is shown. Ember Roads' tiers: untrained, trained, expert.
+  const ranked = (rankDisplay?: string) => {
+    const result = parseRulesetDefinition(
+      doc((document) => {
+        if (rankDisplay !== undefined) document.sheet.rankDisplay = rankDisplay;
+      }),
+    );
+    assert.ok(result.ok, result.ok ? "" : result.issues.join("; "));
+    return result.definition;
+  };
+  const shown = (rankDisplay?: string) =>
+    ["untrained", "trained", "expert", "not-a-tier"].map((tier) => rulesetRankDisplayText(ranked(rankDisplay), tier));
+  assert.deepEqual(shown(), [null, null, null, null], "nothing set: the check value, as before");
+  assert.deepEqual(shown("value"), [null, null, null, null]);
+  assert.deepEqual(shown("label"), ["Untrained", "Trained", "Expert", "Untrained"]);
+  assert.deepEqual(shown("dots"), ["○○", "●○", "●●", "○○"]);
+  assert.deepEqual(shown("roman"), ["–", "I", "II", "–"]);
+  assert.deepEqual(shown("number"), ["0", "1", "2", "0"]);
+  assert.deepEqual(
+    ["untrained", "trained", "expert", undefined].map((tier) => rulesetTierRank(ranked(), tier)),
+    [0, 1, 2, 0],
+  );
+  assert.notDeepEqual(issuesOf(doc((document) => (document.sheet.rankDisplay = "stars"))), [], "only the five");
+  // Twelve tiers, the most a ruleset has: the top one is eleven dots, and XI.
+  const twelve = ranked("roman");
+  twelve.resolution.proficiencyTiers = Array.from({ length: 12 }, (_, index) => ({
+    id: `t${index}`,
+    label: `Tier ${index}`,
+    multiplier: 0,
+    round: "down" as const,
+    flat: index,
+  }));
+  assert.equal(rulesetRankDisplayText(twelve, "t11"), "XI");
+  twelve.sheet.rankDisplay = "dots";
+  assert.equal(rulesetRankDisplayText(twelve, "t11"), "●".repeat(11));
+  // A sheet that offers fewer tiers counts only those (untrained is always rank 0).
+  const narrowed = ranked("dots");
+  narrowed.sheet.saveTiers = ["untrained", "trained"];
+  narrowed.sheet.skillTiers = ["expert"];
+  assert.equal(rulesetRankDisplayText(narrowed, "trained", "save"), "●", "a save offered one rank shows one dot");
+  assert.equal(rulesetRankDisplayText(narrowed, "expert", "skill"), "●");
+  assert.equal(rulesetTierRank(narrowed, "expert", "skill"), 1);
+  assert.equal(rulesetTopRank(narrowed, "skill", "expert"), 1);
+  assert.equal(
+    rulesetRankDisplayText(narrowed, "trained", "skill"),
+    "●○",
+    "a stored tier the editor no longer offers counts against the whole ladder",
+  );
+  assert.equal(rulesetRankDisplayText(narrowed, "expert", "save"), "●●", "and so does a save's");
+  narrowed.sheet.rankDisplay = "roman";
+  assert.equal(rulesetRankDisplayText(narrowed, "expert", "skill"), "I");
+
+  // The Game Master reads the same sheet whatever the player sees.
+  const blockOf = (definition: ReturnType<typeof ranked>) => {
+    const build = defaultRulesetSheetBuild(definition);
+    build.skills = { ...build.skills, [definition.sheet.skills[0]!.id]: "expert" };
+    return renderRulesetSheetBlock(definition, { name: "Ash", build }, {});
+  };
+  assert.equal(blockOf(ranked("dots")), blockOf(ranked()), "the sheet block does not change");
+
+  // The package gate for it.
+  for (const rankDisplay of ["value", "dots"]) {
+    const document = doc((entry) => (entry.sheet.rankDisplay = rankDisplay));
+    assert.match(getCapabilityPackageInstallIssue(manifest(836) as any, document) ?? "", /capabilityApi 1\.837/);
+    assert.equal(getCapabilityPackageInstallIssue(manifest(837) as any, document), null);
+  }
+  assert.doesNotMatch(getCapabilityPackageInstallIssue(manifest(836) as any, doc()) ?? "", /1\.837/);
 } finally {
   if (previousDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = previousDataDir;

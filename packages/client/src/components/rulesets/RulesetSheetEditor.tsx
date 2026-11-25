@@ -37,6 +37,7 @@ import {
   rulesetItemAccess,
   workOutRulesetListRow,
   listRulesetLivePools,
+  rulesetTierRank,
 } from "@marinara-engine/shared";
 import { RulesetCatalogPicker } from "./RulesetCatalogPicker";
 import { RulesetSheetBuilder } from "./RulesetSheetBuilder";
@@ -122,6 +123,7 @@ function SectionedEntries<T extends { id: string; section?: string }>({
 }
 
 function TrainedRows({
+  kind,
   title,
   entries,
   tiers,
@@ -133,6 +135,8 @@ function TrainedRows({
   onTier,
   onBonus,
 }: {
+  /** Which the rows are, for the theme hooks (`data-skill` or `data-save`). */
+  kind: "skill" | "save";
   title: string;
   entries: RulesetDefinition["sheet"]["skills"];
   tiers: RulesetDefinition["resolution"]["proficiencyTiers"];
@@ -163,7 +167,10 @@ function TrainedRows({
             {group.map((entry) => (
               <div
                 key={entry.id}
-                className="grid grid-cols-[minmax(0,1fr)_minmax(0,7rem)_3.25rem_2.25rem] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1"
+                className="mari-ruleset-sheet-editor__rank grid grid-cols-[minmax(0,1fr)_minmax(0,7rem)_3.25rem_2.25rem] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1"
+                {...{ [`data-${kind}`]: entry.id }}
+                data-tier={chosen[entry.id] ?? untrainedTier}
+                data-rank={rulesetTierRank(definition, chosen[entry.id], kind)}
               >
                 <span className="min-w-0 truncate text-xs text-[var(--foreground)]" title={rt(entry.label)}>
                   {rt(entry.label)}
@@ -843,6 +850,7 @@ function SheetEditor({ definition, layerOptions, envelope, onChange, live, items
         ))}
 
         <TrainedRows
+          kind="skill"
           title={t("ui.rulesets.sheet.skills")}
           entries={sheet.skills}
           tiers={offered(sheet.skillTiers)}
@@ -855,6 +863,7 @@ function SheetEditor({ definition, layerOptions, envelope, onChange, live, items
           onBonus={(id, bonus) => commit({ bonuses: { ...build.bonuses, [id]: bonus } })}
         />
         <TrainedRows
+          kind="save"
           title={t("ui.rulesets.sheet.saves")}
           entries={sheet.saves}
           tiers={offered(sheet.saveTiers)}

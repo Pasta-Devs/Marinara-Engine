@@ -15,6 +15,8 @@ import { parseRulesetDefinition } from "../../schemas/ruleset.schema.js";
 
 /** How the sheet draws a pool or track beyond its number (1.828); none is the number alone. */
 export type RulesetBuilderDisplay = "bar" | "dots";
+/** How the sheet shows a skill's rank (1.837), other than its check value, which is what none means. */
+export type RulesetBuilderRankDisplay = "label" | "dots" | "roman" | "number";
 
 /** How many rows of each kind the form adds, so what it writes is a ruleset the Engine takes: ranks
  *  above untrained, columns after the name, lists as many as the narrator's sheet summary names, and
@@ -94,6 +96,8 @@ export interface RulesetBuilderDraft {
   /** A skill's ranks above untrained, lowest first, each with what it adds: to the total on a sum,
    *  dice on a pool, points on a percentile. The sheet sets each skill's rank. */
   ranks: Array<RulesetBuilderRow & { label: string; bonus: number }>;
+  /** How the sheet shows a skill's rank; its check value (+2, 2 dice) when left out. */
+  rankDisplay?: RulesetBuilderRankDisplay;
   /** A practice meter on every trained skill (1.829): progress toward its next rank, started over on a rank-up. */
   practice?: boolean;
   /** Skill groups that keep no practice (Knowledge bought rather than learned by use). */
@@ -683,6 +687,7 @@ export function rulesetFromBuilderDraft(draft: RulesetBuilderDraft, version = 1)
       derived: [],
       lists,
       live: { pools, tracks, conditions: [], states: [] },
+      ...(draft.rankDisplay ? { rankDisplay: draft.rankDisplay } : {}),
       ...(draft.practice && skills.length > 0
         ? { progress: practiceExcept.length > 0 ? { except: practiceExcept } : {} }
         : {}),
@@ -798,6 +803,7 @@ function readDraft(definition: Record<string, any>, preset: RulesetBuilderDicePr
     })),
     ...(untrained ? { untrained: { id: untrained.id, label: untrained.label } } : {}),
     ranks: ranks.map((tier) => ({ key: tier.id, id: tier.id, label: tier.label, bonus: tier.flat ?? 0 })),
+    ...(sheet.rankDisplay && sheet.rankDisplay !== "value" ? { rankDisplay: sheet.rankDisplay } : {}),
     ...(sheet.progress ? { practice: true } : {}),
     ...(sheet.progress?.except?.length
       ? {
@@ -889,9 +895,10 @@ const BUILDER_KEYS = new Set([
 function canonical(document: unknown): string | null {
   const parsed = parseRulesetDefinition(document);
   if (!parsed.ok) return null;
-  // `display: "counter"` is what no display means, so a file that spells it out still compares equal.
+  // `display: "counter"` and `rankDisplay: "value"` are what none means, so a file that spells one out
+  // still compares equal.
   return JSON.stringify(parsed.definition, (key, value) =>
-    key === "display" && value === "counter"
+    (key === "display" && value === "counter") || (key === "rankDisplay" && value === "value")
       ? undefined
       : value && typeof value === "object" && !Array.isArray(value)
         ? Object.fromEntries(
