@@ -58,12 +58,7 @@ let cachedDestinations: readonly OmnibarSettingsDestination[] | null = null;
  * is one and `useLocalizedUiText` for tabs and sections.
  */
 // The window-size sliders sit in sections hidden below `sm`, so on a phone their results would open nowhere.
-const WINDOW_SIZE_CONTROL_IDS = new Set([
-  "mari-window-height",
-  "mari-window-width",
-  "omnibar-window-height",
-  "omnibar-window-width",
-]);
+const WINDOW_SIZE_CONTROL_IDS = new Set(["omnibar-window-height", "omnibar-window-width"]);
 
 export function getOmnibarSettingsDestinations(): readonly OmnibarSettingsDestination[] {
   // The registry is static, so this is built once. The caller localizes the

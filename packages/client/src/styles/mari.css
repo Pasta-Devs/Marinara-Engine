@@ -2181,11 +2181,10 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 
 /* R53: a split at 44rem gives each side 20rem, which is too narrow for a diff.
    The shell already animates its height when she takes over; this is the same
-   motion on the other axis, and it needs no state passed up from the panel.
-   The user's window width can only widen this split, never narrow it. */
+   motion on the other axis, and it needs no state passed up from the panel. */
 @media (min-width: 40rem) {
   .mari-workspace-shell:has([data-mari-panel="open"]) {
-    max-width: max(68rem, min(var(--mari-window-width, 68rem), 92vw));
+    max-width: 68rem;
   }
 }
 
@@ -5470,6 +5469,108 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   .mari-companion-resize::after {
     transition: none;
   }
+}
+
+/* #9818: Prof. Mari floating (desktop). Same solid panel as the companion, placed by use-mari-float. No backdrop:
+   the overlay around her lets presses through to the app. */
+[data-component="GlobalOmnibar"][data-pane="mari"][data-mari-float] > .mari-float-panel {
+  position: fixed;
+  left: var(--mari-float-left, 12px);
+  top: var(--mari-float-top, 12px);
+  width: var(--mari-float-width, 44rem);
+  height: var(--mari-float-height, 48rem);
+  max-width: none;
+  max-height: none;
+  border-radius: 1rem;
+  box-shadow:
+    0 0 0 1px var(--border),
+    0 1.5rem 3.75rem -0.75rem rgb(0 0 0 / 0.55);
+  pointer-events: auto;
+}
+
+/* The header is her grip; its buttons and tabs keep their own cursors. */
+[data-mari-float] > .mari-float-panel > header {
+  cursor: grab;
+  user-select: none;
+}
+
+[data-mari-float-dragging] > .mari-float-panel > header,
+[data-mari-float-dragging] {
+  cursor: grabbing;
+}
+
+/* While she is moved or resized, her content must not catch the pointer or select text. */
+[data-mari-float-dragging] > .mari-float-panel > :not(.mari-float-resize) {
+  pointer-events: none;
+  user-select: none;
+}
+
+.mari-float-resize {
+  position: absolute;
+  z-index: 60;
+  touch-action: none;
+}
+.mari-float-resize[data-edge="n"],
+.mari-float-resize[data-edge="s"] {
+  inset-inline: 0.75rem;
+  height: 0.5rem;
+  cursor: ns-resize;
+}
+.mari-float-resize[data-edge="e"],
+.mari-float-resize[data-edge="w"] {
+  inset-block: 0.75rem;
+  width: 0.5rem;
+  cursor: ew-resize;
+}
+.mari-float-resize[data-edge="n"] {
+  top: 0;
+}
+.mari-float-resize[data-edge="s"] {
+  bottom: 0;
+}
+.mari-float-resize[data-edge="e"] {
+  right: 0;
+}
+.mari-float-resize[data-edge="w"] {
+  left: 0;
+}
+.mari-float-resize[data-edge="ne"],
+.mari-float-resize[data-edge="nw"],
+.mari-float-resize[data-edge="se"],
+.mari-float-resize[data-edge="sw"] {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+.mari-float-resize[data-edge="ne"] {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+.mari-float-resize[data-edge="sw"] {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+.mari-float-resize[data-edge="nw"] {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+.mari-float-resize[data-edge="se"] {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
+}
+
+/* Where a drop at this edge would snap her. */
+.mari-float-zone-preview {
+  position: fixed;
+  border-radius: 1rem;
+  border: 2px solid color-mix(in oklab, var(--primary) 60%, transparent);
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  pointer-events: none;
+  /* Under her window, which comes first in the overlay. */
+  z-index: -1;
 }
 
 /* Slice 6: below 1024px, with an editor open, Prof. Mari is a bottom sheet under it:

@@ -40,8 +40,6 @@ import {
   normalizeTrackerThoughtBubbleDisplay,
   normalizeScenePromptPreferences,
   normalizeConversationBackgroundImageOpacity,
-  normalizeMariWindowHeightRem,
-  normalizeMariWindowWidthRem,
   normalizeMariCompanionWidthRem,
   normalizeRoleplayChatWidthPercent,
   normalizeSidebarSide,
@@ -96,12 +94,9 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
   if ("roleplayChatWidthPercent" in sanitized) {
     sanitized.roleplayChatWidthPercent = normalizeRoleplayChatWidthPercent(sanitized.roleplayChatWidthPercent);
   }
-  if ("mariWindowHeightRem" in sanitized) {
-    sanitized.mariWindowHeightRem = normalizeMariWindowHeightRem(sanitized.mariWindowHeightRem);
-  }
-  if ("mariWindowWidthRem" in sanitized) {
-    sanitized.mariWindowWidthRem = normalizeMariWindowWidthRem(sanitized.mariWindowWidthRem);
-  }
+  // #9818 retired her window sliders; a copy saved before that must not come back as a stray setting.
+  delete sanitized.mariWindowHeightRem;
+  delete sanitized.mariWindowWidthRem;
   if ("mariCompanionWidthRem" in sanitized) {
     sanitized.mariCompanionWidthRem = normalizeMariCompanionWidthRem(sanitized.mariCompanionWidthRem);
   }

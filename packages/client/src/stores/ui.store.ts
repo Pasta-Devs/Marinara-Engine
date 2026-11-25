@@ -52,6 +52,12 @@ import {
 import type { ChatWizardDefaults, ChatWizardMode } from "../lib/chat-wizard-defaults";
 import type { MariFieldReview } from "../lib/mari-editor-fields";
 import {
+  isMariFloatZone,
+  normalizeMariFloatRect,
+  type MariFloatRect,
+  type MariFloatZone,
+} from "../lib/mari-float-layout";
+import {
   readSeasonalPreview,
   seasonalThemeFor,
   withSeasonalYear,
@@ -180,19 +186,6 @@ export type ChatListBackgroundMode = "hover" | "always" | "off";
 export type SummaryPopoverSourceMode = "last" | "range";
 export const DEFAULT_ROLEPLAY_BACKGROUND_URL = "/api/backgrounds/file/Black.jpg";
 const DEFAULT_CONVERSATION_BACKGROUND_IMAGE_OPACITY = 45;
-export const MARI_WINDOW_HEIGHT_MIN_REM = 44;
-export const MARI_WINDOW_HEIGHT_DEFAULT_REM = 48;
-export const MARI_WINDOW_HEIGHT_MAX_REM = 120;
-export const MARI_WINDOW_WIDTH_MIN_REM = 44;
-export const MARI_WINDOW_WIDTH_DEFAULT_REM = 44;
-export const MARI_WINDOW_WIDTH_MAX_REM = 96;
-
-export function normalizeMariWindowHeightRem(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(MARI_WINDOW_HEIGHT_MIN_REM, Math.min(MARI_WINDOW_HEIGHT_MAX_REM, Math.round(value)))
-    : MARI_WINDOW_HEIGHT_DEFAULT_REM;
-}
-
 export const OMNIBAR_WINDOW_WIDTH_MIN_REM = 44;
 export const OMNIBAR_WINDOW_WIDTH_DEFAULT_REM = 44;
 export const OMNIBAR_WINDOW_WIDTH_MAX_REM = 96;
@@ -209,12 +202,6 @@ export function normalizeOmnibarWindowHeightRem(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(OMNIBAR_WINDOW_HEIGHT_MIN_REM, Math.min(OMNIBAR_WINDOW_HEIGHT_MAX_REM, Math.round(value)))
     : null;
-}
-
-export function normalizeMariWindowWidthRem(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(MARI_WINDOW_WIDTH_MIN_REM, Math.min(MARI_WINDOW_WIDTH_MAX_REM, Math.round(value)))
-    : MARI_WINDOW_WIDTH_DEFAULT_REM;
 }
 
 /** Companion panel width. The minimum lets her dock at 1440px with both sidebars open; her tabs still fit. */
@@ -844,10 +831,12 @@ export interface UIState {
   /** Idle time after a dead-end query before the aside calls a model (R23). */
   omnibarAsideDelayMs: number;
   mariEditViewMode: MariEditViewMode;
-  /** Desktop window height, capped to the available viewport. */
-  mariWindowHeightRem: number;
-  /** Desktop window width, in rem. Only Professor Mari's window uses it. */
-  mariWindowWidthRem: number;
+  /** Desktop: Prof. Mari floats as a movable window with no backdrop instead of the centred one (#9818). */
+  mariFloating: boolean;
+  /** Her free floating window, in CSS px; null until first moved or resized. This device only. */
+  mariFloatRect: MariFloatRect | null;
+  /** The snap zone she floats in, if any; it wins over the free rectangle. This device only. */
+  mariFloatZone: MariFloatZone | null;
   /** Desktop: Prof. Mari docks as a companion panel beside an open editor (header toggle). */
   mariCompanionDocked: boolean;
   /** Companion panel width in rem. */
@@ -1465,8 +1454,8 @@ export interface UIState {
   setOmnibarAsideDisclosed: (disclosed: boolean) => void;
   setOmnibarAsideDelayMs: (delayMs: number) => void;
   setMariEditViewMode: (mode: MariEditViewMode) => void;
-  setMariWindowHeightRem: (height: number) => void;
-  setMariWindowWidthRem: (width: number) => void;
+  setMariFloating: (floating: boolean) => void;
+  setMariFloatPlace: (rect: MariFloatRect | null, zone: MariFloatZone | null) => void;
   setMariCompanionDocked: (docked: boolean) => void;
   setMariCompanionWidthRem: (width: number) => void;
   setMariCompanionRoot: (root: HTMLElement | null) => void;
@@ -2066,8 +2055,6 @@ export function pickSyncedSettings(state: UIState) {
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
     omnibarAsideDelayMs: state.omnibarAsideDelayMs,
     mariEditViewMode: state.mariEditViewMode,
-    mariWindowHeightRem: normalizeMariWindowHeightRem(state.mariWindowHeightRem),
-    mariWindowWidthRem: normalizeMariWindowWidthRem(state.mariWindowWidthRem),
     mariCompanionDocked: state.mariCompanionDocked,
     mariCompanionWidthRem: normalizeMariCompanionWidthRem(state.mariCompanionWidthRem),
     omnibarWindowWidthRem: normalizeOmnibarWindowWidthRem(state.omnibarWindowWidthRem),
@@ -2257,8 +2244,9 @@ export function pickPersistedUIState(state: UIState) {
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
     omnibarAsideDelayMs: state.omnibarAsideDelayMs,
     mariEditViewMode: state.mariEditViewMode,
-    mariWindowHeightRem: normalizeMariWindowHeightRem(state.mariWindowHeightRem),
-    mariWindowWidthRem: normalizeMariWindowWidthRem(state.mariWindowWidthRem),
+    mariFloating: state.mariFloating,
+    mariFloatRect: state.mariFloatRect,
+    mariFloatZone: state.mariFloatZone,
     mariCompanionDocked: state.mariCompanionDocked,
     mariCompanionWidthRem: state.mariCompanionWidthRem,
     omnibarWindowWidthRem: normalizeOmnibarWindowWidthRem(state.omnibarWindowWidthRem),
@@ -2546,8 +2534,9 @@ export const useUIStore = create<UIState>()(
         omnibarAsideDisclosed: false,
         omnibarAsideDelayMs: OMNIBAR_ASIDE_DELAY_MS,
         mariEditViewMode: "easy",
-        mariWindowHeightRem: MARI_WINDOW_HEIGHT_DEFAULT_REM,
-        mariWindowWidthRem: MARI_WINDOW_WIDTH_DEFAULT_REM,
+        mariFloating: false,
+        mariFloatRect: null,
+        mariFloatZone: null,
         mariCompanionDocked: true,
         mariCompanionWidthRem: MARI_COMPANION_WIDTH_DEFAULT_REM,
         mariCompanionRoot: null,
@@ -3007,8 +2996,8 @@ export const useUIStore = create<UIState>()(
         setOmnibarAsideDisclosed: (disclosed) => set({ omnibarAsideDisclosed: disclosed }),
         setOmnibarAsideDelayMs: (delayMs) => set({ omnibarAsideDelayMs: delayMs }),
         setMariEditViewMode: (mode) => set({ mariEditViewMode: mode }),
-        setMariWindowHeightRem: (height) => set({ mariWindowHeightRem: normalizeMariWindowHeightRem(height) }),
-        setMariWindowWidthRem: (width) => set({ mariWindowWidthRem: normalizeMariWindowWidthRem(width) }),
+        setMariFloating: (floating) => set({ mariFloating: floating }),
+        setMariFloatPlace: (rect, zone) => set({ mariFloatRect: rect, mariFloatZone: zone }),
         setMariCompanionDocked: (docked) => set({ mariCompanionDocked: docked }),
         setMariCompanionWidthRem: (width) => set({ mariCompanionWidthRem: normalizeMariCompanionWidthRem(width) }),
         setMariCompanionRoot: (root) => set({ mariCompanionRoot: root }),
@@ -3580,8 +3569,9 @@ export const useUIStore = create<UIState>()(
             uiStylePickMode: false,
             mariPanelSortMode: "az",
             mariEditViewMode: "easy",
-            mariWindowHeightRem: MARI_WINDOW_HEIGHT_DEFAULT_REM,
-            mariWindowWidthRem: MARI_WINDOW_WIDTH_DEFAULT_REM,
+            mariFloating: false,
+            mariFloatRect: null,
+            mariFloatZone: null,
             omnibarWindowWidthRem: OMNIBAR_WINDOW_WIDTH_DEFAULT_REM,
             omnibarWindowHeightRem: null,
             mariAppearancePackId: "basic",
@@ -4455,8 +4445,9 @@ export const useUIStore = create<UIState>()(
         return {
           ...currentState,
           ...persisted,
-          mariWindowHeightRem: normalizeMariWindowHeightRem(persisted.mariWindowHeightRem),
-          mariWindowWidthRem: normalizeMariWindowWidthRem(persisted.mariWindowWidthRem),
+          mariFloating: persisted.mariFloating === true,
+          mariFloatRect: normalizeMariFloatRect(persisted.mariFloatRect),
+          mariFloatZone: isMariFloatZone(persisted.mariFloatZone) ? persisted.mariFloatZone : null,
           mariCompanionDocked: persisted.mariCompanionDocked !== false,
           mariCompanionWidthRem: normalizeMariCompanionWidthRem(persisted.mariCompanionWidthRem),
           omnibarWindowWidthRem: normalizeOmnibarWindowWidthRem(persisted.omnibarWindowWidthRem),
