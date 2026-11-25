@@ -355,6 +355,11 @@ await runNamedCases([
         });
         assert.equal(slimmed.status, 0, slimmed.stderr);
         assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), NO_REPORT);
+        // So does a report cut short while Playwright wrote it.
+        writeFileSync(file, '{"suites": [');
+        const cut = spawnSync(process.execPath, [fileURLToPath(script), "--slim", file], { encoding: "utf8" });
+        assert.equal(cut.status, 0, cut.stderr);
+        assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), NO_REPORT);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
@@ -370,14 +375,22 @@ await runNamedCases([
           ["playwright-results-mobile-webkit-12", report("mobile-webkit", { b: "expected" })],
           ["playwright-desktop-chromium-shard-1-failure", report("desktop-chromium", { c: "unexpected" })],
           ["playwright-results-mobile-chromium-3", NO_REPORT],
+          ["playwright-results-mobile-webkit-4", null],
         ]) {
           mkdirSync(join(dir, name));
-          writeFileSync(join(dir, name, "results.json"), JSON.stringify(entry));
+          // null stands for a report cut short while it was written.
+          writeFileSync(join(dir, name, "results.json"), entry ? JSON.stringify(entry) : '{"suites": [');
         }
         const shards = readShardReports(dir);
-        assert.deepEqual([...shards.keys()].sort(), ["desktop-chromium-1", "mobile-chromium-3", "mobile-webkit-12"]);
-        // The placeholder counts as no report.
+        assert.deepEqual([...shards.keys()].sort(), [
+          "desktop-chromium-1",
+          "mobile-chromium-3",
+          "mobile-webkit-12",
+          "mobile-webkit-4",
+        ]);
+        // The placeholder and the cut-short report count as no report.
         assert.deepEqual(shards.get("mobile-chromium-3"), []);
+        assert.deepEqual(shards.get("mobile-webkit-4"), []);
         assert.deepEqual([...mergeResults(shards).keys()].sort(), [
           "desktop-chromium › e2e/chat.e2e.ts › Chat › a",
           "mobile-webkit › e2e/chat.e2e.ts › Chat › b",

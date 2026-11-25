@@ -27,6 +27,14 @@ export const BODY_LIMIT = 60_000;
 const SUMMARY_LIMIT = 450_000;
 // What a shard uploads when Playwright wrote no report, so a re-run replaces the results of the attempt before it.
 export const NO_REPORT = { noReport: true };
+// A report cut short (the runner died while Playwright wrote it) counts as no report, so one shard cannot stop the rest.
+const readReport = (file) => {
+  try {
+    return JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    return NO_REPORT;
+  }
+};
 export const RESULTS_ARTIFACT_PREFIX = "playwright-results-";
 const SHARD_JOB = /^(desktop-chromium|mobile-chromium|mobile-webkit) (\d+)\/\d+$/u;
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "gu");
@@ -91,7 +99,7 @@ export function readShardReports(dir) {
     if (!name.startsWith(RESULTS_ARTIFACT_PREFIX) || !statSync(folder).isDirectory()) continue;
     const reports = readdirSync(folder)
       .filter((file) => file.endsWith(".json"))
-      .map((file) => JSON.parse(readFileSync(join(folder, file), "utf8")))
+      .map((file) => readReport(join(folder, file)))
       .filter((report) => !report.noReport);
     shards.set(name.slice(RESULTS_ARTIFACT_PREFIX.length), reports);
   }
@@ -384,7 +392,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const file = process.argv[3];
     if (!file) throw new Error("Usage: node scripts/nightly-matrix-report.mjs --slim <report.json>");
     mkdirSync(dirname(file), { recursive: true });
-    const report = existsSync(file) ? slimReport(JSON.parse(readFileSync(file, "utf8"))) : NO_REPORT;
-    writeFileSync(file, JSON.stringify(report));
+    const report = readReport(file);
+    writeFileSync(file, JSON.stringify(report.noReport ? NO_REPORT : slimReport(report)));
   } else main();
 }
