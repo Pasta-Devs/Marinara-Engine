@@ -23,18 +23,31 @@ function configLines() {
 /** Whether a CodeQL paths-ignore entry covers a repository path: a folder covers what is inside it. */
 function ignores(pattern: string, path: string) {
   const escape = (text: string) => text.replace(/[.+?^${}()|[\]\\]/gu, "\\$&");
+  const glob: Record<string, string> = { "**/": "(?:.*/)?", "**": ".*", "*": "[^/]*" };
   const source = pattern
     .replace(/\/+$/u, "")
-    .split("**")
-    .map((part) => part.split("*").map(escape).join("[^/]*"))
-    .join(".*");
+    .split(/(\*\*\/|\*\*|\*)/u)
+    .map((part) => glob[part] ?? escape(part))
+    .join("");
   return new RegExp(`^${source}(?:/|$)`, "u").test(path);
+}
+
+/** A `  - ` list item as CodeQL reads it: without a trailing comment or surrounding quotes. */
+function pathEntry(line: string) {
+  const value = line
+    .slice(4)
+    .replace(/\s+#.*$/u, "")
+    .trim();
+  const entry = /^(["'])(.*)\1$/u.exec(value)?.[2] ?? value;
+  // Anything but a plain path or glob (escapes, flow syntax, anchors) fails rather than being misread.
+  assert.match(entry, /^[\w@./*-]+$/u, `paths-ignore entry ${value} must be a plain path this check can read`);
+  return entry;
 }
 
 const config = configLines();
 const listed = config.slice(config.indexOf("paths-ignore:") + 1);
 const listEnd = listed.findIndex((line) => !line.startsWith("  - "));
-const pathsIgnore = listed.slice(0, listEnd === -1 ? undefined : listEnd).map((line) => line.slice(4).trim());
+const pathsIgnoreLines = listed.slice(0, listEnd === -1 ? undefined : listEnd);
 
 // The app's three packages, the service worker the browser loads, and scripts the launchers, the Windows installer
 // and the Docker image run on users' machines.
@@ -74,6 +87,7 @@ const cases: RegressionCase[] = [
   {
     name: "paths-ignore skips the test suites and nothing that ships",
     run: () => {
+      const pathsIgnore = pathsIgnoreLines.map(pathEntry);
       assert.ok(pathsIgnore.length > 0, "the config lists paths to ignore");
       for (const path of ["scripts/regressions/chat/example.regression.ts", "e2e/core-flows.e2e.ts"]) {
         assert.ok(
