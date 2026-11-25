@@ -9406,6 +9406,10 @@ function capabilityPackageInstallIssueFor(
   if (!declaresApi(829) && plainRecord(ruleset?.sheet)?.progress !== undefined) {
     return "A ruleset whose skills keep practice progress requires schemaVersion 2 and capabilityApi 1.829 or newer";
   }
+  // How the sheet shows a skill's or save's rank, 1.837: a strict key on the sheet.
+  if (!declaresApi(837) && plainRecord(ruleset?.sheet)?.rankDisplay !== undefined) {
+    return "A ruleset that chooses how its sheet shows ranks requires schemaVersion 2 and capabilityApi 1.837 or newer";
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||

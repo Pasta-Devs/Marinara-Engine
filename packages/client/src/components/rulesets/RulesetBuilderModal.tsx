@@ -26,6 +26,7 @@ import {
   type RulesetBuilderDicePreset,
   type RulesetBuilderColumnType,
   type RulesetBuilderDisplay,
+  type RulesetBuilderRankDisplay,
   type RulesetBuilderDraft,
   type RulesetBuilderList,
 } from "@marinara-engine/shared";
@@ -109,6 +110,8 @@ const PROMPT_FIELDS = [
 const COLUMN_TYPES: RulesetBuilderColumnType[] = ["text", "number", "check"];
 
 const DISPLAYS = ["counter", "bar", "dots"] as const;
+/** How the sheet shows a skill's rank; "value", its check value, is what none means. */
+const RANK_DISPLAYS = ["value", "label", "dots", "roman", "number"] as const;
 
 /** How the sheet draws a pool or track: the number alone, a fill bar, or a row of dots. */
 function DisplayPicker({
@@ -740,6 +743,22 @@ export function RulesetBuilderModal({
               </div>
             )}
           </SortableRows>
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-[var(--foreground)]">
+            <span>{localizeUi("rulesetBuilder.rankDisplay")}</span>
+            <Select
+              value={draft.rankDisplay ?? "value"}
+              label={localizeUi("rulesetBuilder.rankDisplay")}
+              title={localizeUi("rulesetBuilder.rankDisplayHelp")}
+              onChange={(next) =>
+                set({ rankDisplay: next === "value" ? undefined : (next as RulesetBuilderRankDisplay) })
+              }
+              className={cn(INPUT, "w-auto flex-1 sm:w-48 sm:flex-none")}
+              options={RANK_DISPLAYS.map((display) => ({
+                value: display,
+                label: localizeUi(`rulesetBuilder.rankDisplays.${display}`),
+              }))}
+            />
+          </div>
           <label className="flex items-center gap-2 pt-1 text-xs text-[var(--foreground)]">
             <Checkbox checked={draft.practice === true} onChange={(event) => set({ practice: event.target.checked })} />
             {localizeUi("rulesetBuilder.practice")}

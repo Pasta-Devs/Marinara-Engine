@@ -1269,6 +1269,32 @@ export function formatRulesetCheckValue(definition: RulesetDefinition, value: nu
   return value >= 0 ? `+${value}` : `${value}`;
 }
 
+const ROMAN_RANKS = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"] as const;
+
+/** A proficiency tier's place above the first, untrained one: 0 untrained, 1 the next, and so on. A
+ *  tier the ruleset doesn't list reads as untrained. */
+export function rulesetTierRank(definition: RulesetDefinition, tierId: string | undefined): number {
+  return Math.max(
+    0,
+    definition.resolution.proficiencyTiers.findIndex((tier) => tier.id === tierId),
+  );
+}
+
+/** A skill's or save's rank as the sheet's `rankDisplay` asks (1.837), or null where the sheet shows its
+ *  check value instead (`value`, or nothing). Untrained is rank 0: no dots filled, and "–" in Roman
+ *  numerals, which have no zero. */
+export function rulesetRankDisplayText(definition: RulesetDefinition, tierId: string | undefined): string | null {
+  const display = definition.sheet.rankDisplay;
+  if (!display || display === "value") return null;
+  const tiers = definition.resolution.proficiencyTiers;
+  const rank = rulesetTierRank(definition, tierId);
+  if (display === "label") return tiers[rank]!.label;
+  if (display === "number") return String(rank);
+  if (display === "roman") return ROMAN_RANKS[rank] || "–";
+  const top = tiers.length - 1;
+  return "●".repeat(rank) + "○".repeat(top - rank);
+}
+
 export interface RulesetCheckRoll {
   /** Every die thrown, in order: one set normally, two sets under advantage or disadvantage. */
   rolls: number[];
