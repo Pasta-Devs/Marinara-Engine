@@ -2554,7 +2554,7 @@ test("Render in-line shows each illustrate command's images where the command wa
         .nth(index)
         .getByRole("button", { name: /^Open /u })
         .click();
-      // The preview's prompt reader starts collapsed (#9730).
+      // The preview's prompt reader starts collapsed (#9621).
       const viewer = page.getByRole("dialog", { name: "Image preview", exact: true });
       await viewer.getByRole("button", { name: "Expand panel", exact: true }).click();
       await expect(viewer.getByText(expected).first()).toBeVisible();

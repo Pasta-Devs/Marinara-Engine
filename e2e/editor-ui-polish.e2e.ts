@@ -412,7 +412,7 @@ test("persona avatar removal progress belongs to the active editor session", asy
       .click();
     await expect(remove).toHaveText(/Removing/u);
     await expect(remove).toBeDisabled();
-    // The fieldset starts with the "Go to Gallery" link since #9730.
+    // The fieldset starts with the "Go to Gallery" link since #9621.
     const replace = editor
       .locator('[data-editor-section="metadata"] fieldset')
       .nth(1)

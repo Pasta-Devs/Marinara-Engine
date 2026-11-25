@@ -110,7 +110,7 @@ test("regex bulk deletion confirms once and keeps failed and unselected scripts"
     await expect(page.locator(".mari-selection-action-bar")).toHaveCount(1);
     await regexTab.click();
     await selectRegex.click();
-    // Preset selection took selection mode over, so the regex checks were dropped (#9192).
+    // Preset selection took selection mode over, so the regex checks were dropped (#9194).
     await expect(page.getByRole("checkbox", { name: "Select Old pack first", exact: true })).not.toBeChecked();
     const all = page.getByRole("checkbox", { name: "Select all regex scripts", exact: true });
     await all.check();

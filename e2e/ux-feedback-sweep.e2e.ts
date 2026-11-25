@@ -137,7 +137,7 @@ test("UX sweep: achievement highlights stay inside the widget with padding", asy
 });
 
 for (const spec of [
-  // Onboarding added a section (#7308); one Images section replaced Sprites and Gallery.
+  // Onboarding added a section (#7308); one Images section replaced Sprites and Gallery (#9193).
   { kind: "Character", path: "/api/characters", sections: 10, last: "Advanced", lastId: "advanced" },
   { kind: "Persona", path: "/api/characters/personas", sections: 7, last: "Stats", lastId: "stats" },
   { kind: "Lorebook", path: "/api/lorebooks", sections: 2, last: "Entries", lastId: "entries" },
@@ -160,7 +160,7 @@ for (const spec of [
       const editor = page.locator(".mari-editor-shell");
       const title =
         spec.kind === "Lorebook"
-          ? // The cover image's file input comes first in Overview.
+          ? // The cover image's file input comes first in Overview (#9275).
             editor.locator('[data-editor-section="overview"] [data-mari-field="name"] input')
           : editor.locator(".mari-editor-title-input");
       await expect(title).toHaveValue(name);
