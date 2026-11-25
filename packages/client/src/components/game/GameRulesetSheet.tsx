@@ -1627,6 +1627,13 @@ export function GameRulesetSheet({
                               <span className="mari-ruleset-sheet__rank-value tabular-nums" aria-hidden="true">
                                 {entry.shown}
                               </span>
+                              {/* A phone has no hover, so there the check value shows beside the rank. */}
+                              <span
+                                className="mari-ruleset-sheet__rank-check ml-1 hidden tabular-nums text-[var(--muted-foreground)] [@media(hover:none)]:inline"
+                                aria-hidden="true"
+                              >
+                                {entry.value}
+                              </span>
                               <span className="sr-only">
                                 {localizeUi("game.ruleset.sheet.rankAria", {
                                   rank: entry.rank,
