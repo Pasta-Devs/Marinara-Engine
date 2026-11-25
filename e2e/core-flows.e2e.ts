@@ -13991,10 +13991,9 @@ test("custom generation parameters become reusable chat controls", async ({ page
 
     await minPInput.fill("0,35");
     await minPInput.blur();
+    // The shared Switch is a button named by its aria-label, with no <label> of its own.
     const minPSendToggle = drawer.getByRole("switch", { name: "Send Typical P parameter" });
-    const minPSendToggleId = await minPSendToggle.getAttribute("id");
-    expect(minPSendToggleId).toBeTruthy();
-    await drawer.locator(`label[for="${minPSendToggleId}"]`).click();
+    await minPSendToggle.click();
     await expect(minPSendToggle).toBeChecked();
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
@@ -16394,13 +16393,17 @@ test("Conversation setup commands follow the installed agent library", async ({ 
   });
 
   const openAutomationStep = async () => {
-    const newConversationButton = page.getByLabel("New Conversation", { exact: true });
+    // A closed sidebar keeps Chats mounted under aria-hidden (#9492), where a role query does not find it. Read it once
+    // the shell has drawn, or a sidebar a reload restores open reads as closed and the toggle closes it.
+    const newConversationButton = page.getByRole("button", { name: "New Conversation", exact: true });
+    await expect(page.locator('[data-component="TopBar"]')).toBeVisible();
     if (!(await newConversationButton.isVisible())) {
       await clickTopbarChats(page);
     }
     await expect(newConversationButton).toBeVisible();
+    // The chat modes are the shared Tabs (#9455).
     const conversationModeButton = page.locator('[data-tour="chat-mode-conversation"]');
-    if ((await conversationModeButton.getAttribute("aria-pressed")) !== "true") {
+    if ((await conversationModeButton.getAttribute("aria-selected")) !== "true") {
       await conversationModeButton.click();
     }
     const chatCreated = page.waitForResponse(

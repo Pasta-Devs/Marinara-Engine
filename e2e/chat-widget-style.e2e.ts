@@ -1145,9 +1145,7 @@ for (const [preset, theme] of [
         .locator('[data-component="RightPanel"]')
         .getByRole("button", { name: "Close panel", exact: true })
         .click();
-      await expect(
-        page.locator('[data-component="RightPanelDesktopSlot"], [data-component="RightPanelMobile"]'),
-      ).toBeHidden();
+      await expect(page.locator('[data-component="SidebarSlot"], [data-component="RightPanelMobile"]')).toBeHidden();
       for (const chat of fixture.chats) {
         await showStyleScope(page, chat);
         if (chat.view === "visual-novel" || (chat.mode === "game" && info.project.name === "desktop-chromium")) {
@@ -1301,9 +1299,7 @@ test("movable button pixel size is independent, stays reachable and restores the
   };
   const closeAppearance = async () => {
     await page.getByRole("button", { name: "Close panel", exact: true }).click();
-    await expect(
-      page.locator('[data-component="RightPanelDesktopSlot"], [data-component="RightPanelMobile"]'),
-    ).toBeHidden();
+    await expect(page.locator('[data-component="SidebarSlot"], [data-component="RightPanelMobile"]')).toBeHidden();
   };
   const assertReachable = async () => {
     await expect
