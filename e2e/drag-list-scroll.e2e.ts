@@ -21,6 +21,29 @@ async function touch(target: Locator, type: string, touches: Finger[], changedTo
   );
 }
 
+/**
+ * The panel lists are windowed (b234d7e0bd, and the chat list since #9493): only rows near the view are built. Sweeps
+ * the list half a screen at a time, from the top again after its end, until `row` is built, so a row above the view
+ * is reached too (the chat list scrolls itself to the open chat, its last row). `inList` is any built row of the list.
+ */
+async function buildRow(row: Locator, inList: Locator) {
+  await expect(async () => {
+    if (!(await row.count()))
+      await inList.first().evaluate((element) => {
+        let parent = element.parentElement;
+        while (
+          parent &&
+          !(/auto|scroll/.test(getComputedStyle(parent).overflowY) && parent.scrollHeight > parent.clientHeight)
+        )
+          parent = parent.parentElement;
+        if (!parent) return;
+        const atEnd = parent.scrollTop + parent.clientHeight >= parent.scrollHeight - 1;
+        parent.scrollTop = atEnd ? 0 : parent.scrollTop + parent.clientHeight / 2;
+      });
+    await expect(row).toHaveCount(1, { timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
+}
+
 for (const kind of ["chat", "character", "persona"] as const) {
   test(`${kind} lists scroll during a drag and persist the folder drop`, async ({ page, request }, testInfo) => {
     const mobile = testInfo.project.name.includes("mobile");
@@ -75,21 +98,16 @@ for (const kind of ["chat", "character", "persona"] as const) {
       const source = (kind === "chat" ? panel.locator(`[data-chat-id="${item.id}"]`) : rows).filter({
         hasText: item.name,
       });
-      // The panel lists are virtual (b234d7e0bd): only rows near the view exist, so on a short screen scroll down a
-      // row at a time until this one is built.
-      await expect(async () => {
-        if (!(await source.count())) await rows.last().scrollIntoViewIfNeeded();
-        await expect(source).toHaveCount(1, { timeout: 1_000 });
-      }).toPass({ timeout: 20_000 });
-      await expect(source).toBeVisible();
       if (kind === "chat") {
         // The chat list scrolls the active chat (its last row) into view, smoothly and a moment after it
-        // loads. Let that finish first, or it scrolls the list away from the row centred below.
+        // loads. Let that finish first, or it scrolls the list away from the rows built and centred below.
         const activeRow = panel.locator(`[data-chat-id="${chat.id}"]`);
         await expect(activeRow).toBeInViewport();
         // Waits until the row stops moving.
         await activeRow.scrollIntoViewIfNeeded();
       }
+      await buildRow(source, rows);
+      await expect(source).toBeVisible();
       const scroller = await source.evaluateHandle((element) => {
         let parent = element.parentElement;
         while (
@@ -318,6 +336,7 @@ for (const kind of ["chat", "character", "persona"] as const) {
         const stackRow = panel
           .locator(kind === "chat" ? `[data-chat-id="${entries[0]!.id}"]` : `[data-touch-drag-card="${kind}"]`)
           .filter({ hasText: entries[0]!.name });
+        await buildRow(stackRow, source);
         await stackRow.scrollIntoViewIfNeeded();
         const stackBox = await stackRow.boundingBox();
         expect(stackBox).not.toBeNull();
