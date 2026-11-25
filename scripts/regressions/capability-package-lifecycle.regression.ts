@@ -896,6 +896,40 @@ try {
     false,
   );
   assert.equal(guideCatalog.packages[0]?.documentationUrl, guideUrl.replace("/main/", "/staging/"));
+  const cacheKey = JSON.stringify([activeCatalogUrl, "offline-guide", "overview"]);
+  const cacheContent = "# Offline guide\nSaved user help.";
+  const documentationCache = join(packagesRoot, "documentation-cache-v1");
+  mkdirSync(documentationCache, { recursive: true });
+  writeFileSync(
+    join(documentationCache, `${createHash("sha256").update(cacheKey).digest("hex")}.json`),
+    JSON.stringify({
+      key: cacheKey,
+      sourceIdentity: "",
+      sha256: createHash("sha256").update(cacheContent).digest("hex"),
+      value: {
+        packageId: "offline-guide",
+        packageVersion: "1.0.0",
+        guideId: "overview",
+        title: "Overview",
+        topics: [],
+        status: "available",
+        content: cacheContent,
+        sourceUrl: guideUrl,
+        retrievedAt: new Date().toISOString(),
+      },
+    }),
+  );
+  const catalogBeforeOfflineRead = capabilityPackageManager.catalog;
+  capabilityPackageManager.catalog = async () => new Promise(() => {});
+  try {
+    const started = performance.now();
+    const cachedGuide = await capabilityPackageManager.documentation("offline-guide");
+    assert.equal(cachedGuide.status, "cached");
+    assert.equal(cachedGuide.content, cacheContent);
+    assert.ok(performance.now() - started < 1_400, "cold catalog lookup cannot consume Mari's cached-read budget");
+  } finally {
+    capabilityPackageManager.catalog = catalogBeforeOfflineRead;
+  }
   assert.equal(
     getCapabilityPackageArtifactSourceIssue(canonicalArtifactEntry, stagingCatalogUrl),
     null,

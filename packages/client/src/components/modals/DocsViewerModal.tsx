@@ -294,47 +294,78 @@ function resolveDocPath(currentPath: string, target: string): string {
  * them inside the modal.
  */
 function prepareDocMarkdown(raw: string, docPath: string, sourceUrl?: string): string {
+  const rewriteLinks = (markdown: string) => {
+    if (sourceUrl) {
+      return markdown.replace(/(!?\[[^\]]*\])\(([^\s()]+)\)/gu, (_match, label: string, target: string) => {
+        try {
+          const base = label.startsWith("!")
+            ? sourceUrl.replace("https://github.com/", "https://raw.githubusercontent.com/").replace("/blob/", "/")
+            : sourceUrl;
+          const url = new URL(target, base);
+          return url.protocol === "https:" && !url.username && !url.password ? `${label}(${url.href})` : label;
+        } catch {
+          return label;
+        }
+      });
+    }
+    return markdown
+      .replace(/\[([^\]]+)\]\(#[^)]*\)/g, "$1")
+      .replace(
+        /\[([^\]]+)\]\((?!(?:https?|card):\/\/|\/api\/|#|mailto:)([^()\s#]+\.md)(?:#[^)]*)?\)/gi,
+        (_match, text: string, target: string) =>
+          `[${text}](/api/docs/content?path=${encodeURIComponent(resolveDocPath(docPath, target))})`,
+      );
+  };
+  const rewriteInline = (line: string) =>
+    line
+      .split(/(`[^`]*`)/gu)
+      .map((part, index) => (index % 2 ? part : rewriteLinks(part)))
+      .join("");
   const out: string[] = [];
+  let inCode = false;
   for (const line of raw.replace(/\r\n/g, "\n").split("\n")) {
     const trimmed = line.trim();
+    if (inCode ? /^`{3,}\s*$/u.test(trimmed) : /^`{3,}[^`]*$/u.test(trimmed)) {
+      inCode = !inCode;
+      out.push(line);
+      continue;
+    }
+    if (inCode) {
+      out.push(line);
+      continue;
+    }
     if (/^<\/?details>$/i.test(trimmed) || /^<br\s*\/?>$/i.test(trimmed) || /^<\/?p(\s[^>]*)?>$/i.test(trimmed)) {
       continue;
     }
     if (/^(<a id="[^"]*"><\/a>\s*)+$/i.test(trimmed)) continue;
     const summary = trimmed.match(/^<summary>(?:<strong>)?(.+?)(?:<\/strong>)?<\/summary>$/i);
     if (summary) {
-      out.push(`## ${summary[1]}`);
+      out.push(rewriteInline(`## ${summary[1]}`));
       continue;
     }
     const img = trimmed.match(/^<img\b[^>]*\bsrc="(https?:\/\/[^"]+)"[^>]*>$/i);
     if (img) {
-      out.push(`![](${img[1]})`);
+      out.push(rewriteLinks(`![](${img[1]})`));
       continue;
     }
     if (/^<img\b[^>]*>$/i.test(trimmed)) continue;
-    out.push(line);
+    out.push(rewriteInline(line));
   }
-  const markdown = out.join("\n");
-  if (sourceUrl) {
-    return markdown.replace(/(!?\[[^\]]*\])\(([^\s()]+)\)/gu, (_match, label: string, target: string) => {
-      try {
-        const base = label.startsWith("!")
-          ? sourceUrl.replace("https://github.com/", "https://raw.githubusercontent.com/").replace("/blob/", "/")
-          : sourceUrl;
-        const url = new URL(target, base);
-        return url.protocol === "https:" && !url.username && !url.password ? `${label}(${url.href})` : label;
-      } catch {
-        return label;
-      }
-    });
+  return out.join("\n");
+}
+
+const headingSlug = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}_\-\s]/gu, "")
+    .replace(/\s/gu, "-");
+function guideUrlIdentity(value: string): string {
+  const url = new URL(value);
+  if (url.hostname === "github.com" && /^\/[^/]+\/[^/]+\/blob\//u.test(url.pathname)) {
+    url.hostname = "raw.githubusercontent.com";
+    url.pathname = url.pathname.replace(/^(\/[^/]+\/[^/]+)\/blob\//u, "$1/");
   }
-  return markdown
-    .replace(/\[([^\]]+)\]\(#[^)]*\)/g, "$1")
-    .replace(
-      /\[([^\]]+)\]\((?!(?:https?|card):\/\/|\/api\/|#|mailto:)([^()\s#]+\.md)(?:#[^)]*)?\)/gi,
-      (_match, text: string, target: string) =>
-        `[${text}](/api/docs/content?path=${encodeURIComponent(resolveDocPath(docPath, target))})`,
-    );
+  return url.href;
 }
 
 // Upper bound on injected search marks per doc: a 2-char needle ("in", "to")
@@ -430,6 +461,7 @@ export function DocsViewerModal({
   const [searchQuery, setSearchQuery] = useState(initialSearchTerm);
   const [debouncedQuery, setDebouncedQuery] = useState(initialSearchTerm);
   const [pendingScrollTerm, setPendingScrollTerm] = useState<string | null>(initialSearchTerm.trim() || null);
+  const [pendingHeading, setPendingHeading] = useState<string | null>(null);
   // State (not a plain ref) so effects re-run when the reader actually mounts:
   // the Modal shell renders null on its first frame while its enter animation
   // arms, and a cached doc means no later dep change would re-fire them.
@@ -508,7 +540,7 @@ export function DocsViewerModal({
     [doc, packageId, packageDoc.data?.sourceUrl],
   );
 
-  const selectDoc = (path: string, scrollTerm: string | null = null) => {
+  const selectDoc = (path: string, scrollTerm: string | null = null, heading: string | null = null) => {
     // Re-selecting the open doc must not reset the saved reading place.
     if (path !== selected) {
       if (!packageId) writeSavedPlace({ doc: path, scrollTop: 0 });
@@ -516,6 +548,8 @@ export function DocsViewerModal({
     }
     restoreScrollRef.current = false;
     setPendingScrollTerm(scrollTerm);
+    setPendingHeading(heading);
+    if (!heading && packageId && scrollEl) scrollEl.scrollTop = 0;
   };
 
   // The DOM-augmentation effects below (highlight + Copy buttons) mutate the
@@ -618,6 +652,14 @@ export function DocsViewerModal({
   // occurrence of the search term after opening a doc from search results.
   useEffect(() => {
     if (!scrollEl || !rendered) return;
+    if (pendingHeading && doc?.path === selected) {
+      const heading = Array.from(scrollEl.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6")).find(
+        (node) => headingSlug(node.textContent ?? "") === pendingHeading,
+      );
+      heading?.scrollIntoView({ block: "start" });
+      setPendingHeading(null);
+      return;
+    }
     if (restoreScrollRef.current && selected === savedPlaceRef.current.doc) {
       scrollEl.scrollTop = savedPlaceRef.current.scrollTop;
       restoreScrollRef.current = false;
@@ -642,7 +684,7 @@ export function DocsViewerModal({
       }
     }
     setPendingScrollTerm(null);
-  }, [scrollEl, rendered, selected, pendingScrollTerm]);
+  }, [scrollEl, rendered, selected, pendingScrollTerm, pendingHeading, doc?.path]);
 
   useCodeBlockCopy(scrollEl, rendered);
 
@@ -658,12 +700,22 @@ export function DocsViewerModal({
     }
     if (packageId) {
       const topics = packageOverview.data?.topics ?? [];
+      const identity = guideUrlIdentity(url.href);
       const topic =
-        topics.find((candidate) => candidate.sourceUrl === url.href) ??
-        topics.find((candidate) => candidate.sourceUrl === url.href.split("#")[0]);
+        topics.find((candidate) => candidate.sourceUrl && guideUrlIdentity(candidate.sourceUrl) === identity) ??
+        topics.find(
+          (candidate) =>
+            candidate.sourceUrl && guideUrlIdentity(candidate.sourceUrl).split("#")[0] === identity.split("#")[0],
+        );
       if (topic) {
         event.preventDefault();
-        selectDoc(topic.id);
+        let heading: string | null = null;
+        try {
+          heading = url.hash ? decodeURIComponent(url.hash.slice(1)) : null;
+        } catch {
+          /* Invalid fragments open the guide at the top. */
+        }
+        selectDoc(topic.id, null, heading);
       }
       return;
     }

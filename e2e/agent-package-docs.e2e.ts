@@ -101,8 +101,8 @@ async function openFixture(
           options.status === "unavailable"
             ? undefined
             : guideId === "setup"
-              ? "# Set up\n\nChoose a character."
-              : '# Guide fixture\n\nRead the [Set up](docs/setup.md) guide.\n\n<script>window.__guideExecuted = true</script>\n\n<svg onload="window.__guideExecuted=true"></svg>\n\n[Unsafe](javascript:alert(1))\n\n![Unsafe image](data:image/svg+xml,evil)',
+              ? `# Set up\n\nChoose a character.\n\n## Steps\n\n${"Read the instructions for this step.\n\n".repeat(50)}## Troubleshooting\n\n[Return to start](#set-up)`
+              : '# Guide fixture\n\nRead the [Set up](docs/setup.md) guide.\n\n[Heading via GitHub](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/guide-fixture/docs/setup.md#troubleshooting)\n\n`[Inline UI](http://localhost:3000)`\n\n```md\n```js\n[Local UI](http://localhost:3000)\n[Guide](docs/setup.md)\n<details>\n```\n\n<script>window.__guideExecuted = true</script>\n\n<svg onload="window.__guideExecuted=true"></svg>\n\n[Unsafe](javascript:alert(1))\n\n![Unsafe image](data:image/svg+xml,evil)',
         retrievedAt: "2026-11-25T00:00:00.000Z",
       },
     });
@@ -180,4 +180,19 @@ test("agent guide tablet layout keeps topics and content together", async ({ pag
   await expect(dialog.getByText("Choose a character.", { exact: true })).toBeVisible();
   expect(await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath("tablet-guide.png") });
+});
+
+test("package guide links preserve code examples, GitHub aliases and headings", async ({ page }) => {
+  await openFixture(page);
+  await page.getByRole("button", { name: "Read how this agent works" }).click();
+  const dialog = page.getByRole("dialog", { name: "Guide fixture guides", exact: true });
+  await expect(dialog.locator("pre code")).toHaveText(
+    "```js\n[Local UI](http://localhost:3000)\n[Guide](docs/setup.md)\n<details>",
+  );
+  await expect(dialog.getByText("[Inline UI](http://localhost:3000)", { exact: true })).toBeVisible();
+  await dialog.getByRole("link", { name: "Heading via GitHub", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Troubleshooting", exact: true })).toBeInViewport();
+  expect(page.context().pages()).toHaveLength(1);
+  await dialog.getByRole("link", { name: "Return to start", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Set up", exact: true })).toBeInViewport();
 });

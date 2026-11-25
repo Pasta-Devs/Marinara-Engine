@@ -114,6 +114,27 @@ try {
   clock += 6 * 60_000;
   const restarted = createPackageDocumentationReader(dependencies);
   assert.equal((await restarted(context)).status, "cached", "validated cache survives a server restart");
+  const stalled = createPackageDocumentationReader({
+    ...dependencies,
+    fetch: (async (_url, options) =>
+      new Promise((_resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("Stalled network")), 2_000);
+        options?.signal?.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(timer);
+            reject(new Error("Aborted"));
+          },
+          { once: true },
+        );
+      })) as typeof safeFetch,
+  });
+  const started = performance.now();
+  assert.equal((await stalled(context)).status, "cached");
+  assert.ok(
+    performance.now() - started < 1_400,
+    "stale validated help fits Mari's overview deadline even when the source stalls",
+  );
   assert.equal((await restarted({ ...context, version: "2.0.0" })).status, "unavailable");
   assert.equal(
     (await restarted({ ...context, catalogUrl: catalogUrl.replace("/staging/", "/main/") })).status,

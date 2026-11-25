@@ -195,7 +195,9 @@ export function createPackageDocumentationReader(deps: DocumentationDependencies
       sourceUrl: context.documentationUrl,
     };
     if (!context.version) return cached ? { ...cached, status: "cached" } : unavailable;
-    const signal = AbortSignal.timeout(5_000);
+    // Reserve room inside Mari's 1.5-second overview budget for disk reads and
+    // returning a validated stale copy when its source is slow or offline.
+    const signal = AbortSignal.timeout(cached ? 750 : 5_000);
     try {
       const channel = officialChannel(context.catalogUrl);
       const sidecarUrl = context.catalogUrl.endsWith("/catalog.json")

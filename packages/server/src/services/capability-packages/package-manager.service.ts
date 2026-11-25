@@ -16015,16 +16015,26 @@ export const capabilityPackageManager = {
   },
 
   async documentation(packageId: string, guideId = "overview", knownEntry?: StampedCapabilityCatalogPackage) {
+    const readOffline = async () => {
+      const cached = await readPackageDocumentation({ catalogUrl: CATALOG_URL, packageId }, guideId);
+      if (cached.status !== "unavailable" || !PREVIEW_CATALOG_URL) return cached;
+      return readPackageDocumentation({ catalogUrl: PREVIEW_CATALOG_URL, packageId }, guideId);
+    };
     let entry =
       knownEntry ??
       (documentationCatalog && Date.now() - documentationCatalog.at < 5 * 60_000
         ? documentationCatalog.packages.find((candidate) => candidate.manifest.id === packageId)
         : undefined);
     if (!entry) {
+      // Refresh metadata in parallel, but let a validated disk read survive a
+      // restart without spending Mari's entire deadline on a stalled catalog.
+      const catalogPromise = this.catalog(safeFetch, PREVIEW_CATALOG_URL, false).catch(() => null);
+      const cached = await readOffline();
+      if (cached.status !== "unavailable") return cached;
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         const catalog = await Promise.race([
-          this.catalog(safeFetch, PREVIEW_CATALOG_URL, false),
+          catalogPromise,
           new Promise<null>((resolve) => {
             timer = setTimeout(() => resolve(null), 2_000);
           }),
@@ -16046,9 +16056,7 @@ export const capabilityPackageManager = {
         },
         guideId,
       );
-    const cached = await readPackageDocumentation({ catalogUrl: CATALOG_URL, packageId }, guideId);
-    if (cached.status !== "unavailable" || !PREVIEW_CATALOG_URL) return cached;
-    return readPackageDocumentation({ catalogUrl: PREVIEW_CATALOG_URL, packageId }, guideId);
+    return readOffline();
   },
 
   async declineUpdate(packageId: string, version: string) {
