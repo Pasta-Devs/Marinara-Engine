@@ -173,6 +173,11 @@ export function CustomGenerationParametersSettings() {
                     {definition.tooltip}
                   </p>
                 )}
+                {definition.requestKey.toLowerCase() === "min_p" && (
+                  <p className="mt-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                    {t("settings.customGenerationParameters.minPBuiltIn")}
+                  </p>
+                )}
               </div>
               {/* 16px (1rem) icons here are a maintainer choice from #4125; core-flows pins them. */}
               <div className="flex shrink-0 gap-1">

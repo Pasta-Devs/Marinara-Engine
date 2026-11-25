@@ -258,8 +258,27 @@ export function getEditableGenerationParameters(
   };
 }
 
+/**
+ * Where the built-in Min P field shows, it is the only Min P control (#9816). A custom min_p parameter that is on was
+ * what the request carried (custom parameters are merged over the built-in field), so its value moves into the field
+ * and the custom parameter is turned off. The next change saves that; until then the request is the same.
+ */
+export function foldCustomMinP(
+  value: EditableGenerationParameters,
+  definition: ManagedGenerationParameterDefinition,
+): EditableGenerationParameters {
+  const stored = value.managedCustomParameters[definition.id];
+  if (!stored?.enabled || !Number.isFinite(stored.value)) return value;
+  const sent = Math.min(definition.max, Math.max(definition.min, stored.value));
+  return {
+    ...value,
+    minP: Math.min(1, Math.max(0, sent)),
+    managedCustomParameters: { ...value.managedCustomParameters, [definition.id]: { ...stored, enabled: false } },
+  };
+}
+
 export function GenerationParametersFields({
-  value,
+  value: storedValue,
   onChange,
   showServiceTier = false,
   showOpenRouterServiceTier = showServiceTier,
@@ -326,12 +345,22 @@ export function GenerationParametersFields({
     model,
     baseUrl,
     capabilities: modelCapabilities ?? null,
-    reasoningEffort: value.reasoningEffort,
+    reasoningEffort: storedValue.reasoningEffort,
   };
   const relevant = provider === undefined ? null : relevantGenerationParameters(context);
   const show = (key: GenerationParameterKey) =>
     (showTokenLimits || key !== "maxTokens") &&
     (relevant ? relevant.has(key) : key !== "serviceTier" || showOpenRouterServiceTier);
+  // One Min P control (#9816). With no Model picked the request can go to any connection, and every one that takes
+  // custom parameters sends a custom min_p, so it stands in for the built-in field, which only two kinds of connection
+  // send. Elsewhere the built-in field, where it shows, takes the custom one's place.
+  const customMinP = managedDefinitions.find((definition) => definition.requestKey.toLowerCase() === "min_p");
+  const showMinP = show("minP") && !(customMinP && relevant && !provider);
+  const managedControls = showMinP
+    ? managedDefinitions.filter((definition) => definition !== customMinP)
+    : managedDefinitions;
+  // A preset's custom values are never sent, so only a Model's settings move a custom value into the field.
+  const value = showMinP && customMinP && provider ? foldCustomMinP(storedValue, customMinP) : storedValue;
   const effortChoices = reasoningEffortChoices({ ...context, selected: value.reasoningEffort }).filter(
     (choice) => choice.value !== null || !isClaudeOpus55Model(model ?? ""),
   );
@@ -347,7 +376,7 @@ export function GenerationParametersFields({
   };
   const isSendEnabled = (key: GenerationParameterSendKey) =>
     (value.enabledParameters ?? enabledParametersFallback)[key] !== false;
-  const showSamplingGrid = show("temperature") || show("maxTokens") || show("topP") || show("topK") || show("minP");
+  const showSamplingGrid = show("temperature") || show("maxTokens") || show("topP") || show("topK") || showMinP;
   const showPenaltyGrid = show("frequencyPenalty") || show("presencePenalty");
   const setManagedParameter = (
     definition: ManagedGenerationParameterDefinition,
@@ -427,7 +456,7 @@ export function GenerationParametersFields({
             />
           )}
           {/* 0 sends nothing. */}
-          {show("minP") && (
+          {showMinP && (
             <ParamInput
               label={localizeUi("ui.ui.generationparametersfields.minP")}
               help={localizeUi("ui.ui.generationparametersfields.minPHelp")}
@@ -473,9 +502,9 @@ export function GenerationParametersFields({
           )}
         </div>
       )}
-      {show("customParameters") && managedDefinitions.length > 0 && (
+      {show("customParameters") && managedControls.length > 0 && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {managedDefinitions.map((definition) => {
+          {managedControls.map((definition) => {
             const stored = value.managedCustomParameters[definition.id];
             return (
               <ParamInput

@@ -32,6 +32,7 @@ const EDITABLE_PARAMETER_KEYS: Array<keyof EditableGenerationParameters> = [
   "maxTokens",
   "topP",
   "topK",
+  "minP",
   "frequencyPenalty",
   "presencePenalty",
   "reasoningEffort",
