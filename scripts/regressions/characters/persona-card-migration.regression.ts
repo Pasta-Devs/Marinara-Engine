@@ -116,7 +116,7 @@ const preV11Files = (root: string) =>
     : [];
 
 try {
-  assert.equal(STORAGE_VERSION, 11, "format 11 is the persona card format");
+  assert.ok(STORAGE_VERSION >= 11, "persona card migration requires format 11 or newer");
 
   // 1. A format-10 profile converts on boot: same flat view, originals preserved byte-for-byte.
   {
@@ -146,7 +146,11 @@ try {
       assert.equal(typeof onDisk?.data, "string", `${id}'s shard is rewritten with a card`);
       assert.equal(onDisk?.description, undefined, `${id}'s shard no longer holds flat authored columns`);
     }
-    assert.equal(readManifest(root).version, 11, "the manifest moves to format 11 after the flush");
+    assert.equal(
+      readManifest(root).version,
+      STORAGE_VERSION,
+      "the manifest moves to the current format after the flush",
+    );
     const check = await createFileNativeDB();
     const [noticeRow] = await check.select().from(appSettings).where(eq(appSettings.key, "storage-migration-notice"));
     await check._fileStore.close();
@@ -279,7 +283,11 @@ try {
       failed = true;
     }
     assert.equal(failed, true, "the injected write failure stops the first boot");
-    assert.equal(readManifest(root).version, 11, "the manifest already says 11, so older builds refuse the profile");
+    assert.equal(
+      readManifest(root).version,
+      STORAGE_VERSION,
+      "the manifest already blocks older builds before the rewrite",
+    );
     const db = await createFileNativeDB();
     const [stored] = await db.select().from(personas).where(eq(personas.id, row.id));
     await db._fileStore.close();
@@ -311,8 +319,8 @@ try {
     assert.equal(failed, true, "the injected write failure stops the first boot");
     assert.equal(
       existsSync(join(root, "manifest.json")) ? readManifest(root).version : null,
-      11,
-      "a primary manifest saying 11 exists before any persona shard is rewritten",
+      STORAGE_VERSION,
+      "a primary manifest with the current format exists before any persona shard is rewritten",
     );
   }
 
