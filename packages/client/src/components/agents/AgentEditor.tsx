@@ -1917,19 +1917,25 @@ export function AgentEditor() {
             parseAgentSettingsRecord(loadedSave.config.settings),
             parseAgentSettingsRecord(dbConfig.settings),
           );
-          // The picked sections only apply with Tracker Data on, so a changed pick keeps the flag
-          // on even when another editor turned it off meanwhile (keys rebase one by one).
-          const pickedSections = payload.settings[AGENT_TRACKER_DATA_SECTIONS_SETTING];
-          if (
-            pickedSections !== undefined &&
-            JSON.stringify(pickedSections) !==
-              JSON.stringify(loadedSave.payload.settings[AGENT_TRACKER_DATA_SECTIONS_SETTING])
-          ) {
+          // Off / All / Pick spans two keys (the trackerData flag and the section list), which
+          // rebase one by one. When this editor changed the mode, save it whole so a concurrent
+          // edit cannot leave half of another mode behind.
+          const trackerDataMode = (settings: Record<string, unknown>) => {
+            const sources = settings.contextSources as { trackerData?: unknown } | undefined;
+            return JSON.stringify([
+              sources?.trackerData ?? null,
+              settings[AGENT_TRACKER_DATA_SECTIONS_SETTING] ?? null,
+            ]);
+          };
+          if (trackerDataMode(payload.settings) !== trackerDataMode(loadedSave.payload.settings)) {
             const rebasedSources = rebasedSettings.contextSources;
             rebasedSettings.contextSources = {
               ...(rebasedSources && typeof rebasedSources === "object" ? rebasedSources : {}),
-              trackerData: true,
+              trackerData: (payload.settings.contextSources as { trackerData?: unknown } | undefined)?.trackerData,
             };
+            const pickedSections = payload.settings[AGENT_TRACKER_DATA_SECTIONS_SETTING];
+            if (pickedSections === undefined) delete rebasedSettings[AGENT_TRACKER_DATA_SECTIONS_SETTING];
+            else rebasedSettings[AGENT_TRACKER_DATA_SECTIONS_SETTING] = pickedSections;
           }
           patch.settings = rebasedSettings;
         }
