@@ -34,7 +34,7 @@ async function openFixture(
   await page.addInitScript(
     ({ version, savedPlace }) => {
       localStorage.setItem("marinara:whats-new:seen-version", version);
-      localStorage.setItem("marinara-docs-viewer-place", JSON.stringify(savedPlace));
+      sessionStorage.setItem("marinara-docs-viewer-place", JSON.stringify(savedPlace));
       localStorage.setItem("marinara-tap-timings", "1");
     },
     { version, savedPlace },
@@ -102,7 +102,7 @@ async function openFixture(
             ? undefined
             : guideId === "setup"
               ? "# Set up\n\nChoose a character."
-              : "# Guide fixture\n\nRead the [Set up](docs/setup.md) guide.\n\n<script>window.__guideExecuted = true</script>",
+              : '# Guide fixture\n\nRead the [Set up](docs/setup.md) guide.\n\n<script>window.__guideExecuted = true</script>\n\n<svg onload="window.__guideExecuted=true"></svg>\n\n[Unsafe](javascript:alert(1))\n\n![Unsafe image](data:image/svg+xml,evil)',
         retrievedAt: "2026-11-25T00:00:00.000Z",
       },
     });
@@ -137,6 +137,8 @@ for (const visualTheme of ["default", "sillytavern"] as const)
       const dialog = page.getByRole("dialog", { name: "Guide fixture guides", exact: true });
       await expect(dialog.getByRole("heading", { name: "Guide fixture", exact: true })).toBeVisible();
       await expect(dialog.getByText("Guide language: English", { exact: true })).toBeVisible();
+      await expect(dialog.locator('svg[onload], script, a[href^="javascript:"], img[src^="data:"]')).toHaveCount(0);
+      expect(await page.evaluate(() => (window as unknown as Record<string, unknown>).__guideExecuted)).toBeUndefined();
       await activate(page, dialog.getByRole("link", { name: "Set up", exact: true }));
       await expect(dialog.getByText("Choose a character.", { exact: true })).toBeVisible();
       expect(page.context().pages()).toHaveLength(1);
@@ -151,7 +153,7 @@ for (const visualTheme of ["default", "sillytavern"] as const)
       await info.attach("tap-timings", { body: readings, contentType: "text/plain" });
       await dialog.getByRole("button", { name: /^Close /u }).click();
       await expect(catalog.getByRole("heading", { name: "Permissions", exact: true })).toBeVisible();
-      expect(await page.evaluate(() => JSON.parse(localStorage.getItem("marinara-docs-viewer-place")!))).toEqual(
+      expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("marinara-docs-viewer-place")!))).toEqual(
         savedPlace,
       );
     });
@@ -166,3 +168,16 @@ for (const status of ["unavailable", "cached"] as const)
     else await expect(dialog.getByRole("status")).toContainText("Saved guide, source currently unavailable");
     await expect(dialog.getByRole("link", { name: "View source" })).toHaveAttribute("href", source);
   });
+
+test("agent guide tablet layout keeps topics and content together", async ({ page }, info) => {
+  test.skip(!info.project.name.startsWith("desktop"));
+  await page.setViewportSize({ width: 744, height: 1000 });
+  await openFixture(page);
+  await page.getByRole("button", { name: "Read how this agent works" }).click();
+  const dialog = page.getByRole("dialog", { name: "Guide fixture guides", exact: true });
+  await expect(dialog.getByRole("button", { name: "Set up", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Set up", exact: true }).click();
+  await expect(dialog.getByText("Choose a character.", { exact: true })).toBeVisible();
+  expect(await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath("tablet-guide.png") });
+});

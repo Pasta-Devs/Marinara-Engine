@@ -14068,6 +14068,15 @@ export function resolveCapabilityPackageArtifactUrl(entry: CapabilityCatalogPack
   return `${officialArtifactRoot(branch)}/${officialArtifactName(entry, branch) ?? officialArtifactNames(entry)[0]}`;
 }
 
+export function resolveCapabilityPackageDocumentationUrl(documentationUrl: string, catalogUrl = CATALOG_URL): string {
+  const branch = getOfficialAgentBranchFromCatalogUrl(catalogUrl);
+  if (!branch) return documentationUrl;
+  return documentationUrl.replace(
+    /^(https:\/\/github\.com\/Pasta-Devs\/Marinara-(?:Agents|Engine)\/blob\/)(?:main|staging)\//u,
+    `$1${branch}/`,
+  );
+}
+
 /** Each language pack's URL (1.811), on the catalog's own branch as the artifact's is. */
 function resolveCapabilityPackageLocaleUrls(
   entry: CapabilityCatalogPackage,
@@ -15125,12 +15134,18 @@ export const capabilityPackageManager = {
   async catalog(
     fetchCatalog: typeof safeFetch = safeFetch,
     previewCatalogUrl: string | null = PREVIEW_CATALOG_URL,
+    includeStore = true,
   ): Promise<StampedCapabilityCatalog> {
     // Started first so a slow sidecar overlaps the catalog fetch; readStoreListings never rejects.
-    const storesPromise = Promise.all([
-      readStoreListings(STORE_URL, fetchCatalog),
-      readStoreListings(resolveCapabilityReleaseNotesUrl(previewCatalogUrl, "store.json"), fetchCatalog),
-    ]);
+    const storesPromise = includeStore
+      ? Promise.all([
+          readStoreListings(STORE_URL, fetchCatalog),
+          readStoreListings(resolveCapabilityReleaseNotesUrl(previewCatalogUrl, "store.json"), fetchCatalog),
+        ])
+      : Promise.resolve([
+          { listings: new Map(), kits: [] },
+          { listings: new Map(), kits: [] },
+        ]);
     const response = await fetchCatalogDocument(CATALOG_URL, fetchCatalog);
     if (!response.ok) throw new Error(`Catalog request failed with HTTP ${response.status}`);
     // Per-entry tolerant: a catalog entry built for a NEWER Engine (unknown
@@ -15181,6 +15196,9 @@ export const capabilityPackageManager = {
         url: resolveCapabilityPackageArtifactUrl(entry, sourceUrl),
       },
       ...(entry.locales ? { locales: resolveCapabilityPackageLocaleUrls(entry, sourceUrl) } : {}),
+      ...(entry.documentationUrl
+        ? { documentationUrl: resolveCapabilityPackageDocumentationUrl(entry.documentationUrl, sourceUrl) }
+        : {}),
     });
 
     // Re-sorted because the two documents are each sorted only within
@@ -16006,7 +16024,7 @@ export const capabilityPackageManager = {
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         const catalog = await Promise.race([
-          this.catalog(),
+          this.catalog(safeFetch, PREVIEW_CATALOG_URL, false),
           new Promise<null>((resolve) => {
             timer = setTimeout(() => resolve(null), 2_000);
           }),

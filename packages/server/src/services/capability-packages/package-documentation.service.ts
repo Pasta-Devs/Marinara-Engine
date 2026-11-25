@@ -68,6 +68,7 @@ const cachedReadSchema = z
 const cacheSchema = z
   .object({
     key: z.string(),
+    sourceIdentity: z.string(),
     sha256: z.string().regex(/^[a-f0-9]{64}$/u),
     value: cachedReadSchema,
   })
@@ -123,6 +124,7 @@ export function createPackageDocumentationReader(deps: DocumentationDependencies
       const age = now() - Date.parse(cached.value.retrievedAt);
       if (
         cached.key !== key ||
+        (context.version && cached.sourceIdentity !== (context.documentationUrl ?? "")) ||
         cached.sha256 !== digest(cached.value.content) ||
         age < 0 ||
         age > OFFLINE_MS ||
@@ -137,13 +139,18 @@ export function createPackageDocumentationReader(deps: DocumentationDependencies
     }
   }
 
-  async function saveCache(key: string, value: PackageDocumentationRead) {
+  async function saveCache(key: string, context: PackageDocumentationContext, value: PackageDocumentationRead) {
     try {
       const validated = cachedReadSchema.parse(value);
       await mkdir(deps.cacheRoot, { recursive: true });
       await writeFileAtomic(
         join(deps.cacheRoot, `${digest(key)}.json`),
-        JSON.stringify({ key, sha256: digest(validated.content), value: validated }),
+        JSON.stringify({
+          key,
+          sourceIdentity: context.documentationUrl ?? "",
+          sha256: digest(validated.content),
+          value: validated,
+        }),
         { mode: 0o600 },
       );
       const files = (await readdir(deps.cacheRoot)).filter((name) => /^[a-f0-9]{64}\.json$/u.test(name));
@@ -320,7 +327,7 @@ export function createPackageDocumentationReader(deps: DocumentationDependencies
         enginePath,
         retrievedAt: new Date(now()).toISOString(),
       };
-      await saveCache(key, value);
+      await saveCache(key, context, value);
       return value;
     } catch {
       return cached ? { ...cached, status: "cached" } : unavailable;

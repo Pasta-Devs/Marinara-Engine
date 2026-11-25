@@ -99,6 +99,18 @@ try {
   assert.equal(requests.filter((url) => url === sidecarUrl).length, 1);
 
   offline = true;
+  assert.equal(
+    (await reader({ ...context, documentationUrl: "https://example.org/new-guide" })).status,
+    "unavailable",
+    "a changed source cannot reuse a fresh cached guide",
+  );
+  assert.equal(
+    (await reader({ catalogUrl, packageId: "example" })).status,
+    "cached",
+    "offline lookup remains versionless",
+  );
+
+  offline = true;
   clock += 6 * 60_000;
   const restarted = createPackageDocumentationReader(dependencies);
   assert.equal((await restarted(context)).status, "cached", "validated cache survives a server restart");
