@@ -363,7 +363,8 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
   const keys: string[] = [];
   const server = createServer(async (req, res) => {
     for await (const chunk of req) void chunk;
-    if (req.method === "GET" && req.url === "/v1/models") {
+    // OpenRouter's list asks for its decision models too (`/models?output_modalities=text,decisions`, #9318).
+    if (req.method === "GET" && new URL(req.url ?? "", "http://x").pathname === "/v1/models") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ data: [{ id: "fixture", name: "Fixture" }] }));
       return;

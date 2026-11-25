@@ -89,7 +89,12 @@ test("the decision installer is reachable before setup, asks before turning on, 
       writes.push(new URL(sent.url()).pathname);
   });
   await expect(dialog.getByRole("button", { name: "Download and install" })).toHaveCount(0);
-  await dialog.getByRole("button", { name: "Download", exact: true }).click();
+  // #9536 names the picked model and its size on the decision section's Download, as on the other built-in models
+  // ("Download now" above it is the chat model's).
+  await dialog
+    .locator('[data-component="DecisionModelDetail"]')
+    .getByRole("button", { name: /^Download .+ \(.+\)$/u })
+    .click();
   const confirm = page.getByRole("dialog", { name: "Turn on the built-in decision model?" });
   await expect(confirm.getByText(/runs a second built-in model beside your normal one/u)).toBeVisible();
   await confirm.getByRole("button", { name: "Cancel", exact: true }).click();

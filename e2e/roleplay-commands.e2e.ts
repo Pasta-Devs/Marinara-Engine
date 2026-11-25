@@ -2843,7 +2843,13 @@ for (const theme of ["dark", "light"] as const) {
       await terminal.scrollIntoViewIfNeeded();
       await page.screenshot({ path: info.outputPath(`document-terminal-${theme}.png`), animations: "disabled" });
 
-      const notice = page.locator('[data-roleplay-command="document"]').filter({ has: letter });
+      // #9649 renders a message's documents above its command notices, not inside them, so the letter's notice is
+      // found by its place: the second (activity index 1) in the letter's message.
+      const notice = page
+        .locator("[data-roleplay-command-results]")
+        .filter({ has: letter })
+        .locator('[data-roleplay-command="document"]')
+        .nth(1);
       await notice.getByRole("button", { name: "Alice used document command!", exact: true }).click();
       await notice.getByRole("button", { name: "Edit", exact: true }).click();
       const editor = page.locator('[data-component="ExpandedTextarea"]');
