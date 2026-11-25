@@ -3,9 +3,17 @@
  *
  * A float has a free rectangle (dragged and resized by hand) and, optionally, a snap zone. While a zone is
  * set, the zone decides the drawn rectangle and the free one is kept for when she is dragged out of it.
+ * The side zones dock her like a sidebar: full height, flush with the screen edge, and the app makes room for her
+ * (AppShell). The top zone fills the screen below the app's top bar, which stays in view.
  */
 
 export type MariFloatZone = "left" | "right" | "max";
+
+/** Where she is docked right now, for the app shell to make room: published while her pane shows in a side zone. */
+export interface MariFloatDock {
+  side: "left" | "right";
+  width: number;
+}
 
 export interface MariFloatRect {
   left: number;
@@ -17,6 +25,8 @@ export interface MariFloatRect {
 export interface MariFloatView {
   width: number;
   height: number;
+  /** The bottom of the app's top bar: the top zone starts below it. */
+  top?: number;
 }
 
 /** Room kept between her window and the screen edge, and between two halves. */
@@ -29,6 +39,10 @@ export const MARI_FLOAT_MIN_HEIGHT_PX = 320;
 /** Today's centred window, which a first float starts from: 44rem wide, 48rem tall, 10vh from the top. */
 const START_WIDTH_REM = 44;
 const START_HEIGHT_REM = 48;
+/** A side dock's width until she is resized there: about the Chats sidebar's. */
+export const MARI_FLOAT_DOCK_DEFAULT_REM = 28;
+/** The top zone's distance below the top bar. */
+const MAX_TOP_GAP_PX = 6;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), Math.max(min, max));
 
@@ -66,12 +80,27 @@ export function clampMariFloatRect(rect: MariFloatRect, view: MariFloatView): Ma
   };
 }
 
-export function mariFloatZoneRect(zone: MariFloatZone, view: MariFloatView): MariFloatRect {
+/** A side dock's width: the saved one (or the default), at least her minimum and at most half the screen. */
+export function mariFloatDockWidth(saved: number | null, view: MariFloatView, remPx: number): number {
+  const width = saved ?? MARI_FLOAT_DOCK_DEFAULT_REM * remPx;
+  return Math.round(clamp(width, Math.min(MARI_FLOAT_MIN_WIDTH_PX, view.width), Math.floor(view.width / 2)));
+}
+
+/** A zone's rectangle; `dockWidth` is the side dock's width (mariFloatDockWidth). */
+export function mariFloatZoneRect(zone: MariFloatZone, view: MariFloatView, dockWidth: number): MariFloatRect {
   const gap = MARI_FLOAT_GAP_PX;
-  const height = view.height - 2 * gap;
-  if (zone === "max") return { left: gap, top: gap, width: view.width - 2 * gap, height };
-  const width = Math.floor((view.width - 3 * gap) / 2);
-  return { left: zone === "left" ? gap : view.width - gap - width, top: gap, width, height };
+  if (zone === "max") {
+    const top = view.top ? Math.round(view.top + MAX_TOP_GAP_PX) : gap;
+    return { left: gap, top, width: view.width - 2 * gap, height: Math.max(0, view.height - top - gap) };
+  }
+  return { left: zone === "left" ? 0 : view.width - dockWidth, top: 0, width: dockWidth, height: view.height };
+}
+
+/** Dragging a side dock's inner edge by dx: the left dock grows to the right, the right one to the left. */
+export function resizeMariFloatDock(start: number, side: "left" | "right", dx: number, view: MariFloatView): number {
+  return Math.round(
+    clamp(side === "left" ? start + dx : start - dx, MARI_FLOAT_MIN_WIDTH_PX, Math.floor(view.width / 2)),
+  );
 }
 
 /** The zone a drag would land in with the pointer here; the top edge wins in the corners. */
@@ -88,8 +117,9 @@ export function drawnMariFloatRect(
   zone: MariFloatZone | null,
   view: MariFloatView,
   remPx: number,
+  dockWidth: number | null = null,
 ): MariFloatRect {
-  if (zone) return mariFloatZoneRect(zone, view);
+  if (zone) return mariFloatZoneRect(zone, view, mariFloatDockWidth(dockWidth, view, remPx));
   return rect ? clampMariFloatRect(rect, view) : startMariFloatRect(view, remPx);
 }
 

@@ -5507,6 +5507,28 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   user-select: none;
 }
 
+/* Docked at a side she is a sidebar: flush with the screen edge, square, one divider toward the app, and only her
+   inner edge resizes her, along her whole height. */
+[data-component="GlobalOmnibar"][data-pane="mari"]:is([data-mari-float="left"], [data-mari-float="right"])
+  > .mari-float-panel {
+  border-radius: 0;
+  box-shadow: none;
+}
+[data-mari-float="left"] > .mari-float-panel {
+  border-right: 1px solid var(--border);
+}
+[data-mari-float="right"] > .mari-float-panel {
+  border-left: 1px solid var(--border);
+}
+[data-mari-float="left"] > .mari-float-frame > .mari-window__resize-handle:not([data-edge="e"]),
+[data-mari-float="right"] > .mari-float-frame > .mari-window__resize-handle:not([data-edge="w"]) {
+  display: none;
+}
+:is([data-mari-float="left"], [data-mari-float="right"]) > .mari-float-frame > .mari-window__resize-handle {
+  top: 0;
+  bottom: 0;
+}
+
 /* A dropped window glides into its zone or spot (use-mari-float sets data-float-settling for one glide). */
 [data-mari-float][data-float-settling] > :is(.mari-float-panel, .mari-float-frame) {
   transition:

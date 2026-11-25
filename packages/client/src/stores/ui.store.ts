@@ -54,6 +54,7 @@ import type { MariFieldReview } from "../lib/mari-editor-fields";
 import {
   isMariFloatZone,
   normalizeMariFloatRect,
+  type MariFloatDock,
   type MariFloatRect,
   type MariFloatZone,
 } from "../lib/mari-float-layout";
@@ -837,6 +838,10 @@ export interface UIState {
   mariFloatRect: MariFloatRect | null;
   /** The snap zone she floats in, if any; it wins over the free rectangle. This device only. */
   mariFloatZone: MariFloatZone | null;
+  /** A side dock's width in CSS px, once resized there; null is the default. This device only. */
+  mariFloatDockWidth: number | null;
+  /** Where she is docked while her pane shows, so the app shell makes room. Not persisted. */
+  mariFloatDock: MariFloatDock | null;
   /** Desktop: Prof. Mari docks as a companion panel beside an open editor (header toggle). */
   mariCompanionDocked: boolean;
   /** Companion panel width in rem. */
@@ -1456,6 +1461,8 @@ export interface UIState {
   setMariEditViewMode: (mode: MariEditViewMode) => void;
   setMariFloating: (floating: boolean) => void;
   setMariFloatPlace: (rect: MariFloatRect | null, zone: MariFloatZone | null) => void;
+  setMariFloatDockWidth: (width: number | null) => void;
+  setMariFloatDock: (dock: MariFloatDock | null) => void;
   setMariCompanionDocked: (docked: boolean) => void;
   setMariCompanionWidthRem: (width: number) => void;
   setMariCompanionRoot: (root: HTMLElement | null) => void;
@@ -2247,6 +2254,7 @@ export function pickPersistedUIState(state: UIState) {
     mariFloating: state.mariFloating,
     mariFloatRect: state.mariFloatRect,
     mariFloatZone: state.mariFloatZone,
+    mariFloatDockWidth: state.mariFloatDockWidth,
     mariCompanionDocked: state.mariCompanionDocked,
     mariCompanionWidthRem: state.mariCompanionWidthRem,
     omnibarWindowWidthRem: normalizeOmnibarWindowWidthRem(state.omnibarWindowWidthRem),
@@ -2537,6 +2545,8 @@ export const useUIStore = create<UIState>()(
         mariFloating: false,
         mariFloatRect: null,
         mariFloatZone: null,
+        mariFloatDockWidth: null,
+        mariFloatDock: null,
         mariCompanionDocked: true,
         mariCompanionWidthRem: MARI_COMPANION_WIDTH_DEFAULT_REM,
         mariCompanionRoot: null,
@@ -2998,6 +3008,9 @@ export const useUIStore = create<UIState>()(
         setMariEditViewMode: (mode) => set({ mariEditViewMode: mode }),
         setMariFloating: (floating) => set({ mariFloating: floating }),
         setMariFloatPlace: (rect, zone) => set({ mariFloatRect: rect, mariFloatZone: zone }),
+        setMariFloatDockWidth: (width) =>
+          set({ mariFloatDockWidth: typeof width === "number" && Number.isFinite(width) ? Math.round(width) : null }),
+        setMariFloatDock: (dock) => set({ mariFloatDock: dock }),
         setMariCompanionDocked: (docked) => set({ mariCompanionDocked: docked }),
         setMariCompanionWidthRem: (width) => set({ mariCompanionWidthRem: normalizeMariCompanionWidthRem(width) }),
         setMariCompanionRoot: (root) => set({ mariCompanionRoot: root }),
@@ -3572,6 +3585,7 @@ export const useUIStore = create<UIState>()(
             mariFloating: false,
             mariFloatRect: null,
             mariFloatZone: null,
+            mariFloatDockWidth: null,
             omnibarWindowWidthRem: OMNIBAR_WINDOW_WIDTH_DEFAULT_REM,
             omnibarWindowHeightRem: null,
             mariAppearancePackId: "basic",
@@ -4448,6 +4462,11 @@ export const useUIStore = create<UIState>()(
           mariFloating: persisted.mariFloating === true,
           mariFloatRect: normalizeMariFloatRect(persisted.mariFloatRect),
           mariFloatZone: isMariFloatZone(persisted.mariFloatZone) ? persisted.mariFloatZone : null,
+          mariFloatDockWidth:
+            typeof persisted.mariFloatDockWidth === "number" && Number.isFinite(persisted.mariFloatDockWidth)
+              ? persisted.mariFloatDockWidth
+              : null,
+          mariFloatDock: null,
           mariCompanionDocked: persisted.mariCompanionDocked !== false,
           mariCompanionWidthRem: normalizeMariCompanionWidthRem(persisted.mariCompanionWidthRem),
           omnibarWindowWidthRem: normalizeOmnibarWindowWidthRem(persisted.omnibarWindowWidthRem),

@@ -1024,7 +1024,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     ...companionSize
   } = useMariCompanion(mariSurface, dialogRef);
   // #9818: on a computer she can float instead: no backdrop, movable, open while the app is used.
-  const float = useMariFloat(mariSurface, companion, dialogRef);
+  const float = useMariFloat(mariSurface, companion, companionAvailable, dialogRef);
   // Both companion and float leave the app usable: no backdrop, no focus trap, Escape only from inside her.
   const nonModal = companion || float.active;
   const floatLabel = float.active

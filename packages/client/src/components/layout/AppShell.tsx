@@ -503,6 +503,7 @@ export function AppShell({
   const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const sidebarSide = useUIStore((s) => s.sidebarSide);
+  const mariFloatDock = useUIStore((s) => s.mariFloatDock);
   const sharedSidebarWidth = useUIStore(selectSharedSidebarWidth);
   const setRightPanelWidth = useUIStore((s) => s.setRightPanelWidth);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
@@ -649,11 +650,17 @@ export function AppShell({
   }, [rightPanelEverOpened]);
 
   const desktopReservedSidebarWidth = desktopSidebarOpen ? liveSidebarWidth : 0;
-  const desktopCenterWidth = Math.max(0, viewportWidth - desktopReservedSidebarWidth);
+  // #9818: Prof. Mari docked at a side is a third sidebar, outermost: the app makes room for her.
+  const mariDockLeft = !shellOverlayMode && mariFloatDock?.side === "left" ? mariFloatDock.width : 0;
+  const mariDockRight = !shellOverlayMode && mariFloatDock?.side === "right" ? mariFloatDock.width : 0;
+  const desktopCenterWidth = Math.max(0, viewportWidth - desktopReservedSidebarWidth - mariDockLeft - mariDockRight);
   const centerSqueezedByPanels =
-    !isMobile && desktopSidebarOpen && viewportWidth > 0 && desktopCenterWidth < CENTER_COMPACT_WIDTH;
-  const chatUiInsetLeft = sidebarOnLeft ? Math.round(desktopReservedSidebarWidth) : 0;
-  const chatUiInsetRight = sidebarOnLeft ? 0 : Math.round(desktopReservedSidebarWidth);
+    !isMobile &&
+    (desktopSidebarOpen || mariDockLeft + mariDockRight > 0) &&
+    viewportWidth > 0 &&
+    desktopCenterWidth < CENTER_COMPACT_WIDTH;
+  const chatUiInsetLeft = (sidebarOnLeft ? Math.round(desktopReservedSidebarWidth) : 0) + mariDockLeft;
+  const chatUiInsetRight = (sidebarOnLeft ? 0 : Math.round(desktopReservedSidebarWidth)) + mariDockRight;
 
   const chatUiInsetPublishedRef = useRef(false);
   useLayoutEffect(() => {
@@ -1785,6 +1792,14 @@ export function AppShell({
           <OnboardingTutorial />
         </Suspense>
       )}
+      {/* Room for Prof. Mari docked at a side (#9818); the omnibar draws her window over it. Outermost on its side,
+          so where she sits never depends on the sidebar. use-mari-float resizes it by hand during a drag. */}
+      <div
+        aria-hidden="true"
+        data-component="MariDockSpace"
+        className="mari-dock-space shrink-0"
+        style={{ width: mariDockLeft || mariDockRight, order: mariDockLeft ? -2 : 1 }}
+      />
       <GlobalOmnibar />
       <div data-component="MobileMusicWidgetLayer" className="contents">
         {isMobile && musicDjInstalled ? (

@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import {
   clampMariFloatRect,
   drawnMariFloatRect,
+  MARI_FLOAT_DOCK_DEFAULT_REM,
   MARI_FLOAT_GAP_PX,
   MARI_FLOAT_MIN_HEIGHT_PX,
   MARI_FLOAT_MIN_WIDTH_PX,
+  mariFloatDockWidth,
   mariFloatZoneAt,
   mariFloatZoneRect,
   normalizeMariFloatRect,
+  resizeMariFloatDock,
   resizeMariFloatRect,
   startMariFloatRect,
   unsnapMariFloatRect,
@@ -29,22 +32,35 @@ const rem = 16;
   assert.deepEqual(drawnMariFloatRect(null, null, view, rem), start);
 }
 
-// 2. The zones: halves with a gap between them, and the whole screen.
+// 2. The zones: side docks flush with their edge at the dock width, the whole screen below the top bar.
 {
   const gap = MARI_FLOAT_GAP_PX;
-  const left = mariFloatZoneRect("left", view);
-  const right = mariFloatZoneRect("right", view);
-  assert.equal(left.left, gap);
-  assert.equal(right.left + right.width, 1440 - gap);
-  assert.ok(right.left - (left.left + left.width) >= gap, "a gap between the halves");
-  assert.deepEqual(mariFloatZoneRect("max", view), {
+  const dock = mariFloatDockWidth(null, view, rem);
+  assert.equal(dock, MARI_FLOAT_DOCK_DEFAULT_REM * rem);
+  const left = mariFloatZoneRect("left", view, dock);
+  const right = mariFloatZoneRect("right", view, dock);
+  assert.deepEqual(left, { left: 0, top: 0, width: dock, height: 900 });
+  assert.deepEqual(right, { left: 1440 - dock, top: 0, width: dock, height: 900 });
+  assert.deepEqual(mariFloatZoneRect("max", view, dock), {
     left: gap,
     top: gap,
     width: 1440 - 2 * gap,
     height: 900 - 2 * gap,
   });
-  // A zone wins over the free rectangle.
+  // With a top bar, the whole-screen zone starts just below it, so the bar stays in view.
+  const max = mariFloatZoneRect("max", { ...view, top: 48 }, dock);
+  assert.equal(max.top, 54);
+  assert.equal(max.top + max.height, 900 - gap);
+  // A zone wins over the free rectangle; a saved dock width is used.
   assert.deepEqual(drawnMariFloatRect({ left: 5, top: 5, width: 400, height: 400 }, "right", view, rem), right);
+  assert.equal(drawnMariFloatRect(null, "left", view, rem, 500).width, 500);
+  // A dock never goes below her minimum or past half the screen.
+  assert.equal(mariFloatDockWidth(100, view, rem), MARI_FLOAT_MIN_WIDTH_PX);
+  assert.equal(mariFloatDockWidth(5000, view, rem), 720);
+  // Its inner edge: the left dock grows rightwards, the right one leftwards.
+  assert.equal(resizeMariFloatDock(448, "left", 40, view), 488);
+  assert.equal(resizeMariFloatDock(448, "right", 40, view), 408);
+  assert.equal(resizeMariFloatDock(448, "left", 9000, view), 720);
 }
 
 // 3. Which edge a drop lands on; the top edge wins in a corner, the middle is free.
@@ -74,7 +90,7 @@ const rem = 16;
 
 // 5. Leaving a zone restores the free size under the pointer, at the share of the width it was grabbed at.
 {
-  const snapped = mariFloatZoneRect("left", view);
+  const snapped = mariFloatZoneRect("left", view, 448);
   const free = { left: 300, top: 200, width: 600, height: 500 };
   const pointer = { x: snapped.left + snapped.width / 4, y: snapped.top + 20 };
   const out = unsnapMariFloatRect(free, snapped, pointer);

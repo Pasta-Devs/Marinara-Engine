@@ -4,8 +4,10 @@ import { useMatchMedia } from "../../../hooks/use-match-media";
 import {
   clampMariFloatRect,
   drawnMariFloatRect,
+  mariFloatDockWidth,
   mariFloatZoneAt,
   mariFloatZoneRect,
+  resizeMariFloatDock,
   resizeMariFloatRect,
   startMariFloatRect,
   unsnapMariFloatRect,
@@ -24,7 +26,14 @@ const DRAG_THRESHOLD_PX = 4;
 const EDGES: MariFloatEdge[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 
 const remPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-const readView = (): MariFloatView => ({ width: window.innerWidth, height: window.innerHeight });
+/** The viewport, and the bottom of the app's top bar, which the whole-screen zone stays below. */
+const readView = (): MariFloatView => ({
+  width: window.innerWidth,
+  height: window.innerHeight,
+  top: document.querySelector('[data-component="TopBar"]')?.getBoundingClientRect().bottom ?? 0,
+});
+/** The app shell's room for her side dock (AppShell). A dock resize moves it by hand; the store commits on release. */
+const dockSpace = () => document.querySelector<HTMLElement>('[data-component="MariDockSpace"]');
 
 /**
  * Her rectangle goes on the omnibar overlay, not on her panel: the panel and the frame of resize handles beside it
@@ -60,11 +69,17 @@ function clearRect(panel: HTMLElement | null) {
  * and snaps to the left half, the right half or the whole screen when dropped at that edge. The editor companion
  * (use-mari-companion) wins while it is docked: that is its own place for her.
  */
-export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef: RefObject<HTMLElement | null>) {
+export function useMariFloat(
+  mariSurface: boolean,
+  companion: boolean,
+  companionAvailable: boolean,
+  panelRef: RefObject<HTMLElement | null>,
+) {
   const desktop = useMatchMedia("(min-width: 1024px)");
   const floating = useUIStore((s) => s.mariFloating);
   const rect = useUIStore((s) => s.mariFloatRect);
   const zone = useUIStore((s) => s.mariFloatZone);
+  const dockWidth = useUIStore((s) => s.mariFloatDockWidth);
   const available = mariSurface && desktop && !companion;
   const active = available && floating;
   const [view, setView] = useState(readView);
@@ -81,7 +96,7 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
     return () => window.removeEventListener("resize", onResize);
   }, [active]);
 
-  const drawn = drawnMariFloatRect(rect, zone, view, remPx());
+  const drawn = drawnMariFloatRect(rect, zone, view, remPx(), dockWidth);
   const drawnRef = useRef(drawn);
   drawnRef.current = drawn;
   const { left, top, width, height } = drawn;
@@ -90,6 +105,15 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
     if (!active) return clearRect(host);
     writeRect(host, { left, top, width, height });
   }, [active, left, top, width, height, panelRef]);
+
+  // Docked at a side, the app makes room for her like a third sidebar (AppShell reads this). Cleared whenever her
+  // pane stops showing (search, close, companion, a narrow window), so the app never stays pushed with nothing there.
+  const dockSide = active && (zone === "left" || zone === "right") ? zone : null;
+  useLayoutEffect(() => {
+    if (!dockSide) return;
+    useUIStore.getState().setMariFloatDock({ side: dockSide, width });
+    return () => useUIStore.getState().setMariFloatDock(null);
+  }, [dockSide, width]);
 
   // One gesture at a time: a second press (another finger, a pen) while one runs is ignored.
   const gestureRef = useRef(false);
@@ -127,7 +151,13 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
       // Draw what the store now says. A drop into the zone she was already in changes nothing the layout
       // effect watches, so without this she would stay where the drag left her. She glides there.
       const ui = useUIStore.getState();
-      const settled = drawnMariFloatRect(ui.mariFloatRect, ui.mariFloatZone, readView(), remPx());
+      const settled = drawnMariFloatRect(
+        ui.mariFloatRect,
+        ui.mariFloatZone,
+        readView(),
+        remPx(),
+        ui.mariFloatDockWidth,
+      );
       const host = hostOf(panelRef);
       if (host) {
         host.dataset.floatSettling = "true";
@@ -173,10 +203,16 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
         target = mariFloatZoneAt(move.clientX, move.clientY, view);
         const next = clampMariFloatRect({ ...origin, left: origin.left + dx, top: origin.top + dy }, view);
         // Outside a zone the hidden outline rides along with her, so the next zone grows out of her window.
-        writePreview(previewRef.current, target ? mariFloatZoneRect(target, view) : next, target !== null);
+        const dock = mariFloatDockWidth(ui.mariFloatDockWidth, view, remPx());
+        writePreview(previewRef.current, target ? mariFloatZoneRect(target, view, dock) : next, target !== null);
         return next;
       },
       (last) => {
+        // Beside an editor the left edge is the companion's place: she docks there as the companion instead.
+        if (target === "left" && companionAvailable) {
+          ui.setMariCompanionDocked(true);
+          return;
+        }
         // Dropped in a zone, she keeps the free place she was dragged from for when she leaves it again.
         if (target) ui.setMariFloatPlace(ui.mariFloatZone ? (ui.mariFloatRect ?? origin) : start, target);
         else ui.setMariFloatPlace(last, null);
@@ -189,10 +225,30 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
     event.preventDefault();
     event.stopPropagation();
     const view = readView();
-    // Resizing a snapped window unsnaps it at the zone's rectangle.
     const start = drawnRef.current;
     const startX = event.clientX;
     const startY = event.clientY;
+    const side = useUIStore.getState().mariFloatZone;
+    // Docked, only her inner edge resizes her, and the app's room for her follows it without its slide.
+    if (side === "left" || side === "right") {
+      const space = dockSpace();
+      if (space) space.style.transition = "none";
+      track(
+        event,
+        (move) => {
+          const width = resizeMariFloatDock(start.width, side, move.clientX - startX, view);
+          if (space) space.style.width = `${width}px`;
+          return mariFloatZoneRect(side, view, width);
+        },
+        (last) => {
+          // The width stays as drawn: the next render writes the same value. Only the slide comes back.
+          useUIStore.getState().setMariFloatDockWidth(last.width);
+          window.setTimeout(() => space?.style.removeProperty("transition"), SETTLE_MS);
+        },
+      );
+      return;
+    }
+    // Resizing a snapped window unsnaps it at the zone's rectangle.
     track(
       event,
       (move) => resizeMariFloatRect(start, edge, move.clientX - startX, move.clientY - startY, view),

@@ -1019,6 +1019,17 @@
     border-bottom-right-radius: inherit;
   }
 
+  /* #9818: the app's room for Prof. Mari docked at a side; it slides like the sidebar. */
+  .mari-dock-space {
+    transition: width 200ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mari-dock-space {
+      transition: none;
+    }
+  }
+
   .mari-window__resize-handle {
     --mari-window-resize-hit: var(--mari-window-resize-handle-size, 0.5rem);
     --mari-window-resize-offset: calc(2px - var(--mari-window-resize-hit));
