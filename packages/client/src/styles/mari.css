@@ -5502,13 +5502,13 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 }
 
 /* While she is moved or resized, her content must not catch the pointer or select text. */
-[data-mari-float-dragging] > .mari-float-panel > :not(.mari-float-resize) {
+[data-mari-float-dragging] > .mari-float-panel > * {
   pointer-events: none;
   user-select: none;
 }
 
 /* A dropped window glides into its zone or spot (use-mari-float sets data-float-settling for one glide). */
-[data-mari-float] > .mari-float-panel[data-float-settling] {
+[data-mari-float][data-float-settling] > :is(.mari-float-panel, .mari-float-frame) {
   transition:
     left 200ms ease-out,
     top 200ms ease-out,
@@ -5516,149 +5516,27 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
     height 200ms ease-out;
 }
 
-/* Grips sit inside her edges (her panel clips its rounded corners). Above everything in her window. */
-.mari-float-resize {
-  position: absolute;
-  z-index: 1000;
-  touch-action: none;
-}
-.mari-float-resize:is([data-edge="n"], [data-edge="s"]) {
-  inset-inline: 1.5rem;
-  height: 0.5rem;
-  cursor: ns-resize;
-}
-.mari-float-resize:is([data-edge="e"], [data-edge="w"]) {
-  inset-block: 1.5rem;
-  width: 0.5rem;
-  cursor: ew-resize;
-}
-/* Corners take a wider square, so the grip appears as the pointer gets close. */
-.mari-float-resize:is([data-edge="ne"], [data-edge="nw"], [data-edge="se"], [data-edge="sw"]) {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-/* The top corners stay small: her close and settings buttons sit just inside them. */
-.mari-float-resize:is([data-edge="ne"], [data-edge="nw"]) {
-  width: 1rem;
-  height: 1rem;
-}
-.mari-float-resize:is([data-edge="n"], [data-edge="ne"], [data-edge="nw"]) {
-  top: 0;
-}
-.mari-float-resize:is([data-edge="s"], [data-edge="se"], [data-edge="sw"]) {
-  bottom: 0;
-}
-.mari-float-resize:is([data-edge="e"], [data-edge="ne"], [data-edge="se"]) {
-  right: 0;
-}
-.mari-float-resize:is([data-edge="w"], [data-edge="nw"], [data-edge="sw"]) {
-  left: 0;
-}
-.mari-float-resize:is([data-edge="ne"], [data-edge="sw"]) {
-  cursor: nesw-resize;
-}
-.mari-float-resize:is([data-edge="nw"], [data-edge="se"]) {
-  cursor: nwse-resize;
-}
-
-/* Edges: a thin accent line on the border, like a sidebar's resize edge. Custom cursors without resize
-   shapes still see where they can drag. */
-.mari-float-resize:is([data-edge="n"], [data-edge="s"], [data-edge="e"], [data-edge="w"])::after {
-  content: "";
-  position: absolute;
-  border-radius: 1px;
-  background: var(--marinara-chat-chrome-accent);
-  opacity: 0;
-  transition: opacity 150ms ease;
-}
-.mari-float-resize:is([data-edge="n"], [data-edge="s"])::after {
-  inset-inline: 0;
-  height: 2px;
-}
-.mari-float-resize:is([data-edge="e"], [data-edge="w"])::after {
-  inset-block: 0;
-  width: 2px;
-}
-.mari-float-resize[data-edge="n"]::after {
-  top: 0;
-}
-.mari-float-resize[data-edge="s"]::after {
-  bottom: 0;
-}
-.mari-float-resize[data-edge="e"]::after {
-  right: 0;
-}
-.mari-float-resize[data-edge="w"]::after {
-  left: 0;
-}
-.mari-float-resize:hover::after {
-  opacity: 1;
-}
-
-/* Corners: the chat windows' corner grip (.mari-window__resize-grip), turned to its corner, shown near it. */
-.mari-float-resize__grip {
-  position: absolute;
-  display: flex;
-  width: 1.25rem;
-  height: 1.25rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--marinara-chat-chrome-button-border-hover);
-  border-radius: calc(var(--radius) - 0.125rem);
-  background: var(--marinara-chat-chrome-button-bg-hover);
-  color: var(--marinara-chat-chrome-accent);
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.2);
-  opacity: 0;
+/* Her resize handles: the chat windows' ones (.mari-window__resize-handle, globals.css), in a frame over her
+   panel so they sit on its border like theirs; the panel clips its rounded corners. Above her, under nothing. */
+[data-mari-float] > .mari-float-frame {
+  position: fixed;
+  left: var(--mari-float-left, 12px);
+  top: var(--mari-float-top, 12px);
+  width: var(--mari-float-width, 44rem);
+  height: var(--mari-float-height, 48rem);
   pointer-events: none;
-  transition: opacity 150ms ease;
 }
-.mari-float-resize__grip::after {
-  content: "";
-  width: 0.5rem;
-  height: 0.5rem;
-  border-color: currentColor;
-  border-style: solid;
-  border-width: 0;
+.mari-float-frame > .mari-window__resize-handle {
+  pointer-events: auto;
 }
-.mari-float-resize[data-edge="se"] .mari-float-resize__grip {
-  right: 0.25rem;
-  bottom: 0.25rem;
-}
-.mari-float-resize[data-edge="se"] .mari-float-resize__grip::after {
-  border-right-width: 2px;
-  border-bottom-width: 2px;
-}
-.mari-float-resize[data-edge="sw"] .mari-float-resize__grip {
-  left: 0.25rem;
-  bottom: 0.25rem;
-}
-.mari-float-resize[data-edge="sw"] .mari-float-resize__grip::after {
-  border-left-width: 2px;
-  border-bottom-width: 2px;
-}
-.mari-float-resize[data-edge="ne"] .mari-float-resize__grip {
-  right: 0.125rem;
-  top: 0.125rem;
-}
-.mari-float-resize[data-edge="ne"] .mari-float-resize__grip::after {
-  border-right-width: 2px;
-  border-top-width: 2px;
-}
-.mari-float-resize[data-edge="nw"] .mari-float-resize__grip {
-  left: 0.125rem;
-  top: 0.125rem;
-}
-.mari-float-resize[data-edge="nw"] .mari-float-resize__grip::after {
-  border-left-width: 2px;
-  border-top-width: 2px;
-}
-.mari-float-resize:hover .mari-float-resize__grip,
-[data-mari-float-dragging] .mari-float-resize:active .mari-float-resize__grip {
+/* Like a chat window: the bottom-right grip shows while the pointer is in her window. */
+[data-mari-float]:has(> .mari-float-panel:hover) .mari-window__resize-grip[data-corner="se"] {
   opacity: 1;
+  pointer-events: auto;
 }
 
 /* Where a drop at this edge would snap her: it grows out of her window into the zone, like Windows Snap.
-   Fill and outline follow the chat chrome accent, the outline in its gradient when the theme has one. */
+   Fill and outline follow the chat chrome accent. */
 .mari-float-zone-preview {
   position: fixed;
   /* Under her window, which comes first in the overlay. */
@@ -5684,7 +5562,9 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   inset: 0;
   padding: 2px;
   border-radius: inherit;
-  background: var(--marinara-chat-chrome-accent-gradient, var(--marinara-chat-chrome-accent));
+  /* The solid accent: it follows the theme and the accent pulse. The accent-gradient token is a fixed
+     rainbow when the pulse is off, which ignored the theme. */
+  background: var(--marinara-chat-chrome-accent);
   mask:
     linear-gradient(#000 0 0) content-box exclude,
     linear-gradient(#000 0 0);
@@ -5694,10 +5574,8 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-mari-float] > .mari-float-panel[data-float-settling],
-  .mari-float-zone-preview,
-  .mari-float-resize::after,
-  .mari-float-resize__grip {
+  [data-mari-float][data-float-settling] > :is(.mari-float-panel, .mari-float-frame),
+  .mari-float-zone-preview {
     transition: none;
   }
 }

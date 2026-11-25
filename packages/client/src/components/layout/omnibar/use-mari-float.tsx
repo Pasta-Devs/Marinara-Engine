@@ -15,6 +15,7 @@ import {
   type MariFloatZone,
 } from "../../../lib/mari-float-layout";
 import { useUIStore } from "../../../stores/ui.store";
+import { WindowResizeGrip, isWindowResizeCorner } from "../../ui/WindowResizeGrip";
 
 /** Presses on these inside her header are clicks, not the start of a move. */
 const HEADER_CONTROLS = "button, a, input, textarea, select, label, [role='tab'], [role='slider'], [contenteditable]";
@@ -24,6 +25,12 @@ const EDGES: MariFloatEdge[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 
 const remPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 const readView = (): MariFloatView => ({ width: window.innerWidth, height: window.innerHeight });
+
+/**
+ * Her rectangle goes on the omnibar overlay, not on her panel: the panel and the frame of resize handles beside it
+ * (outside the panel, which clips its rounded corners) both read it from there.
+ */
+const hostOf = (panelRef: RefObject<HTMLElement | null>) => panelRef.current?.parentElement ?? null;
 
 function writeRect(panel: HTMLElement | null, rect: MariFloatRect) {
   if (!panel) return;
@@ -79,9 +86,9 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
   drawnRef.current = drawn;
   const { left, top, width, height } = drawn;
   useLayoutEffect(() => {
-    const panel = panelRef.current;
-    if (!active) return clearRect(panel);
-    writeRect(panel, { left, top, width, height });
+    const host = hostOf(panelRef);
+    if (!active) return clearRect(host);
+    writeRect(host, { left, top, width, height });
   }, [active, left, top, width, height, panelRef]);
 
   // One gesture at a time: a second press (another finger, a pen) while one runs is ignored.
@@ -104,7 +111,7 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
       if (!rect) return;
       if (!last) setDragging(true);
       last = rect;
-      writeRect(panelRef.current, rect);
+      writeRect(hostOf(panelRef), rect);
     };
     const end = (up: Event) => {
       if (up instanceof globalThis.PointerEvent && up.pointerId !== pointerId) return;
@@ -121,12 +128,12 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
       // effect watches, so without this she would stay where the drag left her. She glides there.
       const ui = useUIStore.getState();
       const settled = drawnMariFloatRect(ui.mariFloatRect, ui.mariFloatZone, readView(), remPx());
-      const panel = panelRef.current;
-      if (panel) {
-        panel.dataset.floatSettling = "true";
-        window.setTimeout(() => delete panel.dataset.floatSettling, SETTLE_MS + 50);
+      const host = hostOf(panelRef);
+      if (host) {
+        host.dataset.floatSettling = "true";
+        window.setTimeout(() => delete host.dataset.floatSettling, SETTLE_MS + 50);
       }
-      writeRect(panel, settled);
+      writeRect(host, settled);
       // The outline melts into where she landed.
       writePreview(previewRef.current, settled, false);
     };
@@ -201,6 +208,8 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
   return {
     available,
     active,
+    /** Where she floats (or would), in viewport pixels. */
+    drawn,
     zone,
     dragging,
     previewRef,
@@ -211,8 +220,9 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
 }
 
 /**
- * The eight edge and corner grips of her floating window. Near an edge an accent line shows it can be dragged;
- * near a corner, a corner grip like the chat windows' one. Mouse and pen only; Dock back is the keyboard's way out.
+ * The eight edge and corner handles of her floating window, the chat windows' ones (FloatingWindow), in a frame
+ * laid over her panel so they can sit on its border. Near an edge an accent line shows; near a corner, the shared
+ * corner grip. Mouse and pen only; Dock back is the keyboard's way out.
  */
 export function MariFloatResizeHandles({
   onResizePointerDown,
@@ -221,19 +231,18 @@ export function MariFloatResizeHandles({
 }) {
   const { t } = useTranslation();
   return (
-    <>
+    <div aria-hidden="true" className="mari-float-frame">
       {EDGES.map((edge) => (
         <div
           key={edge}
-          aria-hidden="true"
           title={t("omnibar.float.resize", "Drag to resize Prof. Mari")}
           data-edge={edge}
-          className="mari-float-resize"
+          className="mari-window__resize-handle"
           onPointerDown={onResizePointerDown(edge)}
         >
-          {edge.length === 2 ? <span className="mari-float-resize__grip" /> : null}
+          {isWindowResizeCorner(edge) ? <WindowResizeGrip corner={edge} /> : null}
         </div>
       ))}
-    </>
+    </div>
   );
 }

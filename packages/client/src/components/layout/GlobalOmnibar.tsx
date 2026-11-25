@@ -1034,23 +1034,51 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     ? t("omnibar.companion.dock", "Keep Prof. Mari beside the editor")
     : t("omnibar.companion.dockSheet", "Keep Prof. Mari below the editor");
   const lastNonModalRef = useRef(nonModal);
+  const lastFloatRef = useRef(float.active);
+  // Where the dialog was last drawn while not floating (search, or her centred window): it morphs from there into
+  // her floating window (FLIP). Read after each commit, when the browser lays the page out anyway.
+  const searchRectRef = useRef<DOMRect | null>(null);
   useLayoutEffect(() => {
-    if (lastNonModalRef.current === nonModal) return;
+    if (!float.active && !companion) searchRectRef.current = dialogRef.current?.getBoundingClientRect() ?? null;
+  });
+  useLayoutEffect(() => {
+    if (lastNonModalRef.current === nonModal && lastFloatRef.current === float.active) return;
+    const wasFloat = lastFloatRef.current;
     lastNonModalRef.current = nonModal;
+    lastFloatRef.current = float.active;
     const dialog = dialogRef.current;
     // Now modal (toggle, or the viewport shrank): focus must not stay behind the backdrop.
     if (!nonModal && dialog && !dialog.contains(document.activeElement)) {
       dialog.querySelector<HTMLElement>("textarea, input, button")?.focus();
     }
-    if (reduceMotion) return;
-    dialogRef.current?.animate(
+    if (reduceMotion || !dialog) return;
+    // Search, her centred window and her floating window are one dialog in different places: it moves and grows
+    // from one to the other (Float, Dock back, Back to Search, ⌘J), like the centred search grows into her window.
+    const from = wasFloat ? float.drawn : float.active ? searchRectRef.current : null;
+    if (from && wasFloat !== float.active) {
+      const to = dialog.getBoundingClientRect();
+      if (to.width > 0 && to.height > 0) {
+        dialog.animate(
+          [
+            {
+              transformOrigin: "top left",
+              transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`,
+            },
+            { transformOrigin: "top left", transform: "none" },
+          ],
+          { duration: 220, easing: "cubic-bezier(0.2, 0, 0, 1)" },
+        );
+        return;
+      }
+    }
+    dialog.animate(
       [
         { opacity: 0.4, transform: "scale(0.985)" },
         { opacity: 1, transform: "none" },
       ],
       { duration: 200, easing: "ease-out" },
     );
-  }, [nonModal, reduceMotion]);
+  }, [nonModal, float.active, float.drawn, reduceMotion]);
   // K6: fire once per open, the first time the results pane actually paints
   // (opening straight into Mari's pane has no results list to time).
   useLayoutEffect(() => {
@@ -2151,7 +2179,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
           className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-44 bg-[radial-gradient(120%_100%_at_12%_0%,oklch(0.72_0.16_255/0.12),transparent_60%),radial-gradient(120%_100%_at_88%_0%,oklch(0.73_0.21_345/0.11),transparent_60%)]"
         />
         {companionShape === "panel" ? <MariCompanionResizeHandle panelRef={dialogRef} {...companionSize} /> : null}
-        {float.active ? <MariFloatResizeHandles onResizePointerDown={float.onResizePointerDown} /> : null}
         {companionShape === "sheet" ? (
           <MariSheetHandle panelRef={dialogRef} snap={sheetSnap} setSnap={setSheetSnap} />
         ) : null}
@@ -2476,6 +2503,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         ) : null}
       </div>
 
+      {float.active ? <MariFloatResizeHandles onResizePointerDown={float.onResizePointerDown} /> : null}
       {/* Where a drag would snap her, drawn under her window while she is held over that edge. use-mari-float moves it. */}
       {float.active ? (
         <div ref={float.previewRef} aria-hidden="true" data-shown="false" className="mari-float-zone-preview" />
