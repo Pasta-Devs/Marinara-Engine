@@ -43,6 +43,9 @@ import {
   splitPageKey,
 } from "./split-view";
 
+/** Between "Tab group" and the group's name in the row's label. */
+const TAB_GROUP_SEPARATOR = ": ";
+
 type Placed = { tab: OverhaulTab; key: string; index: number };
 type StripItem =
   | { type: "tab"; itemKey: string; entry: Placed }
@@ -495,7 +498,7 @@ export function DesktopTabStrip({
       data-mari-part="top-bar"
       data-tab-row=""
       role="group"
-      aria-label={`${localize("Tab group")}: ${currentGroup.name}`}
+      aria-label={localize("Tab group") + TAB_GROUP_SEPARATOR + currentGroup.name}
       onWheel={(event) => {
         // A mouse wheel scrolls a full row sideways.
         const el = event.currentTarget;

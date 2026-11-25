@@ -2349,7 +2349,6 @@ function GeneralSettings() {
         </div>
         <ConversationSoundSetting />
         <PushNotificationSettings />
-        <PushNotificationSettings />
       </SettingsSection>
 
       <SettingsSection
