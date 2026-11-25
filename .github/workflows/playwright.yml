@@ -405,9 +405,9 @@ jobs:
           exit 1
 
   # Pull requests into staging run only the smoke suite, so a spec they break first fails here, in a run nobody is
-  # told about. A full run started by workflow_dispatch reports what fails, what started failing since the previous
-  # such run on its branch, and the pull requests merged in between (scripts/nightly-matrix-report.mjs). This job only
-  # reads; nightly-issue files the text on staging.
+  # told about. A full run started by workflow_dispatch reports what fails, what started failing since the last such
+  # runs on its branch, and the pull requests merged since, with their authors (scripts/nightly-matrix-report.mjs).
+  # This job only reads; nightly-issue files the text on staging.
   nightly-report:
     name: nightly-report
     runs-on: ubuntu-latest
@@ -418,6 +418,7 @@ jobs:
     permissions:
       actions: read
       contents: read
+      pull-requests: read
 
     outputs:
       state: ${{ steps.report.outputs.state }}
@@ -451,7 +452,8 @@ jobs:
         run: node scripts/nightly-matrix-report.mjs
 
   # Its write token runs no repository code or action. It files the text nightly-report wrote in one issue this
-  # workflow opened: each run rewrites the list and comments new failures, and a passing run closes the issue.
+  # workflow opened and assigned to the maintainer: each run rewrites the list and comments new failures, and a passing
+  # run closes the issue.
   nightly-issue:
     name: nightly-issue
     runs-on: ubuntu-latest
@@ -477,9 +479,20 @@ jobs:
           issue=$(gh api "repos/$GH_REPO/issues?state=open&creator=github-actions%5Bbot%5D&per_page=100" --paginate \
             --jq '.[] | select(.pull_request == null and .title == env.TITLE) | .number')
           issue=${issue%%$'\n'*}
+          # "Re-run failed jobs" runs this job again for the same run, so a run whose comment is there does not post it
+          # twice. nightly-matrix-report.mjs puts this mark in every comment.
+          export MARK="<!-- nightly-matrix-run $GITHUB_RUN_ID -->"
+          comment() {
+            local seen
+            seen=$(gh api "repos/$GH_REPO/issues/$issue/comments?per_page=100" --paginate \
+              --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains(env.MARK))) | .id')
+            if [[ -z "$seen" ]]; then
+              printf '%s' "$COMMENT" | gh issue comment "$issue" --body-file -
+            fi
+          }
           if [[ "$STATE" == passing ]]; then
             if [[ -n "$issue" ]]; then
-              printf '%s' "$COMMENT" | gh issue comment "$issue" --body-file -
+              comment
               gh issue close "$issue"
             fi
             exit 0
@@ -487,9 +500,9 @@ jobs:
           if [[ -n "$issue" ]]; then
             printf '%s' "$BODY" | gh issue edit "$issue" --body-file -
           else
-            url=$(printf '%s' "$BODY" | gh issue create --title "$TITLE" --label bug --body-file -)
+            url=$(printf '%s' "$BODY" | gh issue create --title "$TITLE" --label bug --assignee SpicyMarinara --body-file -)
             issue=${url##*/}
           fi
           if [[ -n "$COMMENT" ]]; then
-            printf '%s' "$COMMENT" | gh issue comment "$issue" --body-file -
+            comment
           fi

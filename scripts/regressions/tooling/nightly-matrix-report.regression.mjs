@@ -5,9 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  HISTORY_RUNS,
   ISSUE_TITLE,
   NO_REPORT,
   collectResults,
+  commentMark,
   compareRuns,
   mergeResults,
   mergedPullRequests,
@@ -19,7 +21,7 @@ import { extractJob, extractNamedStep } from "../../validate-pr-triage.mjs";
 import { runNamedCases } from "../fixtures/named-cases.ts";
 
 // The nightly full matrix is the only run of most browser specs, so its report must say what started failing since
-// the previous full run and which pull requests merged in between, or the failures pile up unseen.
+// the last full runs and which pull requests merged since, and tell their authors, or the failures pile up unseen.
 
 // A Playwright JSON report: top-level suites are spec files, nested suites are describe blocks.
 const report = (project, tests) => ({
@@ -51,7 +53,9 @@ const report = (project, tests) => ({
 const results = (...reports) => mergeResults(new Map(reports.map((entry, index) => [String(index), [entry]])));
 
 const run = { id: "200", url: "https://github.com/o/r/actions/runs/200", sha: "b".repeat(40), date: "2026-11-25" };
-const previousRun = { id: "100", url: "https://github.com/o/r/actions/runs/100", sha: "a".repeat(40) };
+const earlierRun = (id, sha) => ({ id, url: `https://github.com/o/r/actions/runs/${id}`, sha: sha.repeat(40) });
+// The earlier full runs, newest first.
+const previousRuns = [earlierRun("100", "a"), earlierRun("90", "9"), earlierRun("80", "8")];
 const shard = (name, conclusion, failures = 0, extra = {}) => ({
   name,
   conclusion,
@@ -62,16 +66,40 @@ const shard = (name, conclusion, failures = 0, extra = {}) => ({
   ...extra,
 });
 
+// "flakes" passed in the newest earlier run but failed in the one before it, and "joined lately" has no result in the
+// oldest one, so neither passed in each of the last three runs.
 const previous = results(
-  report("desktop-chromium", { "keeps failing": "unexpected", "breaks tonight": "expected", "is fixed": "unexpected" }),
+  report("desktop-chromium", {
+    "keeps failing": "unexpected",
+    "breaks tonight": "expected",
+    "is fixed": "unexpected",
+    flakes: "expected",
+    "joined lately": "expected",
+  }),
   report("mobile-webkit", { "breaks tonight": "expected", "loses its shard": "unexpected" }),
 );
+const older = results(
+  report("desktop-chromium", {
+    "keeps failing": "unexpected",
+    "breaks tonight": "expected",
+    flakes: "unexpected",
+    "joined lately": "expected",
+  }),
+  report("mobile-webkit", { "breaks tonight": "expected" }),
+);
+const oldest = results(
+  report("desktop-chromium", { "keeps failing": "unexpected", "breaks tonight": "expected", flakes: "expected" }),
+  report("mobile-webkit", { "breaks tonight": "expected" }),
+);
+const history = [previous, older, oldest];
 const current = results(
   report("desktop-chromium", {
     "keeps failing": "unexpected",
     "breaks tonight": "unexpected",
     "is fixed": "expected",
     "is new": "unexpected",
+    flakes: "unexpected",
+    "joined lately": "unexpected",
   }),
   report("mobile-webkit", { "breaks tonight": "unexpected" }),
 );
@@ -97,7 +125,9 @@ const fileIssue = (env) => {
       `gh() {
         printf 'gh %s\\n' "$*" >&2
         case "$1 $2" in
-          # The server's creator filter, then the step's own --jq filter (its last argument) over the open issues.
+          # The step's own --jq filter (its last argument) runs over the comments, or over the open issues after the
+          # server's creator filter.
+          "api "*/comments*) jq -r "\${@: -1}" <<<"$COMMENTS" ;;
           "api "*) [[ "$2" == *"creator=github-actions%5Bbot%5D"* ]] || return 1
             jq -c '[.[] | select(.user.login == "github-actions[bot]")]' <<<"$OPEN_ISSUES" | jq -r "\${@: -1}" ;;
           "issue create") printf 'stdin %s\\n' "$(cat)" >&2; echo "https://github.com/o/r/issues/77" ;;
@@ -108,7 +138,15 @@ const fileIssue = (env) => {
     ],
     {
       encoding: "utf8",
-      env: { PATH: process.env.PATH, GH_REPO: "o/r", TITLE: ISSUE_TITLE, OPEN_ISSUES: "[]", ...env },
+      env: {
+        PATH: process.env.PATH,
+        GH_REPO: "o/r",
+        GITHUB_RUN_ID: run.id,
+        TITLE: ISSUE_TITLE,
+        OPEN_ISSUES: "[]",
+        COMMENTS: "[]",
+        ...env,
+      },
     },
   );
   assert.equal(result.status, 0, result.stderr);
@@ -117,31 +155,69 @@ const fileIssue = (env) => {
 
 await runNamedCases([
   {
-    name: "a test that passed in the previous full run and fails now is new; one that kept failing is not",
+    name: "only a test that passed in each of the last three full runs counts as started failing",
     run: () => {
-      const { failing, broke, unseen, fixed } = compareRuns(current, previous);
+      assert.equal(HISTORY_RUNS, 3);
       const names = (list) => list.map((result) => `${result.project} ${result.title}`).sort();
+      const { failing, broke, unseen, intermittent, fixed } = compareRuns(current, history);
       assert.deepEqual(names(failing), [
         "desktop-chromium Chat › breaks tonight",
+        "desktop-chromium Chat › flakes",
         "desktop-chromium Chat › is new",
+        "desktop-chromium Chat › joined lately",
         "desktop-chromium Chat › keeps failing",
         "mobile-webkit Chat › breaks tonight",
       ]);
       assert.deepEqual(names(broke), ["desktop-chromium Chat › breaks tonight", "mobile-webkit Chat › breaks tonight"]);
       assert.deepEqual(names(unseen), ["desktop-chromium Chat › is new"]);
+      // Failed in one of the three runs, or has no result in one: maybe flaky, so it names no pull request.
+      assert.deepEqual(names(intermittent), [
+        "desktop-chromium Chat › flakes",
+        "desktop-chromium Chat › joined lately",
+      ]);
       // "loses its shard" has no result tonight, so it is not counted as fixed.
       assert.deepEqual(names(fixed), ["desktop-chromium Chat › is fixed"]);
       assert.equal(failing[0].file, "e2e/chat.e2e.ts");
+
+      // With fewer than three earlier runs, one pass is not enough: tonight's failures that passed before are
+      // intermittent, and only a test with no earlier result is new.
+      const short = compareRuns(current, [previous]);
+      assert.deepEqual(short.broke, []);
+      assert.deepEqual(names(short.unseen), ["desktop-chromium Chat › is new"]);
+      assert.deepEqual(names(short.intermittent), [
+        "desktop-chromium Chat › breaks tonight",
+        "desktop-chromium Chat › flakes",
+        "desktop-chromium Chat › joined lately",
+        "mobile-webkit Chat › breaks tonight",
+      ]);
+      const rendered = renderReport({
+        run,
+        previousRuns: previousRuns.slice(0, 1),
+        comparison: short,
+        shards: [shard("desktop-chromium 1/16", "failure", 5)],
+        pulls: [{ number: 9774, branch: "Pasta-Devs/fix/x", author: "SpicyMarinara" }],
+        compareUrl: "https://github.com/o/r/compare/a...b",
+      });
+      assert.match(rendered.body, /^### Intermittent\n\n.*Only 1 earlier full run has results so far\.$/mu);
+      assert.match(
+        rendered.body,
+        /^- `e2e\/chat\.e2e\.ts › Chat › breaks tonight` \(desktop-chromium, mobile-webkit\)$/mu,
+      );
+      assert.match(rendered.comment, /^\*\*1 test started failing\*\* in run \[200\]/mu);
+      assert.doesNotMatch(rendered.comment, /breaks tonight|flakes/u);
     },
   },
   {
     name: "without a previous full run nothing is marked new and no comment is posted",
     run: () => {
-      const comparison = compareRuns(current, null);
-      assert.deepEqual([comparison.broke, comparison.unseen, comparison.fixed], [[], [], []]);
+      const comparison = compareRuns(current, []);
+      assert.deepEqual(
+        [comparison.broke, comparison.unseen, comparison.intermittent, comparison.fixed],
+        [[], [], [], []],
+      );
       const rendered = renderReport({
         run,
-        previousRun: null,
+        previousRuns: [],
         comparison,
         shards: [shard("desktop-chromium 1/16", "failure", 3)],
         pulls: [],
@@ -149,12 +225,13 @@ await runNamedCases([
       });
       assert.equal(rendered.state, "failing");
       assert.equal(rendered.comment, "");
-      assert.match(rendered.body, /3 tests fail \(desktop-chromium 3, mobile-webkit 1\)/u);
+      assert.match(rendered.body, /5 tests fail \(desktop-chromium 5, mobile-webkit 1\)/u);
+      assert.doesNotMatch(rendered.body, /### Intermittent/u);
       assert.match(rendered.summary, /No earlier full run on this branch/u);
     },
   },
   {
-    name: "the comment names the new failures and the pull requests merged between the two runs",
+    name: "the comment names the new failures and mentions the authors of the pull requests merged since",
     run: () => {
       const pulls = mergedPullRequests([
         "Merge pull request #9774 from Pasta-Devs/fix/9765-rp-history-images\n\nfix(rp): keep history images",
@@ -168,52 +245,75 @@ await runNamedCases([
       ]);
       const rendered = renderReport({
         run,
-        previousRun,
-        comparison: compareRuns(current, previous),
-        shards: [shard("desktop-chromium 1/16", "failure", 3), shard("mobile-webkit 1/18", "failure", 1)],
-        pulls,
+        previousRuns,
+        comparison: compareRuns(current, history),
+        shards: [shard("desktop-chromium 1/16", "failure", 5), shard("mobile-webkit 1/18", "failure", 1)],
+        // The merge commit names the head repository's owner; the author comes from the pull request.
+        pulls: [
+          { ...pulls[0], author: "SpicyMarinara" },
+          { ...pulls[1], author: "stonebystone" },
+          { number: 9790, branch: "Pasta-Devs/deps", author: "dependabot[bot]" },
+        ],
         compareUrl: "https://github.com/o/r/compare/a...b",
       });
       assert.equal(rendered.title, ISSUE_TITLE);
       assert.match(rendered.title, /^\[Issue\]: /u);
-      assert.match(rendered.comment, /^\*\*2 tests started failing\*\* in run \[200\]/u);
-      assert.match(rendered.comment, /passed them, except 1 it has no result for/u);
-      assert.match(rendered.comment, /Since then, 1 failing test passes again\./u);
-      assert.match(rendered.comment, /^- #9774 \(`Pasta-Devs\/fix\/9765-rp-history-images`\)$/mu);
-      assert.match(rendered.comment, /^- #9787 /mu);
+      assert.match(
+        rendered.comment,
+        new RegExp(`^${commentMark("200")}\n\\*\\*2 tests started failing\\*\\* in run \\[200\\]`, "u"),
+      );
+      assert.match(
+        rendered.comment,
+        /They passed in each of the 3 earlier full runs \(\[100\]\(.*\) on `aaaaaaaaaa`, \[90\]\(.*\) on `9999999999`, \[80\]\(.*\) on `8888888888`\), except 1 with no result there/u,
+      );
+      assert.match(rendered.comment, /Since \[100\]\(.*\), 1 failing test passes again\./u);
+      assert.match(
+        rendered.comment,
+        /^Pull requests merged since \[100\]\(.*\)\. If yours is listed, check whether it broke/mu,
+      );
+      assert.match(rendered.comment, /^- #9774 by @SpicyMarinara \(`Pasta-Devs\/fix\/9765-rp-history-images`\)$/mu);
+      assert.match(rendered.comment, /^- #9787 by @stonebystone /mu);
+      // A login that is not a plain user name is not mentioned.
+      assert.match(rendered.comment, /^- #9790 \(`Pasta-Devs\/deps`\)$/mu);
       assert.match(
         rendered.comment,
         /^- `e2e\/chat\.e2e\.ts › Chat › breaks tonight` \(desktop-chromium, mobile-webkit\)$/mu,
       );
       assert.match(rendered.comment, /^- `e2e\/chat\.e2e\.ts › Chat › is new` \(desktop-chromium\)$/mu);
-      assert.doesNotMatch(rendered.comment, /keeps failing/u);
-      // The body lists every failing test once, with all its projects.
+      assert.doesNotMatch(rendered.comment, /keeps failing|flakes|joined lately/u);
+      // The body lists every failing test once, with all its projects, and the intermittent ones again on their own.
       assert.match(rendered.body, /^- `e2e\/chat\.e2e\.ts › Chat › keeps failing` \(desktop-chromium\)$/mu);
       assert.equal(rendered.body.match(/breaks tonight/gu).length, 1);
+      const [intermittent, failing] = rendered.body.split("### Failing tests");
+      assert.match(
+        intermittent,
+        /### Intermittent\n\nThese fail now and passed in an earlier full run, but not in each of the last 3, so they may be flaky\. No pull request is named for them\.\n\n- `e2e\/chat\.e2e\.ts › Chat › flakes` \(desktop-chromium\)\n- `e2e\/chat\.e2e\.ts › Chat › joined lately` \(desktop-chromium\)\n\n$/u,
+      );
+      assert.match(failing, /flakes/u);
     },
   },
   {
     name: "failures with no commit between the runs are called flaky",
     run: () => {
       const rendered = renderReport({
-        run: { ...run, sha: previousRun.sha },
-        previousRun,
-        comparison: compareRuns(current, previous),
-        shards: [shard("desktop-chromium 1/16", "failure", 3)],
+        run: { ...run, sha: previousRuns[0].sha },
+        previousRuns,
+        comparison: compareRuns(current, history),
+        shards: [shard("desktop-chromium 1/16", "failure", 5)],
         pulls: [],
         compareUrl: "",
       });
-      assert.match(rendered.comment, /No commits landed between the two runs, so these failures are flaky/u);
+      assert.match(rendered.comment, /No commits landed since \[100\]\(.*\), so these failures are flaky/u);
     },
   },
   {
     name: "the run passes only when every shard succeeded with no failing test",
     run: () => {
       const green = results(report("desktop-chromium", { "keeps failing": "expected" }));
-      const comparison = compareRuns(green, previous);
+      const comparison = compareRuns(green, history);
       const passing = renderReport({
         run,
-        previousRun,
+        previousRuns,
         comparison,
         shards: [shard("desktop-chromium 1/16", "success")],
         pulls: [],
@@ -221,11 +321,12 @@ await runNamedCases([
       });
       assert.equal(passing.state, "passing");
       assert.match(passing.comment, /passed in run \[200\].*so this issue is closed/u);
+      assert.ok(passing.comment.startsWith(commentMark("200")));
 
       // A shard that broke before or outside its tests keeps the issue open and is named.
       const broken = renderReport({
         run,
-        previousRun,
+        previousRuns,
         comparison,
         shards: [
           shard("desktop-chromium 1/16", "success"),
@@ -242,7 +343,7 @@ await runNamedCases([
       // A green shard without a report, or a run in which no test ran and passed, is not a pass either.
       const noReport = renderReport({
         run,
-        previousRun,
+        previousRuns,
         comparison,
         shards: [
           shard("desktop-chromium 1/16", "success"),
@@ -258,8 +359,8 @@ await runNamedCases([
       );
       const nothingRan = renderReport({
         run,
-        previousRun,
-        comparison: compareRuns(results(report("desktop-chromium", { a: "skipped" })), previous),
+        previousRuns,
+        comparison: compareRuns(results(report("desktop-chromium", { a: "skipped" })), history),
         shards: [shard("desktop-chromium 1/16", "success", 0, { passed: 0 })],
         pulls: [],
         compareUrl: "",
@@ -276,8 +377,8 @@ await runNamedCases([
       );
       const rendered = renderReport({
         run,
-        previousRun: null,
-        comparison: compareRuns(results(report("mobile-webkit", many)), null),
+        previousRuns: [],
+        comparison: compareRuns(results(report("mobile-webkit", many)), []),
         shards: [shard("mobile-webkit 1/18", "failure", 600)],
         pulls: [],
         compareUrl: "",
@@ -294,10 +395,27 @@ await runNamedCases([
       );
       // The run's summary keeps every one of them.
       assert.equal(rendered.summary.match(/^- `.*`.*$/gmu).length, 600);
+
+      // A long intermittent list takes at most half the body, so failing tests are still listed.
+      const flaky = renderReport({
+        run,
+        previousRuns: previousRuns.slice(0, 1),
+        comparison: compareRuns(results(report("mobile-webkit", many)), [
+          results(report("mobile-webkit", Object.fromEntries(Object.keys(many).map((title) => [title, "expected"])))),
+        ]),
+        shards: [shard("mobile-webkit 1/18", "failure", 600)],
+        pulls: [],
+        compareUrl: "",
+        limit: 20_000,
+      });
+      const [intermittentPart, failingPart] = flaky.body.split("### Failing tests");
+      assert.ok(Buffer.byteLength(flaky.body) <= 20_000, `body is ${Buffer.byteLength(flaky.body)} bytes`);
+      assert.ok(Buffer.byteLength(intermittentPart) <= 10_000);
+      assert.ok(failingPart.match(/^- `.*`.*$/gmu).length > 20);
     },
   },
   {
-    name: "the issue job opens one issue, then rewrites it, comments new failures and closes it on a pass",
+    name: "the issue job opens one assigned issue, then rewrites it, comments new failures once and closes it on a pass",
     run: () => {
       if (process.platform === "win32") return console.log("Skipping the Bash issue step on Windows.");
       const opened = fileIssue({ STATE: "failing", BODY: "list", COMMENT: "new" });
@@ -305,10 +423,49 @@ await runNamedCases([
       assert.match(opened, /^gh api repos\/o\/r\/issues\?state=open&creator=github-actions%5Bbot%5D&per_page=100 /mu);
       assert.match(
         opened,
-        /^gh issue create --title \[Issue\]: The nightly full browser matrix fails on staging --label bug --body-file -$/mu,
+        /^gh issue create --title \[Issue\]: The nightly full browser matrix fails on staging --label bug --assignee SpicyMarinara --body-file -$/mu,
       );
       assert.match(opened, /^stdin list$/mu);
-      assert.match(opened, /^gh issue comment 77 --body-file -\nstdin new$/mu);
+      assert.match(
+        opened,
+        /^gh api repos\/o\/r\/issues\/77\/comments\?per_page=100 .*\ngh issue comment 77 --body-file -\nstdin new$/mu,
+      );
+
+      // "Re-run failed jobs" runs the job again for the same run: its comment, found by its mark, is not posted twice.
+      // A person's comment quoting the mark, or the mark of another run, does not count.
+      const rendered = renderReport({
+        run,
+        previousRuns,
+        comparison: compareRuns(current, history),
+        shards: [shard("desktop-chromium 1/16", "failure", 5)],
+        pulls: [],
+        compareUrl: "",
+      });
+      const issues = JSON.stringify([{ number: 12, title: ISSUE_TITLE, user: { login: "github-actions[bot]" } }]);
+      const comments = (...entries) =>
+        JSON.stringify(entries.map(([login, body]) => ({ id: 1, user: { login }, body })));
+      const again = fileIssue({
+        STATE: "failing",
+        BODY: "list",
+        COMMENT: rendered.comment,
+        OPEN_ISSUES: issues,
+        COMMENTS: comments(["github-actions[bot]", rendered.comment]),
+      });
+      assert.match(again, /^gh issue edit 12 --body-file -$/mu);
+      assert.doesNotMatch(again, /gh issue comment/u);
+      for (const other of [
+        comments(["SpicyMarinara", rendered.comment]),
+        comments(["github-actions[bot]", rendered.comment.replace(commentMark("200"), commentMark("2000"))]),
+      ]) {
+        const posted = fileIssue({
+          STATE: "failing",
+          BODY: "list",
+          COMMENT: rendered.comment,
+          OPEN_ISSUES: issues,
+          COMMENTS: other,
+        });
+        assert.match(posted, /^gh issue comment 12 --body-file -$/mu);
+      }
 
       // Only an issue the bot opened with this exact title counts, never a person's or a pull request; the first one
       // listed is used, and nothing is commented when nothing started failing.

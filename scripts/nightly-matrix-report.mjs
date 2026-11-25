@@ -16,8 +16,9 @@ import { pathToFileURL } from "node:url";
 
 // Pull requests into staging run only the smoke suite, so one that breaks a full-matrix spec merges green and the
 // failure shows up only in the nightly run, where nobody is told about it. The nightly-report job in playwright.yml
-// runs this after a full run's shards: it lists what fails, compares that with the previous full run on the same
-// branch and names the pull requests merged in between. The nightly-issue job files the text in one issue on staging.
+// runs this after a full run's shards: it lists what fails, compares that with the last full runs on the same branch
+// and names the pull requests merged since, mentioning their authors. The nightly-issue job files the text in one
+// issue on staging.
 
 export const ISSUE_TITLE = "[Issue]: The nightly full browser matrix fails on staging";
 // GitHub refuses an issue body or comment over 65,536 characters. Limits count UTF-8 bytes, which is never fewer.
@@ -36,6 +37,12 @@ const readReport = (file) => {
   }
 };
 export const RESULTS_ARTIFACT_PREFIX = "playwright-results-";
+// A test counts as started failing only when it passed in each of this many earlier full runs. Flaky tests pass most
+// nights, so one earlier pass would blame them on every day's merges.
+export const HISTORY_RUNS = 3;
+// Each run's comment carries this, so a re-run of the same run does not comment again.
+export const commentMark = (runId) => `<!-- nightly-matrix-run ${runId} -->`;
+const LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/u;
 const SHARD_JOB = /^(desktop-chromium|mobile-chromium|mobile-webkit) (\d+)\/\d+$/u;
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "gu");
 
@@ -112,22 +119,29 @@ export function mergeResults(shards) {
   return results;
 }
 
-/** This run's failures against the previous full run's. Without a previous run nothing counts as new or fixed. */
-export function compareRuns(current, previous) {
+/**
+ * This run's failures against the earlier full runs' results, newest first. Without an earlier run nothing counts as
+ * new or fixed.
+ */
+export function compareRuns(current, history) {
   const failing = [...current.values()].filter(failed);
-  if (!previous) return { failing, broke: [], unseen: [], fixed: [] };
-  return {
-    failing,
-    // Passed in the previous run and fails now.
-    broke: failing.filter((result) => passed(previous.get(result.key))),
-    // No result in the previous run: a new test, a skipped one, or one whose shard did not report.
-    unseen: failing.filter((result) => {
-      const before = previous.get(result.key);
-      return !passed(before) && !failed(before);
-    }),
-    // Failed in the previous run and passes now. A test without a result in this run is not counted as fixed.
-    fixed: [...previous.values()].filter((result) => failed(result) && passed(current.get(result.key))),
-  };
+  const window = history.slice(0, HISTORY_RUNS);
+  const broke = [];
+  const unseen = [];
+  const intermittent = [];
+  if (window.length === 0) return { failing, broke, unseen, intermittent, fixed: [] };
+  for (const result of failing) {
+    const earlier = window.map((results) => results.get(result.key));
+    // Passed in each of the last HISTORY_RUNS full runs and fails now.
+    if (window.length === HISTORY_RUNS && earlier.every(passed)) broke.push(result);
+    // Passed in some of them but not in each: flaky, or too few results to tell. No pull request is named for these.
+    else if (earlier.some(passed)) intermittent.push(result);
+    // No result in any of them: a new test, a skipped one, or one whose shard did not report.
+    else if (!earlier.some(failed)) unseen.push(result);
+  }
+  // Failed in the newest earlier run and passes now. A test without a result in this run is not counted as fixed.
+  const fixed = [...window[0].values()].filter((result) => failed(result) && passed(current.get(result.key)));
+  return { failing, broke, unseen, intermittent, fixed };
 }
 
 /** The pull requests whose merge commits are in a compare range, read from the commit messages. */
@@ -149,6 +163,12 @@ function testLines(results) {
     .map(([name, projects]) => `- ${code(name)} (${[...new Set(projects)].sort().join(", ")})`);
 }
 
+/** A pull request's line in a comment, mentioning its author so they hear of it. */
+function pullLine(pull) {
+  const author = LOGIN.test(pull.author ?? "") ? ` by @${pull.author}` : "";
+  return `- #${pull.number}${author} (${code(pull.branch)})`;
+}
+
 /** Appends lines while the text stays under the limit in UTF-8 bytes, then says how many were left out. */
 function withinLimit(head, lines, limit) {
   let text = head;
@@ -163,21 +183,29 @@ function withinLimit(head, lines, limit) {
   return text;
 }
 
+/** A heading, an intro and as many lines as fit under the limit, after text, then a blank line. */
+function section(text, heading, intro, lines, limit) {
+  return lines.length === 0 ? text : `${withinLimit(`${text}### ${heading}\n\n${intro}`, lines, limit - 1)}\n`;
+}
+
 /**
  * The issue body, the comment for this run and the run summary.
+ * previousRuns: [{ id, url, sha }] for the earlier full runs compared, newest first.
  * shards: [{ name, conclusion, hasResults, passed, failures, errors }] for every browser shard job of the run.
+ * pulls: [{ number, branch, author }] merged since the newest earlier run.
  */
-export function renderReport({ run, previousRun, comparison, shards, pulls, compareUrl, limit = BODY_LIMIT }) {
-  const { failing, broke, unseen, fixed } = comparison;
+export function renderReport({ run, previousRuns, comparison, shards, pulls, compareUrl, limit = BODY_LIMIT }) {
+  const { failing, broke, unseen, intermittent, fixed } = comparison;
   const unfinished = shards.filter((shard) => shard.conclusion !== "success" || !shard.hasResults);
   // A pass closes the issue, so it needs every shard's report and at least one test that ran and passed.
   const ranTests = shards.some((shard) => shard.passed > 0);
   const state = failing.length === 0 && unfinished.length === 0 && ranTests ? "passing" : "failing";
   const date = run.date ? ` (${run.date})` : "";
   const where = `run ${runLink(run)} on ${shortSha(run.sha)}${date}`;
+  const mark = commentMark(run.id);
 
   if (state === "passing") {
-    const comment = `The full browser matrix passed in ${where}, so this issue is closed.\n`;
+    const comment = `${mark}\nThe full browser matrix passed in ${where}, so this issue is closed.\n`;
     return { state, title: ISSUE_TITLE, body: "", comment, summary: `## Nightly full matrix\n\n${comment}` };
   }
 
@@ -197,45 +225,59 @@ export function renderReport({ run, previousRun, comparison, shards, pulls, comp
       return `- ${shard.name}: ${code(why)}`;
     });
   const head = [
-    "Pull requests into `staging` run only the smoke suite, so a pull request can break a full-matrix spec and still merge. Each full run on `staging` rewrites this issue with what fails in it. A run that adds failures also comments them, with the pull requests merged since the run before. The issue closes when a full run passes.",
+    `Pull requests into \`staging\` run only the smoke suite, so a pull request can break a full-matrix spec and still merge. Each full run on \`staging\` rewrites this issue with what fails in it. When a test that passed in each of the last ${HISTORY_RUNS} full runs fails, or a new test fails, the run comments it and mentions the authors of the pull requests merged since. The issue closes when a full run passes.`,
     "",
     `**Latest run:** ${where}: ${plural(countTests(failing), "test fails", "tests fail")}${counts ? ` (${counts})` : ""}.`,
     "",
     ...(shardLines.length > 0 ? ["**Shards that failed without a failing test:**", "", ...shardLines, ""] : []),
     ...(ranTests ? [] : ["No test ran and passed in this run, so it does not count as a pass.", ""]),
-    ...(failing.length > 0 ? ["### Failing tests", "", ""] : []),
+    "",
   ].join("\n");
-  const failingLines = testLines(failing);
-  const body = withinLimit(head, failingLines, limit);
+  const tooFew =
+    previousRuns.length < HISTORY_RUNS
+      ? ` Only ${plural(previousRuns.length, "earlier full run has", "earlier full runs have")} results so far.`
+      : "";
+  const intermittentIntro = `These fail now and passed in an earlier full run, but not in each of the last ${HISTORY_RUNS}, so they may be flaky. No pull request is named for them.${tooFew}\n\n`;
+  // The intermittent list gets half the limit, so the failing list always fits some lines.
+  const sections = (sectionLimit) =>
+    section(
+      section(head, "Intermittent", intermittentIntro, testLines(intermittent), sectionLimit / 2),
+      "Failing tests",
+      "",
+      testLines(failing),
+      sectionLimit,
+    );
+  const body = sections(limit);
 
   let comment = "";
   let fullComment = "";
   const started = [...broke, ...unseen];
-  if (previousRun && started.length > 0) {
+  if (previousRuns.length > 0 && started.length > 0) {
+    const [newest] = previousRuns;
     const startedTests = countTests(started);
     const unseenTests = countTests(unseen);
+    const compared = `${plural(previousRuns.length, "earlier full run", "earlier full runs")} (${previousRuns.map((entry) => `${runLink(entry)} on ${shortSha(entry.sha)}`).join(", ")})`;
     const before =
       broke.length === 0
-        ? "has no result for them (new tests, or shards that did not report)"
-        : unseenTests > 0
-          ? `passed them, except ${unseenTests} it has no result for (a new test, or a shard that did not report)`
-          : "passed them";
+        ? `There is no result for them in the ${compared}: new tests, or shards that did not report.`
+        : `They passed in each of the ${compared}${unseenTests > 0 ? `, except ${unseenTests} with no result there (a new test, or a shard that did not report)` : ""}.`;
     const fixedNote =
       fixed.length > 0
-        ? ` Since then, ${plural(countTests(fixed), "failing test passes", "failing tests pass")} again.`
+        ? ` Since ${runLink(newest)}, ${plural(countTests(fixed), "failing test passes", "failing tests pass")} again.`
         : "";
     const range =
-      previousRun.sha === run.sha
-        ? "No commits landed between the two runs, so these failures are flaky or come from the runner."
+      newest.sha === run.sha
+        ? `No commits landed since ${runLink(newest)}, so these failures are flaky or come from the runner.`
         : pulls.length > 0
           ? [
-              `Pull requests merged between the two runs ([compare](${compareUrl})):`,
+              `Pull requests merged since ${runLink(newest)} ([compare](${compareUrl})). If yours is listed, check whether it broke one of these tests:`,
               "",
-              ...pulls.map((pull) => `- #${pull.number} (${code(pull.branch)})`),
+              ...pulls.map(pullLine),
             ].join("\n")
-          : `No pull request merged between the two runs ([compare](${compareUrl})).`;
+          : `No pull request merged since ${runLink(newest)} ([compare](${compareUrl})).`;
     const commentHead = [
-      `**${plural(startedTests, "test", "tests")} started failing** in ${where}. The previous full run, ${runLink(previousRun)} on ${shortSha(previousRun.sha)}, ${before}.${fixedNote}`,
+      mark,
+      `**${plural(startedTests, "test", "tests")} started failing** in ${where}. ${before}${fixedNote}`,
       "",
       range,
       "",
@@ -247,10 +289,11 @@ export function renderReport({ run, previousRun, comparison, shards, pulls, comp
     fullComment = withinLimit(commentHead, testLines(started), SUMMARY_LIMIT);
   }
 
-  const previousNote = previousRun
-    ? ""
-    : "\n_No earlier full run on this branch has results to compare with, so nothing is marked new._\n";
-  const fullBody = withinLimit(head, failingLines, SUMMARY_LIMIT);
+  const previousNote =
+    previousRuns.length > 0
+      ? ""
+      : "\n_No earlier full run on this branch has results to compare with, so nothing is marked new._\n";
+  const fullBody = sections(SUMMARY_LIMIT);
   const summary = `## Nightly full matrix\n\n${fullBody}${previousNote}${fullComment ? `\n---\n\n${fullComment}` : ""}`;
   return { state, title: ISSUE_TITLE, body, comment, summary };
 }
@@ -309,7 +352,7 @@ function main() {
   // Without shard jobs a run would look green and close the issue.
   if (shards.length === 0) throw new Error(`Run ${runId} lists no browser shard jobs.`);
 
-  // The newest finished full run on this branch before this one. A cancelled run is left out: its shards stopped early.
+  // The newest finished full runs on this branch before this one. A cancelled run is left out: its shards stopped early.
   const runs = JSON.parse(
     gh(
       "api",
@@ -319,11 +362,11 @@ function main() {
     ),
   );
   // A run that stopped before its shards (a moved expected_sha, say) has no results, so the one before it is tried.
-  let previous = null;
-  let previousRun = null;
+  const history = [];
   for (const before of runs.filter(
     (candidate) => candidate.id < Number(runId) && candidate.conclusion !== "cancelled",
   )) {
+    if (history.length === HISTORY_RUNS) break;
     const dir = mkdtempSync(join(tmpdir(), "nightly-previous-"));
     try {
       gh(
@@ -343,25 +386,33 @@ function main() {
     }
     const results = mergeResults(readShardReports(dir));
     if (results.size === 0) continue;
-    previous = results;
-    previousRun = { id: before.id, url: before.html_url, sha: before.head_sha };
-    break;
+    history.push({ id: before.id, url: before.html_url, sha: before.head_sha, results });
   }
+  const [newest] = history;
 
   let pulls = [];
   let compareUrl = "";
-  if (previousRun && previousRun.sha !== sha) {
-    compareUrl = `${server}/${repo}/compare/${previousRun.sha}...${sha}`;
+  if (newest && newest.sha !== sha) {
+    compareUrl = `${server}/${repo}/compare/${newest.sha}...${sha}`;
     const messages = jsonLines(
       gh(
         "api",
-        `repos/${repo}/compare/${previousRun.sha}...${sha}`,
+        `repos/${repo}/compare/${newest.sha}...${sha}`,
         "--paginate",
         "--jq",
         ".commits[].commit.message | @json",
       ),
     );
-    pulls = mergedPullRequests(messages);
+    // The merge commit names the head repository's owner, not the author, so each pull request is looked up.
+    const author = (number) => {
+      try {
+        return gh("api", `repos/${repo}/pulls/${number}`, "--jq", ".user.login").trim();
+      } catch (error) {
+        console.warn(`Pull request #${number} has no author to mention: ${error.message ?? error}`);
+        return "";
+      }
+    };
+    pulls = mergedPullRequests(messages).map((pull) => ({ ...pull, author: author(pull.number) }));
   }
 
   const report = renderReport({
@@ -371,8 +422,11 @@ function main() {
       sha,
       date: new Date().toISOString().slice(0, 10),
     },
-    previousRun,
-    comparison: compareRuns(mergeResults(currentShards), previous),
+    previousRuns: history,
+    comparison: compareRuns(
+      mergeResults(currentShards),
+      history.map((entry) => entry.results),
+    ),
     shards,
     pulls,
     compareUrl,
