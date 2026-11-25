@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useMatchMedia } from "../../../hooks/use-match-media";
 import {
@@ -55,7 +55,8 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
   const [preview, setPreview] = useState<MariFloatZone | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  useEffect(() => {
+  // A layout effect: a window resized while she was docked must not paint one frame at the old size on Float.
+  useLayoutEffect(() => {
     if (!active) return;
     const onResize = () => setView(readView());
     onResize();
@@ -73,41 +74,56 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
     writeRect(panel, { left, top, width, height });
   }, [active, left, top, width, height, panelRef]);
 
+  // One gesture at a time: a second press (another finger, a pen) while one runs is ignored.
+  const gestureRef = useRef(false);
+
   /** Runs one pointer gesture on `handle`; `onMove` returns the rectangle to draw, `onEnd` commits it. */
   const track = (
     event: PointerEvent<HTMLElement>,
     onMove: (move: globalThis.PointerEvent) => MariFloatRect | null,
-    onEnd: (last: MariFloatRect | null, up: globalThis.PointerEvent) => void,
+    onEnd: (last: MariFloatRect) => void,
   ) => {
     const handle = event.currentTarget;
-    handle.setPointerCapture(event.pointerId);
+    const pointerId = event.pointerId;
+    gestureRef.current = true;
+    handle.setPointerCapture(pointerId);
     let last: MariFloatRect | null = null;
     const move = (next: globalThis.PointerEvent) => {
+      if (next.pointerId !== pointerId) return;
       const rect = onMove(next);
       if (!rect) return;
       if (!last) setDragging(true);
       last = rect;
       writeRect(panelRef.current, rect);
     };
-    const end = (up: globalThis.PointerEvent) => {
+    const end = (up: Event) => {
+      if (up instanceof globalThis.PointerEvent && up.pointerId !== pointerId) return;
       handle.removeEventListener("pointermove", move);
       handle.removeEventListener("pointerup", end);
       handle.removeEventListener("pointercancel", end);
+      handle.removeEventListener("lostpointercapture", end);
+      gestureRef.current = false;
+      // Moves are coalesced per frame, so the release point can be past the last move: take it into account.
+      const final = up.type === "pointerup" && last ? (onMove(up as globalThis.PointerEvent) ?? last) : null;
+      // After that last onMove, which sets the preview again.
       setDragging(false);
       setPreview(null);
-      if (up.type === "pointercancel" || !last) {
-        writeRect(panelRef.current, drawnRef.current);
-        return;
-      }
-      onEnd(last, up);
+      if (final) onEnd(final);
+      // Draw what the store now says. A drop into the zone she was already in changes nothing the layout
+      // effect watches, so without this she would stay where the drag left her.
+      const ui = useUIStore.getState();
+      writeRect(panelRef.current, drawnMariFloatRect(ui.mariFloatRect, ui.mariFloatZone, readView(), remPx()));
     };
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", end);
     handle.addEventListener("pointercancel", end);
+    // Capture can be lost without a pointerup (the window loses focus mid-drag): end the gesture there too.
+    handle.addEventListener("lostpointercapture", end);
   };
 
   const onHeaderPointerDown = (event: PointerEvent<HTMLElement>) => {
-    if (!active || event.button !== 0 || (event.target as Element).closest(HEADER_CONTROLS)) return;
+    if (!active || gestureRef.current || event.button !== 0 || (event.target as Element).closest(HEADER_CONTROLS))
+      return;
     // No text selection or focus change while she is moved.
     event.preventDefault();
     const view = readView();
@@ -138,13 +154,13 @@ export function useMariFloat(mariSurface: boolean, companion: boolean, panelRef:
       (last) => {
         // Dropped in a zone, she keeps the free place she was dragged from for when she leaves it again.
         if (target) ui.setMariFloatPlace(ui.mariFloatZone ? (ui.mariFloatRect ?? origin) : start, target);
-        else if (last) ui.setMariFloatPlace(last, null);
+        else ui.setMariFloatPlace(last, null);
       },
     );
   };
 
   const onResizePointerDown = (edge: MariFloatEdge) => (event: PointerEvent<HTMLElement>) => {
-    if (!active || event.button !== 0) return;
+    if (!active || gestureRef.current || event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
     const view = readView();

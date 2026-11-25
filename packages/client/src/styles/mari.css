@@ -5492,6 +5492,8 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 [data-mari-float] > .mari-float-panel > header {
   cursor: grab;
   user-select: none;
+  /* A touch screen at desktop width must move her, not pan the page and cancel the drag. */
+  touch-action: none;
 }
 
 [data-mari-float-dragging] > .mari-float-panel > header,
