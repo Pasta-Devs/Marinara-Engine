@@ -2904,7 +2904,12 @@ export function AgentEditor() {
                 {CUSTOM_AGENT_CONTEXT_SOURCE_META.map((source) => {
                   const allowed =
                     !source.requiredCapability || localCustomCapabilities[source.requiredCapability] === true;
-                  if (source.id === "trackerData" && !BUILT_IN_TRACKER_AGENT_TYPES.includes(builtIn?.id ?? "")) {
+                  // Built-in trackers keep their fixed section; Knowledge Retrieval and Music DJ build their prompts
+                  // without the agent's sources, so a section pick would do nothing there.
+                  if (
+                    source.id === "trackerData" &&
+                    !TRACKER_DATA_PICK_EXCLUDED_AGENT_TYPES.includes(builtIn?.id ?? "")
+                  ) {
                     return (
                       <TrackerDataSourceRow
                         key={source.id}
@@ -5472,6 +5477,12 @@ function AgentCardSourceRow({
     </div>
   );
 }
+
+const TRACKER_DATA_PICK_EXCLUDED_AGENT_TYPES: readonly string[] = [
+  ...BUILT_IN_TRACKER_AGENT_TYPES,
+  "knowledge-retrieval",
+  "spotify",
+];
 
 type TrackerDataMode = "off" | "all" | "pick";
 
