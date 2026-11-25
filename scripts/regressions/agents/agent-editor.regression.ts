@@ -16,6 +16,7 @@ import {
   CUSTOM_AGENT_RESULT_TYPE_IDS,
 } from "../../../packages/client/src/lib/custom-agent-result-examples.js";
 import { rebaseUntouchedKeys } from "../../../packages/client/src/lib/mari-editor-fields.js";
+import { rebaseAgentSettings } from "../../../packages/client/src/lib/agent-settings-rebase.js";
 
 const agentEditorSource = readFileSync(
   new URL("../../../packages/client/src/components/agents/AgentEditor.tsx", import.meta.url),
@@ -213,5 +214,39 @@ assert.doesNotMatch(featureAgentDetailHostSource, /featureagentdetailhost\.featu
     agentEditorSource,
     /const saveSnapshotCurrent =\s*activeAgentDetailIdRef\.current === saveAgentDetailId &&\s*portraitRewritePromptRevRef\.current === savePortraitRewritePromptRev &&\s*editRevisionRef\.current === saveEditRevision;[\s\S]*?if \(saveSnapshotCurrent\) \{\s*setDirty\(false\);[\s\S]*?return saveSnapshotCurrent;/u,
     "AgentEditor handleSave must clear dirty and return saveSnapshotCurrent only when agent identity and edit revisions still match",
+  );
+}
+
+// #9745: the Tracker Data mode (Off / All / Pick) spans contextSources.trackerData and trackerDataSections,
+// and rebases as one unit over a concurrent edit.
+{
+  const sources = (trackerData: boolean, extra: Record<string, boolean> = {}) => ({
+    chatHistory: true,
+    lorebook: true,
+    trackerData,
+    ...extra,
+  });
+  const pick = (sections: string[], extra?: Record<string, boolean>) => ({
+    contextSources: sources(true, extra),
+    trackerDataSections: sections,
+  });
+  const all = (extra?: Record<string, boolean>) => ({ contextSources: sources(true, extra) });
+  const off = (extra?: Record<string, boolean>) => ({ contextSources: sources(false, extra) });
+
+  // Local Pick change while another editor turned Tracker Data off: the local Pick is saved, enabled.
+  assert.deepEqual(rebaseAgentSettings(pick(["world"]), pick(["scene"]), pick(["scene"]), off()), pick(["world"]));
+  // Local All while another editor turned it off: All is saved, not Off.
+  assert.deepEqual(rebaseAgentSettings(all(), pick(["scene"]), pick(["scene"]), off()), all());
+  // Local All while another editor saved a Pick: All is saved, not their Pick.
+  assert.deepEqual(rebaseAgentSettings(all(), off(), off(), pick(["scene"])), all());
+  // Local edit to another source while another editor switched Pick -> Off: their Off is kept with the local edit.
+  assert.deepEqual(
+    rebaseAgentSettings(pick(["scene"], { lorebook: false }), pick(["scene"]), pick(["scene"]), off()),
+    off({ lorebook: false }),
+  );
+  // Neither side changed the mode: nothing beyond the plain rebase.
+  assert.deepEqual(
+    rebaseAgentSettings(pick(["scene"]), pick(["scene"]), pick(["scene"]), { ...pick(["scene"]), author: "x" }),
+    { ...pick(["scene"]), author: "x" },
   );
 }

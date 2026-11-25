@@ -9,7 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
-import { rebaseUntouchedKeys } from "../../lib/mari-editor-fields";
+import { rebaseAgentSettings } from "../../lib/agent-settings-rebase";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { api, getPrivilegedActionErrorMessage } from "../../lib/api-client";
@@ -1911,38 +1911,13 @@ export function AgentEditor() {
             payload.connectionId === storedConnection
           )
             delete patch.connectionId;
-          const settingsBefore = parseAgentSettingsRecord(loadedSave.config.settings);
-          const settingsNow = parseAgentSettingsRecord(dbConfig.settings);
-          const rebasedSettings = rebaseUntouchedKeys(
+          // The Tracker Data mode (Off / All / Pick) spans two keys and rebases as one unit.
+          patch.settings = rebaseAgentSettings(
             payload.settings,
             loadedSave.payload.settings,
-            settingsBefore,
-            settingsNow,
+            parseAgentSettingsRecord(loadedSave.config.settings),
+            parseAgentSettingsRecord(dbConfig.settings),
           );
-          // Off / All / Pick spans two keys (the trackerData flag and the section list), which
-          // rebase one by one. Rebase the mode as one unit: this editor's mode when it changed it,
-          // else another editor's when that changed, so no save keeps half of each.
-          const trackerDataFlag = (settings: Record<string, unknown>) =>
-            (settings.contextSources as { trackerData?: unknown } | undefined)?.trackerData;
-          const trackerDataMode = (settings: Record<string, unknown>) =>
-            JSON.stringify([trackerDataFlag(settings) ?? null, settings[AGENT_TRACKER_DATA_SECTIONS_SETTING] ?? null]);
-          const modeSource =
-            trackerDataMode(payload.settings) !== trackerDataMode(loadedSave.payload.settings)
-              ? payload.settings
-              : trackerDataMode(settingsBefore) !== trackerDataMode(settingsNow)
-                ? settingsNow
-                : null;
-          if (modeSource) {
-            const rebasedSources = rebasedSettings.contextSources;
-            rebasedSettings.contextSources = {
-              ...(rebasedSources && typeof rebasedSources === "object" ? rebasedSources : {}),
-              trackerData: trackerDataFlag(modeSource),
-            };
-            const sections = modeSource[AGENT_TRACKER_DATA_SECTIONS_SETTING];
-            if (sections === undefined) delete rebasedSettings[AGENT_TRACKER_DATA_SECTIONS_SETTING];
-            else rebasedSettings[AGENT_TRACKER_DATA_SECTIONS_SETTING] = sections;
-          }
-          patch.settings = rebasedSettings;
         }
         await updateAgent.mutateAsync({ id: dbConfig.id, ...patch });
         if (loaded?.id === dbConfig.id)
