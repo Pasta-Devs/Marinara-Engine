@@ -154,7 +154,9 @@ function explainOutOfMemory(restarting, soonAfterStart) {
       "          To give it more room, close other heavy programs, or raise the limit:",
       explicitHeapFlag
         ? "          change --max-old-space-size=<MiB> in NODE_OPTIONS (or the Termux launcher's setting)."
-        : "          set MARINARA_NODE_HEAP_MB=<MiB> (for example 6144 on a PC with 16 GB of RAM) in .env.",
+        : process.env.MARINARA_NODE_HEAP_MB !== undefined
+          ? "          change or remove MARINARA_NODE_HEAP_MB in your environment (it overrides .env)."
+          : "          set MARINARA_NODE_HEAP_MB=<MiB> (for example 6144 on a PC with 16 GB of RAM) in .env.",
       "",
     ].join("\n"),
   );
