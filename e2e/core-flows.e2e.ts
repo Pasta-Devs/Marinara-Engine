@@ -13966,16 +13966,16 @@ test("custom generation parameters become reusable chat controls", async ({ page
     await parametersHelp.click();
 
     await parameterSettings.getByRole("button", { name: "Add parameter" }).click();
-    await parameterSettings.getByLabel("Name").fill("Typical P");
-    await parameterSettings.getByLabel("Value", { exact: true }).fill("typical_p");
+    await parameterSettings.getByLabel("Name").fill("Min P");
+    await parameterSettings.getByLabel("Value", { exact: true }).fill("min_p");
     await parameterSettings.getByLabel("Minimum value").fill("0,1");
     await parameterSettings.getByLabel("Maximum value").fill("1");
     await parameterSettings.getByLabel("Tooltip (optional)").fill("Filters low-probability tokens.");
     await parameterSettings.getByRole("button", { name: "Save parameter" }).click();
 
-    await expect(parameterSettings.getByText("typical_p", { exact: true })).toBeVisible();
-    const editParameterButton = parameterSettings.getByRole("button", { name: "Edit Typical P" });
-    const deleteParameterButton = parameterSettings.getByRole("button", { name: "Delete Typical P" });
+    await expect(parameterSettings.getByText("min_p", { exact: true })).toBeVisible();
+    const editParameterButton = parameterSettings.getByRole("button", { name: "Edit Min P" });
+    const deleteParameterButton = parameterSettings.getByRole("button", { name: "Delete Min P" });
     const [editParameterIconBox, deleteParameterIconBox] = await Promise.all([
       editParameterButton.locator("svg").boundingBox(),
       deleteParameterButton.locator("svg").boundingBox(),
@@ -13993,7 +13993,7 @@ test("custom generation parameters become reusable chat controls", async ({ page
       min: number;
       max: number;
     }>;
-    expect(savedDefinitions).toMatchObject([{ name: "Typical P", requestKey: "typical_p", min: 0.1, max: 1 }]);
+    expect(savedDefinitions).toMatchObject([{ name: "Min P", requestKey: "min_p", min: 0.1, max: 1 }]);
 
     await page.evaluate((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
@@ -14004,9 +14004,8 @@ test("custom generation parameters become reusable chat controls", async ({ page
     const drawer = page.locator(".mari-chat-settings-drawer");
     await drawer.getByText("Advanced Parameters", { exact: true }).click();
     await expect(drawer.locator('textarea[placeholder="<thinking>"]')).toHaveAttribute("placeholder", "<thinking>");
-    // Not "Min P": #9647 made Min P a built-in field, so a custom min_p shows a second Min P control here (#9816).
-    await expect(drawer.getByText("Typical P", { exact: true })).toBeVisible();
-    const minPInput = drawer.getByRole("textbox", { name: "Typical P", exact: true });
+    await expect(drawer.getByText("Min P", { exact: true })).toBeVisible();
+    const minPInput = drawer.getByRole("textbox", { name: "Min P", exact: true });
     const [frequencyInputBox, presenceInputBox, minPInputBox] = await Promise.all([
       drawer.getByRole("textbox", { name: "Frequency", exact: true }).boundingBox(),
       drawer.getByRole("textbox", { name: "Presence", exact: true }).boundingBox(),
@@ -14021,7 +14020,7 @@ test("custom generation parameters become reusable chat controls", async ({ page
     await minPInput.fill("0,35");
     await minPInput.blur();
     // The shared Switch is a button named by its aria-label, with no <label> of its own.
-    const minPSendToggle = drawer.getByRole("switch", { name: "Send Typical P parameter" });
+    const minPSendToggle = drawer.getByRole("switch", { name: "Send Min P parameter" });
     await minPSendToggle.click();
     await expect(minPSendToggle).toBeChecked();
   } finally {
@@ -14392,13 +14391,14 @@ test("UI language selection downloads packs on demand and persists across reload
 
   // The open picker takes focus on the next frame, and only the picker handles Escape. A slow page (CI run
   // 42029653525) took the key on the trigger instead, so the next trigger click closed the picker. A computer
-  // focuses the search box; a phone's sheet focuses itself, so the software keyboard stays down.
-  const languagePicker = page.getByRole("dialog", {
-    name: (await languageSelect.getAttribute("aria-label")) ?? undefined,
-    exact: true,
-  });
+  // focuses the search box; a phone's sheet focuses its Close button, not the search box, so the software keyboard
+  // stays down.
+  const languagePickerName = (await languageSelect.getAttribute("aria-label")) ?? "";
+  const languagePicker = page.getByRole("dialog", { name: languagePickerName, exact: true });
   if (testInfo.project.name.includes("mobile")) {
-    await expect.poll(() => languagePicker.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+    await expect(
+      languagePicker.getByRole("button", { name: `Close ${languagePickerName}`, exact: true }),
+    ).toBeFocused();
   } else {
     await expect(page.getByRole("searchbox", { name: "Search…", exact: true })).toBeFocused();
   }
