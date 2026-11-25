@@ -873,7 +873,11 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
           }
         }}
       >
-        <div className={cn(NEUTRAL_PANEL_HEADER, "shrink-0 flex items-center justify-between gap-3 px-5 py-3")}>
+        {/* A phone toast ("Prompt copied.") sits below this, the Find and the checkup rows (lib/phone-toast-top). */}
+        <div
+          data-phone-toast-header
+          className={cn(NEUTRAL_PANEL_HEADER, "shrink-0 flex items-center justify-between gap-3 px-5 py-3")}
+        >
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h3 id={titleId} className={cn(NEUTRAL_PANEL_TITLE, "shrink-0 text-sm")}>
               {localizeUi("ui.chat.peekpromptmodal.assembledPrompt")}
@@ -912,7 +916,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
             </button>
           </div>
         </div>
-        <div className={cn(NEUTRAL_PANEL_HEADER, "shrink-0 px-4 py-2")}>
+        <div data-phone-toast-header className={cn(NEUTRAL_PANEL_HEADER, "shrink-0 px-4 py-2")}>
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex min-w-0 flex-1 basis-48 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 focus-within:ring-2 focus-within:ring-[var(--primary)]">
               <Search aria-hidden="true" size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
@@ -971,7 +975,11 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
           )}
         </div>
         {!showTest && !showCurrent && originalData.checkup && originalData.checkup.findings.length > 0 && (
-          <div className={cn(NEUTRAL_PANEL_HEADER, "mari-reply-checkup shrink-0 px-5 pb-3")} data-peek-checkup>
+          <div
+            className={cn(NEUTRAL_PANEL_HEADER, "mari-reply-checkup shrink-0 px-5 pb-3")}
+            data-peek-checkup
+            data-phone-toast-header
+          >
             <p className="mb-1 font-medium text-[var(--foreground)]">
               {localizeUi("chat.replyCheckup.peekTitle", "Reply checkup")}
             </p>

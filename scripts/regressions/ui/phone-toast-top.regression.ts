@@ -111,7 +111,8 @@ class ResizeStub {
   }
 }
 
-// Header changes are measured once per frame, before it paints, not in the mutation delivery.
+// Class and style changes on headers are measured once per frame, before it paints. Headers that come or
+// go, and changes inside a custom panel, are measured in the mutation delivery itself.
 let pendingFrames = new Map<number, () => void>();
 let nextFrame = 1;
 const flushFrames = () => {
@@ -216,8 +217,13 @@ const editor = header(56, 210);
 const editorContainer = new ElementStub();
 editorContainer.children.push(editor);
 rows.push(editor);
-notifyLayout(body, { type: "childList", addedNodes: [editorContainer] as unknown as NodeList });
-assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "218px", "opening an editor moves a lingering toast synchronously");
+layoutObserver.notify(body, { type: "childList", addedNodes: [editorContainer] as unknown as NodeList });
+assert.equal(
+  styles.get(PHONE_TOAST_TOP_VARIABLE),
+  "218px",
+  "opening an editor moves a lingering toast in the delivery",
+);
+flushFrames();
 assert.ok(resizeObserver.observed.has(editor), "new headers are observed for later size changes");
 
 const beforeBatchedMutations = measurements;
@@ -294,8 +300,8 @@ inventoryHeader.rect.bottom = 99.421875;
 const actions = new ElementStub();
 inventory.children.push(actions);
 const beforeBodyGrowth = measurements;
-notifyLayout(inventory, { type: "childList", addedNodes: [actions] as unknown as NodeList });
-assert.ok(measurements > beforeBodyGrowth, "a custom panel's body growth is a relevant mutation");
+layoutObserver.notify(inventory, { type: "childList", addedNodes: [actions] as unknown as NodeList });
+assert.ok(measurements > beforeBodyGrowth, "a custom panel's body growth is measured in the delivery");
 assert.equal(inventoryHeader.rect.height, 49, "the header moves without changing its own size");
 assert.equal(
   styles.get(PHONE_TOAST_TOP_VARIABLE),
@@ -306,12 +312,13 @@ const actionLabel = new ElementStub();
 actions.children.push(actionLabel);
 inventoryHeader.rect.top = 56;
 inventoryHeader.rect.bottom = 105;
-notifyLayout(actions, { type: "childList", addedNodes: [actionLabel] as unknown as NodeList });
-assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "113px", "nested action-bar additions update synchronously");
+layoutObserver.notify(actions, { type: "childList", addedNodes: [actionLabel] as unknown as NodeList });
+assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "113px", "nested action-bar additions update in the delivery");
 inventoryHeader.rect.top = 60;
 inventoryHeader.rect.bottom = 109;
-notifyLayout(actionLabel, { type: "attributes", attributeName: "class" });
-assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "117px", "nested action-bar layout changes update synchronously");
+layoutObserver.notify(actionLabel, { type: "attributes", attributeName: "class" });
+assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "117px", "nested action-bar layout changes update in the delivery");
+flushFrames();
 const beforeUnrelatedPanelMutations = measurements;
 notifyLayout(body, { type: "childList", addedNodes: [message] as unknown as NodeList });
 notifyLayout(message, { type: "attributes", attributeName: "style" });
