@@ -1911,12 +1911,27 @@ export function AgentEditor() {
             payload.connectionId === storedConnection
           )
             delete patch.connectionId;
-          patch.settings = rebaseUntouchedKeys(
+          const rebasedSettings = rebaseUntouchedKeys(
             payload.settings,
             loadedSave.payload.settings,
             parseAgentSettingsRecord(loadedSave.config.settings),
             parseAgentSettingsRecord(dbConfig.settings),
           );
+          // The picked sections only apply with Tracker Data on, so a changed pick keeps the flag
+          // on even when another editor turned it off meanwhile (keys rebase one by one).
+          const pickedSections = payload.settings[AGENT_TRACKER_DATA_SECTIONS_SETTING];
+          if (
+            pickedSections !== undefined &&
+            JSON.stringify(pickedSections) !==
+              JSON.stringify(loadedSave.payload.settings[AGENT_TRACKER_DATA_SECTIONS_SETTING])
+          ) {
+            const rebasedSources = rebasedSettings.contextSources;
+            rebasedSettings.contextSources = {
+              ...(rebasedSources && typeof rebasedSources === "object" ? rebasedSources : {}),
+              trackerData: true,
+            };
+          }
+          patch.settings = rebasedSettings;
         }
         await updateAgent.mutateAsync({ id: dbConfig.id, ...patch });
         if (loaded?.id === dbConfig.id)
