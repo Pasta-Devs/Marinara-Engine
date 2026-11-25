@@ -168,7 +168,18 @@ export function PickerWindow({
   useEffect(() => {
     if (phone) return;
     const layer = registerLayer({ kind: "popover", getElement: () => panelRef.current });
-    return layer.release;
+    // The host now leaves Escape to the topmost layer, so Escape with focus outside the panel (on its field) closes
+    // the picker here; the panel's own handler takes it inside.
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.isComposing || !layer.isTopmost()) return;
+      if (panelRef.current?.contains(event.target as Node)) return;
+      onCloseRef.current();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      layer.release();
+    };
   }, [phone]);
 
   // Close on a click outside the popover or its trigger, and on Escape.
