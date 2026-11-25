@@ -873,7 +873,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
           }
         }}
       >
-        {/* A phone toast, such as "Prompt copied.", sits below this row and the Find row (lib/phone-toast-top). */}
+        {/* A phone toast ("Prompt copied.") sits below this, the Find and the checkup rows (lib/phone-toast-top). */}
         <div
           data-phone-toast-header
           className={cn(NEUTRAL_PANEL_HEADER, "shrink-0 flex items-center justify-between gap-3 px-5 py-3")}
@@ -975,7 +975,11 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
           )}
         </div>
         {!showTest && !showCurrent && originalData.checkup && originalData.checkup.findings.length > 0 && (
-          <div className={cn(NEUTRAL_PANEL_HEADER, "mari-reply-checkup shrink-0 px-5 pb-3")} data-peek-checkup>
+          <div
+            className={cn(NEUTRAL_PANEL_HEADER, "mari-reply-checkup shrink-0 px-5 pb-3")}
+            data-peek-checkup
+            data-phone-toast-header
+          >
             <p className="mb-1 font-medium text-[var(--foreground)]">
               {localizeUi("chat.replyCheckup.peekTitle", "Reply checkup")}
             </p>
