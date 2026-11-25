@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -14,6 +14,13 @@ test.beforeEach(async () => {
 test.afterEach(() => {
   releaseMariThreadLock();
 });
+
+async function mariThreadIds(request: APIRequestContext) {
+  const threads = (await (await request.get("/api/chats/internal/professor-mari/chats")).json()) as Array<{
+    id: string;
+  }>;
+  return threads.map((thread) => thread.id);
+}
 
 /** Where a composer mark is painted once every clipping box above it has cut it, and whether that is inside the field. */
 function paintedMark(page: Page, tone: "reference" | "pending") {
@@ -57,6 +64,8 @@ test("Mari's composer marks scroll with their text and stay inside the field", a
   const name = `Scrollmark${suffix}`;
   let connectionId = "";
   let characterId = "";
+  // Threads already on the server stay; only one this test starts is removed.
+  const existingThreads = new Set(await mariThreadIds(request));
   try {
     const connection = await request.post("/api/connections", {
       data: {
@@ -120,11 +129,9 @@ test("Mari's composer marks scroll with their text and stay inside the field", a
       });
   } finally {
     // Opening her pane may have started a thread of its own.
-    const threads = (await (await request.get("/api/chats/internal/professor-mari/chats")).json()) as Array<{
-      id: string;
-    }>;
-    for (const thread of threads)
-      await request.delete(`/api/chats/internal/professor-mari/chats/${thread.id}`).catch(() => undefined);
+    for (const id of await mariThreadIds(request))
+      if (!existingThreads.has(id))
+        await request.delete(`/api/chats/internal/professor-mari/chats/${id}`).catch(() => undefined);
     if (characterId) await request.delete(`/api/characters/${characterId}`).catch(() => undefined);
     if (connectionId) await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);
   }
