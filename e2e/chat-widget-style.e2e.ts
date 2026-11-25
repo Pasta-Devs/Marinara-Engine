@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { closeChatSettings, openChatSettings, openChatTool } from "./chat-settings-tools.js";
+import { closeChatSettings, openChatMessageSearch, openChatSettings, openChatTool } from "./chat-settings-tools.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -354,25 +354,17 @@ async function exerciseColorControls(page: Page, preset: Preset, theme: "dark" |
   await expectGradientWidgets(page, settings, page.locator("[data-chat-settings-button]"));
   await expectButtonRing(page, page.locator("[data-chat-settings-button]"), preset);
   // A custom foreground/background pair must remain paired on native fields in either app theme.
-  const profile = settings.getByRole("combobox", { name: "Profile", exact: true });
-  await expect(profile).toHaveCSS(
+  // Profile is a picker button since #9246, so the native field checked is Search messages.
+  const field = (await openChatMessageSearch(page)).getByRole("searchbox");
+  await expect(field).toHaveCSS(
     "background-image",
     await resolvedStyle(page, "background-image", GRADIENT_COLORS.background),
   );
-  await expect(profile).toHaveCSS("-webkit-text-fill-color", await resolvedStyle(page, "color", "#6c5ce7"));
-  await expect(profile).toHaveCSS("color", await resolvedStyle(page, "color", "#6c5ce7"));
+  await expect(field).toHaveCSS("-webkit-text-fill-color", await resolvedStyle(page, "color", "#6c5ce7"));
+  await expect(field).toHaveCSS("color", await resolvedStyle(page, "color", "#6c5ce7"));
   await expect(settings.locator(".mari-window__title-row > svg")).toHaveCSS(
     "color",
     await resolvedStyle(page, "color", "#ff6b6b"),
-  );
-  await expect(profile.locator("option:not(:checked)").first()).toHaveCSS(
-    "background-color",
-    await resolvedStyle(page, "background-color", "#667eea"),
-  );
-  const selectedOption = profile.locator("option:checked");
-  await expect(selectedOption).toHaveCSS(
-    "-webkit-text-fill-color",
-    await selectedOption.evaluate((element) => getComputedStyle(element).color),
   );
   expect(
     await settings
@@ -1218,7 +1210,11 @@ for (const [preset, theme] of [
             const pager = page.locator(`[data-chat-mode="${chat.mode}"] .mari-message-swipes`).first();
             await expect(pager.locator("input")).toHaveCSS("font-family", /serif/);
             await expect(pager.locator("input")).toHaveCSS("-webkit-text-fill-color", "rgb(108, 92, 231)");
-            await expect(pager.locator(":scope > span.tabular-nums")).toHaveCSS("background-image", textGradient);
+            // The total sits inside the number capsule since #9304.
+            await expect(pager.locator(".mari-swipe-input > label.tabular-nums")).toHaveCSS(
+              "background-image",
+              textGradient,
+            );
             for (const control of [pager.locator(".mari-swipe-input"), pager.getByRole("button").first()]) {
               const painted = await surfaceAppearance(control);
               expect(painted.clip).toContain("polygon");

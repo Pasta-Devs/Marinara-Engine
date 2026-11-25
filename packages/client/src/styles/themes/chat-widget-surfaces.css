@@ -644,8 +644,8 @@
   --mari-chat-control-existing-bg: var(--marinara-chat-message-action-bg-hover);
 }
 .mari-swipe-input {
-  --mari-chat-control-existing-bg: color-mix(in srgb, var(--marinara-chat-chrome-text) 5%, transparent);
-  --mari-chat-control-existing-border: var(--marinara-chat-message-action-bg-hover);
+  --mari-chat-control-existing-bg: color-mix(in srgb, var(--marinara-chat-chrome-text) 3.5%, transparent);
+  --mari-chat-control-existing-border: transparent;
 }
 .mari-swipe-input:focus-within {
   --mari-chat-control-existing-bg: var(--marinara-chat-chrome-button-bg-active);
