@@ -320,7 +320,7 @@ for (const theme of ["dark", "light"] as const) {
       await page.goto("/");
       await open();
       for (const label of ["Previous output", "JSON context output", "Hide output as spoilers"]) {
-        const control = page.getByRole("checkbox", { name: new RegExp(`^${label} `) });
+        const control = page.getByRole("switch", { name: new RegExp(`^${label} `) });
         await page.getByText(label, { exact: true }).click();
         await expect(control).toBeChecked();
       }
@@ -335,7 +335,7 @@ for (const theme of ["dark", "light"] as const) {
       await page.reload();
       await open();
       for (const label of ["Previous output", "JSON context output", "Hide output as spoilers"])
-        await expect(page.getByRole("checkbox", { name: new RegExp(`^${label} `) })).toBeChecked();
+        await expect(page.getByRole("switch", { name: new RegExp(`^${label} `) })).toBeChecked();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     } finally {
       await request.delete(`/api/agents/${agent.id}`);

@@ -104,25 +104,21 @@ test("an inventory stack changes by any amount, splits into a chosen size and me
     await expect(slot("Apple x350")).toBeVisible();
     await expect.poll(async () => (await savedInventory()).map((stack) => stack.quantity)).toEqual([350]);
 
-    // Emptying a stack asks first: declined, the stack stays; accepted, it is gone.
+    // Emptying a stack asks first, in the app's own confirmation: declined, the stack stays; accepted, it is gone.
+    const confirmation = page.getByRole("dialog", { name: "Confirm Action", exact: true });
     await slot("Apple x350").click();
-    page.once("dialog", (dialog) => void dialog.dismiss());
     await amount.fill("0");
     await amount.press("Enter");
+    await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(confirmation).toHaveCount(0);
     await expect(slot("Apple x350")).toBeVisible();
-    // Asked once: the field losing focus while it saves never asks, or empties, a second time.
-    let asked = 0;
-    const accept = (dialog: { accept: () => Promise<void> }) => {
-      asked += 1;
-      void dialog.accept();
-    };
-    page.on("dialog", accept);
     await amount.fill("0");
     await amount.press("Enter");
+    await confirmation.getByRole("button", { name: "Confirm", exact: true }).click();
     await expect(page.getByText("Inventory empty")).toBeVisible();
     await expect.poll(async () => (await savedInventory()).length).toBe(0);
-    page.off("dialog", accept);
-    expect(asked).toBe(1);
+    // Asked once: the confirmation taking focus from the field never asks, or empties, a second time.
+    await expect(confirmation).toHaveCount(0);
   } finally {
     await request.delete(`/api/chats/${chatId}`);
   }

@@ -154,7 +154,11 @@ test("chat search, stats and story exports work with private content filtered", 
     await page.screenshot({ path: testInfo.outputPath("search-cleared.png") });
     await search.fill("private comet needle");
     await expect(searchDialog.getByText("No messages match.", { exact: true })).toBeVisible();
+    // The shared search field clears its text on the first Escape; the next one closes the dialog.
     await page.keyboard.press("Escape");
+    await expect(search).toHaveValue("");
+    await page.keyboard.press("Escape");
+    await expect(searchDialog).toHaveCount(0);
     // Mobile projects share a server, whose minute-long overview cache may
     // still contain the preceding project's already-deleted fixture chats.
     const timeZone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);

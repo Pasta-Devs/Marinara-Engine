@@ -11,12 +11,15 @@ const scenarios = [
     recentLabel: "Recent summaries",
     olderLabel: "Older summaries",
     switchLabel: "Semantic retrieval",
+    switchRole: "checkbox",
   },
   {
     mode: "conversation",
     recentLabel: "Recent weeks",
     olderLabel: "Older weeks",
     switchLabel: "Semantic summary retrieval",
+    // Chat Settings rows use the shared Switch; the Roleplay summary popover keeps its checkbox.
+    switchRole: "switch",
   },
 ] as const;
 
@@ -83,7 +86,7 @@ for (const scenario of scenarios) {
       await page.goto("/");
 
       let surface = await openControlsSurface();
-      const semanticSwitch = surface.getByRole("checkbox", { name: scenario.switchLabel });
+      const semanticSwitch = surface.getByRole(scenario.switchRole, { name: scenario.switchLabel });
       const recent = surface.getByRole("slider", { name: scenario.recentLabel, exact: true });
       const older = surface.getByRole("slider", { name: scenario.olderLabel, exact: true });
       const threshold = surface.getByRole("slider", { name: "Relevance threshold", exact: true });
@@ -146,7 +149,7 @@ for (const scenario of scenarios) {
 
       await page.reload();
       surface = await openControlsSurface();
-      const reloadedSwitch = surface.getByRole("checkbox", { name: scenario.switchLabel });
+      const reloadedSwitch = surface.getByRole(scenario.switchRole, { name: scenario.switchLabel });
       const reloadedRecent = surface.getByRole("slider", { name: scenario.recentLabel, exact: true });
       const reloadedOlder = surface.getByRole("slider", { name: scenario.olderLabel, exact: true });
       const reloadedThreshold = surface.getByRole("slider", { name: "Relevance threshold", exact: true });

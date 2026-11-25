@@ -43,19 +43,17 @@ for (const customCursorEnabled of [true, false]) {
     if (customCursorEnabled) await expect(root).toHaveAttribute("data-marinara-custom-cursor", "enabled");
     else await expect(root).not.toHaveAttribute("data-marinara-custom-cursor", /.*/);
 
-    for (const name of ["Resize left sidebar", "Resize right sidebar"]) {
-      const handle = page.getByRole("separator", { name, exact: true });
-      await expect(handle).toBeVisible();
-      expect(await cursorOf(handle), `${name} shows the resize cursor`).toBe("col-resize");
-    }
+    // Chats and the panels share one sidebar (#9492), so there is one edge to resize.
+    const handle = page.getByRole("separator", { name: "Resize sidebar", exact: true });
+    await expect(handle).toBeVisible();
+    expect(await cursorOf(handle), "the sidebar edge shows the resize cursor").toBe("col-resize");
 
     // A drag: the pointer leaves the handle at once, and the page keeps the resize cursor until the button is released.
-    // The handle follows the sidebar's edge, so the page is probed far from both handles, where only the drag rule
-    // could give it the resize cursor.
-    const handle = page.getByRole("separator", { name: "Resize left sidebar", exact: true });
+    // The handle follows the sidebar's edge, so the page is probed far from it, where only the drag rule could give it
+    // the resize cursor.
     const box = (await handle.boundingBox())!;
     const y = box.y + box.height / 2;
-    const far = { x: box.x + 420, y };
+    const far = { x: box.x > 600 ? box.x - 420 : box.x + 420, y };
     expect(await cursorAt(page, far.x, far.y), "the centre of the page is not a resize edge").not.toBe("col-resize");
     await page.mouse.move(box.x + box.width / 2, y);
     await page.mouse.down();

@@ -619,15 +619,16 @@ test("Settings switches share one centered track and thumb geometry", async ({ p
     { id: "advanced", label: "Advanced" },
   ]) {
     await page.getByRole("tab", { name: label, exact: true }).click();
-    const tracks = page.locator(`#settings-panel-${id} [data-settings-switch-track]`);
-    await tracks.locator("[data-settings-switch-thumb]").evaluateAll(async (thumbs) => {
+    // Settings rows use the shared Switch: the button is the track and its one span the thumb.
+    const tracks = page.locator(`#settings-panel-${id} [role="switch"]`);
+    await tracks.locator(":scope > span").evaluateAll(async (thumbs) => {
       await Promise.all(
         thumbs.flatMap((thumb) => thumb.getAnimations().map((animation) => animation.finished.catch(() => undefined))),
       );
     });
     const metrics = await tracks.evaluateAll((elements) =>
       elements.map((track) => {
-        const thumb = track.querySelector<HTMLElement>("[data-settings-switch-thumb]");
+        const thumb = track.querySelector<HTMLElement>(":scope > span");
         if (!thumb) throw new Error("Settings switch track is missing its shared thumb");
         const trackBox = track.getBoundingClientRect();
         const thumbBox = thumb.getBoundingClientRect();
@@ -1725,7 +1726,7 @@ test("Author's Notes keeps its expand and full macro guide inside the field", as
     expect(macroHelp).toContain(negationSyntax);
     expect(macroHelp).toContain("{{date.world_state}} - Current date tracked by World State");
     expect(macroHelp).toContain('"is not", "not contains", and "not includes"');
-    await macroReference.getByRole("button", { name: "Close macro reference", exact: true }).click();
+    await macroReference.getByRole("button", { name: "Close Macro reference", exact: true }).click();
     await expect(panel).toBeVisible();
 
     await field.getByRole("button", { name: "Expand editor", exact: true }).click();
@@ -1736,7 +1737,7 @@ test("Author's Notes keeps its expand and full macro guide inside the field", as
     );
     const savedNotes = '{{#if char == "Albedo"}}Keep {{user}} curious.{{else}}Keep the scene curious.{{/if}}';
     await expandedEditor.locator("textarea").fill(savedNotes);
-    await expandedEditor.getByRole("button", { name: "Close expanded editor", exact: true }).click();
+    await expandedEditor.getByRole("button", { name: "Close Author's Notes", exact: true }).click();
     await expect(panel).toBeVisible();
     await expect
       .poll(async () => {
@@ -1801,7 +1802,7 @@ test("summary macro editor stays above its floating panel", async ({ page, reque
       await summaryPanel.evaluate((element) => Number(getComputedStyle(element).zIndex)),
     );
     await expandedEditor.locator("textarea").fill("The expanded summary remains usable.");
-    await expandedEditor.getByRole("button", { name: "Close expanded editor", exact: true }).click();
+    await expandedEditor.getByRole("button", { name: "Close Summary title", exact: true }).click();
     await expect(summaryPanel).toBeVisible();
   } finally {
     await request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
@@ -5708,7 +5709,7 @@ test("expanded character editors keep native keyboard and quote caret behavior",
     await page.keyboard.press("Shift+Tab");
     await expect(expandedEditor).toHaveValue("alpha\nbeta");
 
-    await page.getByRole("button", { name: "Close expanded editor", exact: true }).click();
+    await page.getByRole("button", { name: "Close About Me", exact: true }).click();
     await openEditorSection(editor, "Card");
     const descriptionField = page.locator("#character-card-description");
     await descriptionField.getByRole("button", { name: "Expand editor", exact: true }).click();
@@ -6690,10 +6691,9 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
             if (layout === "roleplay") {
               await control.getByRole("button", { name: /^Greeting \d+ of / }).click();
               const list = page.getByRole("listbox", { name: "Greetings", exact: true });
-              // The first click opens the row to read it, the second uses it.
-              const option = list.getByRole("option").nth(index);
-              await option.click();
-              await option.click();
+              // A click opens the row in the reader; its button uses it.
+              await list.getByRole("option").nth(index).click();
+              await page.getByRole("button", { name: "Use this greeting", exact: true }).click();
               await expect(list).toBeHidden();
             } else {
               const field = control.getByRole("textbox");
@@ -7292,12 +7292,20 @@ test("desktop Roleplay composition keeps ambient work off the input path and gro
       });
     });
     await page.setViewportSize({ width: 1440, height: 700 });
+    const liveAccent = () => root.evaluate((element) => (element as HTMLElement).style.getPropertyValue("--primary"));
+    // Before typing, the pulse ticks keep rewriting the root accent.
+    const idleAccent = await liveAccent();
+    await expect.poll(liveAccent).not.toBe(idleAccent);
     await input.focus();
 
     await expect
       .poll(() => page.evaluate(() => (window as Window & { __lastKeyboardOpen?: boolean }).__lastKeyboardOpen))
       .toBe(false);
-    await expect(root).not.toHaveAttribute("data-marinara-accent-animation");
+    // Typing pauses the ticks. The root attribute stays, so focus and blur no longer restyle the page (#9400).
+    await expect(root).toHaveAttribute("data-marinara-accent-animation");
+    const typingAccent = await liveAccent();
+    await page.waitForTimeout(1_200);
+    expect(await liveAccent()).toBe(typingAccent);
 
     const initialHeight = await input.evaluate((element) => {
       element.style.flex = "0 0 240px";
@@ -8206,57 +8214,46 @@ test("Roleplay side panels synchronize their slide with the desktop shell resize
     // Exercise the panel over a dense transcript, including its lazy first open.
     await charactersButton.click();
     await expect(page.locator('[data-component="RightPanel"]')).toBeVisible();
-    const rightSlot = page.locator('[data-component="RightPanelDesktopSlot"]');
-    const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
-    const leftSlot = page.locator('[data-component="ChatSidebarSlot"]');
-    const leftPanel = page.locator('[data-component="ChatSidebarPanel"]');
+    // Chats and the panels share one sidebar slot (#9492), docked on the right by default.
+    const slot = page.locator('[data-component="SidebarSlot"]');
+    const panel = page.locator('[data-component="SidebarSlotPanel"]');
     const centerContent = page.locator('[data-component="CenterContent"]');
-    await expect(rightPanel).toHaveClass(/mari-shell-panel-enter-right/);
-    await rightSlot.evaluate(async (element) => {
-      const panel = element.querySelector('[data-component="RightPanelDesktop"]');
-      await Promise.all(
-        [element, panel]
-          .flatMap((target) => target?.getAnimations() ?? [])
-          .map((animation) => animation.finished.catch(() => undefined)),
-      );
-    });
-    const openRightSlotWidth = (await rightSlot.boundingBox())?.width ?? 0;
-    expect(openRightSlotWidth).toBeGreaterThan(0);
+    const settle = () =>
+      slot.evaluate(async (element) => {
+        const motion = element.querySelector('[data-component="SidebarSlotPanel"]');
+        await Promise.all(
+          [element, motion]
+            .flatMap((target) => target?.getAnimations() ?? [])
+            .map((animation) => animation.finished.catch(() => undefined)),
+        );
+      });
+    await expect(slot).toHaveAttribute("data-sidebar-side", "right");
+    await expect(panel).toHaveClass(/mari-shell-panel-enter-right/);
+    await settle();
+    expect((await slot.boundingBox())?.width ?? 0).toBeGreaterThan(0);
     const centerWidthWithRightPanel = (await centerContent.boundingBox())?.width ?? 0;
     await page.getByRole("button", { name: "Close panel" }).click();
-    await expect(rightPanel).toHaveClass(/mari-shell-panel-exit-right/);
-    await expect(rightSlot).toHaveCSS("width", "0px");
+    await expect(panel).toHaveClass(/mari-shell-panel-exit-right/);
+    await expect(slot).toHaveCSS("width", "0px");
     expect((await centerContent.boundingBox())?.width ?? 0).toBeGreaterThan(centerWidthWithRightPanel);
 
     await page.locator('[data-tour="sidebar-toggle"]').click();
-    await expect(leftSlot).not.toHaveCSS("width", "0px");
-    await expect(leftPanel).toHaveClass(/mari-shell-panel-enter-left/);
-    await leftSlot.evaluate(async (element) => {
-      const panel = element.querySelector('[data-component="ChatSidebarPanel"]');
-      await Promise.all(
-        [element, panel]
-          .flatMap((target) => target?.getAnimations() ?? [])
-          .map((animation) => animation.finished.catch(() => undefined)),
-      );
-    });
-    const openLeftSlotWidth = (await leftSlot.boundingBox())?.width ?? 0;
-    expect(openLeftSlotWidth).toBeGreaterThan(0);
-    const centerWidthWithLeftPanel = (await centerContent.boundingBox())?.width ?? 0;
+    await expect(slot).not.toHaveCSS("width", "0px");
+    await expect(panel).toHaveClass(/mari-shell-panel-enter-right/);
+    await expect(page.locator('[data-component="ChatSidebarPanel"]')).toHaveAttribute("aria-hidden", "false");
+    await settle();
+    expect((await slot.boundingBox())?.width ?? 0).toBeGreaterThan(0);
+    const centerWidthWithChats = (await centerContent.boundingBox())?.width ?? 0;
     await page.locator('[data-tour="sidebar-toggle"]').click();
-    await expect(leftPanel).toHaveClass(/mari-shell-panel-exit-left/);
-    await expect(leftSlot).toHaveCSS("width", "0px");
-    expect((await centerContent.boundingBox())?.width ?? 0).toBeGreaterThan(centerWidthWithLeftPanel);
+    await expect(panel).toHaveClass(/mari-shell-panel-exit-right/);
+    await expect(slot).toHaveCSS("width", "0px");
+    expect((await centerContent.boundingBox())?.width ?? 0).toBeGreaterThan(centerWidthWithChats);
 
-    for (const [slot, panel] of [
-      [rightSlot, rightPanel],
-      [leftSlot, leftPanel],
-    ] as const) {
-      const slotTransitions = await slot.evaluate((element) => getComputedStyle(element).transitionProperty);
-      const panelTransitions = await panel.evaluate((element) => getComputedStyle(element).transitionProperty);
-      expect(slotTransitions.split(",").map((property) => property.trim())).toContain("width");
-      expect(panelTransitions.split(",").map((property) => property.trim())).toContain("transform");
-      expect(panelTransitions.split(",").map((property) => property.trim())).not.toContain("width");
-    }
+    const slotTransitions = await slot.evaluate((element) => getComputedStyle(element).transitionProperty);
+    const panelTransitions = await panel.evaluate((element) => getComputedStyle(element).transitionProperty);
+    expect(slotTransitions.split(",").map((property) => property.trim())).toContain("width");
+    expect(panelTransitions.split(",").map((property) => property.trim())).toContain("transform");
+    expect(panelTransitions.split(",").map((property) => property.trim())).not.toContain("width");
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`);
   }
@@ -10903,14 +10900,14 @@ test("preset token counters stay localized and editable with malformed marker se
     await expect(expanded.getByText("約2トークン", { exact: true })).toBeVisible();
     await expanded.locator("textarea").fill("你好世界你好世界");
     await expect(expanded.getByText("約6トークン", { exact: true })).toBeVisible();
-    await expect(expanded.getByRole("button", { name: "Close expanded editor" })).toBeVisible();
+    await expect(expanded.getByRole("button", { name: "Close Edit: CJK prompt", exact: true })).toBeVisible();
     const bounds = await expanded.evaluate((element) => ({
       content: element.scrollWidth,
       viewport: document.documentElement.clientWidth,
     }));
     expect(bounds.content).toBeLessThanOrEqual(bounds.viewport + 1);
     await page.screenshot({ path: testInfo.outputPath("localized-expanded-token-counter.png") });
-    await expanded.getByRole("button", { name: "Close expanded editor" }).click();
+    await expanded.getByRole("button", { name: "Close Edit: CJK prompt", exact: true }).click();
     await expect(expanded).toHaveCount(0);
     await expect(prompt.locator("textarea")).toHaveValue("你好世界你好世界");
     await expect(prompt.locator("p", { hasText: /^約6トークン$/u })).toBeVisible();
@@ -13940,16 +13937,16 @@ test("custom generation parameters become reusable chat controls", async ({ page
     await parametersHelp.click();
 
     await parameterSettings.getByRole("button", { name: "Add parameter" }).click();
-    await parameterSettings.getByLabel("Name").fill("Min P");
-    await parameterSettings.getByLabel("Value", { exact: true }).fill("min_p");
+    await parameterSettings.getByLabel("Name").fill("Typical P");
+    await parameterSettings.getByLabel("Value", { exact: true }).fill("typical_p");
     await parameterSettings.getByLabel("Minimum value").fill("0,1");
     await parameterSettings.getByLabel("Maximum value").fill("1");
     await parameterSettings.getByLabel("Tooltip (optional)").fill("Filters low-probability tokens.");
     await parameterSettings.getByRole("button", { name: "Save parameter" }).click();
 
-    await expect(parameterSettings.getByText("min_p", { exact: true })).toBeVisible();
-    const editParameterButton = parameterSettings.getByRole("button", { name: "Edit Min P" });
-    const deleteParameterButton = parameterSettings.getByRole("button", { name: "Delete Min P" });
+    await expect(parameterSettings.getByText("typical_p", { exact: true })).toBeVisible();
+    const editParameterButton = parameterSettings.getByRole("button", { name: "Edit Typical P" });
+    const deleteParameterButton = parameterSettings.getByRole("button", { name: "Delete Typical P" });
     const [editParameterIconBox, deleteParameterIconBox] = await Promise.all([
       editParameterButton.locator("svg").boundingBox(),
       deleteParameterButton.locator("svg").boundingBox(),
@@ -13967,7 +13964,7 @@ test("custom generation parameters become reusable chat controls", async ({ page
       min: number;
       max: number;
     }>;
-    expect(savedDefinitions).toMatchObject([{ name: "Min P", requestKey: "min_p", min: 0.1, max: 1 }]);
+    expect(savedDefinitions).toMatchObject([{ name: "Typical P", requestKey: "typical_p", min: 0.1, max: 1 }]);
 
     await page.evaluate((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
@@ -13978,8 +13975,9 @@ test("custom generation parameters become reusable chat controls", async ({ page
     const drawer = page.locator(".mari-chat-settings-drawer");
     await drawer.getByText("Advanced Parameters", { exact: true }).click();
     await expect(drawer.locator('textarea[placeholder="<thinking>"]')).toHaveAttribute("placeholder", "<thinking>");
-    await expect(drawer.getByText("Min P", { exact: true })).toBeVisible();
-    const minPInput = drawer.getByRole("textbox", { name: "Min P", exact: true });
+    // Not "Min P": #9647 made Min P a built-in field, so a custom one by that name would show twice.
+    await expect(drawer.getByText("Typical P", { exact: true })).toBeVisible();
+    const minPInput = drawer.getByRole("textbox", { name: "Typical P", exact: true });
     const [frequencyInputBox, presenceInputBox, minPInputBox] = await Promise.all([
       drawer.getByRole("textbox", { name: "Frequency", exact: true }).boundingBox(),
       drawer.getByRole("textbox", { name: "Presence", exact: true }).boundingBox(),
@@ -13993,7 +13991,7 @@ test("custom generation parameters become reusable chat controls", async ({ page
 
     await minPInput.fill("0,35");
     await minPInput.blur();
-    const minPSendToggle = drawer.getByRole("switch", { name: "Send Min P parameter" });
+    const minPSendToggle = drawer.getByRole("switch", { name: "Send Typical P parameter" });
     const minPSendToggleId = await minPSendToggle.getAttribute("id");
     expect(minPSendToggleId).toBeTruthy();
     await drawer.locator(`label[for="${minPSendToggleId}"]`).click();
@@ -14364,9 +14362,18 @@ test("UI language selection downloads packs on demand and persists across reload
     await expect(uiLanguageRow(page, locale)).toHaveCount(1);
   }
 
-  // The open picker moves focus to its search box on the next frame, and only the picker handles Escape. A slow
-  // page (CI run 42029653525) took the key on the trigger instead, so the next trigger click closed the picker.
-  await expect(page.getByRole("searchbox", { name: "Search…", exact: true })).toBeFocused();
+  // The open picker takes focus on the next frame, and only the picker handles Escape. A slow page (CI run
+  // 42029653525) took the key on the trigger instead, so the next trigger click closed the picker. A computer
+  // focuses the search box; a phone's sheet focuses itself, so the software keyboard stays down.
+  const languagePicker = page.getByRole("dialog", {
+    name: (await languageSelect.getAttribute("aria-label")) ?? undefined,
+    exact: true,
+  });
+  if (testInfo.project.name.includes("mobile")) {
+    await expect.poll(() => languagePicker.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  } else {
+    await expect(page.getByRole("searchbox", { name: "Search…", exact: true })).toBeFocused();
+  }
   await page.keyboard.press("Escape");
   await expect(languageSelect).toHaveAttribute("aria-expanded", "false");
   await selectUILanguage(page, "pl");
@@ -16417,7 +16424,7 @@ test("Conversation setup commands follow the installed agent library", async ({ 
     await nextButton.click();
     await nextButton.click();
     await expect(page.getByRole("heading", { name: "Automation", exact: true })).toBeVisible();
-    const commandsToggle = page.getByRole("button", { name: /^Commands\b/u });
+    const commandsToggle = page.getByRole("switch", { name: /^Commands\b/u });
     await expect(commandsToggle).toBeVisible();
     await commandsToggle.click();
     await expect(page.getByText("Schedule Updates", { exact: true })).toBeVisible();
@@ -18216,7 +18223,8 @@ test("desktop resource editors open beside their source sidebars", async ({ page
     for (const resource of resources) {
       await clickTopbarPanel(page, resource.panel);
       await expect(resourceSidebar).toBeVisible();
-      await expect(centerContent).toHaveAttribute("data-center-compact", "true");
+      // Chats and the panels share one sidebar (#9492): the panel takes Chats' place there.
+      await expect(chatSidebar).toHaveAttribute("aria-hidden", "true");
       if (resource.panel === "connections") {
         await openConnectionsPanelModel(resourceSidebar, resource.name);
         // A model opens in its own window over the page, not in the center editor area.
@@ -18234,7 +18242,6 @@ test("desktop resource editors open beside their source sidebars", async ({ page
       const editor = centerContent.locator(".mari-editor-shell");
       await expect(editor).toBeVisible();
       await expect(resourceSidebar).toBeVisible();
-      await expect(chatSidebar).toBeVisible();
       await expect(resourceSidebar.getByText(resource.name, { exact: true }).first()).toBeVisible();
 
       await editor.locator(".mari-editor-header .mari-editor-action").first().click();
@@ -20097,7 +20104,8 @@ test("Home Community and clock widgets are useful, timezone-aware, and optional"
 
   await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
-  await expect(widgetManager.getByRole("switch")).toHaveCount(10);
+  // Ten widget rows and the Show URL bar setting, which became a switch with the shared Switch.
+  await expect(widgetManager.getByRole("switch")).toHaveCount(11);
   for (const label of [
     "Your guide — Professor Mari",
     "Continue chatting — Recent chats",
@@ -21073,7 +21081,8 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
   await expect(widgetManager).toBeVisible();
-  await expect(widgetManager.getByRole("switch")).toHaveCount(10);
+  // Ten widget rows and the Show URL bar setting, which became a switch with the shared Switch.
+  await expect(widgetManager.getByRole("switch")).toHaveCount(11);
   await activateControl(widgetManager.getByRole("switch", { name: "Hide Your shelf — Achievements" }), testInfo);
   await expect(page.locator('[data-home-widget-id="achievements"]')).toHaveCount(0);
   await expect
@@ -22037,15 +22046,15 @@ test("memory recall modal accepts clicks from chat settings", async ({ page }, t
   const drawer = page.locator(".mari-chat-settings-drawer");
   await expect(drawer.getByRole("heading", { name: "Chat Settings" })).toBeVisible();
   await drawer.getByText("Memory Recall", { exact: true }).click();
+  // The shared Switch is its own track, with the thumb as its one span.
   const memoryRecallSwitch = drawer.getByRole("switch", { name: "Enable Memory Recall" });
-  const memoryRecallTrack = memoryRecallSwitch.locator("xpath=following-sibling::*[@data-settings-switch-track][1]");
   await expect(memoryRecallSwitch).toBeChecked();
-  await memoryRecallTrack.click();
+  await memoryRecallSwitch.click();
   await expect(memoryRecallSwitch).not.toBeChecked();
-  await expect(memoryRecallTrack).toHaveClass(/bg-\[var\(--border\)\]/u);
+  await expect(memoryRecallSwitch).not.toHaveClass(/mari-chat-option-switch--active/u);
   const [trackBox, thumbBox] = await Promise.all([
-    memoryRecallTrack.boundingBox(),
-    memoryRecallTrack.locator("[data-settings-switch-thumb]").boundingBox(),
+    memoryRecallSwitch.boundingBox(),
+    memoryRecallSwitch.locator(":scope > span").boundingBox(),
   ]);
   expect(trackBox).not.toBeNull();
   expect(thumbBox).not.toBeNull();
@@ -22309,7 +22318,11 @@ test("mobile Load More stays reachable beside the collapsed Echo Chamber", async
   }
 });
 
-test("chat image preview allows native mobile pinch zoom", async ({ page, request, browserName }, testInfo) => {
+test("chat image preview zooms the picture with a two-finger pinch", async ({
+  page,
+  request,
+  browserName,
+}, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Native pinch zoom applies to touch viewports.");
   const response = await request.post("/api/chats", {
     data: { name: "Chat image pinch zoom", mode: "roleplay", characterIds: [] },
@@ -22365,11 +22378,11 @@ test("chat image preview allows native mobile pinch zoom", async ({ page, reques
         await page.evaluate(() => new Promise(requestAnimationFrame));
       }
       await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-      await expect.poll(() => page.evaluate(() => window.visualViewport?.scale ?? 1)).toBeGreaterThan(1.5);
+      // The shared ImageViewer (#9455) zooms the picture itself, so the page keeps its scale.
+      await expect.poll(async () => (await image.boundingBox())!.width).toBeGreaterThan(before!.width * 1.5);
+      expect(await page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(1);
       await expect(page.locator("html")).not.toHaveAttribute("data-mari-software-keyboard-open");
-      expect((await image.boundingBox())!.width).toBeCloseTo(before!.width, 0);
-      await testInfo.attach("chat-image-native-pinch.png", { body: await page.screenshot(), contentType: "image/png" });
-      await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+      await testInfo.attach("chat-image-pinch.png", { body: await page.screenshot(), contentType: "image/png" });
       await session.detach();
     }
     // Playwright WebKit cannot drive a native two-finger pinch; device verification remains separate.
@@ -23886,7 +23899,7 @@ test("Conversation media searches match GIFs and internal presses keep the picke
         paddingInline: `${shellStyle.paddingLeft} ${shellStyle.paddingRight}`,
       };
     });
-    await mediaPicker.getByRole("button", { name: "Kaomoji", exact: true }).click();
+    await mediaPicker.getByRole("tab", { name: "Kaomoji", exact: true }).click();
     const picker = page.getByRole("dialog", { name: "Kaomoji picker" });
     await expect(picker).toBeVisible();
 
@@ -23912,7 +23925,7 @@ test("Conversation media searches match GIFs and internal presses keep the picke
     await picker.locator("[data-kaomoji-results]").dispatchEvent("pointerdown");
     await expect(mediaPicker).toBeVisible();
 
-    await mediaPicker.getByRole("button", { name: "GIFs", exact: true }).click();
+    await mediaPicker.getByRole("tab", { name: "GIFs", exact: true }).click();
     const gifSearchInput = page.getByRole("textbox", { name: "Search for GIFs", exact: true });
     const gifSearchStyle = await gifSearchInput.evaluate((input) => {
       const inputStyle = getComputedStyle(input);
@@ -23992,7 +24005,7 @@ test("media pickers persist and surface recently used items", async ({ page }, t
     await mediaButton.click();
     await expect(recentEmoji.getByRole("button", { name: /test tube/i })).toBeVisible();
 
-    await mediaPicker.getByRole("button", { name: "Kaomoji", exact: true }).click();
+    await mediaPicker.getByRole("tab", { name: "Kaomoji", exact: true }).click();
     const kaomojiPicker = mediaPicker.getByRole("dialog", { name: "Kaomoji picker" });
     const recentKaomoji = kaomojiPicker.locator('[data-recent-media="kaomoji"]');
     await expect(recentKaomoji).toContainText("(づ｡◕‿‿◕｡)づ");
@@ -24006,15 +24019,15 @@ test("media pickers persist and surface recently used items", async ({ page }, t
     await newKaomoji.click();
     await expect(mediaPicker).toBeHidden();
     await mediaButton.click();
-    await mediaPicker.getByRole("button", { name: "Kaomoji", exact: true }).click();
+    await mediaPicker.getByRole("tab", { name: "Kaomoji", exact: true }).click();
     await expect(recentKaomoji.locator("button").first()).toContainText(newKaomojiValue!);
 
-    await mediaPicker.getByRole("button", { name: "GIFs", exact: true }).click();
+    await mediaPicker.getByRole("tab", { name: "GIFs", exact: true }).click();
     const recentGifSection = mediaPicker.locator('[data-recent-media="gif"]');
     await expect(recentGifSection).toContainText("Recently used");
     await expect(recentGifSection.locator('[title="Recent GIF"]')).toBeVisible();
 
-    await mediaPicker.getByRole("button", { name: "Stickers", exact: true }).click();
+    await mediaPicker.getByRole("tab", { name: "Stickers", exact: true }).click();
     const recentStickerSection = mediaPicker.locator('[data-recent-media="sticker"]');
     await expect(recentStickerSection).toContainText("Recently used");
     await expect(recentStickerSection.locator(`[title="Send sticker:${stickerName}:"]`)).toBeVisible();
