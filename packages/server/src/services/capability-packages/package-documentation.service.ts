@@ -23,6 +23,11 @@ const CACHE_FILES = 128;
 const MAX_INDEX_BYTES = 2 * 1024 * 1024;
 const MAX_CACHE_BYTES = 2 * MAX_PACKAGE_DOCUMENTATION_BYTES;
 const digest = (value: string | Uint8Array) => createHash("sha256").update(value).digest("hex");
+const headingSlug = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}_\-\s]/gu, "")
+    .replace(/\s/gu, "-");
 
 export interface PackageDocumentationContext {
   catalogUrl: string;
@@ -42,7 +47,17 @@ const cachedReadSchema = z
     packageVersion: z.string().min(1).max(80),
     guideId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/u),
     title: z.string().max(200),
-    topics: z.array(z.object({ id: z.string().max(64), title: z.string().max(200) }).strict()).max(33),
+    topics: z
+      .array(
+        z
+          .object({
+            id: z.string().max(64),
+            title: z.string().max(200),
+            sourceUrl: z.string().url().max(2000).optional(),
+          })
+          .strict(),
+      )
+      .max(33),
     status: z.literal("available"),
     content: z.string().max(MAX_PACKAGE_DOCUMENTATION_BYTES),
     sourceUrl: z.string().url().max(2000),
@@ -197,8 +212,16 @@ export function createPackageDocumentationReader(deps: DocumentationDependencies
           /* Legacy packages and catalogs need not publish a sidecar. */
         }
       }
-      const topics = index
-        ? [{ id: "overview", title: "Overview" }, ...index.guides.map(({ id, title }) => ({ id, title }))]
+      const topics: PackageDocumentationRead["topics"] = index
+        ? [{ id: "overview", title: "Overview", ...index.overview }, ...index.guides].map((topic) => {
+            const sourceUrl =
+              topic.source === "engine"
+                ? `https://github.com/Pasta-Devs/Marinara-Engine/blob/${channel ?? "main"}/docs/${topic.path}`
+                : resolvePackageDocumentationUrl(sidecarUrl!, context.packageId, topic.path);
+            const url = new URL(sourceUrl);
+            if (topic.heading) url.hash = headingSlug(topic.heading);
+            return { id: topic.id, title: topic.title, sourceUrl: url.href };
+          })
         : [];
       const selected =
         index && (guideId === "overview" ? index.overview : index.guides.find((guide) => guide.id === guideId));
@@ -207,7 +230,7 @@ export function createPackageDocumentationReader(deps: DocumentationDependencies
       let content: string;
       let legacyFragment: string | undefined;
       if (!reference) {
-        if (index || guideId !== "overview" || !channel || !context.documentationUrl)
+        if (index || !["overview", "full-guide"].includes(guideId) || !channel || !context.documentationUrl)
           throw new Error("Guide not registered");
         const legacy = new URL(context.documentationUrl);
         // Only known official file links are adapted. Custom/external links remain external.
@@ -261,6 +284,30 @@ export function createPackageDocumentationReader(deps: DocumentationDependencies
         if (!section) throw new Error("Heading not found");
         content = `## ${section.heading}\n\n${section.content}`;
       }
+      // Older Engine summaries explicitly label a full user guide. Follow only
+      // that declared local link, not arbitrary links or every Markdown file.
+      if (!index && reference?.source === "engine") {
+        const fullGuide = /^\s*-\s+\*\*Full guide\*\*:\s*\[([^\]]+)\]\(([^)\s]+)\)/mu.exec(content);
+        const target = fullGuide?.[2];
+        if (target && !/^[a-z]+:|^\/|[\\%?#]/iu.test(target)) {
+          const path = new URL(target, `https://docs.invalid/${reference.path}`).pathname.slice(1);
+          if (!/^development(?:\/|$)/iu.test(path) && path.endsWith(".md")) {
+            topics.push({
+              id: "full-guide",
+              title: fullGuide[1]!.slice(0, 120),
+              sourceUrl: `https://github.com/Pasta-Devs/Marinara-Engine/blob/${channel}/docs/${path}`,
+            });
+            if (guideId === "full-guide") {
+              enginePath = `docs/${path}`;
+              content = (await readCanonicalDocumentationFile(deps.workspaceRoot, enginePath)).content;
+              if (Buffer.byteLength(content) > MAX_PACKAGE_DOCUMENTATION_BYTES) throw new Error("Guide too large");
+              sourceUrl = `https://github.com/Pasta-Devs/Marinara-Engine/blob/${channel}/${enginePath}`;
+            }
+          }
+        }
+        if (guideId !== "overview" && !topics.some((topic) => topic.id === guideId))
+          throw new Error("Guide not registered");
+      } else if (!index && guideId !== "overview") throw new Error("Guide not registered");
       const value: PackageDocumentationRead = {
         packageId: context.packageId,
         packageVersion: context.version,

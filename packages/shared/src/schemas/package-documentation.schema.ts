@@ -74,7 +74,7 @@ export interface PackageDocumentationRead {
   packageVersion?: string;
   guideId: string;
   title: string;
-  topics: Array<{ id: string; title: string }>;
+  topics: Array<{ id: string; title: string; sourceUrl?: string }>;
   status: "available" | "cached" | "unavailable";
   content?: string;
   sourceUrl?: string;

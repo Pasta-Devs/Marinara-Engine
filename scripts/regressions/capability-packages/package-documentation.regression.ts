@@ -17,6 +17,10 @@ try {
     join(root, "docs", "agents", "avatars.md"),
     "# Avatars\n\n## Setup\nChoose your avatar.\n\n## Other\nOther text.",
   );
+  await writeFile(
+    join(root, "docs", "agents", "summary.md"),
+    "# Agents\n\n## Example\nSummary.\n- **Full guide**: [Avatar setup](avatars.md).\n\n## Other\nOther agent.",
+  );
   const catalogUrl = "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/staging/catalog/v2/catalog.json";
   const sidecarUrl = catalogUrl.replace("catalog.json", "docs.json");
   const markdown = "# Example\n\n## First steps\nOpen Example.\n\n```md\n## Not a heading\n```\n";
@@ -128,6 +132,20 @@ try {
   assert.equal(legacy.status, "available");
   assert.match(legacy.content!, /Choose your avatar/u);
   assert.match(legacy.sourceUrl!, /\/staging\//u);
+  const legacyContext = {
+    ...context,
+    packageId: "legacy-example",
+    documentationUrl: "https://github.com/Pasta-Devs/Marinara-Engine/blob/main/docs/agents/summary.md#example",
+  };
+  const summary = await reader(legacyContext);
+  assert.deepEqual(
+    summary.topics.map((topic) => topic.id),
+    ["overview", "full-guide"],
+  );
+  const full = await reader(legacyContext, "full-guide");
+  assert.equal(full.status, "available");
+  assert.match(full.content!, /Choose your avatar/u);
+  assert.equal(full.enginePath, "docs/agents/avatars.md");
   assert.equal(
     (
       await reader({
