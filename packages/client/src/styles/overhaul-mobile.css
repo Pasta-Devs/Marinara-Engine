@@ -1003,7 +1003,14 @@
   :root[data-overhaul="mobile"] .ov-docs__nav {
     display: block;
     border-left: 0;
-    padding: 1rem;
+    padding: 0.5rem 0.5rem 3rem;
+  }
+  /* The guide list and the open guide sit on the same sheet as on a computer, nearly edge to edge. */
+  :root[data-overhaul="mobile"] .ov-docs__nav > .ov-docs__sheet {
+    padding: 0.75rem 0.5rem !important;
+  }
+  :root[data-overhaul="mobile"] .ov-docs :is(.ov-docs__article, .ov-docs__empty).ov-docs__sheet {
+    padding: 1rem 0.875rem 1.5rem !important;
   }
   /* A phone keeps its guide-list pane with the search in it; the page header and outline are for wider screens. */
   :root[data-overhaul="mobile"] :is(.ov-docs__head, .ov-docs__head-results, .ov-docs__toc) {
@@ -1014,11 +1021,11 @@
     min-height: 2.75rem;
   }
   :root[data-overhaul="mobile"] .ov-docs__reader {
-    padding: 1rem 1rem 3rem;
+    padding: 0.5rem 0.5rem 3rem;
   }
   :root[data-overhaul="mobile"] .ov-docs__find {
-    top: -1rem;
-    margin: -1rem -1rem 0.75rem;
+    top: -0.5rem;
+    margin: -0.5rem -0.5rem 0.5rem;
     padding: 0.25rem 0.5rem 0.25rem 1rem;
   }
   :root[data-overhaul="mobile"] .ov-docs__find button {

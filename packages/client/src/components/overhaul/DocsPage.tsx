@@ -368,7 +368,7 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
           </div>
         ) : null}
         {path === null ? (
-          <div className="ov-docs__empty">
+          <div className="ov-docs__empty ov-docs__sheet ov-table-wrap">
             <BookOpen size={28} aria-hidden="true" />
             <h1 data-mari-part="page-title">{localize("Docs")}</h1>
             <p>{localize("Pick a guide, or search all guides.")}</p>
@@ -396,7 +396,7 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
         ) : docError || !doc ? (
           <p className="ov-gallery__note">{localize("Could not load this guide.")}</p>
         ) : (
-          <article className="ov-docs__article">
+          <article className="ov-docs__article ov-docs__sheet ov-table-wrap">
             <div className="ov-docs__head">{searchField}</div>
             {searching ? <div className="ov-docs__head-results">{resultsList}</div> : null}
             {/* Back to the guide list (on a computer the list is the Docs landing, on a phone its own pane). */}
@@ -480,71 +480,73 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
         )}
       </div>
       <aside className="ov-docs__nav">
-        {searchField}
-        {indexLoading ? <p className="ov-gallery__note">{localize("Loading…")}</p> : null}
-        {searching ? (
-          resultsList
-        ) : (
-          <>
-            {path !== null && outline.length > 1 ? (
-              <div className="ov-docs__outline">
-                <p className="ov-docs__eyebrow">{localize("On this page")}</p>
-                <ul>
-                  {outline.map((item) => (
-                    <li key={item.id}>
+        <div className="ov-docs__sheet ov-table-wrap">
+          {searchField}
+          {indexLoading ? <p className="ov-gallery__note">{localize("Loading…")}</p> : null}
+          {searching ? (
+            resultsList
+          ) : (
+            <>
+              {path !== null && outline.length > 1 ? (
+                <div className="ov-docs__outline">
+                  <p className="ov-docs__eyebrow">{localize("On this page")}</p>
+                  <ul>
+                    {outline.map((item) => (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          className={cn(item.level === 3 && "is-sub", activeHeading === item.id && "is-on")}
+                          onClick={() =>
+                            document.getElementById(item.id)?.scrollIntoView({ block: "start", behavior: "smooth" })
+                          }
+                        >
+                          {item.text}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <div className="ov-docs__groups">
+                {path !== null && outline.length > 1 ? (
+                  <p className="ov-docs__eyebrow">{localize("All guides")}</p>
+                ) : null}
+                {groups.map((group) => {
+                  const open = openGroups.has(group.dir);
+                  return (
+                    <div key={group.dir || "root"} className="ov-docs__group" data-open={open ? "true" : undefined}>
                       <button
                         type="button"
-                        className={cn(item.level === 3 && "is-sub", activeHeading === item.id && "is-on")}
-                        onClick={() =>
-                          document.getElementById(item.id)?.scrollIntoView({ block: "start", behavior: "smooth" })
-                        }
+                        className="ov-docs__group-head"
+                        aria-expanded={open}
+                        onClick={() => toggleGroup(group.dir)}
                       >
-                        {item.text}
+                        <ChevronRight size={13} aria-hidden="true" />
+                        <span>{dirLabel(group.dir, docsLanguage) || localize("Start here")}</span>
+                        <small>{group.docs.length}</small>
                       </button>
-                    </li>
-                  ))}
-                </ul>
+                      {open ? (
+                        <ul className="ov-docs__list">
+                          {group.docs.map((entry) => (
+                            <li key={entry.path}>
+                              <button
+                                type="button"
+                                className={cn(path === entry.path && "is-on")}
+                                onClick={() => select(entry.path)}
+                              >
+                                {entry.title}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
-            ) : null}
-            <div className="ov-docs__groups">
-              {path !== null && outline.length > 1 ? (
-                <p className="ov-docs__eyebrow">{localize("All guides")}</p>
-              ) : null}
-              {groups.map((group) => {
-                const open = openGroups.has(group.dir);
-                return (
-                  <div key={group.dir || "root"} className="ov-docs__group" data-open={open ? "true" : undefined}>
-                    <button
-                      type="button"
-                      className="ov-docs__group-head"
-                      aria-expanded={open}
-                      onClick={() => toggleGroup(group.dir)}
-                    >
-                      <ChevronRight size={13} aria-hidden="true" />
-                      <span>{dirLabel(group.dir, docsLanguage) || localize("Start here")}</span>
-                      <small>{group.docs.length}</small>
-                    </button>
-                    {open ? (
-                      <ul className="ov-docs__list">
-                        {group.docs.map((entry) => (
-                          <li key={entry.path}>
-                            <button
-                              type="button"
-                              className={cn(path === entry.path && "is-on")}
-                              onClick={() => select(entry.path)}
-                            >
-                              {entry.title}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </aside>
       {zoomed
         ? createPortal(

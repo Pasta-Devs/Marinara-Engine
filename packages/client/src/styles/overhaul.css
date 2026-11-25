@@ -2998,12 +2998,28 @@
   position: relative;
   min-height: 0;
   overflow-y: auto;
-  padding: 2.25rem 3rem 5rem;
+  padding: 1.5rem 1.5rem 4rem;
 }
 .ov-docs__article,
 .ov-docs__empty {
   max-width: 46rem;
   margin: 0 auto;
+}
+/* Guides are read on a sheet, not on the theme's backdrop (Nov 25: FAQ text over MARI to the Moon's chart grid).
+   The sheet is a real .ov-table-wrap, so a theme that paints its Library tables as opaque ledger paper, plates or
+   frames paints Docs the same way; a theme that leaves tables alone gets the solid card colour here, and the art
+   still shows at the page's edges. */
+.ov-docs .ov-docs__sheet.ov-table-wrap {
+  overflow: visible;
+  container: none;
+  background-color: var(--card);
+}
+.ov-docs :is(.ov-docs__article, .ov-docs__empty).ov-docs__sheet {
+  box-sizing: border-box;
+  max-width: 51rem;
+  /* !important: a theme's table frame sets its own tight padding for table rows (Sanguine Keep, 4px 6px),
+     which put the guide's text against the frame. */
+  padding: 2rem 2.5rem 2.5rem !important;
 }
 .ov-docs__meta {
   display: flex;
@@ -3232,14 +3248,14 @@
 /* Find bar: a strip across the top of the guide while a search is on. */
 .ov-docs__find {
   position: sticky;
-  top: -2.25rem;
+  top: -1.5rem;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 0.25rem;
-  margin: -2.25rem -3rem 1.25rem;
-  padding: 0.3125rem 2.75rem 0.3125rem 3rem;
+  margin: -1.5rem -1.5rem 1.25rem;
+  padding: 0.3125rem 1.25rem 0.3125rem 1.5rem;
   border-bottom: 1px solid var(--ov-line);
   background: color-mix(in srgb, var(--background) 94%, transparent);
   backdrop-filter: blur(8px);
