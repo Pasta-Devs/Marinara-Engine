@@ -5287,7 +5287,8 @@ test("Character and persona sheets persist an explicit reference choice and fall
     const sheetDialog = page.getByRole("dialog", { name: "Create Character Sheet" });
     await expect(sheetDialog).toBeVisible();
     await expect(sheetDialog.getByText("Character Sheet Prompt", { exact: true })).toBeVisible();
-    await expect(sheetDialog.getByRole("button", { name: "Save as Character Sheet", exact: true })).toBeDisabled();
+    // Save shows only once an image exists (#8795).
+    await expect(sheetDialog.getByRole("button", { name: "Save as Character Sheet", exact: true })).toHaveCount(0);
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
     await openImagesSubsection(editor, "Gallery");
@@ -5310,9 +5311,11 @@ test("Character and persona sheets persist an explicit reference choice and fall
       .locator('[data-editor-subsection="gallery"]')
       .getByRole("button", { name: "Create with AI", exact: true })
       .click();
-    await expect(sheetDialog).toBeVisible();
-    await expect(sheetDialog.getByText("Character Sheet Prompt", { exact: true })).toBeVisible();
-    await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    // The gallery's Create with AI has its own title and a Type picker that starts on Character sheet (#9379).
+    const galleryCreateDialog = page.getByRole("dialog", { name: "Create with AI", exact: true });
+    await expect(galleryCreateDialog).toBeVisible();
+    await expect(galleryCreateDialog.getByText("Character Sheet Prompt", { exact: true })).toBeVisible();
+    await galleryCreateDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
     await editor
       .locator(".mari-editor-header .mari-editor-action")
@@ -5350,8 +5353,8 @@ test("Character and persona sheets persist an explicit reference choice and fall
       .locator('[data-editor-subsection="gallery"]')
       .getByRole("button", { name: "Create with AI", exact: true })
       .click();
-    await expect(sheetDialog).toBeVisible();
-    await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(galleryCreateDialog).toBeVisible();
+    await galleryCreateDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
     const exportResponse = await request.get(`/api/characters/${character.id}/export`);
     expect(exportResponse.ok()).toBeTruthy();
