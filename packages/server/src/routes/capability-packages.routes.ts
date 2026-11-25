@@ -278,6 +278,18 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
     const { id } = packageParams.parse(request.params);
     return capabilityPackageManager.releaseNotes(id);
   });
+  app.get<{ Params: { id: string } }>("/:id/documentation", async (request) => {
+    const { id } = packageParams.parse(request.params);
+    const { guide } = z
+      .object({
+        guide: z
+          .string()
+          .regex(/^[a-z0-9][a-z0-9-]{0,63}$/u)
+          .default("overview"),
+      })
+      .parse(request.query);
+    return capabilityPackageManager.documentation(id, guide);
+  });
   app.post("/updates/decline", { config: { rateLimit: PACKAGE_UPDATE_DECLINE_RATE_LIMIT } }, async (request, reply) => {
     if (!requirePrivilegedAccess(request, reply, { feature: "Agent update decline" })) return;
     const { updates } = declineUpdatesBody.parse(request.body);

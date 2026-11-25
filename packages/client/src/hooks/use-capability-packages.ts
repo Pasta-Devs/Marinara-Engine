@@ -14,6 +14,7 @@ import {
   type InstalledRuleset,
   type StampedCapabilityCatalog,
   type RulesetCatalogPayload,
+  type PackageDocumentationRead,
 } from "@marinara-engine/shared";
 import { api, ApiError } from "../lib/api-client";
 import { agentKeys } from "./use-agents";
@@ -39,7 +40,22 @@ export const capabilityPackageKeys = {
   rulesetSource: (rulesetId: string, version: number) =>
     [...capabilityPackageKeys.rulesets(), "source", rulesetId, version] as const,
   releaseNotes: (id: string) => [...capabilityPackageKeys.all, "release-notes", id] as const,
+  documentation: (id: string, guide: string) => [...capabilityPackageKeys.all, "documentation", id, guide] as const,
 };
+
+export function usePackageDocumentation(packageId: string | undefined, guide = "overview", enabled = true) {
+  return useQuery({
+    queryKey: capabilityPackageKeys.documentation(packageId ?? "", guide),
+    queryFn: ({ signal }) =>
+      api.get<PackageDocumentationRead>(
+        `/capability-packages/${encodeURIComponent(packageId!)}/documentation?guide=${encodeURIComponent(guide)}`,
+        { signal },
+      ),
+    enabled: enabled && !!packageId,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+}
 
 /** Installed Game Mode rulesets. Keyed under `all`, so installing or removing a package refreshes it. */
 export function useInstalledRulesets(enabled = true) {

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { capabilityPackageManager } from "../../../packages/server/src/services/capability-packages/package-manager.service.js";
 import { readFileSync } from "node:fs";
 import type { StampedCapabilityCatalogPackage } from "../../../packages/shared/src/schemas/capability-package.schema.js";
 import { buildMariAssistantPrompt } from "../../../packages/server/src/db/seed-mari.js";
@@ -968,6 +969,9 @@ const cases: RegressionCase[] = [
       try {
         // Workspace registration, read-only classification, and internal-name scrubbing.
         assert.ok(PROFESSOR_MARI_APP_DATA_ACTIONS.includes("agent.catalog.get"));
+        assert.ok(PROFESSOR_MARI_APP_DATA_ACTIONS.includes("agent.documentation.get"));
+        assert.equal(appDataActionLooksReadOnly("agent.documentation.get"), true);
+        assert.equal(isAppDataActionName("agent.documentation.get"), true);
         assert.equal(isAppDataActionName("agent.catalog.get"), true);
         assert.equal(appDataActionLooksReadOnly("agent.catalog.get"), true);
         const scrubbed = scrubInternalNames("I checked agent.catalog.get before answering.");
@@ -998,6 +1002,13 @@ const cases: RegressionCase[] = [
         };
         assert.equal(
           resolveWorkspaceMutationVerification([agentWriteWithoutReadBack, catalogReadResult]),
+          "unverified",
+        );
+        assert.equal(
+          resolveWorkspaceMutationVerification([
+            agentWriteWithoutReadBack,
+            { ...catalogReadResult, input: { action: "agent.documentation.get", id: "otome-forge" } },
+          ]),
           "unverified",
         );
         assert.equal(
@@ -1053,6 +1064,18 @@ const cases: RegressionCase[] = [
             { version: "1.2.0", date: "2026-11-01", notes: "Bug fixes", highlight: false },
             { version: "1.1.0", date: "2026-10-20", notes: "Initial fixes", highlight: false },
           ],
+          getDocumentation: async () => ({
+            packageId: "otome-forge",
+            packageVersion: "1.4.0",
+            guideId: "overview",
+            title: "Overview",
+            topics: [
+              { id: "overview", title: "Overview" },
+              { id: "routes", title: "Routes" },
+            ],
+            status: "available",
+            content: "x".repeat(20_000),
+          }),
         });
         assert.equal(liveDetail.ok, true, liveDetail.error);
         assert.equal(liveDetail.output?.source, "live");
@@ -1064,6 +1087,16 @@ const cases: RegressionCase[] = [
         assert.equal(liveDetail.output?.installedVersion, "1.2.0");
         assert.equal(liveDetail.output?.updateAvailable, true);
         assert.equal((liveDetail.output?.releaseNotes as unknown[])?.length, 3);
+        const overview = liveDetail.output?.documentation as {
+          content: string;
+          truncated: boolean;
+          referenceOnly: boolean;
+          topics: unknown[];
+        };
+        assert.equal(overview.content.length, 8_000);
+        assert.equal(overview.truncated, true);
+        assert.equal(overview.referenceOnly, true);
+        assert.equal(overview.topics.length, 2);
 
         // Slow/hanging release notes time out within budget without keeping Node handles open.
         let releaseSlowNotes: (() => void) | undefined;
@@ -1205,6 +1238,29 @@ const cases: RegressionCase[] = [
         assert.equal(foundOutput.id, "test-home-app");
         assert.equal(foundOutput.description, "Long description from live package manifest.");
         assert.equal(foundOutput.capabilityApi, "1.836");
+        const originalDocumentation = capabilityPackageManager.documentation;
+        try {
+          capabilityPackageManager.documentation = async (id, guide = "overview") => ({
+            packageId: id,
+            guideId: guide,
+            title: "Setup",
+            topics: [{ id: "setup", title: "Setup" }],
+            status: "available",
+            content: "# Setup\n\n## First steps\nPick a character.\n\n## Next\nMore.",
+          });
+          const guideCall = await mariDb.executeAction({
+            action: "agent.documentation.get",
+            id: "test-home-app",
+            guide: "setup",
+            heading: "First steps",
+          } as never);
+          assert.equal(guideCall.ok, true, guideCall.error);
+          assert.equal(guideCall.mode, "read");
+          assert.match((guideCall.output as { content: string }).content, /Pick a character/u);
+          assert.doesNotMatch((guideCall.output as { content: string }).content, /More\./u);
+        } finally {
+          capabilityPackageManager.documentation = originalDocumentation;
+        }
       } finally {
         resetOfficialAgentCatalogCacheForTests();
       }

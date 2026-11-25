@@ -1,4 +1,9 @@
-import { partialInput } from "@marinara-engine/shared";
+import {
+  partialInput,
+  type PackageDocumentationRead,
+  type StampedCapabilityCatalogPackage,
+} from "@marinara-engine/shared";
+import { readMarkdownHeading } from "../professor-mari/documentation-tools.js";
 // ──────────────────────────────────────────────
 // Professor Mari DB service
 // ──────────────────────────────────────────────
@@ -1291,7 +1296,16 @@ const LOREBOOK_ACTIONS = [
 const HOME_WIDGET_ACTIONS = ["list", "get", "create", "update", "delete"] as const;
 const THEME_ACTIONS = ["list", "active", "get", "create", "update", "setActive"] as const;
 const PERSONAL_EXTENSION_ACTIONS = ["list", "get", "search", "create", "update"] as const;
-const AGENT_ACTIONS = ["list", "get", "runs", "search", "catalog.get", "create", "update"] as const;
+const AGENT_ACTIONS = [
+  "list",
+  "get",
+  "runs",
+  "search",
+  "catalog.get",
+  "documentation.get",
+  "create",
+  "update",
+] as const;
 const PRESET_ACTIONS = [
   "list",
   "get",
@@ -2940,6 +2954,27 @@ export interface OfficialCatalogPackageDetailDeps {
   getInstalled?: () => Promise<readonly InstalledCapabilityPackage[]>;
   getReleaseNotes?: (packageId: string) => Promise<readonly CapabilityPackageVersionNote[]>;
   releaseNotesTimeoutMs?: number;
+  getDocumentation?: (
+    packageId: string,
+    entry?: StampedCapabilityCatalogPackage,
+  ) => Promise<PackageDocumentationRead | null>;
+}
+
+function summarizePackageGuide(doc: PackageDocumentationRead | null, heading?: string, maxChars = 8_000) {
+  if (!doc) return { status: "unavailable", topics: [] };
+  let content = doc.content;
+  if (heading && content) {
+    const section = readMarkdownHeading(doc.guideId, content, heading);
+    if (!section) return { status: "unavailable", topics: doc.topics, error: "Heading not found in this guide" };
+    content = section.content;
+  }
+  const limit = Math.max(1_000, Math.min(16_000, Math.trunc(maxChars) || 8_000));
+  return {
+    ...doc,
+    content: content?.slice(0, limit),
+    truncated: Boolean(content && content.length > limit),
+    referenceOnly: true,
+  };
 }
 
 export interface OfficialCatalogPackageDetailResult {
@@ -3008,6 +3043,14 @@ export async function buildOfficialCatalogPackageDetail(
     };
   }
 
+  const documentationPromise = resolveWithinBudget(
+    deps
+      ? (deps.getDocumentation?.(lookup.entry.id, lookup.package ?? undefined) ?? Promise.resolve(null))
+      : capabilityPackageManager.documentation(lookup.entry.id, "overview", lookup.package ?? undefined),
+    1_500,
+    null as PackageDocumentationRead | null,
+  );
+
   let installedPackages: readonly InstalledCapabilityPackage[] | null = null;
   try {
     installedPackages = await (deps?.getInstalled ? deps.getInstalled() : capabilityPackageManager.installed());
@@ -3047,6 +3090,7 @@ export async function buildOfficialCatalogPackageDetail(
         installedStatus: installedPkg?.status ?? null,
         updateAvailable,
         releaseNotes: [],
+        documentation: summarizePackageGuide(await documentationPromise),
         note: "Live catalog unavailable; showing bundled summary metadata without full manifest permissions or release notes.",
       },
     };
@@ -3089,6 +3133,7 @@ export async function buildOfficialCatalogPackageDetail(
       restartRequired: manifest.restartRequired,
       ...(requiresConnection ? { requiresConnection } : {}),
       documentationUrl: pkg.documentationUrl ?? null,
+      documentation: summarizePackageGuide(await documentationPromise),
       installed,
       installedVersion: installedPkg?.version ?? null,
       installedStatus: installedPkg?.status ?? null,
@@ -6000,6 +6045,33 @@ export class MariDbService {
           command: context.command,
           ...(detail.output !== undefined ? { output: detail.output } : {}),
           ...(detail.error ? { error: detail.error } : {}),
+        };
+      }
+      case "documentation.get": {
+        const query = requiredString(args, ["id", "packageId", "name", "query"], "catalog package id or name");
+        const lookup = await lookupOfficialAgentCatalogPackage(query, { timeoutMs: 2_000 });
+        if (!lookup.found)
+          return {
+            ok: false,
+            mode: "read",
+            command: context.command,
+            error: "No unique official catalog package matches; use its exact id.",
+          };
+        const guide = firstString(args, ["guide", "guideId"]) ?? "overview";
+        const doc = await resolveWithinBudget(
+          capabilityPackageManager.documentation(lookup.entry.id, guide, lookup.package ?? undefined),
+          2_000,
+          null,
+        );
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: summarizePackageGuide(
+            doc,
+            firstString(args, ["heading"]) ?? undefined,
+            firstNumber(args, ["maxChars"]) ?? 8_000,
+          ),
         };
       }
       case "create": {

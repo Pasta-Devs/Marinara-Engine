@@ -426,6 +426,7 @@ try {
     resolveCapabilityCatalogUrl,
     resolveCapabilityPackageArtifactUrl,
     resolveCapabilityPackageIconUrl,
+    resolveCapabilityPackageDocumentationUrl,
     validatePackageArchiveEntries,
   } = await import("../../packages/server/src/services/capability-packages/package-manager.service.js");
   const validInstalled = installedPackage("conversation-calls", ["agent", "conversation-calls"]);
@@ -872,6 +873,63 @@ try {
     "The catalog response must expose artwork normalized through the active catalog URL",
   );
   assert.equal(getCapabilityPackageArtifactSourceIssue(canonicalArtifactEntry, officialCatalogUrl), null);
+  const guideUrl = "https://github.com/Pasta-Devs/Marinara-Engine/blob/main/docs/agents/avatars.md#setup";
+  assert.equal(
+    resolveCapabilityPackageDocumentationUrl(guideUrl, stagingCatalogUrl),
+    guideUrl.replace("/main/", "/staging/"),
+  );
+  assert.equal(resolveCapabilityPackageDocumentationUrl(guideUrl, "https://example.org/catalog.json"), guideUrl);
+  assert.equal(
+    resolveCapabilityPackageDocumentationUrl("https://example.org/main/guide", stagingCatalogUrl),
+    "https://example.org/main/guide",
+  );
+  const guideCatalog = await capabilityPackageManager.catalog(
+    async (url) => {
+      assert.ok(!String(url).endsWith("store.json"), "guide metadata must not request store decoration");
+      return Response.json({
+        schemaVersion: 1,
+        generatedAt: "2026-08-01T00:00:00.000Z",
+        packages: [{ ...canonicalArtifactEntry, documentationUrl: guideUrl }],
+      });
+    },
+    null,
+    false,
+  );
+  assert.equal(guideCatalog.packages[0]?.documentationUrl, guideUrl.replace("/main/", "/staging/"));
+  const cacheKey = JSON.stringify([activeCatalogUrl, "offline-guide", "overview"]);
+  const cacheContent = "# Offline guide\nSaved user help.";
+  const documentationCache = join(packagesRoot, "documentation-cache-v1");
+  mkdirSync(documentationCache, { recursive: true });
+  writeFileSync(
+    join(documentationCache, `${createHash("sha256").update(cacheKey).digest("hex")}.json`),
+    JSON.stringify({
+      key: cacheKey,
+      sourceIdentity: "",
+      sha256: createHash("sha256").update(cacheContent).digest("hex"),
+      value: {
+        packageId: "offline-guide",
+        packageVersion: "1.0.0",
+        guideId: "overview",
+        title: "Overview",
+        topics: [],
+        status: "available",
+        content: cacheContent,
+        sourceUrl: guideUrl,
+        retrievedAt: new Date().toISOString(),
+      },
+    }),
+  );
+  const catalogBeforeOfflineRead = capabilityPackageManager.catalog;
+  capabilityPackageManager.catalog = async () => new Promise(() => {});
+  try {
+    const started = performance.now();
+    const cachedGuide = await capabilityPackageManager.documentation("offline-guide");
+    assert.equal(cachedGuide.status, "cached");
+    assert.equal(cachedGuide.content, cacheContent);
+    assert.ok(performance.now() - started < 1_400, "cold catalog lookup cannot consume Mari's cached-read budget");
+  } finally {
+    capabilityPackageManager.catalog = catalogBeforeOfflineRead;
+  }
   assert.equal(
     getCapabilityPackageArtifactSourceIssue(canonicalArtifactEntry, stagingCatalogUrl),
     null,

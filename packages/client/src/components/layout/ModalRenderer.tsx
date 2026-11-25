@@ -226,6 +226,8 @@ export function ModalRenderer() {
           onClose={closeModal}
           initialDoc={(modal?.props?.initialDoc as string | null) ?? null}
           initialSearchTerm={(modal?.props?.initialSearchTerm as string) ?? ""}
+          packageId={modal?.props?.packageId as string | undefined}
+          packageName={modal?.props?.packageName as string | undefined}
         />
       );
       break;

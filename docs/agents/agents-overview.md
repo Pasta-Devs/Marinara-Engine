@@ -87,6 +87,14 @@ A package marked **Rules** is not an agent. It adds a Game Mode ruleset, such as
 
 Uninstalling a package removes its code and settings but keeps your chat messages and history. Deleting a custom agent removes it for good.
 
+### Read an agent's guides
+
+Open the agent's page in **Agent Organizer** and click **Read how this agent works**. Its overview opens in the documentation window. Choose a topic in the list to read more. On a phone, use the back arrow to return to the topic list. Close the window to return to the agent's page.
+
+**View source** opens the original guide. Some agents still have only a short summary or an external link while their authors add topic guides. If a guide cannot load, try again when you are online. Previously opened guides can be available for up to seven days; a saved guide may be out of date.
+
+**Version history** shows the three newest entries. Click **Show older versions** to expand it, or **Show fewer versions** to shorten it again. The latest release also appears under **What's new**.
+
 ### Update agents
 
 When a newer compatible version of an installed package exists, an **Agent updates available** window opens. It lists each update with its version and whether it needs a restart.

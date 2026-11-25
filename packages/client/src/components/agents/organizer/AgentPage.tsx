@@ -1,4 +1,4 @@
-import { ArrowUpRight, Check, ExternalLink, House, MoreHorizontal, Plus } from "lucide-react";
+import { ArrowUpRight, BookOpen, Check, House, MoreHorizontal, Plus } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../../lib/utils";
 import { useUIStore } from "../../../stores/ui.store";
@@ -71,6 +71,7 @@ export function AgentPage({
 }) {
   const { installedById, chatCountById, settingsAgentById, open } = useOrganizer();
   const openAgentDetail = useUIStore((state) => state.openAgentDetail);
+  const openModal = useUIStore((state) => state.openModal);
   const { t: localizeUi } = useUiTranslation();
   const { manifest } = entry;
   const shown = useShownEntry(entry);
@@ -255,17 +256,14 @@ export function AgentPage({
           <div className="grid grid-cols-1 gap-x-12 lg:grid-cols-2">
             <Section title={localizeUi("ui.agents.organizer.about")}>
               <p className="max-w-[70ch] text-sm leading-6 text-[var(--muted-foreground)]">{shown.description}</p>
-              {entry.documentationUrl && (
-                <a
-                  href={entry.documentationUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[var(--marinara-chat-chrome-accent,var(--primary))] hover:underline"
-                >
-                  <ExternalLink size="0.85rem" aria-hidden="true" />
-                  {localizeUi("ui.agents.agentcatalogview.readHowThisAgentWorks")}
-                </a>
-              )}
+              <button
+                type="button"
+                onClick={() => openModal("docs-viewer", { packageId: manifest.id, packageName: manifest.name })}
+                className="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-[var(--marinara-chat-chrome-accent,var(--primary))] hover:underline"
+              >
+                <BookOpen size="0.85rem" aria-hidden="true" />
+                {localizeUi("ui.agents.agentcatalogview.readHowThisAgentWorks")}
+              </button>
             </Section>
             <WhatsNew packageId={manifest.id} version={manifest.version} />
           </div>
