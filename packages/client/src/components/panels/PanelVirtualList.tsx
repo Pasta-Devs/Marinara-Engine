@@ -25,6 +25,11 @@ interface PanelVirtualListProps {
   pinnedIndex?: number;
   /** Scrolls this row into view when the value changes (keyboard highlight on rows that may be unmounted). */
   scrollToIndex?: number;
+  /**
+   * "start" puts that row at the top, for an opened target (a library card, a lorebook entry): "auto" aligns a row
+   * below the view by its end, which hides the top of a row taller than the view.
+   */
+  scrollAlign?: "auto" | "start";
   /** Paged lists: asks for the next page when the last rendered row is near the end. */
   paging?: {
     hasNextPage: boolean;
@@ -57,6 +62,7 @@ export function PanelVirtualList({
   gap = 0,
   pinnedIndex,
   scrollToIndex,
+  scrollAlign = "auto",
   paging,
   className,
   columns,
@@ -144,7 +150,7 @@ export function PanelVirtualList({
     if (scrollToKey === undefined) scrolledKeyRef.current = undefined;
     if (scrollToKey === undefined || !scroller || scrolledKeyRef.current === scrollToKey) return;
     scrolledKeyRef.current = scrollToKey;
-    virtualizer.scrollToIndex(toRow(scrollToIndex)!, { align: "auto" });
+    virtualizer.scrollToIndex(toRow(scrollToIndex)!, { align: scrollAlign });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollToKey, scroller, virtualizer]);
 

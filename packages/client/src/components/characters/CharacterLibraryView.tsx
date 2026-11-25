@@ -704,6 +704,7 @@ export function CharacterLibraryView() {
               gap={12}
               columns={libraryColumns}
               scrollToIndex={initialTargetIndex}
+              scrollAlign="start"
               renderRow={(index) => {
                 const card = sortedCards[index]!;
                 const isSelected = selectedId === card.id;

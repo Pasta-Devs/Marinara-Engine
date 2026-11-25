@@ -498,18 +498,25 @@ export function LorebookEditor() {
   }, [entries]);
   useEffect(() => {
     if (!scrollToEntryId) return;
-    // Two frames: the list scrolls and mounts the row, then the row snaps to the top.
-    const frame = requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        if (snapToEntryRef.current)
-          contentRef.current
-            ?.querySelector<HTMLElement>(`[data-lorebook-entry-row-id="${CSS.escape(scrollToEntryId)}"]`)
-            ?.scrollIntoView({ block: "start" });
-        setScrollToEntryId(null);
-      }),
-    );
+    // The list scrolls to the row and mounts it, which can take a few frames, then the row snaps to the top.
+    // scrollToElement keeps the row anchored while the windowed rows around it measure; otherwise the Entries tab
+    // the editor opened on keeps the anchor and pulls the view back to its top on every resize.
+    let frame = 0;
+    let frames = 0;
+    const snap = () => {
+      const row = contentRef.current?.querySelector<HTMLElement>(
+        `[data-lorebook-entry-row-id="${CSS.escape(scrollToEntryId)}"]`,
+      );
+      if (!row && ++frames < 60) {
+        frame = requestAnimationFrame(snap);
+        return;
+      }
+      if (snapToEntryRef.current && row) scrollToElement(row, false);
+      setScrollToEntryId(null);
+    };
+    frame = requestAnimationFrame(snap);
     return () => cancelAnimationFrame(frame);
-  }, [scrollToEntryId, contentRef]);
+  }, [scrollToEntryId, contentRef, scrollToElement]);
   const [entrySort, setEntrySort] = useState<EntrySortKey>("order");
   // Keyword-test panel state. The panel is collapsed by default so it doesn't
   // crowd the editor for users who don't need it. We debounce the text input
@@ -2109,6 +2116,7 @@ export function LorebookEditor() {
                 dragSourceContainer === folder.id && draggingEntryIdx !== null ? draggingEntryIdx : undefined
               }
               scrollToIndex={revealIndexIn(folderEntries)}
+              scrollAlign="start"
               renderRow={(eIdx) => {
                 const entry = folderEntries[eIdx]!;
                 const isDropTarget = dropTargetContainer === folder.id && draggingEntryIdx !== null;
@@ -3388,6 +3396,7 @@ export function LorebookEditor() {
                               dragSourceContainer === null && draggingEntryIdx !== null ? draggingEntryIdx : undefined
                             }
                             scrollToIndex={revealIndexIn(entriesByContainer.get(null) ?? [])}
+                            scrollAlign="start"
                             renderRow={(idx) => {
                               const rootList = entriesByContainer.get(null) ?? [];
                               const entry = rootList[idx]!;
@@ -3477,6 +3486,7 @@ export function LorebookEditor() {
                           estimateSize={ENTRY_ROW_ESTIMATE}
                           gap={6}
                           scrollToIndex={revealIndexIn(filteredEntries)}
+                          scrollAlign="start"
                           renderRow={(i) => {
                             const entry = filteredEntries[i]!;
                             return (
