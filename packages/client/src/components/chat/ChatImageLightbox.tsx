@@ -174,8 +174,9 @@ export function ChatImageLightbox({
   const versionIndex = stack?.versions.findIndex((row) => row.id === image.id) ?? 0;
   const galleryImages = stacks.map((group) => (group === stack ? image : group.selected));
   const navigating = selectionPending || selectVersion.isPending;
-  // Name the picture by its prompt, as `items` below does once a gallery has two or more (#9099 lost this).
-  const imageAlt = alt ?? (prompt || localizeUi("ui.chat.conversationmessagelightbox.expandedImage"));
+  // Name the picture by the row's prompt, as its gallery tile and `items` below do (#9099 lost this).
+  // Not `prompt`: a captioned record's prompt is the request before the captions were folded in.
+  const imageAlt = alt ?? (image.prompt || localizeUi("ui.chat.conversationmessagelightbox.expandedImage"));
 
   // Close is disabled while a regeneration runs, and the panel closes before `busy` clears: wait for
   // both, or focus falls to the page.
