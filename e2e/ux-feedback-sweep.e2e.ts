@@ -505,10 +505,11 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
       if (!new URL(route.request().url()).searchParams.has("sort")) return route.continue();
       const response = await route.fetch();
       const data = await response.json();
-      await route.fulfill({
-        response,
-        json: { ...data, items: data.items.filter((card: { id: string }) => card.id !== selectedId), hasMore: true },
-      });
+      const items = data.items.filter((card: { id: string }) => card.id !== selectedId);
+      // The next page starts at offset + items.length: count the hidden card, or that page repeats a card and the
+      // library shows it twice.
+      const offset = data.offset + data.items.length - items.length;
+      await route.fulfill({ response, json: { ...data, items, offset, hasMore: true } });
     });
     await widget.locator(`[data-card-library-card="${selectedId}"]`).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
