@@ -52,8 +52,15 @@ try {
 
   const synced = pickSyncedSettings(useUIStore.getState());
   const persistedKeys = Object.keys(pickPersistedUIState(useUIStore.getState()));
-  // Send on Enter is the one device-local exception (#9389): it follows the device's keyboard, not the user.
-  const deviceLocalKeys = new Set(["enterToSendProfessorMari"]);
+  // Device-local exceptions: Send on Enter follows the device's keyboard, not the user (#9389), and Prof. Mari's
+  // floating window belongs to the screen it was placed on (#9818).
+  const deviceLocalKeys = new Set([
+    "enterToSendProfessorMari",
+    "mariFloating",
+    "mariFloatRect",
+    "mariFloatZone",
+    "mariFloatDockWidth",
+  ]);
   const omnibarOrMariKeys = persistedKeys.filter((key) => /omnibar|mari/iu.test(key) && !deviceLocalKeys.has(key));
   for (const key of omnibarOrMariKeys) {
     assert.ok(key in synced, `${key} is a saved Omnibar or Professor Mari setting and must sync to the server`);

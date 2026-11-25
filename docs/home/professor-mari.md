@@ -15,7 +15,7 @@ All her settings are under **Settings → General → Search and Professor Mari 
 
 ### Float her beside your work (computer)
 
-Her window opens in the middle of the screen, over a dimmed app. To keep using the app while she is open, click **Float Prof. Mari** in her header (the picture-in-picture button).
+Her window opens in the middle of the screen, over a dimmed app. To keep using the app while she is open, click **Float Prof. Mari** in her header (the picture-in-picture button). The button shows when the app window is at least 1024 pixels wide.
 
 - A floating Mari has no dimmed background, and clicking elsewhere does not close her, so you can copy text from a field into her chat.
 - Drag her header to move her. Drag an edge or a corner to resize her.

@@ -139,6 +139,9 @@ export function useMariFloat(
 
   // One gesture at a time: a second press (another finger, a pen) while one runs is ignored.
   const gestureRef = useRef(false);
+  // A gesture can outlive floating (Ctrl+K to Search mid-drag): its end must not reserve the dock again.
+  const activeRef = useRef(active);
+  activeRef.current = active;
 
   /**
    * Runs one pointer gesture on `handle`; `onMove` returns the rectangle to draw, `onEnd` commits it. A gesture
@@ -303,14 +306,14 @@ export function useMariFloat(
         else ui.setMariFloatPlace(last, null);
         // Back into a side dock (the same one too, which changes nothing the publishing effect watches): the app
         // makes room again.
-        if (target === "left" || target === "right") {
+        if ((target === "left" || target === "right") && activeRef.current) {
           ui.setMariFloatDock({ side: target, width: mariFloatDockWidth(ui.mariFloatDockWidth, view, remPx()) });
         }
       },
       () => {
         // A cancelled drag out of a dock leaves her docked: the app gets its room back.
         const now = useUIStore.getState();
-        if (moved && fromDock && (now.mariFloatZone === "left" || now.mariFloatZone === "right")) {
+        if (moved && fromDock && activeRef.current && (now.mariFloatZone === "left" || now.mariFloatZone === "right")) {
           now.setMariFloatDock({
             side: now.mariFloatZone,
             width: mariFloatDockWidth(now.mariFloatDockWidth, view, remPx()),

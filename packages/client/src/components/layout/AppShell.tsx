@@ -651,8 +651,10 @@ export function AppShell({
 
   const desktopReservedSidebarWidth = desktopSidebarOpen ? liveSidebarWidth : 0;
   // #9818: Prof. Mari docked at a side is a third sidebar, outermost: the app makes room for her.
-  const mariDockLeft = !shellOverlayMode && mariFloatDock?.side === "left" ? mariFloatDock.width : 0;
-  const mariDockRight = !shellOverlayMode && mariFloatDock?.side === "right" ? mariFloatDock.width : 0;
+  // Reserved in the overlay shell too: she can dock from 1024px, where a wide sidebar setting already switches the
+  // shell to its phone layout.
+  const mariDockLeft = mariFloatDock?.side === "left" ? mariFloatDock.width : 0;
+  const mariDockRight = mariFloatDock?.side === "right" ? mariFloatDock.width : 0;
   /** Prof. Mari docked outside the sidebar on its side: the sidebar and its resize handle start after her. */
   const mariDockSameSide = sidebarOnLeft ? mariDockLeft : mariDockRight;
   const desktopCenterWidth = Math.max(0, viewportWidth - desktopReservedSidebarWidth - mariDockLeft - mariDockRight);

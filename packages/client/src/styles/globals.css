@@ -1106,12 +1106,14 @@
   }
 
   .mari-window__resize-handle:is([data-edge="n"], [data-edge="s"])::after {
-    inset-inline: 0;
+    left: 0;
+    right: 0;
     height: 2px;
   }
 
   .mari-window__resize-handle:is([data-edge="e"], [data-edge="w"])::after {
-    inset-block: 0;
+    top: 0;
+    bottom: 0;
     width: 2px;
   }
 
