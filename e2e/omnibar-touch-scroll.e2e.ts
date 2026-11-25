@@ -49,6 +49,14 @@ async function swipeResults(page: Page, touch: ReturnType<typeof touchInput>) {
   const before = await list.evaluate((node) => node.scrollTop);
   await touch.swipe(box.x + box.width / 2, box.y + box.height * 0.8, box.y + box.height * 0.2);
   await expect.poll(() => list.evaluate((node) => node.scrollTop)).toBeGreaterThan(before + 20);
+  // The swipe flings the list on, and a tap during the fling only stops it, as on a phone: wait until it rests.
+  await expect
+    .poll(async () => {
+      const top = await list.evaluate((node) => node.scrollTop);
+      await sleep(100);
+      return (await list.evaluate((node) => node.scrollTop)) === top;
+    })
+    .toBe(true);
 }
 
 test("Search still scrolls by touch after a tapped result opened a record", async ({ page, request }, testInfo) => {
