@@ -6,7 +6,7 @@ export const IMAGE_TAG_LIMITS = {
   recordsPerSource: 500_000,
   installedRecords: 1_000_000,
   sources: 20,
-  fieldCharacters: 200,
+  fieldCharacters: 512,
   aliasesPerRecord: 64,
   issueExamples: 50,
   queries: 20,

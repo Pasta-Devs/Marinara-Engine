@@ -1,3 +1,4 @@
+import { ImageTagDatasetsSettings } from "./settings/ImageTagDatasetsSettings";
 // ──────────────────────────────────────────────
 // Panel: Settings (polished)
 // ──────────────────────────────────────────────
@@ -5303,6 +5304,9 @@ function GenerationsSettings() {
       <SettingsIntro>
         {localizeUi("ui.panels.generationssettings.globalDefaultsForGeneratedImagesVideosAndReusablePrompt")}
       </SettingsIntro>
+      <SettingsSection title={localizeUi("settings.imageTagDatasets.title")}>
+        <ImageTagDatasetsSettings />
+      </SettingsSection>
 
       {isLoading ? (
         <div className="flex items-center justify-center gap-2 rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-4 py-8 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">

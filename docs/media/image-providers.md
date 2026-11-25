@@ -18,6 +18,24 @@ To add another image model to an account, click **⋯** on the account's row and
 
 If it did not work: **Test image** fails when the key or address is wrong. Check both first. **Test provider** only checks that Marinara can reach the service. **Test image** makes a real picture and can use credit.
 
+## Search a CSV tag library
+
+Use **Settings → Generations → Image tag datasets** to keep a searchable Danbooru tag library on your server. You do not need to install Illustrator to use the library.
+
+1. Open **Find CSV snapshots on Hugging Face** and download a CSV snapshot.
+2. Choose it under **CSV file**. For an original four-column CSV, leave **Category for a split CSV** set to **Read categories from the file**.
+3. For a three-column file that you previously split by category, choose its category instead.
+4. Click **Import CSV**. The import report shows how many tags were accepted and which records were skipped.
+5. Enter a name or alias under **Search tags**, choose **Match type**, then click **Search tags**. Results show canonical names, categories, post counts and source names.
+
+Switch a source off to exclude it from search. Under **Searchable categories**, select the categories to include. **Replace CSV** refreshes a source while keeping its name and switches. A failed replacement keeps the current records. **Delete dataset** asks before removing the source and its tags.
+
+Files must use UTF-8 and stay within 64 MiB. Original files have four columns: `name,category,post_count,aliases`. Split files have three: `name,post_count,aliases`. Quoted fields may contain commas. Supported Danbooru categories are General, Artists, Copyrights, Characters and Meta; other vocabulary schemes need their own importer.
+
+The library keeps canonical spelling and aliases. It does not change prompts or apply model-specific syntax. Agent tools, Professor Mari lookup and tag autocomplete are planned separately. A tag's presence in a CSV does not guarantee that your image model understands it.
+
+If import fails, check the encoding, column count and selected split category. Open **Skipped row details** in the report for invalid or duplicate records. Malformed CSV quoting stops the import. Source files and category switches are stored on the server, so your other signed-in browsers see the same library.
+
 ## Get a picture in a chat
 
 Once an image model is set as the **Images** job, ask for a picture in a chat.

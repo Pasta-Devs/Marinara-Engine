@@ -2,11 +2,19 @@
 // browser a one-time link, and the file downloads once. Closing the server while a job is still preparing waits for
 // it, then removes its temporary files. The Settings panel side and the HEAD rule read source.
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import AdmZip from "adm-zip";
 import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
+import { createImageTagDatasetStore } from "../../../packages/server/src/services/image-tags/datasets.js";
+import {
+  cleanupStagedProfileAssets,
+  promoteStagedProfileAssets,
+  stageProfileImportAssets,
+} from "../../../packages/server/src/services/import/profile-import-assets.js";
+import { getDataDir } from "../../../packages/server/src/utils/data-dir.js";
 import {
   backupRoutes,
   buildPreparedBackupDownloadUrl,
@@ -50,6 +58,14 @@ try {
   await app.register(backupRoutes, { prefix: "/api/backup" });
   await app.ready();
 
+  const datasets = createImageTagDatasetStore(getDataDir());
+  const imported = await datasets.importCsv(Buffer.from("cat_ears,0,10,nekomimi\npainter,1,5,"), {
+    originalName: "backup-tags.csv",
+  });
+  const savedDataset = await datasets.update(imported.id, { enabled: false, enabledCategories: [0] });
+  const datasetPath = `image-tag-datasets/${imported.id}.json`;
+  const datasetBytes = readFileSync(join(getDataDir(), datasetPath));
+
   const started = await app.inject({ method: "POST", url: "/api/backup/download/start" });
   assert.equal(started.statusCode, 202, started.body);
   const { jobId: startedJobId } = started.json() as { jobId: string };
@@ -70,6 +86,42 @@ try {
   assert.equal(file.statusCode, 200, file.body);
   assert.equal(file.headers["content-type"], "application/zip");
   assert.equal(file.rawPayload.subarray(0, 2).toString("latin1"), "PK", "the download is a ZIP archive");
+
+  // The real streamed backup includes the source artifact, and profile-asset staging restores its switches too.
+  const archive = new AdmZip(file.rawPayload);
+  const datasetEntry = archive.getEntries().find((entry) => entry.entryName.endsWith(`/${datasetPath}`));
+  assert.ok(datasetEntry, "downloaded backups include image tag datasets");
+  assert.deepEqual(datasetEntry.getData(), datasetBytes);
+  const restoredDataDir = mkdtempSync(join(tmpdir(), "marinara-backup-tags-restored-"));
+  try {
+    const staged = await stageProfileImportAssets(
+      restoredDataDir,
+      [
+        {
+          path: datasetPath,
+          expectedSize: datasetBytes.length,
+          read: () => datasetEntry.getData(),
+        },
+      ],
+      1024 * 1024,
+    );
+    try {
+      assert.deepEqual(staged.skipped, []);
+      await promoteStagedProfileAssets(staged);
+      const restoredDatasets = createImageTagDatasetStore(restoredDataDir);
+      assert.deepEqual(await restoredDatasets.list(), { sources: [savedDataset], unavailableSources: [] });
+      assert.equal((await restoredDatasets.search({ queries: ["cat"] })).status, "disabled");
+      await restoredDatasets.update(imported.id, { enabled: true });
+      const searched = await restoredDatasets.search({ queries: ["nekomimi", "painter"], mode: "exact" });
+      assert.equal(searched.results[0]?.matches[0]?.canonicalName, "cat_ears");
+      assert.equal(searched.results[1]?.totalMatches, 0, "the restored disabled artist category stays excluded");
+    } finally {
+      await cleanupStagedProfileAssets(staged);
+    }
+  } finally {
+    rmSync(restoredDataDir, { recursive: true, force: true });
+  }
+
   const again = await app.inject({ method: "GET", url: status.downloadUrl });
   assert.equal(again.statusCode, 404, "a prepared backup downloads only once");
 

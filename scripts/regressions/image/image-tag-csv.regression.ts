@@ -190,6 +190,54 @@ await runNamedCases([
     },
   },
   {
+    name: "skips huge fields and comma-heavy records without losing following rows",
+    run() {
+      const huge = "x".repeat(1024 * 1024);
+      const { records, report } = parseImageTagCsv(
+        [`"${huge}",0,1,`, "after_huge,0,2,", `too_many_columns,0,3,${",".repeat(50_000)}`, "after_columns,0,4,"].join(
+          "\n",
+        ),
+      );
+
+      assert.deepEqual(records, [
+        { name: "after_huge", category: 0, postCount: 2, aliases: [] },
+        { name: "after_columns", category: 0, postCount: 4, aliases: [] },
+      ]);
+      assert.equal(report.totalRows, 4);
+      assert.equal(report.invalidRows, 2);
+      assert.deepEqual(report.issues, [
+        { row: 1, code: "invalid_name" },
+        { row: 3, code: "invalid_columns" },
+      ]);
+    },
+  },
+  {
+    name: "never turns a truncated padded field into a different valid tag or alias",
+    run() {
+      const padding = " ".repeat(40_000);
+      const { records, report } = parseImageTagCsv(
+        [`cat${padding}dog,0,1,`, `bad_alias,0,2,"cat${padding}dog"`, "kept,0,3,"].join("\n"),
+      );
+
+      assert.deepEqual(records, [{ name: "kept", category: 0, postCount: 3, aliases: [] }]);
+      assert.equal(report.invalidRows, 2);
+      assert.deepEqual(report.issues, [
+        { row: 1, code: "invalid_name" },
+        { row: 2, code: "invalid_aliases" },
+      ]);
+    },
+  },
+  {
+    name: "preserves a legitimate 419-character alias",
+    run() {
+      const alias = "a".repeat(419);
+      const { records, report } = parseImageTagCsv(`kept,0,1,${alias}`);
+
+      assert.deepEqual(records, [{ name: "kept", category: 0, postCount: 1, aliases: [alias] }]);
+      assert.equal(report.invalidRows, 0);
+    },
+  },
+  {
     name: "caps issue examples without losing duplicate counts",
     run() {
       const duplicateCount = IMAGE_TAG_LIMITS.issueExamples + 5;

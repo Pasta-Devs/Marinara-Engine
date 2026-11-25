@@ -66,6 +66,7 @@ function* parseCsv(text: string): Generator<CsvRecord> {
   let cells: string[] = [];
   let field = "";
   let fieldStarted = false;
+  let fieldOverflow = false;
   let recordStarted = false;
   let inQuotes = false;
   let afterQuote = false;
@@ -75,12 +76,14 @@ function* parseCsv(text: string): Generator<CsvRecord> {
   const maxField = IMAGE_TAG_LIMITS.aliasesPerRecord * (IMAGE_TAG_LIMITS.fieldCharacters + 1) + 1;
   const append = (value: string) => {
     if (field.length < maxField) field += value;
+    else fieldOverflow = true;
   };
 
   const finishField = () => {
     // Keep only enough columns to recognize an invalid row, even for comma-heavy uploads.
-    if (cells.length < 5) cells.push(field.trim());
+    if (cells.length < 5) cells.push(fieldOverflow ? "x".repeat(maxField) : field.trim());
     field = "";
+    fieldOverflow = false;
     fieldStarted = false;
     afterQuote = false;
   };

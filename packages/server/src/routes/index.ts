@@ -38,6 +38,7 @@ import { globalGalleryRoutes } from "./global-gallery.routes.js";
 import { spotifyAuthRoutes } from "./spotify-auth.routes.js";
 import { youtubeRoutes } from "./youtube.routes.js";
 import { knowledgeSourcesRoutes } from "./knowledge-sources.routes.js";
+import { imageTagDatasetRoutes } from "./image-tag-datasets.routes.js";
 import { gifsRoutes } from "./gifs.routes.js";
 import { conversationRoutes } from "./conversation.routes.js";
 import { backupRoutes } from "./backup.routes.js";
@@ -203,6 +204,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(customAgentRepositoriesRoutes, { prefix: "/api/custom-agent-repositories" });
   await app.register(personalExtensionsRoutes, { prefix: "/api/personal-extensions" });
   await app.register(notificationSoundRoutes, { prefix: "/api/notification-sound" });
+  await app.register(imageTagDatasetRoutes, { prefix: "/api/image-tag-datasets" });
   if (process.env.MARINARA_LITE !== "true" && process.env.MARINARA_LITE !== "1") {
     await app.register(sidecarRoutes, { prefix: "/api/sidecar" });
   }

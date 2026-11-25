@@ -116,6 +116,7 @@ const BACKUP_DIRS = [
   "conversation-call-character-videos",
   "fonts",
   "knowledge-sources",
+  "image-tag-datasets",
   "game-assets",
   "custom-emojis",
   "custom-stickers",
