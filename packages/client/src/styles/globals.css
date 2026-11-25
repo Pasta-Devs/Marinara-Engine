@@ -3198,6 +3198,43 @@ html[data-marinara-accent-animation] *::after {
   color: var(--marinara-editor-accent);
 }
 
+/* One height for every button and badge that sits in the same editor row (Character lorebook's
+   + New / Assign lorebook / Scope / Embedded / Refresh / delete, the embedded lorebook controls),
+   so rows never mix 24px, 28px and 36px controls. Phones raise the height in overhaul-mobile.css. */
+.mari-row-control {
+  display: inline-flex;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  height: var(--mari-row-control-h, 2rem);
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.625rem;
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.mari-row-control > svg {
+  height: 0.875rem;
+  width: 0.875rem;
+  flex: 0 0 auto;
+}
+
+.mari-row-control--badge {
+  border: 1px solid transparent;
+  font-weight: 500;
+}
+
+.mari-row-control--icon {
+  width: var(--mari-row-control-h, 2rem);
+  min-width: 0;
+  padding: 0;
+}
+
 .mari-editor-status {
   display: inline-flex;
   align-items: center;

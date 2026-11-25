@@ -3613,6 +3613,14 @@
   align-items: center;
 }
 
+/* Mari's helpers beside the tags take the tag pills' height, so the row is one height. */
+:root[data-overhaul="mobile"] .ov-rail__tags > .ov-mari-assist:not(#ovm-x) {
+  height: 2rem;
+  min-height: 0 !important;
+  padding: 0 0.75rem 0 0.625rem;
+  font-size: 0.8125rem;
+}
+
 /* Small editor buttons inside Character / Persona sections (+ New, Assign Lorebook...) use the
    same pill shape and height as the rest of the page's buttons. */
 :root[data-overhaul="mobile"] .ov-ed .mari-editor-action:not(#ovm-x) {
@@ -3633,6 +3641,19 @@
   min-height: 0 !important;
   padding: 0 0.625rem;
   font-size: 0.75rem;
+}
+/* Same-row controls (Character lorebook rows) share the page's 2.5rem button height on phones,
+   badges and the square delete included. */
+:root[data-overhaul="mobile"] .mari-row-control.mari-row-control:not(#ovm-x) {
+  --mari-row-control-h: 2.5rem;
+  height: 2.5rem;
+  min-height: 0;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+}
+:root[data-overhaul="mobile"] .mari-row-control--icon.mari-row-control--icon:not(#ovm-x) {
+  width: 2.5rem;
+  padding: 0;
 }
 /* Version history row icons (rename, restore, delete) stay square. */
 :root[data-overhaul="mobile"] .ov-ed .mari-editor-action.h-7.w-7:not(#ovm-x) {

@@ -260,7 +260,7 @@ export function LorebookAssignmentSection({
             type="button"
             onClick={handleCreateLorebook}
             disabled={!ownerId}
-            className="mari-editor-action mari-editor-action--compact inline-flex gap-1.5 rounded-lg px-3 py-1.5 text-xs"
+            className="mari-editor-action mari-row-control"
           >
             <Plus size="0.75rem" />
             {localizeUi("ui.lorebooks.lorebookassignmentsection.new")}
@@ -269,7 +269,7 @@ export function LorebookAssignmentSection({
             type="button"
             onClick={() => openAssignment()}
             disabled={!ownerId}
-            className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex gap-1.5 rounded-lg px-3 py-1.5 text-xs"
+            className="mari-editor-action mari-editor-action--accent mari-row-control"
           >
             <BookOpen size="0.75rem" />
             {localizeUi("ui.lorebooks.lorebookassignmentsection.assignLorebook")}
@@ -289,13 +289,13 @@ export function LorebookAssignmentSection({
             return (
               <div
                 key={lorebook.id}
-                className="flex items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5"
+                className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5"
               >
                 <BookOpen size="0.875rem" className="shrink-0 text-amber-400" />
                 <button
                   type="button"
                   onClick={() => openLorebookDetail(lorebook.id)}
-                  className="min-w-0 flex-1 text-left"
+                  className="min-w-[10rem] flex-1 basis-0 text-left"
                 >
                   <span className="block truncate text-xs font-medium text-[var(--foreground)]">{lorebook.name}</span>
                   <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
@@ -308,73 +308,79 @@ export function LorebookAssignmentSection({
                         })}
                   </span>
                 </button>
-                {lorebook.category === "character" ? (
-                  <button
-                    type="button"
-                    onClick={() => openAssignment(lorebook)}
-                    className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
-                  >
-                    {localizeUi("ui.lorebooks.lorebookassignmentsection.scope")}
-                  </button>
-                ) : (
-                  <span className="rounded-lg bg-[var(--card)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.lorebooks.lorebookassignmentsection.linked", { defaultValue: "Linked" })}
-                  </span>
-                )}
-                {ownerType === "character" &&
-                  lorebook.category === "character" &&
-                  (lorebook.id === embeddedLorebookId ? (
-                    <>
-                      <span className="rounded-lg bg-emerald-500/15 px-2 py-1 text-[0.625rem] font-medium text-emerald-500">
-                        {localizeUi("ui.lorebooks.lorebookassignmentsection.embedded")}
-                      </span>
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+                  {lorebook.category === "character" ? (
+                    <button
+                      type="button"
+                      onClick={() => openAssignment(lorebook)}
+                      className="mari-editor-action mari-row-control"
+                    >
+                      {localizeUi("ui.lorebooks.lorebookassignmentsection.scope")}
+                    </button>
+                  ) : (
+                    <span className="mari-row-control mari-row-control--badge bg-[var(--card)] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.lorebooks.lorebookassignmentsection.linked", { defaultValue: "Linked" })}
+                    </span>
+                  )}
+                  {ownerType === "character" &&
+                    lorebook.category === "character" &&
+                    (lorebook.id === embeddedLorebookId ? (
+                      <>
+                        <span className="mari-row-control mari-row-control--badge bg-emerald-500/15 text-emerald-500">
+                          {localizeUi("ui.lorebooks.lorebookassignmentsection.embedded")}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleEmbed(lorebook)}
+                          disabled={embedLorebook.isPending}
+                          className="mari-editor-action mari-row-control"
+                          title={localizeUi(
+                            "ui.lorebooks.lorebookassignmentsection.rewriteTheCardSEmbeddedCopyFromThisLorebook",
+                          )}
+                        >
+                          {localizeUi("ui.noodle.noodlehome.refresh")}
+                        </button>
+                      </>
+                    ) : embeddedLorebookId || slotOccupied ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="mari-editor-action mari-row-control"
+                        title={localizeUi(
+                          "ui.lorebooks.lorebookassignmentsection.removeTheCurrentEmbeddedLorebookFirst",
+                        )}
+                      >
+                        {localizeUi("ui.lorebooks.lorebookassignmentsection.embedIntoCard")}
+                      </button>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => handleEmbed(lorebook)}
                         disabled={embedLorebook.isPending}
-                        className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
+                        className="mari-editor-action mari-editor-action--accent mari-row-control"
                         title={localizeUi(
-                          "ui.lorebooks.lorebookassignmentsection.rewriteTheCardSEmbeddedCopyFromThisLorebook",
+                          "ui.lorebooks.lorebookassignmentsection.writeThisLorebookIntoTheCharacterCardSoIt",
                         )}
                       >
-                        {localizeUi("ui.noodle.noodlehome.refresh")}
+                        {localizeUi("ui.lorebooks.lorebookassignmentsection.embedIntoCard")}
                       </button>
-                    </>
-                  ) : embeddedLorebookId || slotOccupied ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
-                      title={localizeUi("ui.lorebooks.lorebookassignmentsection.removeTheCurrentEmbeddedLorebookFirst")}
-                    >
-                      {localizeUi("ui.lorebooks.lorebookassignmentsection.embedIntoCard")}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleEmbed(lorebook)}
-                      disabled={embedLorebook.isPending}
-                      className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
-                      title={localizeUi(
-                        "ui.lorebooks.lorebookassignmentsection.writeThisLorebookIntoTheCharacterCardSoIt",
-                      )}
-                    >
-                      {localizeUi("ui.lorebooks.lorebookassignmentsection.embedIntoCard")}
-                    </button>
-                  ))}
-                <button
-                  type="button"
-                  onClick={() => unassignLorebook(lorebook)}
-                  disabled={updateLorebook.isPending}
-                  className="mari-editor-action mari-editor-action--compact mari-editor-action--danger inline-flex h-7 w-7 rounded-lg p-0"
-                  title={
-                    ownerType === "character" && lorebook.id === embeddedLorebookId
-                      ? localizeUi("ui.lorebooks.lorebookassignmentsection.unlinkLorebookTheCardSEmbeddedCopyStaysUse")
-                      : localizeUi("ui.lorebooks.lorebookassignmentsection.removeLorebook")
-                  }
-                >
-                  <Trash2 size="0.75rem" />
-                </button>
+                    ))}
+                  <button
+                    type="button"
+                    onClick={() => unassignLorebook(lorebook)}
+                    disabled={updateLorebook.isPending}
+                    className="mari-editor-action mari-editor-action--danger mari-row-control mari-row-control--icon"
+                    title={
+                      ownerType === "character" && lorebook.id === embeddedLorebookId
+                        ? localizeUi(
+                            "ui.lorebooks.lorebookassignmentsection.unlinkLorebookTheCardSEmbeddedCopyStaysUse",
+                          )
+                        : localizeUi("ui.lorebooks.lorebookassignmentsection.removeLorebook")
+                    }
+                  >
+                    <Trash2 size="0.75rem" />
+                  </button>
+                </div>
               </div>
             );
           })}

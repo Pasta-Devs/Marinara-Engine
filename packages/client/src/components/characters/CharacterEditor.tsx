@@ -3624,7 +3624,7 @@ function CharacterVersionHistoryPanel({
             {resetVersions.isPending ? <Spinner size="sm" /> : <RotateCcw size="0.75rem" />}
             {localizeUi("ui.cardversionhistory.reset")}
           </button>
-          <span className="mari-editor-chip mari-editor-chip--accent px-2 py-0.5 text-[0.625rem]">
+          <span className="mari-editor-chip mari-editor-chip--accent h-7 px-2.5 text-[0.625rem]">
             {isLoading
               ? localizeUi("ui.characters.characterversionhistorypanel.loading")
               : localizeUi("ui.characters.characterversionhistorypanel.value1Saved", { value1: savedVersionCount })}
@@ -7511,12 +7511,7 @@ function LorebookTab({
             type="button"
             onClick={handleImportEmbeddedLorebook}
             disabled={!characterId || importing || removing}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
-              importing || removing || !characterId
-                ? "cursor-not-allowed bg-[var(--accent)] text-[var(--muted-foreground)]"
-                : "bg-[var(--primary)]/15 text-[var(--primary)] hover:bg-[var(--primary)]/25",
-            )}
+            className="mari-editor-action mari-editor-action--accent mari-row-control"
           >
             {importing ? <Spinner size="sm" /> : <Library size="0.75rem" />}
             {linkedLorebookId
@@ -7527,7 +7522,7 @@ function LorebookTab({
             <button
               type="button"
               onClick={() => openLorebookDetail(linkedLorebookId)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)]/15 px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25"
+              className="mari-editor-action mari-editor-action--accent mari-row-control"
             >
               <Library size="0.75rem" />
               {localizeUi("ui.characters.lorebooktab.editEmbeddedLorebook")}
@@ -7561,7 +7556,7 @@ function LorebookTab({
             type="button"
             onClick={handleRemoveFromCard}
             disabled={!characterId || removing || importing || embedding}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="mari-editor-action mari-row-control"
             title={
               embedding
                 ? localizeUi("ui.characters.lorebooktab.waitForTheEmbeddedLorebookUpdateToFinish")
@@ -7572,41 +7567,12 @@ function LorebookTab({
             {localizeUi("ui.characters.lorebooktab.removeFromCard")}
           </button>
           <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+            {entries.length > 0 &&
+              `${localizeUi("chat.settings.inlineLorebook.entryCount", { count: entries.length })} · `}
             {linkedLorebookId
               ? localizeUi("ui.characters.lorebooktab.editOpensTheLorebookEditorChangesSyncBackInto")
               : localizeUi("ui.characters.lorebooktab.importBakesThisEmbeddedLorebookIntoMarinaraAsAn")}
           </span>
-        </div>
-      )}
-
-      {entries.length > 0 && (
-        <div className="space-y-2">
-          {entries.map((entry, i) => (
-            <div key={entry.id ?? i} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{entry.name || `Entry #${i + 1}`}</p>
-                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.characters.lorebooktab.keys")} {entry.keys.join(", ")}{" "}
-                    {entry.secondary_keys.length > 0 && `· Secondary: ${entry.secondary_keys.join(", ")}`}
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-medium",
-                    entry.enabled
-                      ? "bg-emerald-500/15 text-emerald-500"
-                      : "bg-[var(--muted-foreground)]/15 text-[var(--muted-foreground)]",
-                  )}
-                >
-                  {entry.enabled
-                    ? localizeUi("ui.characters.lorebooktab.active")
-                    : localizeUi("ui.characters.lorebooktab.disabled")}
-                </span>
-              </div>
-              <p className="mt-2 text-xs text-[var(--muted-foreground)] line-clamp-3">{entry.content}</p>
-            </div>
-          ))}
         </div>
       )}
     </div>

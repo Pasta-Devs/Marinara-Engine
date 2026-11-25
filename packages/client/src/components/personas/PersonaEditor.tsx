@@ -4562,7 +4562,7 @@ function PersonaVersionHistoryPanel({
             {resetVersions.isPending ? <Spinner size="sm" /> : <RotateCcw size="0.75rem" />}
             {localizeUi("ui.cardversionhistory.reset")}
           </button>
-          <span className="mari-editor-chip mari-editor-chip--accent px-2 py-0.5 text-[0.625rem]">
+          <span className="mari-editor-chip mari-editor-chip--accent h-7 px-2.5 text-[0.625rem]">
             {isLoading
               ? localizeUi("ui.personas.personaversionhistorypanel.loading")
               : localizeUi("ui.personas.personaversionhistorypanel.value1Saved", { value1: savedVersionCount })}

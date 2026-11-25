@@ -8270,6 +8270,12 @@ input.ov-edhead__title:focus {
   font-size: 0.8125rem;
   font-weight: 500;
 }
+/* Beside the tags (desktop rail) Mari's helpers take the tag pills' height, so the row is one height. */
+.ov-rail__tags > .ov-mari-assist {
+  height: 1.5rem;
+  padding: 0 0.625rem 0 0.5rem;
+  font-size: 0.75rem;
+}
 @media (hover: hover) {
   .ov-mari-assist:hover {
     border-color: var(--ov-accent);
