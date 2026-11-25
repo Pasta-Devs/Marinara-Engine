@@ -741,7 +741,7 @@ export function App() {
 
     const syncLiteralBackground = () => {
       // The app background becomes --background below only once its contrast check passes, so a
-      // canvas the browser refuses leaves the theme's own surface rather than an unreadable one.
+      // background that fails it leaves the theme's own surface rather than an unreadable one.
       root.style.removeProperty("--background");
       // iOS paints the safe-area/overscroll backing from the literal html/body
       // background-color, not from resolved custom properties (see index.html).
@@ -757,41 +757,42 @@ export function App() {
       if (background) root.style.setProperty("--marinara-app-background-color", literalBackground);
       // Flatten translucent shell surfaces over the app background. Browser
       // chrome needs an opaque color, and sidebars retain the Home menu surface.
-      // The canvas only parses each color (fillStyle reads it back normalized); the blending is done here.
-      // Its pixels can't be trusted: Firefox's resistFingerprinting and canvas blockers hand back random
-      // ones, which painted the sidebar and editors a random color (#9791), and WebKit can refuse to read
-      // them under memory pressure (#7241).
-      const context = document.createElement("canvas").getContext("2d");
-      if (context) {
-        const paint = (below: readonly number[], color: string) => {
-          context.fillStyle = "transparent";
-          // Wrapped in an sRGB mix, oklch() or an oklab mix reads back as color(srgb …) or rgba() as well.
-          context.fillStyle = `color-mix(in srgb, ${color} 100%, transparent)`;
-          return paintSrgbColor(below, String(context.fillStyle));
-        };
-        const toRgb = (channels: readonly number[]) => `rgb(${channels.map(Math.round).join(", ")})`;
-        const backdrop = paint(paint([0, 0, 0], defaultBackground), literalBackground);
-        if (background) {
-          // Editors, libraries and fields paint --background under the app's text: the Whole app part's
-          // text color when it has one, otherwise the chrome text color. A dark app background in Light
-          // mode (or a light one in Dark) would leave that text unreadable there, so the app background
-          // becomes --background only while that text stays readable on it. Otherwise it still paints
-          // the backdrop and those surfaces keep the theme's (#9741).
-          const text = paint(
-            backdrop,
-            getCssColorFallback(appTextColor, "") ||
-              computedStyle.getPropertyValue("--marinara-chat-chrome-text").trim(),
-          );
-          if (contrastRatio(backdrop, text) >= READABLE_TEXT_CONTRAST) {
-            root.style.setProperty("--background", resolvedBackground);
-          }
-        }
-        root.style.setProperty(
-          "--marinara-shell-surface",
-          toRgb(paint(backdrop, computedStyle.getPropertyValue("--card").trim())),
+      // A hidden probe resolves each color against the theme's color scheme (so light-dark() takes the
+      // theme's branch), and the blending is done here. Canvas pixels can't be trusted: Firefox's
+      // resistFingerprinting and canvas blockers hand back random ones, which painted the sidebar and
+      // editors a random color (#9791), and WebKit can refuse to read them under memory pressure (#7241).
+      const probe = root.appendChild(document.createElement("span"));
+      // Inline !important keeps theme CSS (a forced color, a transition) and forced-colors mode off it.
+      probe.style.cssText =
+        "display: none !important; transition: none !important; forced-color-adjust: none !important";
+      const paint = (below: readonly number[], color: string) => {
+        probe.style.setProperty("color", "transparent", "important");
+        // Wrapped in an sRGB mix, hex, oklch() or an oklab mix reads back as color(srgb …) as well.
+        probe.style.setProperty("color", `color-mix(in srgb, ${color} 100%, transparent)`, "important");
+        return paintSrgbColor(below, getComputedStyle(probe).color);
+      };
+      const toRgb = (channels: readonly number[]) => `rgb(${channels.map(Math.round).join(", ")})`;
+      const backdrop = paint(paint([0, 0, 0], defaultBackground), literalBackground);
+      if (background) {
+        // Editors, libraries and fields paint --background under the app's text: the Whole app part's
+        // text color when it has one, otherwise the chrome text color. A dark app background in Light
+        // mode (or a light one in Dark) would leave that text unreadable there, so the app background
+        // becomes --background only while that text stays readable on it. Otherwise it still paints
+        // the backdrop and those surfaces keep the theme's (#9741).
+        const text = paint(
+          backdrop,
+          getCssColorFallback(appTextColor, "") || computedStyle.getPropertyValue("--marinara-chat-chrome-text").trim(),
         );
-        literalBackground = toRgb(paint(backdrop, computedStyle.getPropertyValue("--marinara-topbar-surface").trim()));
+        if (contrastRatio(backdrop, text) >= READABLE_TEXT_CONTRAST) {
+          root.style.setProperty("--background", resolvedBackground);
+        }
       }
+      root.style.setProperty(
+        "--marinara-shell-surface",
+        toRgb(paint(backdrop, computedStyle.getPropertyValue("--card").trim())),
+      );
+      literalBackground = toRgb(paint(backdrop, computedStyle.getPropertyValue("--marinara-topbar-surface").trim()));
+      probe.remove();
       root.style.setProperty("--marinara-page-backing", literalBackground);
       root.style.setProperty("background-color", literalBackground, "important");
       document.body.style.setProperty("background-color", literalBackground, "important");

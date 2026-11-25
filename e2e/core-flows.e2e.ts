@@ -23530,6 +23530,34 @@ test("shell surfaces and the page backing keep their colors when canvas reads co
   await expect.poll(() => rootValue("--background")).toBe("#234567");
 });
 
+test("a custom theme's light-dark() card gives the shell surface the current mode's branch", async ({ page }) => {
+  // A detached canvas resolved light-dark() as Light in Chromium and Firefox, and WebKit refused it.
+  await page.route("**/api/themes", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "light-dark-card",
+          name: "Light-dark card",
+          css: ":root { --card: light-dark(#abcdef, #234567); }",
+          isActive: true,
+        },
+      ],
+    }),
+  );
+  await page.goto("/");
+  await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
+  const shellSurface = () =>
+    page
+      .locator("html")
+      .evaluate((element) => getComputedStyle(element).getPropertyValue("--marinara-shell-surface").trim());
+  await expect.poll(shellSurface).toBe("rgb(35, 69, 103)");
+  await page.evaluate(async () => {
+    const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+    useUIStore.getState().setTheme("light");
+  });
+  await expect.poll(shellSurface).toBe("rgb(171, 205, 239)");
+});
+
 test("a dark app background in Light mode leaves editors and fields on the theme's surface", async ({ page }) => {
   // #9741: SillyTavern Light with a dark Whole app background painted editors dark under dark text.
   await seedUIState(

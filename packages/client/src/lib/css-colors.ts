@@ -204,18 +204,15 @@ export function gradientStopsFromColor(color: string | null | undefined): [strin
 }
 
 /**
- * Paint `color`, as a canvas fillStyle reads it back (`#rrggbb[aa]`, `rgba(r, g, b, a)` or `color(srgb r g b / a)`),
+ * Paint `color`, as a computed style reads it back (`rgb(r, g, b)`, `rgba(r, g, b, a)` or `color(srgb r g b / a)`),
  * over the opaque `below`. Both are 0-255 red, green and blue; a value in another form paints nothing.
  */
 export function paintSrgbColor(below: readonly number[], color: string): number[] {
-  const hex = normalizeHexColor(color);
-  const channels = hex
-    ? [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16)).concat(hexAlpha(hex))
-    : color
-        .match(/^(?:rgba?\(|color\(srgb )([^)]*)\)$/i)?.[1]
-        ?.trim()
-        .split(/[\s,/]+/)
-        .map(Number);
+  const channels = color
+    .match(/^(?:rgba?\(|color\(srgb )([^)]*)\)$/i)?.[1]
+    ?.trim()
+    .split(/[\s,/]+/)
+    .map(Number);
   if (!channels || channels.length < 3 || channels.some(Number.isNaN)) return [...below];
   const scale = color.startsWith("color(") ? 255 : 1;
   const alpha = Math.min(1, Math.max(0, channels[3] ?? 1));
