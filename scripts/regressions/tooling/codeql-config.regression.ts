@@ -32,8 +32,12 @@ function pathEntry(line: string) {
 
 const config = configLines();
 const listed = config.slice(config.indexOf("paths-ignore:") + 1);
-const listEnd = listed.findIndex((line) => !line.startsWith("  - "));
-const pathsIgnoreLines = listed.slice(0, listEnd === -1 ? undefined : listEnd);
+// Comment-only and blank lines sit inside the list in YAML: skip them and read on to the list's real end.
+const inList = (line: string) => line.startsWith("  - ") || /^\s*(#.*)?$/u.test(line);
+const listEnd = listed.findIndex((line) => !inList(line));
+const pathsIgnoreLines = listed
+  .slice(0, listEnd === -1 ? undefined : listEnd)
+  .filter((line) => line.startsWith("  - "));
 
 const cases: RegressionCase[] = [
   {
