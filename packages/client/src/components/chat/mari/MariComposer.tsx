@@ -80,7 +80,6 @@ import { useInDialogFocusScope } from "../../../hooks/use-in-dialog-focus-scope"
 type MariComposerProps = {
   workspaceStatus: MariWorkspaceStatus | null;
   refreshWorkspaceStatus: () => Promise<MariWorkspaceStatus>;
-  acceptDraftCompletion: () => void;
   attachComposerDock: (dock: HTMLFormElement | null) => (() => void) | undefined;
   attachedContext: MariWorkspaceContextItem[] | undefined;
   attachmentInputRef: RefObject<HTMLInputElement | null>;
@@ -166,8 +165,6 @@ type MariComposerProps = {
     activeOptionId?: string;
     canDrillIn: boolean;
     canDrillOut: boolean;
-    /** A name just completed with Tab ends the draft: Tab again links it. */
-    canLinkCompletion?: boolean;
     /** Where the caret goes after a pick; `n` makes the same position a new request. */
     caretRequest: { pos: number; n: number } | null;
     references: readonly MariComposerReference[];
@@ -175,18 +172,9 @@ type MariComposerProps = {
   };
 };
 
-/** The link hint names the input the device has: Tab, a tap, or both. */
-function linkHintKey() {
-  if (window.matchMedia("(pointer: coarse)").matches) return "mari.composerReferences.linkHintTouch";
-  // A touch laptop reports a fine pointer but can still be tapped, so it gets both words.
-  if (window.matchMedia("(any-pointer: coarse)").matches) return "mari.composerReferences.linkHintHybrid";
-  return "mari.composerReferences.linkHint";
-}
-
 export function MariComposer({
   workspaceStatus,
   refreshWorkspaceStatus,
-  acceptDraftCompletion,
   attachComposerDock,
   attachedContext,
   attachmentInputRef,
@@ -320,13 +308,10 @@ export function MariComposer({
     textarea.setSelectionRange(atRequest.pos, atRequest.pos);
     setCaret(atRequest.pos);
   }, [atRequest, floatingTextareaRef]);
-  // The ghost may sit in an `@` token that ends the draft (a Tab there links it); the open picker replaces it.
+  // Names are only guessed inside an `@` token that ends the draft (a Tab there links it), never in plain
+  // sentences, where a guess after two letters reads as autocorrect. The open picker replaces it.
   const ghostInToken = liveToken?.trigger === "@" && liveToken.end === draft.length;
-  const ghostAvailable = Boolean(draftSuffix) && (!liveToken || ghostInToken);
-  // A completed name ends the draft and a second Tab would link it: say so where the ghost was, and let a
-  // tap link it, since touch screens have no Tab.
-  const linkHint = Boolean(referenceUi?.canLinkCompletion) && !ghostAvailable && !pickerOpen;
-  const linkHintText = linkHint ? t(linkHintKey()) : "";
+  const ghostAvailable = Boolean(draftSuffix) && ghostInToken;
   const ActivePermissionsModeIcon = MARI_PERMISSIONS_MODE_ICONS[permissionsMode];
   // The connection menu is the chat's quick switch: the list, with the chosen Connection's models beside it.
   const setFeatureModels = useSetFeatureModels();
@@ -722,8 +707,7 @@ export function MariComposer({
         <div className="mari-workspace-composer__text-row relative flex min-w-0 flex-1 basis-full">
           <InlineDraftOverlay
             value={draft}
-            suffix={linkHintText || (ghostAvailable && !pickerOpen ? draftSuffix : "")}
-            hint={linkHint}
+            suffix={ghostAvailable && !pickerOpen ? draftSuffix : ""}
             marks={[
               ...referenceMarks,
               ...(liveToken ? [{ start: liveToken.start, end: liveToken.end, tone: "pending" as const }] : []),
@@ -732,7 +716,7 @@ export function MariComposer({
             scrollLeft={composerScroll.left}
             scrollTop={composerScroll.top}
             className="mari-workspace-composer__text"
-            onAccept={ghostInToken || linkHint ? () => onPickerAction?.("ghost-link") : acceptDraftCompletion}
+            onAccept={() => onPickerAction?.("ghost-link")}
           />
           <textarea
             ref={floatingTextareaRef}
@@ -770,13 +754,13 @@ export function MariComposer({
                 inReferenceToken: ghostInToken,
                 canDrillIn: referenceUi?.canDrillIn,
                 canDrillOut: referenceUi?.canDrillOut,
-                canLinkCompletion: referenceUi?.canLinkCompletion,
                 enterToSend,
               });
               if (action === "none") return;
               event.preventDefault();
-              if (action === "ghost-accept") acceptDraftCompletion();
-              else if (action === "send") void handleSubmit();
+              // The ghost only shows inside an `@` token, where a Tab links (never plain completion).
+              if (action === "ghost-accept") return;
+              if (action === "send") void handleSubmit();
               else if (action === "queue") void handleSubmit(undefined, undefined, undefined, true);
               else {
                 // In companion mode the first Escape closes only the picker, not the omnibar behind it.
@@ -784,8 +768,6 @@ export function MariComposer({
                 onPickerAction?.(action);
               }
             }}
-            // The overlay is hidden from screen readers, so the field itself carries the hint.
-            aria-description={linkHintText || undefined}
             aria-controls={pickerOpen ? referenceUi?.picker?.id : undefined}
             aria-activedescendant={pickerOpen ? referenceUi?.activeOptionId : undefined}
             rows={1}
