@@ -4206,7 +4206,7 @@ assert.ok(!("mariDetailId" in mariSession));
   const scroller = { clientHeight: 500, scrollHeight: 769, scrollTop: 1 } as unknown as HTMLElement;
   const reports: boolean[] = [];
   let following = false;
-  const stop = followTranscriptGrowth(
+  const { stop } = followTranscriptGrowth(
     scroller,
     { addEventListener() {}, removeEventListener() {} } as unknown as HTMLElement,
     () => following,
@@ -4243,7 +4243,7 @@ assert.ok(!("mariDetailId" in mariSession));
   globalThis.requestAnimationFrame = (() => 0) as unknown as typeof requestAnimationFrame;
   const scroller = { clientHeight: 0, scrollHeight: 769, scrollTop: 0 } as unknown as HTMLElement;
   const stack = { addEventListener() {}, removeEventListener() {} } as unknown as HTMLElement;
-  const stop = followTranscriptGrowth(scroller, stack, () => true);
+  const { stop } = followTranscriptGrowth(scroller, stack, () => true);
   grow();
   assert.equal(scroller.scrollTop, 0, "a hidden window has nothing to pin yet");
   (scroller as { clientHeight: number }).clientHeight = 500;

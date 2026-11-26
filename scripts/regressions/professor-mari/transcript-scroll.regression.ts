@@ -99,7 +99,7 @@ assert.equal(
       removeEventListener() {},
       contains: (node: unknown) => node === summary,
     };
-    const stop = followTranscriptGrowth(
+    const { stop } = followTranscriptGrowth(
       scroller as unknown as HTMLElement,
       stack as unknown as HTMLElement,
       () => following,
@@ -142,8 +142,8 @@ assert.equal(
     assert.equal(scroller.scrollTop, 6800, "a reader who moved after the pin is not pulled down");
     stop();
     // An empty chat: everything fits, so the pin on Enter (her welcome gives way to the question) leaves the
-    // transcript at the top and sends no scroll event. The send right after it stops following and places her question
-    // under the header, which is the top already, so it does not move; her reply must not pull it down.
+    // transcript at the top. The send right after it stops following and places her question under the header, which
+    // is the top already, so it does not move; her reply must not pull it down.
     const short = {
       clientHeight: 600,
       scrollHeight: 400,
@@ -156,7 +156,7 @@ assert.equal(
       },
     };
     following = true;
-    const stopShort = followTranscriptGrowth(
+    const shortFollow = followTranscriptGrowth(
       short as unknown as HTMLElement,
       stack as unknown as HTMLElement,
       () => following,
@@ -164,6 +164,7 @@ assert.equal(
     grow(); // Enter: the question replaces her welcome, and the follow pins it where it is
     assert.equal(short.scrollTop, 0);
     following = false; // the send, before the next frame
+    shortFollow.unpin();
     short.scrollHeight = 616; // the turn reserves the transcript's height
     grow();
     short.scrollHeight = 1400; // her reply grows past the reserve
@@ -180,7 +181,7 @@ assert.equal(
     short.scrollHeight = 2424;
     grow();
     assert.equal(short.scrollTop, 1312, "a pin two frames past does not keep following");
-    stopShort();
+    shortFollow.stop();
   } finally {
     globalThis.ResizeObserver = realResizeObserver;
     globalThis.requestAnimationFrame = realRequestAnimationFrame;

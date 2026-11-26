@@ -75,14 +75,14 @@ export function landProfessorMariTranscript(
  * change of its content, not only when state changes. Content that grows smoothly (Mari's live reply
  * animates its height) then pushes the older lines up smoothly too, instead of sliding out of view.
  * `onGrown` reports whether newer output now sits below the fold of a reader who is not following.
- * Returns the cleanup.
+ * Returns `stop`, the cleanup, and `unpin`, which a send calls when it stops following.
  */
 export function followTranscriptGrowth(
   scroller: HTMLElement,
   stack: HTMLElement,
   isFollowing: () => boolean,
   onGrown?: (newerBelow: boolean) => void,
-): () => void {
+): { stop: () => void; unpin: () => void } {
   // A hidden window has no height and loses its scroll position, so the first layout after she is shown
   // pins to the newest line for a reader who was following, whatever position the hidden scroll left.
   let shown = scroller.clientHeight > 0;
@@ -101,9 +101,9 @@ export function followTranscriptGrowth(
   stack.addEventListener("click", noteReaderClick, true);
   // The scroll event of a pin arrives a frame later. When a second picture grew in between, the scroll handler
   // finds the reader far from the new bottom and clears "following". A transcript still where the last pin left
-  // it has not been moved by the reader, as in landProfessorMariTranscript. Only a pin that moved the transcript
-  // sends that event, and it has come two frames later (as for a click). A send stops following on purpose: in an
-  // empty chat its question stays at the top, where the pin on Enter left it, and her reply must not be followed.
+  // it has not been moved by the reader, as in landProfessorMariTranscript. That event has come two frames later
+  // (as for a click). A send stops following on purpose and calls `unpin`: in an empty chat its question stays at
+  // the top, where the pin on Enter left it a frame before, and her reply must not be followed.
   let pinnedTop: number | null = null;
   const observer = new ResizeObserver(() => {
     const revealed = !shown && scroller.clientHeight > 0;
@@ -125,27 +125,28 @@ export function followTranscriptGrowth(
       following,
     });
     if (scrollTo === "bottom") {
-      const from = scroller.scrollTop;
       scrollProfessorMariTranscriptToBottom(scroller);
-      const top = scroller.scrollTop;
-      if (top !== from) {
-        pinnedTop = top;
-        // A later pin keeps its own two frames.
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => {
-            if (pinnedTop === top) pinnedTop = null;
-          }),
-        );
-      }
+      const top = (pinnedTop = scroller.scrollTop);
+      // A later pin keeps its own two frames.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (pinnedTop === top) pinnedTop = null;
+        }),
+      );
     }
     // Slice 67: output that grew past the fold while the reader is not following gets the jump arrow,
     // not only after they scroll by hand - otherwise her answer can end hidden under the composer.
     onGrown?.(!following && !isProfessorMariTranscriptNearBottom(scroller));
   });
   observer.observe(stack);
-  return () => {
-    observer.disconnect();
-    stack.removeEventListener("click", noteReaderClick, true);
+  return {
+    stop: () => {
+      observer.disconnect();
+      stack.removeEventListener("click", noteReaderClick, true);
+    },
+    unpin: () => {
+      pinnedTop = null;
+    },
   };
 }
 
