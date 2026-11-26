@@ -341,6 +341,16 @@ After a crash or a moved Docker volume, startup can report **The storage writer 
 
 Marinara clears a lease left by a crashed process on its own on Linux, Android, containers and Windows when the data folder is on a local drive. The manual step is the fallback for network or shared storage, removable drives, and (on Windows) a computer renamed after the crash.
 
+### Cannot access a network or external folder
+
+Marinara reads and writes only inside its data folder, so a folder outside it is refused. You see **Path escapes the allowed directory**, **Access denied: path outside home directory**, or **folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS.**
+
+The folder must sit inside the data folder or an import root, and it must be connected before Marinara reads or writes it. On Windows, a mapped drive is the most reliable choice.
+
+- **Your data lives on a network folder.** Point `DATA_DIR` at it in `.env`, then restart Marinara. See [Storage](CONFIGURATION.md#storage).
+- **You only import from a network folder.** Choose it with the folder picker, or add it to `IMPORT_ALLOWED_ROOTS` in `.env`, comma separated.
+- **The share is disconnected.** Reconnect it before you start Marinara, then retry.
+
 ### Backup or Export returns 403
 
 Same-computer sessions can back up without an admin secret. Requests from another device, a network address, Docker, or a proxy or tunnel on the same computer need one. Make it in **Settings → Advanced → Admin Access** on the server's own computer, or set `ADMIN_SECRET` on the server, then save the same value in **Admin Access** on the other device. To make loopback require it too, set `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. If `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, forwarded visitors get the local bypass. Keep it on for a public proxy or tunnel.
