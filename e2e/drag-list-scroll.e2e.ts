@@ -75,6 +75,17 @@ for (const kind of ["chat", "character", "persona"] as const) {
       }
       const item = entries[12]!;
       await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+      if (kind === "chat")
+        // The folders load after the chats, so the check on the open chat below covers #9841.
+        await page.route(
+          "**/api/chat-folders",
+          async (route) => {
+            const response = await route.fetch();
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            await route.fulfill({ response });
+          },
+          { times: 1 },
+        );
       await seedUIState(page, {
         hasCompletedOnboarding: true,
         chatHelpSeenModes: ["conversation", "roleplay", "game"],
@@ -103,9 +114,11 @@ for (const kind of ["chat", "character", "persona"] as const) {
       if (kind === "chat") {
         // The chat list scrolls the active chat (its last row) into view, smoothly and a moment after it
         // loads. Let that finish first, or it scrolls the list away from the rows built and centred below.
-        // The windowed list builds the row once that scroll reaches it.
+        // Checked before any row is built, so the list's own scroll has to bring the row into view. The folder comes
+        // first: before the folders load, the row can be in view for a moment and then be pushed out.
         const activeRow = panel.locator(`[data-chat-id="${chat.id}"]`);
-        await expect(activeRow).toHaveCount(1);
+        await expect(panel.locator(`[data-chat-folder-id="${folder.id}"]`)).toBeAttached();
+        await expect(activeRow).toBeInViewport();
         // Waits until the row stops moving.
         await activeRow.scrollIntoViewIfNeeded();
       }
