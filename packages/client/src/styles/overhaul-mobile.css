@@ -2796,6 +2796,11 @@
 :root[data-overhaul="mobile"] .ovm-preset [data-touch-reorder-item="preset-section"] > div:first-child span.flex-1 {
   font-size: 0.9375rem !important;
 }
+:root[data-overhaul="mobile"] .ovm-preset [data-preset-section-open]:not(#ovm-x) {
+  /* The touch-target rule makes the name 2.5rem tall; centre its one truncated line on the row's
+     icons instead of leaving it at the top of that box. */
+  line-height: 2.5rem !important;
+}
 :root[data-overhaul="mobile"] .ovm-preset .ov-po-tools {
   /* Buttons share one row; the token total takes its own row below them. */
   flex-wrap: wrap;
