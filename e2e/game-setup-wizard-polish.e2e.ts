@@ -1,13 +1,15 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseCharacter, runName } from "./character-picker.js";
 import { chooseConnection } from "./connection-picker.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 
 /**
  * The new-game wizard and the start screen after it: Goals and preferences kept from the last game say so
- * and can be cleared, an empty lorebook list says there are none yet, and the start screen's Start Game
- * starts the game: the starting widgets sheet opens only when asked for, as the one Start Game on screen.
+ * and can be cleared, an empty lorebook list says there are none yet, a card imported from the Party step
+ * joins the party picker without losing the setup, and the start screen's Start Game starts the game: the
+ * starting widgets sheet opens only when asked for, as the one Start Game on screen.
  */
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -134,6 +136,78 @@ test("a lorebook list that failed to load claims nothing", async ({ page }, test
   await expect(wizard.getByPlaceholder("Search lorebooks…")).toBeVisible();
   await expect(wizard.getByText("No lorebooks yet", { exact: true })).toHaveCount(0);
   await expect(wizard.getByText("All lorebooks already added.", { exact: true })).toHaveCount(0);
+});
+
+test("a card imported from the Party step joins the party, and the setup keeps what was typed (#9868)", async ({
+  page,
+  request,
+}, testInfo) => {
+  const chat = (await (
+    await request.post("/api/chats", { data: { name: "Setup import", mode: "game", characterIds: [] } })
+  ).json()) as { id: string };
+  const name = runName("Setup Import Scout");
+  const importedIds: string[] = [];
+  try {
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      chatHelpSeenModes: ["game"],
+      theme: testInfo.project.name === "desktop-chromium" ? "light" : "dark",
+    });
+    await page.addInitScript(
+      ({ id, version }) => {
+        localStorage.setItem("marinara-active-chat-id", id);
+        localStorage.setItem("marinara:whats-new:seen-version", version);
+      },
+      { id: chat.id, version },
+    );
+    await page.goto("/");
+    const wizard = page.locator('[data-component="GameSetupWizard"]');
+    await expect(wizard).toBeVisible({ timeout: 40_000 });
+    const gameName = wizard.getByPlaceholder("Name your adventure...");
+    await gameName.fill("The Ashen Choir");
+    await stepTo(wizard, "Party");
+    if (testInfo.project.name === "desktop-chromium") {
+      await wizard.screenshot({ path: testInfo.outputPath("party-import-button.png") });
+    }
+
+    await wizard.getByRole("button", { name: "Import character", exact: true }).click();
+    const importWindow = page.getByRole("dialog", { name: "Import character", exact: true });
+    await expect(importWindow).toBeVisible();
+    const imported = page.waitForResponse("**/api/import/st-character/batch");
+    await importWindow.locator('input[type="file"]').setInputFiles({
+      name: "scout.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          spec: "chara_card_v2",
+          spec_version: "2.0",
+          data: { name, description: "A scout who knows the hold.", personality: "Watchful.", tags: [] },
+        }),
+      ),
+    });
+    const { results } = (await (await imported).json()) as { results: Array<{ characterId?: string }> };
+    importedIds.push(...results.flatMap((result) => (result.characterId ? [result.characterId] : [])));
+    await expect(importWindow.getByText(`Imported "${name}"`, { exact: true })).toBeVisible({ timeout: 20_000 });
+    if (testInfo.project.name === "desktop-chromium") {
+      await page.screenshot({ path: testInfo.outputPath("import-over-setup.png") });
+    }
+    await importWindow.getByRole("button", { name: "Close", exact: true }).last().click();
+    await expect(importWindow).toHaveCount(0);
+
+    // The wizard stayed open on Party, the card is in the party picker, and the name typed earlier is kept.
+    await expect(wizard.getByRole("heading", { level: 4 }).first()).toHaveText("Party");
+    await chooseCharacter(page, wizard.getByRole("button", { name: "Choose a character" }), "Characters", name);
+    await expect(wizard.getByText("Party Members (1 selected)", { exact: true })).toBeVisible();
+    await wizard.getByRole("button", { name: "Back", exact: true }).click();
+    await wizard.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(gameName).toHaveValue("The Ashen Choir");
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+    for (const id of importedIds) await request.delete(`/api/characters/${id}`);
+  }
 });
 
 test("Start Game starts the game, and the starting widgets sheet is optional", async ({ page, request }, testInfo) => {
