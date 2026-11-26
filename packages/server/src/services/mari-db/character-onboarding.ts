@@ -198,7 +198,9 @@ function mergeQuestionOps(stored: CharacterOnboarding, patch: Row, input: unknow
       const problems = unknownNestedKeys({ [list]: [update] });
       if (problems.length) throw new Error(problems.join("\n"));
       const index = find(update.id ?? update.variableName ?? update.name);
-      questions[index] = normalizeQuestion({ ...questions[index], ...update }) as Row;
+      const fields = { ...update };
+      if (fields.variableName === undefined && fields.name !== undefined) fields.variableName = fields.name;
+      questions[index] = normalizeQuestion({ ...questions[index], ...fields }) as Row;
       counts.updated++;
     }
     for (const selector of (ops.remove ?? []) as unknown[]) {

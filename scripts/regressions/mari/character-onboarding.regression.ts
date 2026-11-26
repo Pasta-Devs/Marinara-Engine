@@ -151,6 +151,12 @@ try {
     assert.deepEqual(hobby.options, afterAdd.variables[1].options);
     assert.equal((await update(undefined, { variables: { update: [{ id: hobby.id, allowCustom: true }] } })).ok, true);
     assert.equal((await get()).onboarding!.variables[1].allowCustom, true);
+    assert.equal((await update(undefined, { variables: { update: [{ id: hobby.id, name: "pastime" }] } })).ok, true);
+    assert.equal((await get()).onboarding!.variables[1].variableName, "pastime");
+    assert.equal((await update(undefined, { variables: { update: [{ id: hobby.id, name: "hobby" }] } })).ok, true);
+    const unchanged = await update({ enabled: false });
+    assert.equal(unchanged.ok, true);
+    assert.match((unchanged.output as { message: string }).message, /No changes:.*nothing was written/);
     for (const [patch, ops, pattern] of [
       [{}, { variables: { update: [{ id: "missing", question: "?" }] } }, /Available names:.*player.*hobby.*origin/],
       [{}, { variables: { remove: ["origin"] } }, /description.*origin/],

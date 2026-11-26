@@ -3878,7 +3878,10 @@ export class MariDbService {
           context.command,
           context.sessionId,
         );
-        return { ...withNotices(result, "characters", id, warnings), output: { questionCounts: counts } };
+        return {
+          ...withNotices(result, "characters", id, warnings),
+          output: { ...(isRecord(result.output) ? result.output : { message: result.output }), questionCounts: counts },
+        };
       }
       case "movetofolder": {
         return this.withCharacterFolderMutationLock(async () => {

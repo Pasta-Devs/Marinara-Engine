@@ -101,7 +101,7 @@ variableName. Operations run update, remove, add. Add appends by default. Set `a
 existing question's name or id to insert the entire add batch immediately after it.
 
 ```text
-{"action":"character.onboarding.update","characterId":"<id>","questionOps":{"variables":{"add":[{"variableName":"hobby","question":"Your hobby?"}],"after":"player"}},"reason":"Adds a hobby question after the name.","apply":true}
+{"action":"character.onboarding.update","characterId":"<id>","questionOps":{"variables":{"add":[{"variableName":"hobby","question":"Your hobby?"}],"after":"player"}},"reason":"Adds a hobby question after the name.","apply":true,"onboarding":{"description":"{{player}}, a {{origin}} newcomer to Queen Ayrene's court.{{#if origin == Northern}} Raised in the ice ports, unafraid of storms.{{/if}} Hobby: {{hobby}}."}}
 ```
 
 Top-level onboarding fields replace when sent, and omitted fields stay. A sent whole question list

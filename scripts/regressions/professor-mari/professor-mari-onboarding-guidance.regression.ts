@@ -58,7 +58,7 @@ const targeted = commands.find((command) => command.questionOps);
 assert.ok(targeted, "the skill demonstrates targeted question operations");
 const targetedResult = buildOnboardingUpdate(
   { ...cardEdit.patch, extensions: { onboarding } },
-  { description: onboarding.description + " {{hobby}}" },
+  targeted.onboarding,
   targeted.questionOps,
 );
 assert.equal(targetedResult.onboarding.variables.length, onboarding.variables.length + 1);
