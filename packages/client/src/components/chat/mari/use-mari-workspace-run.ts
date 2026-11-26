@@ -282,8 +282,7 @@ export function useMariWorkspaceRun({
           }
           if (
             draft &&
-            (event.type === "tool_start" ||
-              (draftEnded && (event.type === "thinking" || event.type === "status")))
+            (event.type === "tool_start" || (draftEnded && (event.type === "thinking" || event.type === "status")))
           )
             clearDraft();
           workspaceTextThrottle.flush();

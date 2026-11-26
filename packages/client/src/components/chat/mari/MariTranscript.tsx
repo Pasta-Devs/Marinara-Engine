@@ -209,10 +209,7 @@ export const MariTranscript = memo(function MariTranscript({
               // Older turns skip style and layout while off screen (mari.css). The turn just before yours is
               // laid out for real: it moves here from the active turn as you send, and a placeholder height
               // there resolved a frame later and threw your question down the screen as her reply began.
-              <div
-                key={message.id}
-                className={index >= previousTurnStart ? undefined : "mari-transcript-past-turn"}
-              >
+              <div key={message.id} className={index >= previousTurnStart ? undefined : "mari-transcript-past-turn"}>
                 {renderDisplayMessage(message)}
               </div>
             ))}
