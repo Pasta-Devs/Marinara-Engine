@@ -254,6 +254,8 @@ export function useMariWorkspaceRun({
         )) {
           if (event.type === "draft") {
             if (typeof event.data === "string") {
+              // A handoff still waiting for its frame belongs to the earlier round; it must not clear this one.
+              draftHandoff.cancel();
               draftEnded = false;
               draftThrottle.call((draft = event.data));
             } else if (draft) {
