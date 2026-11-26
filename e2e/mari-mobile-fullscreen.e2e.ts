@@ -193,9 +193,10 @@ for (const theme of ["dark", "light"] as const) {
       const settings = panel.getByRole("button", { name: "Search and Professor Mari settings", exact: true });
       await expect(settings).toBeInViewport();
       await settings.click();
-      const sizeGroup = panel.getByRole("region", { name: "Professor Mari window", exact: true, includeHidden: true });
-      if (mobile) await expect(sizeGroup).toBeHidden();
-      else await expect(sizeGroup).toBeVisible();
+      // #9837 removed the "Professor Mari window" size sliders on every screen, so no section is left to show on a
+      // computer and hide on a phone. The settings sheet itself still opens.
+      const sheet = panel.getByRole("region", { name: "Search and Professor Mari settings", exact: true });
+      await expect(sheet).toBeVisible();
       await page.keyboard.press("Escape");
       if (mobile) {
         await expect(composer).toBeVisible();
