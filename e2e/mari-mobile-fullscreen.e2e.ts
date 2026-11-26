@@ -198,6 +198,7 @@ for (const theme of ["dark", "light"] as const) {
       const sheet = panel.getByRole("region", { name: "Search and Professor Mari settings", exact: true });
       await expect(sheet).toBeVisible();
       await page.keyboard.press("Escape");
+      await expect(sheet).toBeHidden();
       if (mobile) {
         await expect(composer).toBeVisible();
         await page.evaluate(() => {
