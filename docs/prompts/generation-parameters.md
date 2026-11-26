@@ -118,6 +118,21 @@ A value still shows in the box when its Send switch is off. It is not sent until
 
 In a Roleplay chat with **Advanced Memory Recall** on, this limit is not used. Advanced Memory Recall sets how much history is sent with **Maximum allowed context before compression (tokens)**. To send less, lower that setting in **Chat Settings → Memory Recall**. See [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay-and-game-mode).
 
+## Drop old messages in steps
+
+**Drop Old Messages in Steps** is off by default. When it is on, old messages leave the prompt this many at a time instead of one per reply. The count starts at 10, and you can set 2 to 100.
+
+Without it, a long chat drops its oldest message on every reply once it hits a limit. The start of the history then changes every turn, so prompt caching can't reuse it. With a step of 10, the history keeps the same start for about ten new messages, then drops ten at once. Most replies reuse the cached history, and one reply in about ten writes a new cache.
+
+It applies to every place old messages are cut:
+
+- **Limit Context Messages**.
+- The connection's context size, when the prompt is too long to fit.
+- **Max messages** on the preset's Chat History.
+- Summarised messages that leave the **Recent message tail** when **Hide summarised messages** is on.
+
+The cost: right after a step, the AI sees up to that many fewer old messages than would fit. Advanced Memory Recall sizes the history by scenes instead, so this setting is hidden while it is on.
+
 ## Exclude Past Reasoning
 
 **Exclude Past Reasoning** is on by default. It keeps saved reasoning from earlier turns out of new prompts. Leave it on unless you have a clear reason to feed old reasoning back.

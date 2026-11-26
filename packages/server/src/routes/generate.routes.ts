@@ -901,7 +901,11 @@ import {
   resolveGenerationProviderRuntime,
   resolveReasoningMacroValue,
 } from "../services/generation/provider-generation-runtime.js";
-import { applyContextMessageLimitWithPins, supportsNativeToolCalls } from "@marinara-engine/shared";
+import {
+  applyContextMessageLimitWithPins,
+  normalizeHistoryDropStep,
+  supportsNativeToolCalls,
+} from "@marinara-engine/shared";
 import { planGameToolCalls } from "../services/generation/game-tool-planning.js";
 import { extractLeadingGmPlanning, stripStrayRuleLines } from "../services/game/gm-planning.js";
 import {
@@ -2549,13 +2553,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       // ── Context message limit (from chat metadata, off by default) ──
       const lorebookKeeperSettings = getLorebookKeeperSettings(chatMeta);
       const contextMessageLimit = chatMeta.contextMessageLimit as number | null;
+      const historyDropStep = normalizeHistoryDropStep(chatMeta.historyDropStep);
       if (
         !advancedMemoryEnabled &&
         contextMessageLimit &&
         contextMessageLimit > 0 &&
         chatMessages.length > contextMessageLimit
       ) {
-        chatMessages = applyContextMessageLimitWithPins(chatMessages, contextMessageLimit);
+        chatMessages = applyContextMessageLimitWithPins(chatMessages, contextMessageLimit, undefined, historyDropStep);
       }
       const pastReasoning = collectPastReasoningMetadata(
         chatMessages,
@@ -4271,6 +4276,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               }
             })(),
             chatMessages: mappedMessages,
+            historyDropStep,
             lorebookScanMessages: toLorebookScanMessages(),
             chatSummary: activeChatSummary,
             chatSummaryReaders,
@@ -4419,6 +4425,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             deferPresenceDelayToResponders,
             supportsHiddenFromAI,
             contextMessageLimit,
+            historyDropStep,
             chatMessages,
             finalMessages,
             abortSignal: generationSignal,
@@ -9976,6 +9983,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           const textChatOptions: ChatOptions = {
             ...(advancedMemoryEnabled ? { preserveContext: true } : {}),
+            historyDropStep,
             localPriority: "reply",
             model: conn.model,
             temperature,
@@ -10056,6 +10064,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     localPriority: "reply",
                     model: conn.model,
                     preserveContext: advancedMemoryEnabled,
+                    historyDropStep,
                     temperature,
                     maxTokens: effectiveMaxTokensForSend,
                     maxContext: maxContextForSend,

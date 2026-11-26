@@ -170,6 +170,8 @@ export interface AssemblerInput {
   lorebookScanMessages?: ChatMLMessage[];
   /** Current chat summary text (if any) */
   chatSummary?: string | null;
+  /** Chat setting "Drop in steps of" (`historyDropStep`), for Chat History's Max messages. */
+  historyDropStep?: number;
   /** Characters a merged group reply may voice; the Chat Summary marks who knows what (#7252). */
   chatSummaryReaders?: readonly CharacterMacroProfile[];
   /** Presence enables advanced memory placement; values must already be audience-scoped. */
@@ -547,6 +549,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     personaFields: input.personaFields,
     personaStats: input.personaStats,
     chatMessages: input.chatMessages,
+    historyDropStep: input.historyDropStep,
     lorebookScanMessages: input.lorebookScanMessages,
     chatSummary,
     chatSummaryReaders: input.chatSummaryReaders,

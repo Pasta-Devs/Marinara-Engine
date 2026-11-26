@@ -9,6 +9,7 @@ import {
   isExternallyImportedAgent,
   publicAgentOutput,
   resolveMacros,
+  steppedDropCount,
 } from "@marinara-engine/shared";
 import type {
   CharacterMacroProfile,
@@ -61,6 +62,8 @@ export interface MarkerContext {
   /** Raw personaStats JSON (for rpgStats injection) */
   personaStats?: any;
   chatMessages: ChatMLMessage[];
+  /** Chat setting "Drop in steps of": Chat History's Max messages lets old messages go this many at once. */
+  historyDropStep?: number;
   /** Optional scan-only messages for lorebook matching. */
   lorebookScanMessages?: ChatMLMessage[];
   chatSummary: string | null;
@@ -597,8 +600,13 @@ export async function expandChatHistory(
   }
 
   // Limit messages if configured. The limit counts the whole history, before Recent History takes its share.
+  // With "Drop in steps of", old messages leave a whole step at a time so the start stays put between steps.
   if (opts.maxMessages && opts.maxMessages > 0) {
-    messages = messages.slice(-opts.maxMessages);
+    const drop = Math.min(
+      messages.length - 1,
+      steppedDropCount(messages.length, opts.maxMessages, ctx.historyDropStep ?? 1),
+    );
+    if (drop > 0) messages = messages.slice(drop);
   }
 
   // Count from the newest message, so the older part only ever grows at its end and stays a cacheable prefix.

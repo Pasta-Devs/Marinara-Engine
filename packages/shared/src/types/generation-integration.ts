@@ -86,6 +86,8 @@ export interface ChatOptions {
   maxContext?: number;
   /** Managed context must fail visibly instead of silently trimming scene history or instructions. */
   preserveContext?: boolean;
+  /** When history must be trimmed to fit, drop it in whole steps of this many messages (chat `historyDropStep`). */
+  historyDropStep?: number;
   topP?: number;
   topK?: number;
   minP?: number;

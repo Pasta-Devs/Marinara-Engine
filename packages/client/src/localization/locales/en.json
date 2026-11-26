@@ -14161,6 +14161,8 @@
   "ui.chatSettings.advancedparameterssection.contextMessageLimit": "Context message limit",
   "ui.chatSettings.advancedparameterssection.contextMessageLimitAdvancedMemory": "With Advanced Memory Recall on, its Maximum allowed context decides how much history is sent.",
   "ui.chatSettings.advancedparameterssection.describeImageAttachmentsWithASelectedConnectionInsteadOf": "Have another connection describe attached images in words instead of sending the images. Use this for text-only models.",
+  "ui.chatSettings.advancedparameterssection.dropInSteps": "Drop Old Messages in Steps",
+  "ui.chatSettings.advancedparameterssection.dropInStepsDescription": "When the history is too long, drop this many of the oldest messages at once instead of one per reply. The rest of the history then stays the same for several replies, so prompt caching keeps working. Applies to the message limit, the context size, Chat History's Max messages and hidden summarised messages.",
   "ui.chatSettings.advancedparameterssection.excludePastReasoning": "Exclude Past Reasoning",
   "ui.chatSettings.advancedparameterssection.imageCaptioning": "Image captioning",
   "ui.chatSettings.advancedparameterssection.keepStoredThinkingReasoningMetadataOutOfFuturePrompts": "Keep stored thinking/reasoning metadata out of future prompts.",

@@ -31,7 +31,9 @@ import {
   withTrackerIdAlias,
   type CharacterCardCastSource,
   type CharacterMacroProfile,
+  normalizeHistoryDropStep,
   normalizeSummaryTailMessages,
+  steppedDropCount,
   normalizeWorldCustomFields,
   isTrackerRowsUpdate,
   isNamedTrackerRow,
@@ -897,7 +899,12 @@ export function capSummarizedHistory<T extends { id: string; extra?: unknown }>(
   if (covered.size === 0) return { messages, backlog: 0 };
   const entries = normalizeChatSummaryEntries(chatMeta.summaryEntries);
   const summarized = new Set(entries.flatMap((entry) => entry.messageIds ?? []));
-  const cut = messages.length - resolveRoleplaySummaryTail(chatMeta.summaryTailMessages);
+  // "Drop in steps of": covered messages leave the tail a whole step at a time, not one per turn.
+  const cut = steppedDropCount(
+    messages.length,
+    resolveRoleplaySummaryTail(chatMeta.summaryTailMessages),
+    normalizeHistoryDropStep(chatMeta.historyDropStep),
+  );
   let backlog = 0;
   const kept = messages.filter((message, index) => {
     if (index >= cut) return true;

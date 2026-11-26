@@ -32,6 +32,7 @@ import {
   isBuiltInAgentRuntimeDisabled,
   normalizeAdvancedMemorySettings,
   applyContextMessageLimitWithPins,
+  normalizeHistoryDropStep,
   advancedMemoryDecisionDiagnosticsSchema,
   type DecisionDebugReport,
   type AdvancedMemoryDecisionDiagnostics,
@@ -822,13 +823,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       ? resolveRegenerationGameStateAnchor(scopedMessages, regenerateMessageId)
       : resolveVisibleGameStateAnchor(allChatMessages);
     const contextMessageLimit = chatMeta.contextMessageLimit as number | null;
+    const historyDropStep = normalizeHistoryDropStep(chatMeta.historyDropStep);
     if (
       !advancedMemoryEnabled &&
       contextMessageLimit &&
       contextMessageLimit > 0 &&
       chatMessages.length > contextMessageLimit
     ) {
-      chatMessages = applyContextMessageLimitWithPins(chatMessages, contextMessageLimit);
+      chatMessages = applyContextMessageLimitWithPins(chatMessages, contextMessageLimit, undefined, historyDropStep);
     }
 
     // Ephemeral user line (normal dry run only): mirrors an unsaved "what if I said this" turn.
@@ -1925,6 +1927,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           }
         })(),
         chatMessages: mappedMessages,
+        historyDropStep,
         chatSummary: resolvedInjectChatSummary ? activeChatSummary : null,
         chatSummaryReaders,
         ...(advancedMemoryEnabled ? { advancedMemory: {}, deferAdvancedMemory: true } : {}),
@@ -2711,6 +2714,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           await advancedMemoryService!.validatePrepared(chatId, advancedMemorySourceMessages, advancedContext.receipt);
         const result = await provider.chatComplete(providerMessages as any, {
           preserveContext: Boolean(advancedContext),
+          historyDropStep,
           model: conn.model,
           temperature,
           maxTokens: maxTokensForSend,
@@ -2779,6 +2783,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         await advancedMemoryService!.validatePrepared(chatId, advancedMemorySourceMessages, advancedContext.receipt);
       const result = await provider.chatComplete(providerMessages as any, {
         preserveContext: Boolean(advancedContext),
+        historyDropStep,
         model: conn.model,
         temperature,
         maxTokens: maxTokensForSend,

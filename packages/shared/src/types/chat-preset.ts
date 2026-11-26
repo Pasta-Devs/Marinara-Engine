@@ -252,6 +252,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   // Generation and context
   "chatParameters", // Advanced Parameters: only for chats on the profile's connection
   "contextMessageLimit", // How many messages go into the context
+  "historyDropStep", // How many old messages leave the context at once
   "excludePastReasoning", // Leave earlier reasoning out of the context
   "pastReasoningLimit", // How many earlier reasoning blocks to keep
   "lorebookTokenBudget", // Token budget for lorebook entries

@@ -65,6 +65,7 @@ import {
   readGameInventoryTurn,
   rulesetLiveStatesSchema,
   applyContextMessageLimitWithPins,
+  normalizeHistoryDropStep,
   isMessagePinnedToContext,
   normalizeMessageMarkPatch,
   normalizeGroupChatMode,
@@ -4153,7 +4154,12 @@ export async function chatsRoutes(app: FastifyInstance) {
           // Apply context message limit
           const contextLimit = chatMeta.contextMessageLimit as number | null;
           if (contextLimit && contextLimit > 0 && filteredMessages.length > contextLimit) {
-            filteredMessages = applyContextMessageLimitWithPins(filteredMessages, contextLimit);
+            filteredMessages = applyContextMessageLimitWithPins(
+              filteredMessages,
+              contextLimit,
+              undefined,
+              normalizeHistoryDropStep(chatMeta.historyDropStep),
+            );
           }
 
           const mappedMessages = filteredMessages.map((m: any) => ({

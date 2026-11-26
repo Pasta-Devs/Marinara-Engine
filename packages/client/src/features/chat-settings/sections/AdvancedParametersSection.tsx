@@ -32,7 +32,12 @@ import {
 import { useEffectiveChatModel } from "../../../components/connections/ConnectionSwitcherBody";
 import { cn } from "../../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { DEFAULT_IMAGE_CAPTIONING_PROMPT, parseConnectionImageCaptioningDefaults } from "@marinara-engine/shared";
+import {
+  DEFAULT_IMAGE_CAPTIONING_PROMPT,
+  HISTORY_DROP_STEP,
+  normalizeHistoryDropStep,
+  parseConnectionImageCaptioningDefaults,
+} from "@marinara-engine/shared";
 
 const EDITABLE_PARAMETER_KEYS: Array<keyof EditableGenerationParameters> = [
   "temperature",
@@ -74,6 +79,9 @@ interface AdvancedParametersSectionProps {
   imageCaptioningConnectionId: string | null | undefined;
   onChatParametersChange: (chatParameters: Record<string, unknown>) => void;
   onContextMessageLimitChange: (value: number | null) => void;
+  /** "Drop in steps of": old messages leave the prompt this many at a time (null or 1 = one at a time). */
+  historyDropStep: number | null | undefined;
+  onHistoryDropStepChange: (value: number | null) => void;
   onExcludePastReasoningChange: (value: boolean) => void;
   onPastReasoningLimitChange: (value: number) => void;
   onImageCaptioningChange: (patch: {
@@ -101,11 +109,14 @@ export function AdvancedParametersSection({
   imageCaptioningConnectionId,
   onChatParametersChange,
   onContextMessageLimitChange,
+  historyDropStep,
+  onHistoryDropStepChange,
   onExcludePastReasoningChange,
   onPastReasoningLimitChange,
   onImageCaptioningChange,
 }: AdvancedParametersSectionProps) {
   const { t: localizeUi } = useUiTranslation();
+  const dropStep = normalizeHistoryDropStep(historyDropStep);
   const modeDefaults = isConversation ? CHAT_PARAMETER_DEFAULTS : ROLEPLAY_PARAMETER_DEFAULTS;
   const strictModeDefaults: EditableGenerationParameters = {
     ...modeDefaults,
@@ -336,6 +347,38 @@ export function AdvancedParametersSection({
               max={9999}
               value={contextMessageLimit}
               onCommit={(value) => onContextMessageLimitChange(Math.max(1, Math.min(9999, value)))}
+              selectOnFocus
+              className="w-20 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+            />
+            <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+              {localizeUi("ui.agents.agenteditor.messages")}
+            </span>
+          </div>
+        )}
+        {!advancedMemoryManagesHistory && (
+          <SettingsSwitch
+            label={localizeUi("ui.chatSettings.advancedparameterssection.dropInSteps")}
+            description={localizeUi("ui.chatSettings.advancedparameterssection.dropInStepsDescription")}
+            checked={dropStep > 1}
+            onChange={(checked) => onHistoryDropStepChange(checked ? HISTORY_DROP_STEP.SUGGESTED : null)}
+            labelPosition="start"
+            className={cn(
+              "justify-between rounded-lg px-3 py-2.5 text-left",
+              dropStep > 1
+                ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+            )}
+            labelClassName="text-xs font-medium"
+          />
+        )}
+        {!advancedMemoryManagesHistory && dropStep > 1 && (
+          <div className="flex items-center gap-2 px-1" data-history-drop-step>
+            <DraftNumberInput
+              aria-label={localizeUi("ui.chatSettings.advancedparameterssection.dropInSteps")}
+              min={2}
+              max={HISTORY_DROP_STEP.MAX}
+              value={dropStep}
+              onCommit={(value) => onHistoryDropStepChange(Math.max(2, Math.min(HISTORY_DROP_STEP.MAX, value)))}
               selectOnFocus
               className="w-20 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
             />
