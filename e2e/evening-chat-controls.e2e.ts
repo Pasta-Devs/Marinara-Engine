@@ -148,8 +148,9 @@ for (const theme of ["dark", "light"] as const) {
       expect(await docsButton.evaluate((button, original) => button === original, originalButton)).toBe(true);
       await docsButton.click();
       await expect(docsButton).toHaveText("Copié");
-      await expect(docsButton).toHaveAccessibleName("Copier le code");
+      await expect(docsButton).toHaveAccessibleName("Copié");
       await expect(docsButton).toHaveText("Copier");
+      await expect(docsButton).toHaveAccessibleName("Copier le code");
     } finally {
       await page.request.delete(`/api/chats/${chat.id}/messages/${message.id}`);
     }
