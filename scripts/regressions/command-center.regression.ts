@@ -4194,7 +4194,6 @@ assert.ok(!("mariDetailId" in mariSession));
   // Slice 67: output that grows past the fold while the reader is not following shows the jump arrow.
   let grow = () => {};
   const realResizeObserver = globalThis.ResizeObserver;
-  const realRequestAnimationFrame = globalThis.requestAnimationFrame;
   globalThis.ResizeObserver = class {
     constructor(callback: () => void) {
       grow = callback;
@@ -4202,8 +4201,13 @@ assert.ok(!("mariDetailId" in mariSession));
     observe() {}
     disconnect() {}
   } as unknown as typeof ResizeObserver;
-  globalThis.requestAnimationFrame = (() => 0) as unknown as typeof requestAnimationFrame;
-  const scroller = { clientHeight: 500, scrollHeight: 769, scrollTop: 1 } as unknown as HTMLElement;
+  const scroller = {
+    clientHeight: 500,
+    scrollHeight: 769,
+    scrollTop: 1,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as HTMLElement;
   const reports: boolean[] = [];
   let following = false;
   const { stop } = followTranscriptGrowth(
@@ -4218,7 +4222,6 @@ assert.ok(!("mariDetailId" in mariSession));
   grow();
   stop();
   globalThis.ResizeObserver = realResizeObserver;
-  globalThis.requestAnimationFrame = realRequestAnimationFrame;
   assert.deepEqual(
     reports,
     [true, false],
@@ -4232,7 +4235,6 @@ assert.ok(!("mariDetailId" in mariSession));
   // is shown pins a reader who was following to the newest line.
   let grow = () => {};
   const realResizeObserver = globalThis.ResizeObserver;
-  const realRequestAnimationFrame = globalThis.requestAnimationFrame;
   globalThis.ResizeObserver = class {
     constructor(callback: () => void) {
       grow = callback;
@@ -4240,8 +4242,13 @@ assert.ok(!("mariDetailId" in mariSession));
     observe() {}
     disconnect() {}
   } as unknown as typeof ResizeObserver;
-  globalThis.requestAnimationFrame = (() => 0) as unknown as typeof requestAnimationFrame;
-  const scroller = { clientHeight: 0, scrollHeight: 769, scrollTop: 0 } as unknown as HTMLElement;
+  const scroller = {
+    clientHeight: 0,
+    scrollHeight: 769,
+    scrollTop: 0,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as HTMLElement;
   const stack = { addEventListener() {}, removeEventListener() {} } as unknown as HTMLElement;
   const { stop } = followTranscriptGrowth(scroller, stack, () => true);
   grow();
@@ -4250,7 +4257,6 @@ assert.ok(!("mariDetailId" in mariSession));
   grow();
   stop();
   globalThis.ResizeObserver = realResizeObserver;
-  globalThis.requestAnimationFrame = realRequestAnimationFrame;
   assert.equal(scroller.scrollTop, 769, "a reopened window pins a following reader to the bottom");
 }
 

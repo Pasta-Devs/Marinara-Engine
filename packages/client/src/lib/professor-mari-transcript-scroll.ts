@@ -101,10 +101,14 @@ export function followTranscriptGrowth(
   stack.addEventListener("click", noteReaderClick, true);
   // The scroll event of a pin arrives a frame later. When a second picture grew in between, the scroll handler
   // finds the reader far from the new bottom and clears "following". A transcript still where the last pin left
-  // it has not been moved by the reader, as in landProfessorMariTranscript. That event has come two frames later
-  // (as for a click). A send stops following on purpose and calls `unpin`: in an empty chat its question stays at
-  // the top, where the pin on Enter left it a frame before, and her reply must not be followed.
+  // it has not been moved by the reader, as in landProfessorMariTranscript. Any scroll to another position (the
+  // reader, her landing, a send) ends that, whenever its event comes. A send stops following on purpose and calls
+  // `unpin`: in an empty chat its question stays at the top, where the pin on Enter left it, so nothing scrolls.
   let pinnedTop: number | null = null;
+  const notePinLeft = () => {
+    if (scroller.scrollTop !== pinnedTop) pinnedTop = null;
+  };
+  scroller.addEventListener("scroll", notePinLeft, { passive: true });
   const observer = new ResizeObserver(() => {
     const revealed = !shown && scroller.clientHeight > 0;
     shown = scroller.clientHeight > 0;
@@ -126,13 +130,7 @@ export function followTranscriptGrowth(
     });
     if (scrollTo === "bottom") {
       scrollProfessorMariTranscriptToBottom(scroller);
-      const top = (pinnedTop = scroller.scrollTop);
-      // A later pin keeps its own two frames.
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          if (pinnedTop === top) pinnedTop = null;
-        }),
-      );
+      pinnedTop = scroller.scrollTop;
     }
     // Slice 67: output that grew past the fold while the reader is not following gets the jump arrow,
     // not only after they scroll by hand - otherwise her answer can end hidden under the composer.
@@ -143,6 +141,7 @@ export function followTranscriptGrowth(
     stop: () => {
       observer.disconnect();
       stack.removeEventListener("click", noteReaderClick, true);
+      scroller.removeEventListener("scroll", notePinLeft);
     },
     unpin: () => {
       pinnedTop = null;

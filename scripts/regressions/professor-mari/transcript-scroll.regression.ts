@@ -70,7 +70,8 @@ assert.equal(
 // once. A following reader at the bottom stays on the newest line; one who scrolled away stays where they are, even
 // before their scroll event clears "following"; a disclosure the reader opens stays where they opened it; a click on
 // her reply text just before a picture loads does not stop the follow; neither does the pin's own scroll event when
-// it arrives after the next picture grew; and a pin long past does not make a later send follow her reply.
+// it arrives after the next picture grew; a pin from just before a send does not make it follow her reply; and a pin
+// the transcript has scrolled off no longer counts.
 {
   let grow = () => {};
   let click = (_event: { target: unknown }) => {};
@@ -92,7 +93,12 @@ assert.equal(
   } as unknown as typeof ResizeObserver;
   globalThis.requestAnimationFrame = ((frame: () => void) => frames.push(frame)) as typeof requestAnimationFrame;
   try {
-    const scroller = { clientHeight: 600, scrollHeight: 4000, scrollTop: 3400 };
+    let scrolled = () => {}; // the transcript's scroll event
+    const scrollEvents = {
+      addEventListener: (type: string, listener: () => void) => type === "scroll" && (scrolled = listener),
+      removeEventListener() {},
+    };
+    const scroller = { clientHeight: 600, scrollHeight: 4000, scrollTop: 3400, ...scrollEvents };
     const summary = {}; // the summary of a disclosure in her newest reply
     const stack = {
       addEventListener: (type: string, listener: typeof click) => type === "click" && (click = listener),
@@ -128,18 +134,16 @@ assert.equal(
     grow();
     assert.equal(scroller.scrollTop, 6448, "a click on her reply text does not stop a picture keeping the newest line");
     nextFrame();
-    following = false; // that pin's scroll event arrived after the next picture grew, 512px above the new bottom
-    scroller.scrollHeight = 6960;
+    scroller.scrollHeight = 6960; // the next picture grew before that pin's scroll event arrived
+    scrolled();
+    following = false; // the scroll handler found the reader 512px above the new bottom
     grow();
     assert.equal(scroller.scrollTop, 6960, "the pin's own scroll event does not stop the next picture's follow");
-    nextFrame(); // the pin before it no longer counts, and this one still does
-    scroller.scrollHeight = 7472; // a third picture, in the frame after
+    scroller.scrollTop = 6300; // the reader scrolled up a little; their scroll event cleared "following"
+    scrolled();
+    scroller.scrollHeight = 7472;
     grow();
-    assert.equal(scroller.scrollTop, 7472, "a third picture in the next frame is followed too");
-    scroller.scrollTop = 6800; // the reader scrolled up a little; their scroll event cleared "following"
-    scroller.scrollHeight = 7984;
-    grow();
-    assert.equal(scroller.scrollTop, 6800, "a reader who moved after the pin is not pulled down");
+    assert.equal(scroller.scrollTop, 6300, "a reader who moved after the pin is not pulled down");
     stop();
     // An empty chat: everything fits, so the pin on Enter (her welcome gives way to the question) leaves the
     // transcript at the top. The send right after it stops following and places her question under the header, which
@@ -149,17 +153,20 @@ assert.equal(
       scrollHeight: 400,
       top: 0,
       get scrollTop() {
-        return this.top;
+        return Math.min(this.top, Math.max(0, this.scrollHeight - this.clientHeight));
       },
       set scrollTop(value: number) {
         this.top = Math.max(0, Math.min(value, this.scrollHeight - this.clientHeight));
       },
+      ...scrollEvents,
     };
     following = true;
+    const reports: boolean[] = [];
     const shortFollow = followTranscriptGrowth(
       short as unknown as HTMLElement,
       stack as unknown as HTMLElement,
       () => following,
+      (newerBelow) => reports.push(newerBelow),
     );
     grow(); // Enter: the question replaces her welcome, and the follow pins it where it is
     assert.equal(short.scrollTop, 0);
@@ -171,16 +178,24 @@ assert.equal(
     grow();
     assert.equal(short.scrollTop, 0, "the first question in an empty chat stays under the header as her reply grows");
     short.scrollTop = 800; // the reader scrolled to the bottom, so they follow again
+    scrolled();
     following = true;
     short.scrollHeight = 1912; // a picture
     grow();
     assert.equal(short.scrollTop, 1312);
-    nextFrame();
-    nextFrame(); // that pin's scroll event has come
-    following = false; // and following stopped without the transcript moving
-    short.scrollHeight = 2424;
+    scrolled(); // that pin's own scroll event
+    short.scrollTop = 900; // the reader scrolled up to read, and stopped following
+    scrolled();
+    following = false;
+    short.scrollHeight = 2600; // her next lines grew below
     grow();
-    assert.equal(short.scrollTop, 1312, "a pin two frames past does not keep following");
+    short.scrollTop = 1312; // they scrolled down again, to where the old pin left them, still 688px above the bottom
+    scrolled();
+    reports.length = 0;
+    short.scrollHeight = 3000;
+    grow();
+    assert.deepEqual(reports, [true], "a reader back where an old pin left them still gets the jump arrow");
+    assert.equal(short.scrollTop, 1312);
     shortFollow.stop();
   } finally {
     globalThis.ResizeObserver = realResizeObserver;
