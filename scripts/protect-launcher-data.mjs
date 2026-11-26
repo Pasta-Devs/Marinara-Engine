@@ -2,7 +2,7 @@
 
 import { execFileSync } from "node:child_process";
 import { chmod, cp, lstat, mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, resolve, sep } from "node:path";
 import { parseEnv } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -584,10 +584,20 @@ export async function snapshotLauncherData({
   // that socket and fail with EINVAL, aborting the whole update (#6046). Nothing
   // in the lease is user data, so leave the directory out entirely.
   const writerLeaseDir = resolve(dataDir, "storage", ".writer-lease");
-  // DATA_DIR/backups holds the automatic, manual and pre-import backups, which are
-  // copies of this same data. Copying them grew every update snapshot by each backup
-  // kept (25 GB with five daily ones, #9861), and a restore does not need them.
+  // The daily automatic backups in DATA_DIR/backups are zips of this same data.
+  // Copying them grew every update snapshot by each one kept (25 GB with five,
+  // #9861). Manual and pre-import backups there are still copied. The names follow
+  // isAutomaticBackupFilename in automatic-backup-retention.ts, plus the .pending
+  // file written during a run and the legacy .previous copy.
   const backupsDir = resolve(dataDir, "backups");
+  const isAutomaticBackup = (path) => {
+    if (dirname(path) !== backupsDir) return false;
+    const name = basename(path).replace(/\.(?:pending|previous)$/u, "");
+    return (
+      name === "marinara-automatic-backup.zip" ||
+      (name.startsWith("marinara-automatic-backup-") && name.endsWith(".zip"))
+    );
+  };
 
   await rm(incompleteDir, { recursive: true, force: true });
   try {
@@ -602,7 +612,7 @@ export async function snapshotLauncherData({
           sourcePath === capabilityRuntimeLink ||
           sourcePath === capabilityRuntimeSnapshots ||
           sourcePath === writerLeaseDir ||
-          sourcePath === backupsDir
+          isAutomaticBackup(sourcePath)
         ) return false;
         if (
           !downloadableDataDirs.every(
