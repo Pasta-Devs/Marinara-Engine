@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
@@ -134,9 +134,11 @@ test("a long Mari chat opens at its newest turn and reopens at once", async ({ p
 /**
  * #9821: her replies show the pictures she made, and a picture loads after she has landed on the newest line. It grew
  * the transcript by its whole height at once, which the follow read as the reader having left the bottom, so she
- * stayed put and the newest line ended up far below the fold.
+ * stayed put and the newest line ended up far below the fold. With `clickReplyText`, the reader clicks plain text in
+ * her newest reply as each picture loads, so the click comes just before the picture grows the transcript: only a
+ * disclosure the reader opens may stop the follow (#9821 review).
  */
-test("pictures that load after she lands keep her newest line in view", async ({ page, request }) => {
+async function picturesLoadAfterLanding(page: Page, request: APIRequestContext, clickReplyText: boolean) {
   test.setTimeout(90_000);
   const picture = readFileSync(new URL("../packages/client/public/icon-512.png", import.meta.url));
   // The pictures are held until her landing has let go, so they always grow the transcript after it.
@@ -213,6 +215,17 @@ test("pictures that load after she lands keep her newest line in view", async ({
     // The pictures near her newest line asked to load (they are lazy, so one scrolled above her chat does not).
     const held = [...heldPictures];
     expect(held.length, "a picture was held across her landing").toBeGreaterThan(0);
+    if (clickReplyText) {
+      await pane.getByText(newest).evaluate((line) => {
+        document.addEventListener(
+          "load",
+          (event) => {
+            if ((event.target as Element).tagName === "IMG") (line as HTMLElement).click();
+          },
+          true,
+        );
+      });
+    }
     releasePictures();
     // Every held picture has loaded and taken its height.
     await expect
@@ -237,7 +250,13 @@ test("pictures that load after she lands keep her newest line in view", async ({
     releasePictures();
     await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
   }
-});
+}
+
+test("pictures that load after she lands keep her newest line in view", ({ page, request }) =>
+  picturesLoadAfterLanding(page, request, false));
+
+test("a click on her reply text just before the pictures load does not stop the follow", ({ page, request }) =>
+  picturesLoadAfterLanding(page, request, true));
 
 /**
  * #9821 review: the follow that keeps a picture's growth on her newest line must not treat a disclosure the reader

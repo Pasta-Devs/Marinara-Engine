@@ -90,9 +90,11 @@ export function followTranscriptGrowth(
   // Growth the reader causes - a disclosure in her reply they open (her steps, her reasoning, "Why", "Show
   // all") - lands in the frame after their click, and they read it from where they opened it. The
   // before-the-growth test below skips that frame, so a long one does not scroll its start away. A frame
-  // runs its animation callbacks before its ResizeObserver, so the flag clears in the frame after.
+  // runs its animation callbacks before its ResizeObserver, so the flag clears in the frame after. Only a
+  // disclosure counts: a click on her reply text just before a picture loads must not stop the follow.
   let readerClicked = false;
-  const noteReaderClick = () => {
+  const noteReaderClick = (event: Event) => {
+    if (!stack.contains((event.target as Element).closest("summary, [aria-expanded]"))) return;
     readerClicked = true;
     requestAnimationFrame(() => requestAnimationFrame(() => (readerClicked = false)));
   };
