@@ -128,6 +128,11 @@ try {
       variables: { add: [{ variableName: "hobby", question: "Hobby?", options: ["Art"] }], after: "player" },
     });
     assert.equal(added.ok, true, added.error);
+    assert.deepEqual((compactMutationResult(added) as { questionCounts?: unknown }).questionCounts, {
+      added: 1,
+      updated: 0,
+      removed: 0,
+    });
     const afterAdd = (await get()).onboarding!;
     assert.deepEqual(
       afterAdd.variables.map((q) => q.variableName),

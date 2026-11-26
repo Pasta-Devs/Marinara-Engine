@@ -40,7 +40,7 @@ const commands = body
   .filter((line) => line.startsWith('{"action"'))
   .map((line) => JSON.parse(line) as Command);
 
-const write = commands.find((command) => command.action === "character.onboarding.update");
+const write = commands.find((command) => command.action === "character.onboarding.update" && !command.questionOps);
 assert.ok(write, "there is a character.onboarding.update worked example");
 const cardEdit = commands.find((command) => command.action === "character.update");
 assert.ok(cardEdit, "the example also writes the character question's {{name}} into the card");

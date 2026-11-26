@@ -100,22 +100,15 @@ A sent `options` array replaces that question's options. To rename, select by id
 variableName. Operations run update, remove, add. Add appends by default. Set `after` to an
 existing question's name or id to insert the entire add batch immediately after it.
 
-```json
-{
-  "action": "character.onboarding.update",
-  "characterId": "<id>",
-  "questionOps": {
-    "variables": { "add": [{ "variableName": "hobby", "question": "Your hobby?" }], "after": "player" }
-  },
-  "reason": "Adds a hobby question after the name.",
-  "apply": true
-}
+```text
+{"action":"character.onboarding.update","characterId":"<id>","questionOps":{"variables":{"add":[{"variableName":"hobby","question":"Your hobby?"}],"after":"player"}},"reason":"Adds a hobby question after the name.","apply":true}
 ```
 
 Top-level onboarding fields replace when sent, and omitted fields stay. A sent whole question list
 replaces that list for full rewrites. Send either the whole list or questionOps for a given
 list in one call. questionOps requires an existing readable block. An unknown or ambiguous selector
-is refused with available names. Remove any template reference before removing its question.
+is refused with available names. When removing a persona question, send corrected template fields in onboarding alongside questionOps.
+For character questions, remove the reference from the card with character.update first.
 To switch onboarding off, send `{ "enabled": false }`. To start over, send a full block.
 
 ## Question and option fields

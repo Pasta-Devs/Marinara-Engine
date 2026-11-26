@@ -1474,6 +1474,9 @@ export function compactMutationResult(
     // validation rides up here for the same reason: the message tells her to read validation.notices, and a long
     // preview used to cut them off when they sat after the summary.
     validation: result.validation,
+    ...(isRecord(result.output) && result.output.questionCounts
+      ? { questionCounts: result.output.questionCounts }
+      : {}),
     // app_data passes dropCommand: its command string is "app_data <action> <whole input JSON>", a third copy of
     // what the call already carried. A `mari` CLI command line is the call itself, so it stays.
     ...(options.dropCommand

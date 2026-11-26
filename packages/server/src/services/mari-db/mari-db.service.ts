@@ -3848,7 +3848,6 @@ export class MariDbService {
           existingData,
           args.onboarding ?? args.patch ?? args.data,
           args.questionOps,
-          args.questionOps,
         );
         const extensions = isRecord(existingData.extensions) ? existingData.extensions : {};
         const name = typeof existingData.name === "string" ? existingData.name : "";
@@ -3879,7 +3878,7 @@ export class MariDbService {
           context.command,
           context.sessionId,
         );
-        return { ...withNotices(result, "characters", id, warnings), questionCounts: counts };
+        return { ...withNotices(result, "characters", id, warnings), output: { questionCounts: counts } };
       }
       case "movetofolder": {
         return this.withCharacterFolderMutationLock(async () => {

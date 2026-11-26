@@ -112,7 +112,7 @@ function describeIssue(issue: OnboardingIssue, onboarding: CharacterOnboarding):
     case "plainIf":
       return `The ${issue.field} field has {{if ...}}. Conditions need a #: {{#if name == value}}...{{/if}}.`;
     case "unknownName":
-      return `The ${issue.field} field uses {{${issue.name}}}, but no question has that name (names are case-sensitive). Remove the tag with character.update first if you are removing this question.`;
+      return `The ${issue.field} field uses {{${issue.name}}}, but no question has that name (names are case-sensitive). When removing this question, send the corrected template field in onboarding alongside questionOps.`;
     case "unused": {
       const isCard = onboarding.cardVariables.some(
         (variable) => variable.id === issue.variableId && variable.variableName === issue.name,
@@ -180,7 +180,7 @@ function mergeQuestionOps(stored: CharacterOnboarding, patch: Row, input: unknow
     for (const key of ["add", "update", "remove"]) {
       if (ops[key] !== undefined && !Array.isArray(ops[key])) throw new Error(`${list}.${key} must be an array.`);
     }
-    let questions: Row[] = stored[list].map((question) => ({ ...question }));
+    const questions: Row[] = stored[list].map((question) => ({ ...question }));
     const find = (selector: unknown) => {
       if (typeof selector !== "string" || !selector)
         throw new Error("Question selector must be a nonempty id or variableName.");
@@ -191,7 +191,7 @@ function mergeQuestionOps(stored: CharacterOnboarding, patch: Row, input: unknow
           `Unknown or ambiguous question "${selector}" in ${list}. Available names: ${questions.map((question) => question.variableName).join(", ")}.`,
         );
       }
-      return questions.indexOf(matches[0]);
+      return questions.indexOf(matches[0]!);
     };
     for (const update of (ops.update ?? []) as unknown[]) {
       if (!isRecord(update)) throw new Error("Each question update must be an object.");
