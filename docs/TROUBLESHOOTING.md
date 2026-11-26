@@ -347,7 +347,7 @@ Marinara keeps your data only in its data folder, and a SillyTavern folder impor
 
 - **Your data lives on a network share.** Point `DATA_DIR` in `.env` at a folder on the share, then restart Marinara. See [Storage](CONFIGURATION.md#storage). Move the whole data folder: if you link one folder inside it, such as `avatars` or `backgrounds`, to another drive, Marinara refuses its files with **Path escapes the allowed directory**.
 - **You import a SillyTavern folder from a share.** A typed path must be inside the home folder of the user that runs the server, or you see **Marinara can only read folders inside your home folder**. On the server's own computer, click **Browse** and pick the folder instead. Or add the folder to `IMPORT_ALLOWED_ROOTS` in `.env`, separated by commas, and restart Marinara. Once that setting is set, only its folders are allowed, even for a picked folder, so add your home folder too if you still import from it.
-- **The in-app folder browser opens your home folder.** It lists only folders inside the home folder, whatever `IMPORT_ALLOWED_ROOTS` says. Type the share's path in **SillyTavern folder path** instead.
+- **The in-app folder browser opens your home folder.** It lists only folders inside the home folder, whatever `IMPORT_ALLOWED_ROOTS` says. For a share outside it, add the share's folder to `IMPORT_ALLOWED_ROOTS` and restart Marinara, then type its path in **SillyTavern folder path**.
 - **The share is disconnected.** Reconnect it before you start Marinara, then retry.
 
 ### Backup or Export returns 403
