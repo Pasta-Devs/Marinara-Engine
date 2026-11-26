@@ -769,6 +769,7 @@ export function GameSetupWizard({
   const forgetGameSetupOption = useUIStore((s) => s.forgetGameSetupOption);
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
+  const openModal = useUIStore((s) => s.openModal);
   const sidecarAvailable = !!sidecarConfig.modelPath && sidecarStatus !== "not_downloaded";
 
   // Fetch sidecar status on mount so the dropdown is populated without visiting Connections first
@@ -2789,16 +2790,29 @@ export function GameSetupWizard({
 
                     {/* Party Members */}
                     <div>
-                      <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
-                        {multiplayerPlayers ? (
-                          localizeUi("multiplayer.game.aiCompanions", { count: partyCharacterIds.length })
-                        ) : (
-                          <>
-                            {localizeUi("ui.game.gamesetupwizard.partyMembers")}
-                            {partyCharacterIds.length} {localizeUi("ui.game.gamesetupwizard.selected")}
-                          </>
-                        )}
-                      </label>
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <label className="block text-xs font-medium text-[var(--foreground)]">
+                          {multiplayerPlayers ? (
+                            localizeUi("multiplayer.game.aiCompanions", { count: partyCharacterIds.length })
+                          ) : (
+                            <>
+                              {localizeUi("ui.game.gamesetupwizard.partyMembers")}
+                              {partyCharacterIds.length} {localizeUi("ui.game.gamesetupwizard.selected")}
+                            </>
+                          )}
+                        </label>
+                        {/* A card the game needs may not be in the library yet. The import window opens over the
+                            wizard, which keeps everything entered, and the card joins these pickers (#9868). */}
+                        <button
+                          type="button"
+                          onClick={() => openModal("import-character")}
+                          disabled={isLoading}
+                          className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[0.6875rem] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 disabled:cursor-wait disabled:opacity-50 max-sm:min-h-11"
+                        >
+                          <FileUp size="0.75rem" />
+                          {localizeUi("ui.modals.importcharactermodal.importCharacter")}
+                        </button>
+                      </div>
                       <CharacterSelect
                         kind="character"
                         multiple
