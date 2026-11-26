@@ -3945,6 +3945,7 @@ export function ChatSettingsDrawer({
                             {renderAgentLorebookAttachment("lorebook-keeper")}
                             <LorebookKeeperSettings
                               chat={chat}
+                              metadata={metadata}
                               lorebookKeeperTargetLorebookId={lorebookKeeperTargetLorebookId}
                               lorebookKeeperReadBehindMessages={lorebookKeeperReadBehindMessages}
                               lorebooks={lorebooks}
