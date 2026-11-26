@@ -1751,10 +1751,12 @@ export async function chatsRoutes(app: FastifyInstance) {
     // not reported again for a Model the player has since replaced.
     if (updated && data.connectionId !== undefined && (data.connectionId ?? null) !== (existing.connectionId ?? null)) {
       updated =
-        (await storage.patchMetadata(req.params.id, {
+        (await storage.patchMetadata(req.params.id, (current) => ({
           [CHAT_FOLLOWS_MAIN_KEY]: !data.connectionId,
-          [CHAT_MODEL_DELETED_KEY]: null,
-        })) ?? updated;
+          // Only a recorded deletion is cleared. Writing the key on a fresh chat made the setup wizard's Cancel see a
+          // change it never made, so the empty chat stayed.
+          ...(current[CHAT_MODEL_DELETED_KEY] != null ? { [CHAT_MODEL_DELETED_KEY]: null } : {}),
+        }))) ?? updated;
     }
     if (updated && roleplayTrackerCharacterIdsToSeed.length > 0) {
       try {

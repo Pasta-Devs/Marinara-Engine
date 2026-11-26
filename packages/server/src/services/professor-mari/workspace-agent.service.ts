@@ -616,6 +616,7 @@ export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
   "agent.search",
   "agent.runs",
   "agent.catalog.get",
+  "agent.documentation.get",
   "agent.create",
   "agent.update",
   "preset.list",
@@ -1948,6 +1949,7 @@ const INTERNAL_NAME_WORDS: Record<string, string> = {
   "chat.diagnose": "the chat checkup",
   "agent.list": "your installed agents",
   "agent.catalog.get": "the agent catalog",
+  "agent.documentation.get": "the agent user guide",
   "chat.updatemessage": "a reply repair",
   docs_search: "the docs",
   docs_read: "the docs",
@@ -3279,7 +3281,9 @@ function isOfficialCatalogRead(call: WorkspaceCommandCall): boolean {
     .trim()
     .toLowerCase()
     .replace(/[-_\s]+/gu, "");
-  return normalized === "agent.catalog.get" || normalized === "agents.catalog.get";
+  return ["agent.catalog.get", "agents.catalog.get", "agent.documentation.get", "agents.documentation.get"].includes(
+    normalized,
+  );
 }
 
 function isStateReadCommand(call: WorkspaceCommandCall): boolean {

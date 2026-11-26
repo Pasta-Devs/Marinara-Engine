@@ -91,8 +91,14 @@ import { openZipArchive, type ZipArchive, type ZipEntry, type ZipEntryBudget } f
 import { getBuildBranch } from "../../config/build-info.js";
 import { sidecarSpeechService } from "../sidecar/sidecar-speech.service.js";
 import { writeFileAtomic } from "../../utils/atomic-write.js";
+import { getMonorepoRoot } from "../../config/runtime-config.js";
+import { createPackageDocumentationReader } from "./package-documentation.service.js";
 
 const ROOT = join(DATA_DIR, "capability-packages");
+const readPackageDocumentation = createPackageDocumentationReader({
+  workspaceRoot: getMonorepoRoot(),
+  cacheRoot: join(ROOT, "documentation-cache-v1"),
+});
 const VERSIONS = join(ROOT, "versions");
 const REGISTRY = join(ROOT, "installed.json");
 const UPDATE_DECISIONS = join(ROOT, "update-decisions-v1.json");
@@ -264,6 +270,7 @@ const RELEASE_NOTES_TTL_MS = 5 * 60 * 1000;
 const STORE_URL = resolveCapabilityReleaseNotesUrl(CATALOG_URL, "store.json");
 
 const PREVIEW_CATALOG_URL = resolvePreviewCatalogUrl();
+let documentationCatalog: { at: number; packages: StampedCapabilityCatalogPackage[] } | undefined;
 const MAX_ARTIFACT_BYTES = 100 * 1024 * 1024;
 const MAX_EXPANDED_BYTES = 250 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 8_192;
@@ -9406,6 +9413,10 @@ function capabilityPackageInstallIssueFor(
   if (!declaresApi(829) && plainRecord(ruleset?.sheet)?.progress !== undefined) {
     return "A ruleset whose skills keep practice progress requires schemaVersion 2 and capabilityApi 1.829 or newer";
   }
+  // How the sheet shows a skill's or save's rank, 1.837: a strict key on the sheet.
+  if (!declaresApi(837) && plainRecord(ruleset?.sheet)?.rankDisplay !== undefined) {
+    return "A ruleset that chooses how its sheet shows ranks requires schemaVersion 2 and capabilityApi 1.837 or newer";
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||
@@ -14061,6 +14072,15 @@ export function resolveCapabilityPackageArtifactUrl(entry: CapabilityCatalogPack
   return `${officialArtifactRoot(branch)}/${officialArtifactName(entry, branch) ?? officialArtifactNames(entry)[0]}`;
 }
 
+export function resolveCapabilityPackageDocumentationUrl(documentationUrl: string, catalogUrl = CATALOG_URL): string {
+  const branch = getOfficialAgentBranchFromCatalogUrl(catalogUrl);
+  if (!branch) return documentationUrl;
+  return documentationUrl.replace(
+    /^(https:\/\/github\.com\/Pasta-Devs\/Marinara-(?:Agents|Engine)\/blob\/)(?:main|staging)\//u,
+    `$1${branch}/`,
+  );
+}
+
 /** Each language pack's URL (1.811), on the catalog's own branch as the artifact's is. */
 function resolveCapabilityPackageLocaleUrls(
   entry: CapabilityCatalogPackage,
@@ -15118,12 +15138,18 @@ export const capabilityPackageManager = {
   async catalog(
     fetchCatalog: typeof safeFetch = safeFetch,
     previewCatalogUrl: string | null = PREVIEW_CATALOG_URL,
+    includeStore = true,
   ): Promise<StampedCapabilityCatalog> {
     // Started first so a slow sidecar overlaps the catalog fetch; readStoreListings never rejects.
-    const storesPromise = Promise.all([
-      readStoreListings(STORE_URL, fetchCatalog),
-      readStoreListings(resolveCapabilityReleaseNotesUrl(previewCatalogUrl, "store.json"), fetchCatalog),
-    ]);
+    const storesPromise = includeStore
+      ? Promise.all([
+          readStoreListings(STORE_URL, fetchCatalog),
+          readStoreListings(resolveCapabilityReleaseNotesUrl(previewCatalogUrl, "store.json"), fetchCatalog),
+        ])
+      : Promise.resolve([
+          { listings: new Map(), kits: [] },
+          { listings: new Map(), kits: [] },
+        ]);
     const response = await fetchCatalogDocument(CATALOG_URL, fetchCatalog);
     if (!response.ok) throw new Error(`Catalog request failed with HTTP ${response.status}`);
     // Per-entry tolerant: a catalog entry built for a NEWER Engine (unknown
@@ -15174,6 +15200,9 @@ export const capabilityPackageManager = {
         url: resolveCapabilityPackageArtifactUrl(entry, sourceUrl),
       },
       ...(entry.locales ? { locales: resolveCapabilityPackageLocaleUrls(entry, sourceUrl) } : {}),
+      ...(entry.documentationUrl
+        ? { documentationUrl: resolveCapabilityPackageDocumentationUrl(entry.documentationUrl, sourceUrl) }
+        : {}),
     });
 
     // Re-sorted because the two documents are each sorted only within
@@ -15189,6 +15218,11 @@ export const capabilityPackageManager = {
           CATALOG_SORT_COLLATOR.compare(left.manifest.id, right.manifest.id),
       );
     const listedIds = new Set(packages.map((entry) => entry.manifest.id));
+    // Guide requests commonly follow the Organizer's catalog read. Reuse that
+    // selection instead of making another network round trip for every topic.
+    if (fetchCatalog === safeFetch && previewCatalogUrl === PREVIEW_CATALOG_URL) {
+      documentationCatalog = { at: Date.now(), packages };
+    }
     // Kits only name packages this catalog lists, so Install all never asks for an unknown id.
     const kits = publishedStore.kits
       .map((kit) => ({ ...kit, packages: kit.packages.filter((id) => listedIds.has(id)) }))
@@ -15982,6 +16016,51 @@ export const capabilityPackageManager = {
     return [...(notes?.packages[packageId]?.versions ?? [])].sort((left, right) =>
       compareCapabilityPackageVersions(right.version, left.version),
     );
+  },
+
+  async documentation(packageId: string, guideId = "overview", knownEntry?: StampedCapabilityCatalogPackage) {
+    const readOffline = async () => {
+      const cached = await readPackageDocumentation({ catalogUrl: CATALOG_URL, packageId }, guideId);
+      if (cached.status !== "unavailable" || !PREVIEW_CATALOG_URL) return cached;
+      return readPackageDocumentation({ catalogUrl: PREVIEW_CATALOG_URL, packageId }, guideId);
+    };
+    let entry =
+      knownEntry ??
+      (documentationCatalog && Date.now() - documentationCatalog.at < 5 * 60_000
+        ? documentationCatalog.packages.find((candidate) => candidate.manifest.id === packageId)
+        : undefined);
+    if (!entry) {
+      // Refresh metadata in parallel, but let a validated disk read survive a
+      // restart without spending Mari's entire deadline on a stalled catalog.
+      const catalogPromise = this.catalog(safeFetch, PREVIEW_CATALOG_URL, false).catch(() => null);
+      const cached = await readOffline();
+      if (cached.status !== "unavailable") return cached;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const catalog = await Promise.race([
+          catalogPromise,
+          new Promise<null>((resolve) => {
+            timer = setTimeout(() => resolve(null), 2_000);
+          }),
+        ]);
+        entry = catalog?.packages.find((candidate) => candidate.manifest.id === packageId);
+      } catch {
+        /* An offline catalog must not hide a previously validated guide. */
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    if (entry)
+      return readPackageDocumentation(
+        {
+          catalogUrl: entry.preview && PREVIEW_CATALOG_URL ? PREVIEW_CATALOG_URL : CATALOG_URL,
+          packageId,
+          version: entry.manifest.version,
+          documentationUrl: entry.documentationUrl,
+        },
+        guideId,
+      );
+    return readOffline();
   },
 
   async declineUpdate(packageId: string, version: string) {

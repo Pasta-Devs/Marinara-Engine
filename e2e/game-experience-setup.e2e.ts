@@ -558,11 +558,11 @@ for (const isNewGame of [true, false]) {
       await expect(legacy.getByText("Legacy package setup fixture", { exact: true })).toBeVisible();
       await expect(legacy).toHaveCSS("opacity", "1");
       await page.screenshot({ path: testInfo.outputPath("setup-imported-legacy-experience.png") });
-      await expect(legacy.getByRole("button", { name: "Close setup", exact: true })).toBeFocused();
+      await expect(legacy.getByRole("button", { name: "Close Legacy fixture", exact: true })).toBeFocused();
       await page.keyboard.press("Shift+Tab");
       await expect(legacy.getByRole("button", { name: "Back", exact: true })).toBeFocused();
       await page.keyboard.press("Tab");
-      await expect(legacy.getByRole("button", { name: "Close setup", exact: true })).toBeFocused();
+      await expect(legacy.getByRole("button", { name: "Close Legacy fixture", exact: true })).toBeFocused();
       await legacy.getByRole("button", { name: "Back", exact: true }).click();
       await expect(wizard).toBeFocused();
       await expect(wizard.getByText(/The saved Experience is unavailable/u)).toHaveCount(0);
@@ -734,7 +734,7 @@ test("Experience without inline setup keeps its own setup dialog", async ({ page
   const dialog = page.getByRole("dialog", { name: "Legacy only fixture", exact: true });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("Legacy package setup fixture", { exact: true })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Close setup", exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Close Legacy only fixture", exact: true })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Back", exact: true })).toBeVisible();
   // The package owns the whole form here, so none of the wizard's own steps stay on screen behind it.
   await expect(wizard).toHaveCount(0);

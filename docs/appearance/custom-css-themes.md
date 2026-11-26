@@ -350,6 +350,37 @@ Unset variables follow the widget settings and preset. The matching switch must 
 
 On phones, the three-dot menu expands into round buttons. Its trigger is `[data-chat-tools-menu-button]`, the open stack is `[data-chat-tools-menu]`, and each list item has `data-chat-tools-menu-item` set to its window ID. Tool buttons use `.mari-window-bubble.mari-chat-tools-button` and `data-chat-tools-menu-tool` with that same ID. The stack has no window frame; its buttons follow widget colors and button size, independently of the three switches for the rest of the chat, while keeping their round shape.
 
+## Styling character sheets
+
+A ruleset's character sheet looks the same in Roleplay and Game. These classes and data attributes let a theme style it.
+
+| Part | Class | Data attributes |
+| --- | --- | --- |
+| The whole sheet | `.mari-ruleset-sheet` | `data-ruleset` (the ruleset's ID, such as `local/my-rules`), `data-rank-display` (`value`, `label`, `dots`, `roman` or `number`), `data-editing="true"` while it is edited |
+| The title and **Edit ruleset sheet** button | `.mari-ruleset-sheet__header` | |
+| The tabs | `.mari-ruleset-sheet__tabs` | each tab has `data-tab-id` and `aria-selected` |
+| A group's heading | `.mari-ruleset-sheet__heading` | |
+| A field at the top of the sheet | `.mari-ruleset-sheet__field` (in `.mari-ruleset-sheet__fields`) | `data-field`, or `data-derived` for a worked-out value |
+| A stat | `.mari-ruleset-sheet__ability` (in `.mari-ruleset-sheet__abilities`); its score and check value are `__ability-score` and `__ability-value` | `data-ability`; a group of stats has `data-section` |
+| A pool, such as Health | `.mari-ruleset-sheet__pool` (in `.mari-ruleset-sheet__pools`) | `data-pool`; a group of pools has `data-pool-group` |
+| A track | `.mari-ruleset-sheet__track` (in `.mari-ruleset-sheet__tracks`) | `data-track`; a wound track also has `data-wound="true"` |
+| Conditions | `.mari-ruleset-sheet__conditions` | |
+| A trained skill or save | `.mari-ruleset-sheet__rank` (in `.mari-ruleset-sheet__trained`, by group in `.mari-ruleset-sheet__rank-group`); its rank, or its check value where the ruleset shows ranks as check values (`data-rank-display="value"`), is `__rank-value`, the check value shown beside it on a phone `__rank-check`, its practice `__practice` | `data-skill` or `data-save`, `data-tier` (the tier's ID), `data-rank` (`0` untrained, `1` the next tier, and so on) |
+| A skill or save while the sheet is edited | `.mari-ruleset-sheet-editor__rank` | `data-skill` or `data-save`, `data-tier`, `data-rank` |
+| A list, such as Gear | `.mari-ruleset-sheet__list`; each row is `.mari-ruleset-sheet__list-row` | `data-list`; a ticked row has `data-marked="true"` |
+
+For example, this shows rank 2 of one ruleset as two stars. Add a pair of rules like these for each rank you want to change. Use it only on a ruleset that shows ranks as dots, names, Roman numerals or numbers: where it shows check values, `__rank-value` holds the check value, and this would hide it.
+
+```css
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value {
+  font-size: 0;
+}
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value::after {
+  content: "★★";
+  font-size: 0.6875rem;
+}
+```
+
 ## Related guides
 
 - [Theme Author Guide](theme-author-guide.md)

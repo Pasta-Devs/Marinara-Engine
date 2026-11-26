@@ -130,7 +130,8 @@ for (const width of [1024, 1280, 1440]) {
 
       // The chats sidebar leaves less room beside the chat; the panel still keeps its minimum.
       await page.locator('[data-tour="sidebar-toggle"]').click();
-      await expect(page.locator('[data-component="ChatSidebarSlot"]')).toBeVisible();
+      // Chats opens in the one sidebar (#9492), docked on the right like the panel.
+      await expect(page.locator('[data-component="SidebarSlot"]')).toBeVisible();
       await expectUsableDockedPanel(page);
       await page.screenshot({ path: info.outputPath(`docked-${width}-sidebar.png`), animations: "disabled" });
     } finally {

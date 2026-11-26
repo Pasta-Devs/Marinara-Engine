@@ -407,9 +407,9 @@ export function relevantGenerationParameters(context: GenerationParameterContext
       if (!listed.has(key)) hide(key);
     }
   }
-  // Min P is sent where Top K is (the built-in model and OpenAI-compatible custom servers). A refusal hides only the
-  // setting it names, so it comes after.
-  if (hidden.has("topK")) hide("minP");
+  // Min P is sent only by the built-in model and OpenAI-compatible custom servers, where they send Top K. Anthropic and
+  // Google send Top K but not Min P. A refusal hides only the setting it names, so it comes after.
+  if (hidden.has("topK") || (provider !== "custom" && provider !== "local_sidecar")) hide("minP");
   if (caps?.refusedParameters?.length) hide(...caps.refusedParameters);
 
   return new Set(ALL.filter((key) => !hidden.has(key)));

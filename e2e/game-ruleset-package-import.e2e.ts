@@ -71,9 +71,13 @@ test("a ruleset package file is reviewed with its catalogs and imported; one hol
     await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), appVersion);
     await page.goto("/");
     await clickTopbarPanel(page, "agents");
-    const rulesetInput = page
-      .getByRole("region", { name: "Agents" })
-      .locator('input[type="file"][accept=".ruleset.json,.json"]');
+    const agents = page.getByRole("region", { name: "Agents" });
+    const rulesetInput = agents.locator('input[type="file"][accept=".ruleset.json,.json"]');
+    // Until the panel has read the import policy, a file is refused as if imports were off. People reach this input
+    // through the Import button, which stays disabled until then, so wait for the button too.
+    const importButton = agents.getByRole("button", { name: "Import agents", exact: true });
+    await expect(importButton).toBeVisible();
+    await expect(importButton).not.toHaveAttribute("aria-disabled", "true");
 
     // Anything but a ruleset's files refuses the package, with the reason.
     await rulesetInput.setInputFiles({

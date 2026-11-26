@@ -21,6 +21,9 @@ import {
   applyRulesetSheetOp,
   rulesetRestDiceEntries,
   rulesetPartyDefinition,
+  rulesetRankDisplayText,
+  rulesetTierRank,
+  rulesetTopRank,
   readRulesetPartySheet,
   readResolvedSheetCommandTags,
   rulesetSheetStamp,
@@ -264,8 +267,8 @@ function RulesetSheetConditions({
     : [];
   if (!active.length && (!editable || !pickable.length)) return null;
   return (
-    <div className="space-y-1.5">
-      <p className={labelClass}>{localizeUi("game.ruleset.sheet.conditions")}</p>
+    <div className="mari-ruleset-sheet__conditions space-y-1.5">
+      <p className={`mari-ruleset-sheet__heading ${labelClass}`}>{localizeUi("game.ruleset.sheet.conditions")}</p>
       {active.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {active.map((condition) => (
@@ -375,8 +378,8 @@ function RulesetSheetListView({
   for (const entry of entries) groups.set(entry.place, [...(groups.get(entry.place) ?? []), entry]);
   const ordered = [...groups.entries()].sort(([left], [right]) => (left ?? -1) - (right ?? -1));
   return (
-    <div className="space-y-1.5">
-      <p className={labelClass}>{text(list.label)}</p>
+    <div className="mari-ruleset-sheet__list space-y-1.5" data-list={list.id}>
+      <p className={`mari-ruleset-sheet__heading ${labelClass}`}>{text(list.label)}</p>
       {entries.length === 0 && <p className="text-[0.6875rem] text-[var(--muted-foreground)]">—</p>}
       {ordered.map(([place, group]) => (
         <div key={place ?? "none"} className="space-y-1">
@@ -387,7 +390,11 @@ function RulesetSheetListView({
           )}
           <ul className="m-0 grid list-none gap-1 p-0 sm:grid-cols-2">
             {group.map((entry) => (
-              <li key={entry.key} className={`flex items-center gap-1.5 ${cardClass}`}>
+              <li
+                key={entry.key}
+                className={`mari-ruleset-sheet__list-row flex items-center gap-1.5 ${cardClass}`}
+                data-marked={entry.marked ? "true" : undefined}
+              >
                 {display?.mark && (
                   <span
                     className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center"
@@ -454,7 +461,7 @@ function WoundTrack({
   const full = wound.filled >= wound.levels.length;
 
   return (
-    <div className={`space-y-1.5 ${cardClass}`}>
+    <div className={`mari-ruleset-sheet__track space-y-1.5 ${cardClass}`} data-track={track.id} data-wound="true">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]" title={name}>
           {name}
@@ -839,8 +846,15 @@ export function GameRulesetSheet({
     entry.tier !== untrainedTier &&
     entry.tier !== topTier &&
     rulesetSkillKeepsPractice(definition, entry.id);
+  // The rank as the ruleset asks it shown (1.837); null where it shows the check value. Only a tier's own
+  // name is the ruleset's word to translate: "2" or "II" is not.
+  const rankText = (tier: string | undefined, kind: "skill" | "save") => {
+    const shown = rulesetRankDisplayText(definition, tier, kind);
+    return shown !== null && definition.sheet.rankDisplay === "label" ? text(shown) : shown;
+  };
   const trained = [
     ...definition.sheet.skills.map((skill) => ({
+      kind: "skill" as const,
       id: skill.id,
       label: skill.label,
       section: skill.section,
@@ -849,6 +863,7 @@ export function GameRulesetSheet({
       practice: true,
     })),
     ...definition.sheet.saves.map((save) => ({
+      kind: "save" as const,
       id: save.id,
       label: save.label,
       section: save.section,
@@ -865,7 +880,15 @@ export function GameRulesetSheet({
           0,
         ),
     })),
-  ].filter((entry) => entry.tier !== undefined && entry.tier !== untrainedTier);
+  ]
+    .filter((entry) => entry.tier !== undefined && entry.tier !== untrainedTier)
+    .map((entry) => ({
+      ...entry,
+      rank: rulesetTierRank(definition, entry.tier, entry.kind),
+      top: rulesetTopRank(definition, entry.kind, entry.tier),
+      shown: rankText(entry.tier, entry.kind),
+      value: rulesetCheckValueText(definition, entry.modifier, localizeUi),
+    }));
 
   const startEditing = () => {
     // Labelled with this layout, and never older than the sheet already was. Everything else the
@@ -896,9 +919,16 @@ export function GameRulesetSheet({
     }
   };
 
+  // The `mari-ruleset-sheet` classes and data attributes are the hooks a custom CSS theme styles the sheet
+  // by (docs/appearance/custom-css-themes.md); keep them when the markup around them changes.
   const sheet = (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div
+      className="mari-ruleset-sheet space-y-3"
+      data-ruleset={definition.id}
+      data-rank-display={definition.sheet.rankDisplay ?? "value"}
+      data-editing={draft ? "true" : undefined}
+    >
+      <div className="mari-ruleset-sheet__header flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--foreground)]">
             {localizeUi("game.ruleset.sheet.title")}
@@ -977,6 +1007,7 @@ export function GameRulesetSheet({
           {tabs.length > 0 && (
             <Tabs
               variant="pill"
+              className="mari-ruleset-sheet__tabs"
               label={localizeUi("game.ruleset.sheet.tabs")}
               columns={Math.min(tabs.length + 1, 3)}
               value={shownTab ?? OVERVIEW_TAB}
@@ -1002,9 +1033,13 @@ export function GameRulesetSheet({
           {shownTab === null && (
             <>
               {(summaryFields.length > 0 || summaryDerived.length > 0) && (
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                <div className="mari-ruleset-sheet__fields grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                   {summaryFields.map((field) => (
-                    <div key={field.id} className={`flex min-w-0 flex-col ${cardClass}`}>
+                    <div
+                      key={field.id}
+                      className={`mari-ruleset-sheet__field flex min-w-0 flex-col ${cardClass}`}
+                      data-field={field.id}
+                    >
                       <span className={`${labelClass} truncate`} title={text(field.label)}>
                         {text(field.label)}
                       </span>
@@ -1021,7 +1056,11 @@ export function GameRulesetSheet({
                     </div>
                   ))}
                   {summaryDerived.map((entry) => (
-                    <div key={entry.id} className={`flex min-w-0 flex-col ${cardClass}`}>
+                    <div
+                      key={entry.id}
+                      className={`mari-ruleset-sheet__field flex min-w-0 flex-col ${cardClass}`}
+                      data-derived={entry.id}
+                    >
                       <span className={`${labelClass} truncate`} title={text(entry.label)}>
                         {text(entry.label)}
                       </span>
@@ -1037,24 +1076,28 @@ export function GameRulesetSheet({
               {rulesetSectionGroups(definition, definition.sheet.abilities).map((group) => (
                 <div
                   key={group.section ? `section:${group.section.id}` : "none"}
-                  className={group.section ? "space-y-1" : undefined}
+                  className={`mari-ruleset-sheet__abilities${group.section ? " space-y-1" : ""}`}
+                  data-section={group.section?.id}
                 >
-                  {group.section && <p className={labelClass}>{text(group.section.label)}</p>}
+                  {group.section && (
+                    <p className={`mari-ruleset-sheet__heading ${labelClass}`}>{text(group.section.label)}</p>
+                  )}
                   <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
                     {group.entries.map((ability) => (
                       <div
                         key={ability.id}
-                        className={`flex min-w-0 flex-col items-center ${cardClass}`}
+                        className={`mari-ruleset-sheet__ability flex min-w-0 flex-col items-center ${cardClass}`}
+                        data-ability={ability.id}
                         title={text(ability.label)}
                       >
                         <span className={`${labelClass} max-w-full truncate`}>
                           {text(ability.short ?? ability.label)}
                         </span>
                         {/* The score a player reads off a printed sheet, and what it adds to a roll. */}
-                        <span className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
+                        <span className="mari-ruleset-sheet__ability-score text-sm font-semibold tabular-nums text-[var(--foreground)]">
                           {evaluated.abilityScores[ability.id] ?? ability.default}
                         </span>
-                        <span className="text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
+                        <span className="mari-ruleset-sheet__ability-value text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
                           {rulesetCheckValueText(definition, evaluated.abilityMods[ability.id] ?? 0, localizeUi)}
                         </span>
                       </div>
@@ -1064,10 +1107,22 @@ export function GameRulesetSheet({
               ))}
 
               {poolGroups.map((group) => (
-                <div key={group.id || "ungrouped"} className="space-y-1.5">
-                  {group.id && <p className={labelClass}>{text(rulesetPoolGroupLabel(group.id))}</p>}
+                <div
+                  key={group.id || "ungrouped"}
+                  className="mari-ruleset-sheet__pools space-y-1.5"
+                  data-pool-group={group.id || undefined}
+                >
+                  {group.id && (
+                    <p className={`mari-ruleset-sheet__heading ${labelClass}`}>
+                      {text(rulesetPoolGroupLabel(group.id))}
+                    </p>
+                  )}
                   {group.pools.map((pool) => (
-                    <div key={pool.key} className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}>
+                    <div
+                      key={pool.key}
+                      className={`mari-ruleset-sheet__pool flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}
+                      data-pool={pool.key}
+                    >
                       <span
                         className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]"
                         title={text(pool.label)}
@@ -1166,7 +1221,7 @@ export function GameRulesetSheet({
               ))}
 
               {shownTracks.length > 0 && (
-                <div className="space-y-1.5">
+                <div className="mari-ruleset-sheet__tracks space-y-1.5">
                   {shownTracks.map((track) =>
                     track.wound ? (
                       <WoundTrack
@@ -1187,7 +1242,11 @@ export function GameRulesetSheet({
                         localizeUi={localizeUi}
                       />
                     ) : (
-                      <div key={track.id} className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}>
+                      <div
+                        key={track.id}
+                        className={`mari-ruleset-sheet__track flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}
+                        data-track={track.id}
+                      >
                         <span
                           className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]"
                           title={text(track.label)}
@@ -1535,32 +1594,64 @@ export function GameRulesetSheet({
               )}
 
               {trained.length > 0 && (
-                <div className="space-y-1">
-                  <p className={labelClass}>{localizeUi("game.ruleset.sheet.trained")}</p>
+                <div className="mari-ruleset-sheet__trained space-y-1">
+                  <p className={`mari-ruleset-sheet__heading ${labelClass}`}>
+                    {localizeUi("game.ruleset.sheet.trained")}
+                  </p>
                   {rulesetSectionGroups(definition, trained).map((group) => (
                     <div
                       key={group.section ? `section:${group.section.id}` : "none"}
-                      className="flex flex-wrap items-center gap-1.5"
+                      className="mari-ruleset-sheet__rank-group flex flex-wrap items-center gap-1.5"
+                      data-section={group.section?.id}
                     >
-                      {group.section && <span className={labelClass}>{text(group.section.label)}</span>}
+                      {group.section && (
+                        <span className={`mari-ruleset-sheet__heading ${labelClass}`}>{text(group.section.label)}</span>
+                      )}
                       {group.entries.map((entry) => (
                         <span
                           key={`${entry.id}-${entry.label}`}
-                          className="rounded-lg border border-[var(--border)] px-1.5 py-0.5 text-[0.6875rem] text-[var(--foreground)]"
+                          className="mari-ruleset-sheet__rank rounded-lg border border-[var(--border)] px-1.5 py-0.5 text-[0.6875rem] text-[var(--foreground)]"
+                          {...{ [entry.kind === "skill" ? "data-skill" : "data-save"]: entry.id }}
+                          data-tier={entry.tier}
+                          data-rank={entry.rank}
+                          // Shown as its rank, the check value is still a hover away on a computer.
+                          title={entry.shown === null ? undefined : entry.value}
                         >
                           {text(entry.label)}{" "}
-                          <span className="tabular-nums">
-                            {rulesetCheckValueText(definition, entry.modifier, localizeUi)}
-                          </span>
+                          {entry.shown === null ? (
+                            <span className="mari-ruleset-sheet__rank-value tabular-nums">{entry.value}</span>
+                          ) : (
+                            <>
+                              {/* Dots read aloud as "black circle, white circle"; a screen reader gets the
+                                  rank and the check value in words instead. */}
+                              <span className="mari-ruleset-sheet__rank-value tabular-nums" aria-hidden="true">
+                                {entry.shown}
+                              </span>
+                              {/* A phone has no hover, so there the check value shows beside the rank. */}
+                              <span
+                                className="mari-ruleset-sheet__rank-check ml-1 hidden tabular-nums text-[var(--muted-foreground)] [@media(hover:none)]:inline"
+                                aria-hidden="true"
+                              >
+                                {entry.value}
+                              </span>
+                              <span className="sr-only">
+                                {localizeUi("game.ruleset.sheet.rankAria", {
+                                  rank: entry.rank,
+                                  top: entry.top,
+                                  value: entry.value,
+                                })}
+                              </span>
+                            </>
+                          )}
                           {practiceShown(entry) &&
                             (settled ? (
-                              <span className="ml-1 tabular-nums text-[var(--muted-foreground)]">
+                              <span className="mari-ruleset-sheet__practice ml-1 tabular-nums text-[var(--muted-foreground)]">
                                 {localizeUi("game.ruleset.sheet.practice", {
                                   value: resolved.progress?.[entry.id] ?? 0,
                                 })}
                               </span>
                             ) : (
-                              <span className="ml-1 inline-flex items-center gap-0.5 text-[var(--muted-foreground)]">
+                              <span className="mari-ruleset-sheet__practice ml-1 inline-flex items-center gap-0.5 text-[var(--muted-foreground)]">
                                 <DraftNumberInput
                                   value={resolved.progress?.[entry.id] ?? 0}
                                   onCommit={(next) =>

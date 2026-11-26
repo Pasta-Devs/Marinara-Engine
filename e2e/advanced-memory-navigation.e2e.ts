@@ -151,16 +151,30 @@ for (const { detached, pinned } of [
           await expect(notice).toBeVisible();
           if (pinned) await expect(page.locator(`.mari-window[data-window="${memoryWindowId}"]`)).not.toBeVisible();
           if (entry === "cold-chat notice") {
+            let cold = true;
             const held = new Promise<void>((resolve) => {
-              releaseTarget = resolve;
+              releaseTarget = () => {
+                cold = false;
+                resolve();
+              };
             });
             await page.route(`**/api/chats/${chat.id}`, async (route) => {
               await held;
               await route.continue();
             });
+            // Opening the other chat saves its background, and each save refetches the chat list. A list that
+            // arrives after the cache edit below would bring this chat back, so the list leaves it out while cold.
+            await page.route("**/api/chats", async (route) => {
+              if (!cold || route.request().method() !== "GET") return route.fallback();
+              const response = await route.fetch();
+              const rows = (await response.json()) as { id: string }[];
+              return route.fulfill({ response, json: rows.filter((row) => row.id !== chat.id) });
+            });
             await page.evaluate(async (id) => {
               const { queryClient } = await import("/src/lib/query-client.ts" as string);
               const { chatKeys } = await import("/src/hooks/use-chats.ts" as string);
+              // A list fetch already on its way would land after the edit below and refill the list.
+              await queryClient.cancelQueries({ queryKey: chatKeys.list(), exact: true });
               queryClient.removeQueries({ queryKey: chatKeys.detail(id), exact: true });
               // The list row is a placeholder for the detail, so a cold chat must leave the cached list too.
               queryClient.setQueryData(chatKeys.list(), (old: { id: string }[] | undefined) =>

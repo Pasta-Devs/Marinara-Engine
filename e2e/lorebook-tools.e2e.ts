@@ -38,8 +38,12 @@ test("lorebook tools lint, preview scans, and bulk-enable selected books", async
     await clickTopbarPanel(page, "lorebooks");
 
     await page.getByRole("button", { name: "Select lorebooks", exact: true }).click();
-    await page.getByRole("button", { name: "Select lorebook", exact: true }).first().click();
-    await page.getByRole("button", { name: "Select lorebook", exact: true }).click();
+    // Earlier specs leave their lorebooks on the shared server, so select this test's two by their rows.
+    for (const { id } of [book, visibleBook])
+      await page
+        .locator(`[data-drag-kind="lorebook"][data-drag-id="${id}"]`)
+        .getByRole("button", { name: "Select lorebook", exact: true })
+        .click();
     const search = page.getByPlaceholder("Search lorebooks", { exact: true });
     await search.fill(visibleBook.name);
     await expect(page.getByText(book.name, { exact: true })).not.toBeVisible();

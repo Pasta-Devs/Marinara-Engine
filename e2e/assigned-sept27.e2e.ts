@@ -50,7 +50,7 @@ test("Conversation Tools translates an unsent draft without enabling the shortcu
     await composer.fill("Hello, Mari.");
     await page.getByRole("button", { name: "Emoji, GIFs, stickers & tools", exact: true }).click();
     const picker = page.locator("[data-conversation-media-picker]:visible");
-    await picker.getByRole("button", { name: "Tools", exact: true }).click();
+    await picker.getByRole("tab", { name: "Tools", exact: true }).click();
     const translate = picker.getByRole("button", { name: "Translate draft", exact: true });
     await expect(translate).toBeVisible();
     await page.screenshot({ path: info.outputPath("conversation-translate-tools.png") });
@@ -110,7 +110,8 @@ test("regex bulk deletion confirms once and keeps failed and unselected scripts"
     await expect(page.locator(".mari-selection-action-bar")).toHaveCount(1);
     await regexTab.click();
     await selectRegex.click();
-    await expect(page.getByRole("checkbox", { name: "Select Old pack first", exact: true })).toBeChecked();
+    // Preset selection took selection mode over, so the regex checks were dropped (#9194).
+    await expect(page.getByRole("checkbox", { name: "Select Old pack first", exact: true })).not.toBeChecked();
     const all = page.getByRole("checkbox", { name: "Select all regex scripts", exact: true });
     await all.check();
     await expect(page.getByRole("checkbox", { name: "Select Keep this regex", exact: true })).toBeChecked();

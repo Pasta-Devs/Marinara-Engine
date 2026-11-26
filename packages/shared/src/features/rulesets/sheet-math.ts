@@ -1269,6 +1269,61 @@ export function formatRulesetCheckValue(definition: RulesetDefinition, value: nu
   return value >= 0 ? `+${value}` : `${value}`;
 }
 
+const ROMAN_RANKS = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"] as const;
+
+/** The proficiency tiers a skill or save can be set to, in the ruleset's order: the sheet's `skillTiers` or
+ *  `saveTiers` where it narrows them, every tier otherwise. A stored tier outside that list counts against
+ *  the whole ladder instead, so it still shows where it stands. */
+function rankLadder(definition: RulesetDefinition, kind: "skill" | "save", tierId: string | undefined) {
+  const all = definition.resolution.proficiencyTiers;
+  const offered = kind === "skill" ? definition.sheet.skillTiers : definition.sheet.saveTiers;
+  if (!offered) return all;
+  // The first tier is untrained, rank 0, even where the editor doesn't offer it.
+  const narrowed = all.filter((tier, index) => index === 0 || offered.includes(tier.id));
+  return tierId === undefined || narrowed.some((tier) => tier.id === tierId) ? narrowed : all;
+}
+
+/** A skill's or save's place above the first tier it can have: 0 untrained, 1 the next, and so on. A tier
+ *  the ruleset doesn't list reads as untrained. */
+export function rulesetTierRank(
+  definition: RulesetDefinition,
+  tierId: string | undefined,
+  kind: "skill" | "save" = "skill",
+): number {
+  return Math.max(
+    0,
+    rankLadder(definition, kind, tierId).findIndex((tier) => tier.id === tierId),
+  );
+}
+
+/** A skill's or save's rank as the sheet's `rankDisplay` asks (1.837), or null where the sheet shows its
+ *  check value instead (`value`, or nothing). Dots count the tiers it can be set to past the first, so a
+ *  save offered only untrained and trained shows ●, not ●○○○○. Untrained is rank 0: no dots filled, and
+ *  "–" in Roman numerals, which have no zero. */
+export function rulesetRankDisplayText(
+  definition: RulesetDefinition,
+  tierId: string | undefined,
+  kind: "skill" | "save" = "skill",
+): string | null {
+  const display = definition.sheet.rankDisplay;
+  if (!display || display === "value") return null;
+  const ladder = rankLadder(definition, kind, tierId);
+  const rank = rulesetTierRank(definition, tierId, kind);
+  if (display === "label") return ladder[rank]!.label;
+  if (display === "number") return String(rank);
+  if (display === "roman") return ROMAN_RANKS[rank] || "–";
+  return "●".repeat(rank) + "○".repeat(ladder.length - 1 - rank);
+}
+
+/** How many ranks a skill or save has past untrained, for "rank 2 of 5". */
+export function rulesetTopRank(
+  definition: RulesetDefinition,
+  kind: "skill" | "save" = "skill",
+  tierId?: string,
+): number {
+  return rankLadder(definition, kind, tierId).length - 1;
+}
+
 export interface RulesetCheckRoll {
   /** Every die thrown, in order: one set normally, two sets under advantage or disadvantage. */
   rolls: number[];

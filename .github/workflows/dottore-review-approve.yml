@@ -1,4 +1,7 @@
 name: Dottore Approval Dispatch
+# The head in the title lets a dispatch see a newer one for the same head. A run after a check workflow that did not
+# succeed dispatches nothing, so it keeps the plain title.
+run-name: "${{ github.event.workflow_run.conclusion == 'success' && format('Dottore Approval Dispatch for {0}', github.event.workflow_run.head_sha) || 'Dottore Approval Dispatch' }}"
 
 # When a check workflow finishes on a pull request head that Dottore discharged, ask the trusted reviewer whether it can
 # approve that head now. List here the workflows that report the base branch's required checks.
@@ -13,9 +16,8 @@ permissions:
   issues: read
   pull-requests: read
 
-concurrency:
-  group: dottore-approve-dispatch-${{ github.event.workflow_run.head_sha }}
-  cancel-in-progress: true
+# No concurrency group: GitHub runs this on the default branch, so every dispatch a group cancelled showed as a failed
+# check on main. A dispatch that a newer one for the same head supersedes ends successfully instead (see the step).
 
 jobs:
   dispatch:
@@ -34,6 +36,25 @@ jobs:
           DOTTORE_BASE_REFS: ${{ vars.DOTTORE_BASE_REFS || 'refactor,main,staging' }}
         run: |
           # Inert: reads the event and PR metadata and dispatches the trusted workflow; runs no PR code.
+          # A newer dispatch for this head checks it again and dispatches in this one's place. Checked first and again
+          # just before the dispatch, so a run that a newer one overtakes while it reads the PR does not dispatch too.
+          # A newer one that failed or was cancelled may have stopped before it dispatched, so it does not count: a
+          # re-run of this run keeps its run ID and must still be able to dispatch.
+          end_if_superseded() {
+            local newer
+            if ! newer=$(gh api "repos/${{ github.repository }}/actions/workflows/dottore-review-approve.yml/runs?per_page=100" \
+              --jq '[.workflow_runs[] | select(.id > ($ENV.GITHUB_RUN_ID | tonumber) and .display_title == "Dottore Approval Dispatch for " + $ENV.HEAD_SHA
+                and (.conclusion | IN("failure", "cancelled", "startup_failure", "timed_out") | not))] | length'); then
+              # A second approval check is harmless: it finds the head approved or not ready.
+              echo "::warning::Could not list newer dispatches for $HEAD_SHA; dispatching anyway."
+              return 0
+            fi
+            if [ "$newer" != 0 ]; then
+              echo "::notice::A newer dispatch for $HEAD_SHA checks it in this one's place."
+              exit 0
+            fi
+          }
+          end_if_superseded
           PR_NUM="$PR_FROM_RUN"
           if [ -z "$PR_NUM" ]; then
             # A fork PR's run lists no pull requests, and the base repository's commit lookup does not know a fork's
@@ -63,6 +84,7 @@ jobs:
             echo "Dottore has not discharged $HEAD_SHA."
             exit 0
           fi
+          end_if_superseded
           gh workflow run dottore-review.yml \
             --repo "${{ github.repository }}" \
             --ref "$TARGET_REF" \

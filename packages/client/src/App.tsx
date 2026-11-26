@@ -74,6 +74,7 @@ import {
   getCssColorFallback,
   getCssGradientColorStops,
   isCssGradient,
+  paintSrgbColor,
   RAINBOW_GRADIENT_PRESET,
 } from "./lib/css-colors";
 import { normalizeThemeCss } from "./lib/theme-css";
@@ -936,32 +937,25 @@ export function App() {
       let literalBackground = getCssColorFallback(computedBackground, resolvedBackground);
       // Flatten translucent shell surfaces over the app background. Browser
       // chrome needs an opaque color, and sidebars retain the Home menu surface.
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 1;
-      const context = canvas.getContext("2d");
-      // WebKit can refuse canvas reads under memory pressure (InvalidStateError);
-      // keep the unflattened color then instead of crashing the app shell.
-      if (context) {
-        try {
-          context.fillStyle = defaultBackground;
-          context.fillRect(0, 0, 1, 1);
-          context.fillStyle = literalBackground;
-          context.fillRect(0, 0, 1, 1);
-          const backgroundPixels = context.getImageData(0, 0, 1, 1);
-          context.fillStyle = computedStyle.getPropertyValue("--card").trim();
-          context.fillRect(0, 0, 1, 1);
-          const [red, green, blue] = context.getImageData(0, 0, 1, 1).data;
-          const shellSurface = `rgb(${red}, ${green}, ${blue})`;
-          setRootVar("--marinara-shell-surface", shellSurface);
-          context.putImageData(backgroundPixels, 0, 0);
-          context.fillStyle = computedStyle.getPropertyValue("--marinara-topbar-surface").trim();
-          context.fillRect(0, 0, 1, 1);
-          const [topbarRed, topbarGreen, topbarBlue] = context.getImageData(0, 0, 1, 1).data;
-          literalBackground = `rgb(${topbarRed}, ${topbarGreen}, ${topbarBlue})`;
-        } catch (error) {
-          console.warn("[theme] Could not read the canvas to flatten the page backing", error);
-        }
-      }
+      // A hidden probe resolves each color against the theme's color scheme (so light-dark() takes the
+      // theme's branch), and the blending is done here. Canvas pixels can't be trusted: Firefox's
+      // resistFingerprinting and canvas blockers hand back random ones, which painted the sidebar and
+      // editors a random color (#9791), and WebKit can refuse to read them under memory pressure (#7241).
+      const probe = root.appendChild(document.createElement("span"));
+      // Inline !important keeps theme CSS (a forced color, a transition) and forced-colors mode off it.
+      probe.style.cssText =
+        "display: none !important; transition: none !important; forced-color-adjust: none !important";
+      const paint = (below: readonly number[], color: string) => {
+        probe.style.setProperty("color", "transparent", "important");
+        // Wrapped in an sRGB mix, hex, oklch() or an oklab mix reads back as color(srgb …) as well.
+        probe.style.setProperty("color", `color-mix(in srgb, ${color} 100%, transparent)`, "important");
+        return paintSrgbColor(below, getComputedStyle(probe).color);
+      };
+      const toRgb = (channels: readonly number[]) => `rgb(${channels.map(Math.round).join(", ")})`;
+      const backdrop = paint(paint([0, 0, 0], defaultBackground), literalBackground);
+      setRootVar("--marinara-shell-surface", toRgb(paint(backdrop, computedStyle.getPropertyValue("--card").trim())));
+      literalBackground = toRgb(paint(backdrop, computedStyle.getPropertyValue("--marinara-topbar-surface").trim()));
+      probe.remove();
       setRootVar("--marinara-page-backing", literalBackground);
       root.style.setProperty("background-color", literalBackground, "important");
       document.body.style.setProperty("background-color", literalBackground, "important");

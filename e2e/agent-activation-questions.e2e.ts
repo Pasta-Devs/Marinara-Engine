@@ -359,42 +359,36 @@ test("generation gates post agents on the completed reply and fails open without
 });
 
 test("OpenRouter decision shortcut links a key and warns before its deletion", async ({ page, request }, testInfo) => {
-  // A stand-in for OpenRouter: its model list, and chat completions with log-probabilities. It keeps the key each
-  // decision request carries.
+  // A stand-in for OpenRouter: its model list, with a chat model and a decision model, and the System One endpoint
+  // its decision models answer at (#9318). It keeps the key each decision request carries.
   const keys: string[] = [];
   const server = createServer(async (req, res) => {
-    for await (const chunk of req) void chunk;
-    if (req.method === "GET" && req.url === "/v1/models") {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(Buffer.from(chunk));
+    // The list is asked for with `?output_modalities=text,decisions` (#9318).
+    if (req.method === "GET" && new URL(req.url ?? "", "http://x").pathname === "/v1/models") {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ data: [{ id: "fixture", name: "Fixture" }] }));
+      res.end(
+        JSON.stringify({
+          data: [
+            { id: "fixture", name: "Fixture" },
+            { id: "fixture/decider", name: "Fixture decider", architecture: { output_modalities: ["decisions"] } },
+          ],
+        }),
+      );
       return;
     }
-    if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
+    if (req.method !== "POST" || req.url !== "/v1/systemone") {
       res.writeHead(404, { "content-type": "text/plain" });
       res.end("404 page not found");
       return;
     }
     keys.push(req.headers.authorization ?? "");
+    const body = JSON.parse(Buffer.concat(chunks).toString());
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
-        choices: [
-          {
-            message: { role: "assistant", content: "Yes" },
-            logprobs: {
-              content: [
-                {
-                  token: "Yes",
-                  logprob: Math.log(0.8),
-                  top_logprobs: [
-                    { token: "Yes", logprob: Math.log(0.8) },
-                    { token: "No", logprob: Math.log(0.2) },
-                  ],
-                },
-              ],
-            },
-          },
-        ],
+        answers: Object.fromEntries(Object.keys(body.questions).map((id) => [id, { type: "noul", noul: 0.8 }])),
       }),
     );
   });
@@ -470,17 +464,18 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     await actions.click();
     await page.getByRole("menuitem", { name: "Use for…", exact: true }).click();
     await page.getByRole("menuitemradio", { name: "Decision", exact: true }).click();
-    // #8456: the shortcut opens the key's Connection on its decision models, with a Decision Model for the source's
-    // model made under that Connection; testing it there is what keeps it. It reaches the key through its Connection,
-    // so the old editor fields (Decision source "openrouter", API key source = the source Model) and the
-    // credentialsFromConnectionId link are not used by this Model.
+    // #8456: the shortcut opens the key's Connection on its decision models, with a Decision Model made under that
+    // Connection; testing it there is what keeps it. It reaches the key through its Connection, so the
+    // credentialsFromConnectionId link is not used by this Model. Since #9318 an OpenRouter Connection has decision
+    // models of its own: the Decision Model starts empty, the list shows only those, and one is picked.
     const dialog = page.getByRole("dialog", { name: "Add models to OpenRouter", exact: true });
     await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: /^Fixture decider/u }).click();
     await dialog.getByRole("button", { name: "Test decision", exact: true }).click();
     await expect(dialog.getByText(/^Probability of yes: 0\.800/u)).toBeVisible();
     const linked = (await rows()).find((row) => row.provider === "decision" && row.accountId === accountId);
     // Kept, but not the Decision model until Done.
-    expect(linked).toMatchObject({ decisionSource: "openai_compatible", model: "fixture", defaultForAgents: "false" });
+    expect(linked).toMatchObject({ decisionSource: "openrouter", model: "fixture/decider", defaultForAgents: "false" });
     expect(linked?.credentialsFromConnectionId ?? null).toBeNull();
     linkedId = linked!.id;
     // The Decision Model has no key of its own: the test went out with the Connection's.
@@ -490,7 +485,7 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     await expect(dialog).toBeHidden();
     // Done sets the window's job (AddFor in lib/add-connection.ts): the row becomes the Decision model, with an Undo
     // toast like a pick in "Model for Decision".
-    await expect(page.getByText("Decision now uses Fixture", { exact: true })).toBeVisible();
+    await expect(page.getByText("Decision now uses Fixture decider", { exact: true })).toBeVisible();
     await expect.poll(async () => (await rows()).find((row) => row.id === linkedId)?.defaultForAgents).toBe("true");
     expect(
       (await rows())
@@ -500,7 +495,7 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     ).toEqual([source.id, linkedId].sort());
     // Deleting the key's Connection warns that its Decision Model goes too.
     const sourceAccountName = await accountName(accountId);
-    // The Decision Model is named after its Connection; the card's own menu comes before its Models' menus.
+    // A Model can share its Connection's name; the card's own menu comes before its Models' menus.
     const accountActions = page
       .locator(`[data-connection-account-id="${accountId}"]`)
       .getByRole("button", { name: `Actions for ${sourceAccountName}`, exact: true })
@@ -534,6 +529,8 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
       useUIStore.getState().closeAllDetails();
       useUIStore.getState().openRightPanel("connections");
     });
+    // The panel keeps the Jobs page the editor was opened from (#9760); the lender's row is on the list.
+    await showConnectionsList(page);
     const lenderActions = page.getByRole("button", { name: `Actions for ${lenderName}`, exact: true });
     await lenderActions.scrollIntoViewIfNeeded();
     await lenderActions.click();

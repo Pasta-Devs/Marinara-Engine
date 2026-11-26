@@ -28,6 +28,7 @@ import {
   type LorebookEmbeddingOptions,
   type SemanticLorebookMatch,
 } from "../lorebook/embeddings.js";
+import { buildCurrentGameStateJson, EVERY_TRACKER_CONTEXT_SECTION } from "./agent-tracker-context.js";
 
 /** Approx ~4 chars per token for English text. Used for the content fallback budget. */
 const FALLBACK_TOKEN_BUDGET = 60;
@@ -208,7 +209,9 @@ export function buildKnowledgeRouterQuery(context: AgentContext): string {
     .map((message) => message.content.trim())
     .filter(Boolean);
   if (context.chatSummary?.trim()) parts.unshift(context.chatSummary.trim());
-  if (context.gameState) parts.push(JSON.stringify(context.gameState));
+  // Compacted like every agent copy (#9745): row ids, avatar paths and other internals only add noise to the search.
+  const trackerState = buildCurrentGameStateJson(context.gameState, EVERY_TRACKER_CONTEXT_SECTION);
+  if (trackerState) parts.push(trackerState);
   return parts.join("\n\n");
 }
 

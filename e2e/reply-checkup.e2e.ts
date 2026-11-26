@@ -24,6 +24,7 @@ async function seedChat(
   name: string,
   mode: "roleplay" | "conversation",
   generationInfo: Record<string, unknown>,
+  cachedPrompt = [{ role: "system", content: "Tell the story." }],
 ) {
   const chat = await (await request.post("/api/chats", { data: { name, mode, characterIds: [] } })).json();
   await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "user", content: "Tell me the story." } });
@@ -32,7 +33,7 @@ async function seedChat(
       data: {
         role: "assistant",
         content: "Once upon a time the castle stood on the hill, and the",
-        extra: { cachedPrompt: [{ role: "system", content: "Tell the story." }] },
+        extra: { cachedPrompt },
       },
     })
   ).json();
@@ -70,10 +71,21 @@ test("a trimmed reply shows how many older messages were not sent, and Peek lead
   page,
   request,
 }, info) => {
-  const chat = await seedChat(request, "Checkup trimmed", "roleplay", {
-    maxContext: 8192,
-    contextFit: fit({ trimmed: true, droppedHistory: 42, tokensBefore: 9100, tokensAfter: 6900 }),
-  });
+  // A long prompt fills the viewer, so on a phone its header rows stack under the top bar.
+  const longPrompt = Array.from({ length: 40 }, (_, i) => ({
+    role: i % 2 ? "user" : "assistant",
+    content: `Message ${i}\n`.repeat(30),
+  }));
+  const chat = await seedChat(
+    request,
+    "Checkup trimmed",
+    "roleplay",
+    {
+      maxContext: 8192,
+      contextFit: fit({ trimmed: true, droppedHistory: 42, tokensBefore: 9100, tokensAfter: 6900 }),
+    },
+    longPrompt,
+  );
   try {
     await open(page, chat.id);
     const line = page.locator("[data-reply-checkup]");
@@ -90,6 +102,22 @@ test("a trimmed reply shows how many older messages were not sent, and Peek lead
     await expect(header).toContainText("42 older messages were not sent.");
     await page.waitForTimeout(400); // the modal fades in; the screenshot is proof for a reviewer
     await page.screenshot({ path: `${shots}${info.project.name}-trimmed-peek.png` });
+
+    if (info.project.name.includes("mobile")) {
+      // On a phone, the toast from Copy shows below the viewer's whole header, the checkup row's links included.
+      await page.getByRole("button", { name: "Copy assembled prompt", exact: true }).click();
+      const toast = page.locator("[data-sonner-toast]").first();
+      await expect(toast).toHaveAttribute("data-mounted", "true");
+      const box = await toast.evaluate(async (element) => {
+        await Promise.all(element.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
+        return element.getBoundingClientRect().toJSON() as DOMRect;
+      });
+      const row = await header.evaluate((element) => element.getBoundingClientRect().toJSON() as DOMRect);
+      expect(
+        box.top >= row.bottom || box.bottom <= row.top,
+        `the toast (${box.top}-${box.bottom}) clears the checkup row (${row.top}-${row.bottom})`,
+      ).toBe(true);
+    }
   } finally {
     await request.delete(`/api/chats/${chat.id}?force=true`);
   }

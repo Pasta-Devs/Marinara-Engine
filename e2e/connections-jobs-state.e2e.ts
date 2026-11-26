@@ -102,6 +102,9 @@ test("Jobs remain available without accounts and show inherited account warnings
 });
 
 test("Jobs offer unstarred provider models below starred models", async ({ page }) => {
+  // Three reloads and full-page screenshots take about 70 s on CI's Linux WebKit, where every click here waits
+  // 2-5 s for the page to hold still; each step passes, only the default 60 s runs out.
+  test.setTimeout(120_000);
   let picked = false;
   let assigned = "jobs-model";
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));

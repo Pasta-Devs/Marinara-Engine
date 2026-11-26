@@ -956,6 +956,21 @@ test("host adds an existing library ID while guests only propose reviewed text, 
           hasMore: false,
         },
       });
+    // The character picker lists the catalog's summary rows (#9259).
+    if (path === "/api/characters/catalog")
+      return route.fulfill({
+        json: {
+          items: [
+            { id: "character_123", name: "Guide", nameAliases: [], tags: [], avatarPath: null, avatarCrop: null },
+          ],
+          limit: 100,
+          offset: 0,
+          hasMore: false,
+          catalogGeneration: 0,
+          total: 1,
+          favoriteFolderIds: [],
+        },
+      });
     return route.fulfill({ json: [] });
   });
   await mountControls(page, info, "participant-host");

@@ -2530,6 +2530,11 @@ export const rulesetSheetSchema = z
     /** Which proficiency tiers the editor offers for skills and saves. Omitted means all of them. */
     skillTiers: z.array(sheetId).min(1).max(12).optional(),
     saveTiers: z.array(sheetId).min(1).max(12).optional(),
+    /** How the sheet shows a skill's or save's rank (Capability API 1.837): `value`, or nothing, is what
+     *  it brings to a check (+3, 2 dice, a target); `label` is its proficiency tier's own name; `dots`,
+     *  `roman` and `number` count its place among the tiers above the first (●●○○○, II, 2). Only what
+     *  the player reads changes: the Game Master's sheet block and every check stay the same. */
+    rankDisplay: z.enum(["value", "label", "dots", "roman", "number"]).optional(),
     /** Range of the free per-skill and per-save bonus every sheet may carry (ranks, items, feats). */
     bonusRange: z
       .object({ min: z.number().int().min(-100), max: z.number().int().max(100) })

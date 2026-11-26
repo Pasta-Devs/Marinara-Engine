@@ -212,7 +212,9 @@ test("Chat Settings shows every section for each chat mode, in order, and each o
       );
       expect(reordered, `${chat.mode}: no section is moved by CSS order`).toEqual([]);
 
-      // A section's body only renders while it is open, so open each one and check it has content.
+      // A section's body only renders while it is open, so open each one and check it has content. Each closes again
+      // after its check: a section still loading (its code or its data) grows when it lands, and moves the next
+      // section's header while that one is being clicked.
       for (const id of EXPECTED_SECTIONS[chat.mode].filter((section) => section !== "settings-profiles")) {
         const drawer = settings.locator(`[data-drawer="${id}"]`);
         const toggle = drawerToggle(drawer);
@@ -220,6 +222,8 @@ test("Chat Settings shows every section for each chat mode, in order, and each o
         if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
         await expect(toggle, `${id} opens`).toHaveAttribute("aria-expanded", "true");
         await expect(drawer.locator(":scope > .mari-drawer__body"), `${id} has content`).not.toBeEmpty();
+        await toggle.click();
+        await expect(toggle, `${id} closes`).toHaveAttribute("aria-expanded", "false");
       }
       // Checked again after opening everything, so a section that shows up late fails too.
       expect(await visibleSections(page), `${chat.mode} sections after opening each one`).toEqual(

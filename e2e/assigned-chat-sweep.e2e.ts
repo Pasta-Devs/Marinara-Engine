@@ -193,7 +193,7 @@ for (const [mode, style] of [
       await page.locator("textarea[data-chat-composer]").fill("I remember.");
       if (isMobile && mode === "conversation") {
         await page.getByRole("button", { name: "Emoji, GIFs, stickers & tools", exact: true }).click();
-        await page.getByRole("button", { name: "Tools", exact: true }).click();
+        await page.getByRole("tab", { name: "Tools", exact: true }).click();
       }
       const quick = page.getByRole("button", { name: "Quick replies", exact: true });
       if (await quick.isVisible()) {

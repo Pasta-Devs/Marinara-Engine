@@ -5,9 +5,9 @@ on:
     workflows: [Owner Approval Review Signal]
     types: [completed]
 
-concurrency:
-  group: owner-approval-review-${{ github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha }}
-  cancel-in-progress: true
+# No concurrency group: GitHub runs this on the default branch, so every run a group cancelled showed as a failed check
+# on main. A run that a newer review signal for the same pull request supersedes ends without publishing instead
+# (scripts/evaluate-owner-approval.mjs), and the newest run publishes.
 
 jobs:
   evaluate:
@@ -82,4 +82,8 @@ jobs:
           PASTA_DEVS_MEMBERS_TOKEN: ${{ secrets.PASTA_DEVS_MEMBERS_TOKEN }}
           PR_NUMBER: ${{ steps.pull-request.outputs.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # The review signal this run answers; a newer one for the same pull request supersedes it.
+          SIGNAL_RUN_ID: ${{ github.event.workflow_run.id }}
+          SIGNAL_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          SIGNAL_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: node scripts/evaluate-owner-approval.mjs

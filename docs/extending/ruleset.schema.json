@@ -7970,6 +7970,16 @@
             "pattern": "^[a-z][a-z0-9_]*$"
           }
         },
+        "rankDisplay": {
+          "type": "string",
+          "enum": [
+            "value",
+            "label",
+            "dots",
+            "roman",
+            "number"
+          ]
+        },
         "bonusRange": {
           "default": {
             "min": -20,

@@ -176,6 +176,28 @@ try {
   );
   assert.equal((await setModel(chat.id, { connectionId: "no-such-model" })).statusCode, 404);
 
+  // A Model change clears only a recorded Model deletion. A fresh chat gains no deletedModel key, or the setup
+  // wizard's Cancel reads the chat as edited and keeps it (home-setup-cancel-loading).
+  {
+    const fresh = await chats.create({ name: "Fresh", mode: "roleplay", characterIds: [], connectionId: null });
+    assert(fresh);
+    const metadataOf = async (id: string) => {
+      const row = (await chats.getById(id))!;
+      return (typeof row.metadata === "string" ? JSON.parse(row.metadata) : (row.metadata ?? {})) as Record<
+        string,
+        unknown
+      >;
+    };
+    const patchModel = (connectionId: string) =>
+      app.inject({ method: "PATCH", url: `/api/chats/${fresh.id}`, payload: { connectionId } });
+    assert.equal((await patchModel(main.connectionId)).statusCode, 200);
+    assert.equal("deletedModel" in (await metadataOf(fresh.id)), false, "nothing to clear on a fresh chat");
+    await chats.patchMetadata(fresh.id, { deletedModel: "Gone model" });
+    assert.equal((await patchModel(primary.connectionId)).statusCode, 200);
+    assert.equal((await metadataOf(fresh.id)).deletedModel, null, "a recorded deletion is still cleared");
+    await chats.remove(fresh.id);
+  }
+
   // Setting the chat's Model another way drops the pick; a pick bound to another Model is ignored.
   await setModel(chat.id, { connectionId: primary.connectionId, model: "catalog-model" });
   response = await app.inject({

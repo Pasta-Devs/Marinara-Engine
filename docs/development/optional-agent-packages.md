@@ -798,6 +798,12 @@ Updates need the user's consent: apart from one-time migrations that keep an upg
 
 Release notes are published as `notes.json` beside the `catalog.json` they describe, never inside a catalog entry or a manifest: an older Engine drops a catalog entry with a key it does not know. Each pending update carries, as `releaseNotes`, the notes of every version after the installed one up to the offered one, newest first, and `releaseHighlight` is true when any of them is marked as a change the user will notice. Notes are plain text and are never rendered as Markdown or HTML.
 
+User guides use a separate optional `docs.json` beside each catalog lane. Package authors write Markdown, register an overview and topics in `packages/<id>/documentation.json` in Marinara-Agents, and run `node scripts/build-documentation.mjs` there. Commit the Markdown, author index and generated sidecars together. This changes documentation without rebuilding executable package archives. See [Marinara-Agents contributor guidance](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/CONTRIBUTING.md#package-user-documentation) for the authoring format.
+
+The Engine reads that index through `GET /api/capability-packages/:id/documentation?guide=overview`. The response supplies a topic list and one guide, with its source and availability status. The existing documentation modal and Professor Mari use this same read service. Workspace Mari's `agent.catalog.get` includes a bounded overview; `agent.documentation.get` reads a registered topic with optional `heading` and `maxChars` (1,000–16,000, default 8,000). Retrieved prose is reference material, not model instructions or proof of a saved user-state change.
+
+Package Markdown is limited to 256 KiB and must match the published byte count and SHA-256. Remote indexes are limited to 2 MiB; remote reads have a five-second deadline and do not follow redirects. Local Engine references use the canonical English user-documentation boundary. Validated reads are fresh for five minutes and can be used offline for seven days, with at most 128 cached reads under `DATA_DIR/capability-packages/documentation-cache-v1`. Cache keys separate catalog sources, channels, packages and topics; a live package version must match. Known official package README and Engine-guide links provide a legacy fallback. Custom external links retain their source, and missing help does not affect installation.
+
 The installer must:
 
 1. require privileged loopback/admin access;

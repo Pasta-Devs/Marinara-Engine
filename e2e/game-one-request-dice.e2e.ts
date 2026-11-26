@@ -206,10 +206,7 @@ test("Game finishes a rolled turn in one request, and leaves the shipped two-req
 
     // ── Turning the switch on ──
     section = await openTools();
-    await section
-      .locator("label")
-      .filter({ has: page.getByLabel("Finish rolled turns in one request", { exact: true }) })
-      .click();
+    await section.getByLabel("Finish rolled turns in one request", { exact: true }).click();
     await expect.poll(async () => (await metadata()).gameOneRequestDice).toBe(true);
     // The narration toggle goes inert and says so, and its stored value is untouched, so
     // turning the switch back off gives the player their own preference back.
@@ -311,10 +308,7 @@ test("Game finishes a rolled turn in one request, and leaves the shipped two-req
 
     // ── Turning it back off restores the shipped behaviour and the stored preference ──
     section = await openTools();
-    await section
-      .locator("label")
-      .filter({ has: page.getByLabel("Finish rolled turns in one request", { exact: true }) })
-      .click();
+    await section.getByLabel("Finish rolled turns in one request", { exact: true }).click();
     await expect.poll(async () => (await metadata()).gameOneRequestDice).toBe(false);
     await expect(narrateOutcomes()).toBeEnabled();
     await expect(narrateOutcomes()).toBeChecked();
@@ -484,10 +478,7 @@ test("Game spends the sighted pool in order and leaves an overflowed check for t
     const dicePool = () => section.getByLabel("Let the Game Master see one die of each size", { exact: true });
     await expect(dicePool()).not.toBeChecked();
     await expect(section).toContainText("it can steer the outcome more than the other options allow");
-    await section
-      .locator("label")
-      .filter({ has: page.getByLabel("Let the Game Master see one die of each size", { exact: true }) })
-      .click();
+    await section.getByLabel("Let the Game Master see one die of each size", { exact: true }).click();
     await expect.poll(async () => (await metadata()).gameDicePoolMode).toBe(true);
     // The two sub-controls appear with the defaults that make the mechanism safe to ship.
     await expect(section.getByLabel("Values shown per size", { exact: true })).toHaveValue("1");

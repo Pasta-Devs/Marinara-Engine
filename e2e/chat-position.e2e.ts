@@ -96,8 +96,9 @@ async function readLayout(page: Page) {
       composer: rect(document.querySelector('[data-roleplay-chat-column="true"]'))!,
       columns: [...all(".mari-roleplay-message-body"), ...all(".rpg-narrator-msg > div:first-child")],
       avatars: all(".mari-roleplay-message-row > .mari-message-avatar"),
-      sidebar: rect(document.querySelector('[data-component="ChatSidebarSlot"]')),
-      rightPanel: rect(document.querySelector('[data-component="RightPanelDesktopSlot"]')),
+      // Chats and the panels share one sidebar (#9492), docked on either side.
+      sidebar: rect(document.querySelector('[data-component="SidebarSlot"]')),
+      sidebarSide: document.querySelector<HTMLElement>('[data-component="SidebarSlot"]')?.dataset.sidebarSide ?? null,
       scrollbar: scroll ? scroll.offsetWidth - scroll.clientWidth : 0,
       pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       transcriptOverflow: scroll ? scroll.scrollWidth - scroll.clientWidth : 0,
@@ -130,10 +131,11 @@ function expectOneColumnOnPhone(layout: Layout) {
   }
 }
 
-/** The visible chat area is the pane between the open sidebars. */
+/** The visible chat area is the pane beside the open sidebar. */
 function expectInsideArea(layout: Layout) {
-  const left = Math.max(layout.area.left, layout.sidebar?.right ?? 0);
-  const right = Math.min(layout.area.right, layout.rightPanel?.width ? layout.rightPanel.left : Infinity);
+  const open = (layout.sidebar?.width ?? 0) > 1;
+  const left = Math.max(layout.area.left, open && layout.sidebarSide === "left" ? layout.sidebar!.right : 0);
+  const right = Math.min(layout.area.right, open && layout.sidebarSide === "right" ? layout.sidebar!.left : Infinity);
   for (const box of [layout.composer, ...layout.columns, ...layout.avatars]) {
     expect(box.left).toBeGreaterThanOrEqual(left - 1);
     expect(box.right).toBeLessThanOrEqual(right + 1);
@@ -168,6 +170,14 @@ async function choosePosition(page: Page, position: Position) {
   await expect(choices.getByRole("button", { name: label, exact: true })).toHaveAttribute("aria-pressed", "true");
   await clickTopbarPanel(page, "settings");
   await expect(choices).toBeHidden();
+}
+
+async function setSidebarSide(page: Page, side: "left" | "right") {
+  await page.evaluate(async (value) => {
+    const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+    useUIStore.getState().setSidebarSide(value);
+  }, side);
+  await expect(page.locator('[data-component="SidebarSlot"]')).toHaveAttribute("data-sidebar-side", side);
 }
 
 async function setPosition(page: Page, position: Position) {
@@ -241,7 +251,8 @@ test("Chat position moves the Roleplay column and composer together inside the v
     await shot(page, "left");
     await expectConnectionsMenuOnScreen(page);
 
-    // Opening the chats sidebar pushes the column right instead of covering it.
+    // Docked on the left, opening the sidebar pushes the column right instead of covering it.
+    await setSidebarSide(page, "left");
     await page.locator('[data-tour="sidebar-toggle"]').click();
     const leftWithSidebar = await settledLayout(page, (layout) => {
       expect(layout.sidebar!.width).toBeGreaterThan(200);
@@ -252,19 +263,17 @@ test("Chat position moves the Roleplay column and composer together inside the v
     expect(leftWithSidebar.composer.left).toBeGreaterThan(left.composer.left + 200);
     await shot(page, "left-chats-sidebar");
 
-    // Both sidebars at once still leave the column inside the pane between them.
+    // A panel takes Chats' place in the same sidebar, and the column stays beside it.
     await clickTopbarPanel(page, "characters");
     await settledLayout(page, (layout) => {
-      expect(layout.rightPanel!.width).toBeGreaterThan(200);
+      expect(layout.sidebar!.width).toBeGreaterThan(200);
       expectOneColumn(layout);
       expectInsideArea(layout);
+      expect(layout.composer.left - layout.sidebar!.right).toBeLessThanOrEqual(160);
     });
     await clickTopbarPanel(page, "characters");
-    await page.locator('[data-tour="sidebar-toggle"]').click();
-    await settledLayout(page, (layout) => {
-      expect(layout.sidebar?.width ?? 0).toBeLessThanOrEqual(1);
-      expect(layout.rightPanel?.width ?? 0).toBeLessThanOrEqual(1);
-    });
+    await settledLayout(page, (layout) => expect(layout.sidebar?.width ?? 0).toBeLessThanOrEqual(1));
+    await setSidebarSide(page, "right");
 
     // The choice is saved.
     await page.reload();
@@ -275,7 +284,7 @@ test("Chat position moves the Roleplay column and composer together inside the v
       expectOneColumn(layout);
     });
 
-    // Right mirrors Left, and the right panel pushes the column left.
+    // Right mirrors Left, and the sidebar, docked on the right, pushes the column left.
     await choosePosition(page, "right");
     const right = await settledLayout(page, (layout) => {
       expect(layout.position).toBe("right");
@@ -290,10 +299,10 @@ test("Chat position moves the Roleplay column and composer together inside the v
     await expectConnectionsMenuOnScreen(page);
     await clickTopbarPanel(page, "characters");
     const rightWithPanel = await settledLayout(page, (layout) => {
-      expect(layout.rightPanel!.width).toBeGreaterThan(200);
+      expect(layout.sidebar!.width).toBeGreaterThan(200);
       expectOneColumn(layout);
       expectInsideArea(layout);
-      expect(layout.rightPanel!.left - layout.composer.right).toBeLessThanOrEqual(160);
+      expect(layout.sidebar!.left - layout.composer.right).toBeLessThanOrEqual(160);
     });
     expect(rightWithPanel.composer.right).toBeLessThan(right.composer.right - 200);
     await shot(page, "right-characters-panel");

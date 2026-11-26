@@ -203,6 +203,24 @@ export function gradientStopsFromColor(color: string | null | undefined): [strin
   return [hex, withAlpha(shade, hexAlpha(hex))];
 }
 
+/**
+ * Paint `color`, as a computed style reads it back (`rgb(r, g, b)`, `rgba(r, g, b, a)` or `color(srgb r g b / a)`),
+ * over the opaque `below`. Both are 0-255 red, green and blue; a value in another form paints nothing.
+ */
+export function paintSrgbColor(below: readonly number[], color: string): number[] {
+  const channels = color
+    .match(/^(?:rgba?\(|color\(srgb )([^)]*)\)$/i)?.[1]
+    ?.trim()
+    .split(/[\s,/]+/)
+    .map(Number);
+  if (!channels || channels.length < 3 || channels.some(Number.isNaN)) return [...below];
+  const scale = color.startsWith("color(") ? 255 : 1;
+  const alpha = Math.min(1, Math.max(0, channels[3] ?? 1));
+  return below.map(
+    (channel, index) => Math.min(255, Math.max(0, channels[index]! * scale)) * alpha + channel * (1 - alpha),
+  );
+}
+
 /** WCAG AA contrast for body text. */
 export const READABLE_TEXT_CONTRAST = 4.5;
 

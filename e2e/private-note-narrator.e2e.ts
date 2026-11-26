@@ -88,6 +88,14 @@ test("a message's private note can be shown to one chosen Roleplay character", a
 
     await chooseOption(page, recipient, "Tam Bard");
     await expect.poll(async () => (await savedExtra()).privateNoteRecipientId).toBe(bard.id);
+    // Escape with focus back on the field closes only the picker; the note menu stays open.
+    await recipient.click();
+    const recipientPicker = page.getByRole("dialog", { name: "Narrator character", exact: true });
+    await expect(recipientPicker).toBeVisible();
+    await recipient.focus();
+    await page.keyboard.press("Escape");
+    await expect(recipientPicker).toHaveCount(0);
+    await expect(menu).toBeVisible();
     expect(await promptFor(request, chat.id, bard.id)).toContain(NOTE);
     expect(await promptFor(request, chat.id, narrator.id)).not.toContain(NOTE);
 

@@ -137,9 +137,9 @@ test("UX sweep: achievement highlights stay inside the widget with padding", asy
 });
 
 for (const spec of [
-  // 11 since the Onboarding section (#7308).
-  { kind: "Character", path: "/api/characters", sections: 11, last: "Advanced", lastId: "advanced" },
-  { kind: "Persona", path: "/api/characters/personas", sections: 8, last: "Stats", lastId: "stats" },
+  // Onboarding added a section (#7308); one Images section replaced Sprites and Gallery (#9193).
+  { kind: "Character", path: "/api/characters", sections: 10, last: "Advanced", lastId: "advanced" },
+  { kind: "Persona", path: "/api/characters/personas", sections: 7, last: "Stats", lastId: "stats" },
   { kind: "Lorebook", path: "/api/lorebooks", sections: 2, last: "Entries", lastId: "entries" },
   { kind: "Preset", path: "/api/prompts", sections: 5, last: "Regex", lastId: "regex" },
 ]) {
@@ -160,7 +160,8 @@ for (const spec of [
       const editor = page.locator(".mari-editor-shell");
       const title =
         spec.kind === "Lorebook"
-          ? editor.locator('[data-editor-section="overview"] input').first()
+          ? // The cover image's file input comes first in Overview (#9275).
+            editor.locator('[data-editor-section="overview"] [data-mari-field="name"] input')
           : editor.locator(".mari-editor-title-input");
       await expect(title).toHaveValue(name);
       await expect(editor.locator("[data-editor-section]")).toHaveCount(spec.sections);
@@ -673,10 +674,13 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
         return;
       }
       const section = drawer.locator(`[data-chat-settings-section="${mode}-background"]`);
-      const agents = drawer.locator(`[data-chat-settings-section="${mode}-agents"]`);
-      expect(Number(await section.evaluate((el) => getComputedStyle(el).order))).toBeGreaterThan(
-        Number(await agents.evaluate((el) => getComputedStyle(el).order)),
-      );
+      await expect(section).toBeVisible();
+      // Sections show in code order since #9355 dropped their CSS order: Background comes after Agents.
+      const sectionOrder = await drawer
+        .locator("[data-chat-settings-section]")
+        .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-chat-settings-section")));
+      expect(sectionOrder.indexOf(`${mode}-agents`)).toBeGreaterThanOrEqual(0);
+      expect(sectionOrder.indexOf(`${mode}-background`)).toBeGreaterThan(sectionOrder.indexOf(`${mode}-agents`));
       // The shared drawer (f502a1ffd) keeps the help tip beside its toggle; 76d1e52c3 gave Background the wallpaper icon.
       const headerRow = section.locator(":scope > .mari-drawer__header");
       const header = headerRow.locator("[data-drawer-toggle]");

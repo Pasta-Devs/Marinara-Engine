@@ -412,8 +412,11 @@ test("persona avatar removal progress belongs to the active editor session", asy
       .click();
     await expect(remove).toHaveText(/Removing/u);
     await expect(remove).toBeDisabled();
-    const replace = editor.locator('[data-editor-section="metadata"] fieldset').nth(1).locator("button").first();
-    await expect(replace).toHaveText("Upload avatar");
+    // The fieldset starts with the "Go to Gallery" link since #9621.
+    const replace = editor
+      .locator('[data-editor-section="metadata"] fieldset')
+      .nth(1)
+      .getByRole("button", { name: "Upload avatar", exact: true });
     await expect(replace).toBeDisabled();
     await expect(replace).toHaveAttribute("aria-busy", "false");
     // Normal navigation waits for the mutation. Force the parent selection to
@@ -473,8 +476,7 @@ test("persona avatar removal progress belongs to the active editor session", asy
     const nextReplace = nextEditor
       .locator('[data-editor-section="metadata"] fieldset')
       .nth(1)
-      .locator("button")
-      .first();
+      .getByRole("button", { name: /^Upload(ing)? avatar/u });
     await expect(nextReplace).toHaveText("Uploading avatar…");
     await expect(nextReplace).toBeDisabled();
     await expect(nextReplace).toHaveAttribute("aria-busy", "true");

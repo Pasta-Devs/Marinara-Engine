@@ -8,7 +8,7 @@ import { seedUIState } from "./ui-state-fixture.js";
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const ANDROID_APP_UA =
   "Mozilla/5.0 (Linux; Android 14; Honor Magic V2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 MarinaraEngine/Android";
-const AGENTS_PANEL = '[data-component="RightPanelMobile"], [data-component="RightPanelDesktopSlot"]';
+const AGENTS_PANEL = '[data-component="RightPanelMobile"], [data-component="RightPanelDesktop"]';
 test.use({ reducedMotion: "reduce" });
 
 async function createChat(request: APIRequestContext) {
