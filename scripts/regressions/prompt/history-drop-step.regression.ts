@@ -157,25 +157,32 @@ const cases: RegressionCase[] = [
     },
   },
   {
-    name: "summarised messages leave the recent tail in steps",
+    name: "with steps on, summarised messages leave only when a new summary is saved",
     run() {
-      const meta = (count: number) => ({
+      // A summary covers m1-m20; the chat then grows without a new one.
+      const meta = (step?: number) => ({
         hideSummarisedMessages: true,
         summaryTailMessages: 10,
-        historyDropStep: 10,
-        summaryEntries: [
-          {
-            id: "e1",
-            content: "Recap",
-            enabled: true,
-            messageIds: rows(count).map((row) => row.id),
-          },
-        ],
+        historyDropStep: step,
+        summaryEntries: [{ id: "e1", content: "Recap", enabled: true, messageIds: rows(20).map((row) => row.id) }],
       });
-      const start = (count: number) => capSummarizedHistory(rows(count), meta(count)).messages[0]!.id;
-      assert.deepEqual([12, 15, 20, 21].map(start), ["m11", "m11", "m11", "m21"]);
-      const plain = capSummarizedHistory(rows(15), { ...meta(15), historyDropStep: undefined }).messages[0]!.id;
-      assert.equal(plain, "m6", "no step: the newest 10");
+      const start = (count: number, step?: number) => capSummarizedHistory(rows(count), meta(step)).messages[0]!.id;
+      assert.deepEqual(
+        [20, 24, 29].map((count) => start(count, 10)),
+        ["m11", "m11", "m11"],
+        "held between summaries",
+      );
+      assert.deepEqual(
+        [20, 24, 29].map((count) => start(count)),
+        ["m11", "m15", "m20"],
+        "no step: slides per turn",
+      );
+      // The next summary covers up to m30: the start jumps once.
+      const next = {
+        ...meta(10),
+        summaryEntries: [{ id: "e1", content: "Recap", enabled: true, messageIds: rows(30).map((row) => row.id) }],
+      };
+      assert.equal(capSummarizedHistory(rows(31), next).messages[0]!.id, "m21");
     },
   },
 ];

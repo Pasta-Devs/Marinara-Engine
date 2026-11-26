@@ -33,7 +33,6 @@ import {
   type CharacterMacroProfile,
   normalizeHistoryDropStep,
   normalizeSummaryTailMessages,
-  steppedDropCount,
   normalizeWorldCustomFields,
   isTrackerRowsUpdate,
   isNamedTrackerRow,
@@ -899,12 +898,18 @@ export function capSummarizedHistory<T extends { id: string; extra?: unknown }>(
   if (covered.size === 0) return { messages, backlog: 0 };
   const entries = normalizeChatSummaryEntries(chatMeta.summaryEntries);
   const summarized = new Set(entries.flatMap((entry) => entry.messageIds ?? []));
-  // "Drop in steps of": covered messages leave the tail a whole step at a time, not one per turn.
-  const cut = steppedDropCount(
-    messages.length,
-    resolveRoleplaySummaryTail(chatMeta.summaryTailMessages),
-    normalizeHistoryDropStep(chatMeta.historyDropStep),
-  );
+  const tail = resolveRoleplaySummaryTail(chatMeta.summaryTailMessages);
+  // With "Drop in steps of" on, the tail is counted back from the newest message a summary covers, not from
+  // the newest message: summarised messages then leave only on the turn a new summary is saved, the turn the
+  // Past Events block changes anyway, and the history start holds still in between.
+  let cut = messages.length - tail;
+  if (normalizeHistoryDropStep(chatMeta.historyDropStep) > 1) {
+    let newestCovered = -1;
+    messages.forEach((message, index) => {
+      if (covered.has(message.id)) newestCovered = index;
+    });
+    cut = newestCovered + 1 - tail;
+  }
   let backlog = 0;
   const kept = messages.filter((message, index) => {
     if (index >= cut) return true;

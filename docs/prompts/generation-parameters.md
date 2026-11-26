@@ -129,7 +129,7 @@ It applies to every place old messages are cut:
 - **Limit Context Messages**.
 - The connection's context size, when the prompt is too long to fit.
 - **Max messages** on the preset's Chat History.
-- Summarised messages that leave the **Recent message tail** when **Hide summarised messages** is on.
+- Summarised messages, when **Hide summarised messages** is on. Here the step is the summary itself: they leave Chat History only on the turn a new summary is saved, the turn Past Events changes anyway, and the history start stays put in between.
 
 The cost: right after a step, the AI sees up to that many fewer old messages than would fit. Advanced Memory Recall sizes the history by scenes instead, so this setting is hidden while it is on.
 
