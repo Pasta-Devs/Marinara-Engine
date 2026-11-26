@@ -3008,7 +3008,8 @@ html[data-marinara-accent-animation] *::after {
 .mari-editor-title-line .mari-editor-title-input {
   width: auto;
   min-width: 4rem;
-  max-width: 100%;
+  /* Leave the 0.5rem gap before the byline, so a long name hides the byline instead of pushing it past the line. */
+  max-width: calc(100% - 0.5rem);
   /* The byline gives way first; the name only truncates when the line itself is too narrow. */
   flex: 0 0 auto;
   overflow: hidden;
@@ -3774,6 +3775,11 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   .mari-editor-header--with-nav .mari-editor-byline,
   .mari-editor-header--with-nav .mari-editor-save-label {
     display: none;
+  }
+
+  /* With the byline hidden there is no gap to leave. */
+  .mari-editor-header--with-nav .mari-editor-title-line .mari-editor-title-input {
+    max-width: 100%;
   }
 
   .mari-editor-header--with-nav .mari-editor-action {
