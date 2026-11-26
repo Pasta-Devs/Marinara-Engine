@@ -181,6 +181,49 @@ try {
     assert.equal(marked.length, 2);
     assert.ok(marked[1]!.includes("Past reply"), "OpenRouter Claude marks the end of the older part too");
   });
+  await test("a new summary leaves the fixed system prompt before Past Events cached", async () => {
+    const cachedTexts = (value: unknown): string[] =>
+      JSON.stringify(value)
+        .match(/"text":"[^"]*","cache_control"/gu)
+        ?.map((match) => match.slice(8, -17)) ?? [];
+    const prompt = (summary: string, split: boolean): ChatMessage[] => [
+      { role: "system", content: "Fixed preset\n\n" },
+      { role: "system", content: summary, summaryCacheSegment: true },
+      { role: "user", content: "Older user" },
+      { role: "assistant", content: "Past reply", ...(split ? { historyCacheBreakpoint: true } : {}) },
+      { role: "user", content: "Latest user" },
+    ];
+    const anthropic = new AnthropicProvider(`${baseUrl}/anthropic`, "test");
+    for (const split of [false, true]) {
+      const systems: unknown[] = [];
+      for (const summary of ["Past events A", "Past events B"]) {
+        await anthropic.chatComplete(prompt(summary, split), {
+          model: "claude-opus-5",
+          stream: false,
+          enableCaching: true,
+        });
+        const body = requests.at(-1)!;
+        assert.deepEqual(cachedTexts(body.system), ["Fixed preset\\n\\n", summary], `split ${split}`);
+        systems.push(body.system[0]);
+      }
+      assert.deepEqual(systems[0], systems[1], "the fixed block is the same after the summary changes");
+    }
+    await anthropic.chatComplete(prompt("Past events A", false), { model: "claude-opus-5", stream: false });
+    assert.equal(JSON.stringify(requests.at(-1)).includes("cache_control"), false, "caching off stays off");
+
+    const openRouter = new OpenAIProvider(`${baseUrl}/proxy/v1`, "test", undefined, undefined, undefined, "openrouter");
+    await openRouter.chatComplete(prompt("Past events A", true), {
+      model: "anthropic/claude-opus-5",
+      stream: false,
+      enableCaching: true,
+    });
+    const marked = requests
+      .at(-1)!
+      .messages.filter((message: any) => JSON.stringify(message.content).includes("cache_control"))
+      .map((message: any) => JSON.stringify(message.content));
+    assert.equal(marked.length, 3, "OpenRouter Claude: before Past Events, end of system, end of the older part");
+    assert.ok(marked[0]!.includes("Fixed preset"));
+  });
   await test("Anthropic retains empty tool results paired with their tool calls", async () => {
     const provider = new AnthropicProvider(`${baseUrl}/anthropic`, "test");
     for (const content of ["", " \n "]) {

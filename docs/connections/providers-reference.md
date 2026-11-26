@@ -89,7 +89,7 @@ An aggregator is a service where one key reaches models from many companies. Ope
 
 | Model | What is cached | How long |
 | --- | --- | --- |
-| Claude | The system prompt, the chat history up to **Cache depth**, and the newest message | 5 minutes, or 1 hour with **Extended token caching (1 hour)** |
+| Claude | The system prompt (in two parts when the chat has a summary, so a new summary keeps the part before **Past Events** cached), the chat history up to **Cache depth**, and the newest message | 5 minutes, or 1 hour with **Extended token caching (1 hour)** |
 | Qwen | The system prompt and the chat history up to **Cache depth** | 5 minutes |
 | Gemini | The system prompt | 5 minutes |
 | GPT, DeepSeek, Grok, Kimi and others | The service caches on its own, with or without the switch | Set by the service |

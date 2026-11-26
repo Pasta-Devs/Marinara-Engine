@@ -334,6 +334,11 @@ export interface ChatMLMessage {
   historyPart?: "past" | "recent";
   /** Internal: ends the older history part, where the connection's history cache breakpoint goes. */
   historyCacheBreakpoint?: boolean;
+  /**
+   * Internal: Past Events, the part of the leading system prompt that changes when a summary is saved. On a caching
+   * connection it stays its own system message, so a cache breakpoint can end the fixed part right before it.
+   */
+  summaryCacheSegment?: boolean;
   /** Optional: name of the speaker for multi-character */
   name?: string;
   /** Internal speaker identity for group chat history role scoping. */

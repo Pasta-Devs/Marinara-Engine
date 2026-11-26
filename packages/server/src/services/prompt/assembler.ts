@@ -37,7 +37,13 @@ import {
   type ChatHistoryPart,
   type MarkerContext,
 } from "./marker-expander.js";
-import { hasSamePromptAudience, mergeAdjacentMessages, squashLeadingSystemMessages } from "./merger.js";
+import {
+  endBeforeSummaryCacheSegment,
+  hasSamePromptAudience,
+  mergeAdjacentMessages,
+  squashLeadingSystemMessages,
+  startsSummaryCacheSegment,
+} from "./merger.js";
 import { injectAtDepth } from "../lorebook/prompt-injector.js";
 import { MEMORY_RECALL_SLOT_TOKEN, markMemoryRecallOnlyGroup, stripMemoryRecallSlot } from "./memory-recall-slot.js";
 import {
@@ -172,6 +178,11 @@ export interface AssemblerInput {
   chatSummary?: string | null;
   /** Chat setting "Drop in steps of" (`historyDropStep`), for Chat History's Max messages. */
   historyDropStep?: number;
+  /**
+   * The connection caches prompts: keep Past Events (the Chat Summary marker, or the fallback summary) as its own
+   * leading system message, so a new summary leaves the fixed system prompt before it cached.
+   */
+  separateSummaryForCache?: boolean;
   /** Characters a merged group reply may voice; the Chat Summary marks who knows what (#7252). */
   chatSummaryReaders?: readonly CharacterMacroProfile[];
   /** Presence enables advanced memory placement; values must already be audience-scoped. */
@@ -550,6 +561,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     personaStats: input.personaStats,
     chatMessages: input.chatMessages,
     historyDropStep: input.historyDropStep,
+    separateSummaryForCache: input.separateSummaryForCache,
     lorebookScanMessages: input.lorebookScanMessages,
     chatSummary,
     chatSummaryReaders: input.chatSummaryReaders,
@@ -879,6 +891,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       macroCtx,
       deferAllMacroOptions(),
       input.chatSummaryReaders,
+      input.separateSummaryForCache === true,
     );
   }
 
@@ -1074,11 +1087,17 @@ async function resolveSection(
   let runtimeAgentText = "";
   let runtimeAgentStartToken: string | undefined;
   let runtimeAgentEndToken: string | undefined;
+  let summaryCacheSegment = false;
   const wrapperName = section.name;
 
   // Handle marker sections
   if (section.isMarker === "true" && section.markerConfig) {
     const markerConfig = JSON.parse(section.markerConfig) as MarkerConfig;
+    summaryCacheSegment =
+      markerConfig.type === "chat_summary" &&
+      role === "system" &&
+      ctx.markerCtx.separateSummaryForCache === true &&
+      !ctx.markerCtx.advancedMemory;
     if (markerConfig.type === "id_macro_cards") {
       return {
         id: section.id,
@@ -1201,7 +1220,9 @@ async function resolveSection(
     id: section.id,
     groupId: section.groupId,
     role,
-    messages: [{ role, content: messageContent, contextKind: "prompt" }],
+    messages: [
+      { role, content: messageContent, contextKind: "prompt", ...(summaryCacheSegment ? { summaryCacheSegment } : {}) },
+    ],
     depth: section.injectionDepth,
   };
 }
@@ -1215,6 +1236,35 @@ async function resolveSection(
  * If all sections share the same role, wrap them in a group tag.
  * If roles differ, create separate messages per role (no group wrapping across roles).
  */
+/**
+ * A group holding Past Events on a caching connection (`summaryCacheSegment`): the group's text splits into two system
+ * messages at the line where Past Events starts, so the fixed part before it can stay cached when a summary changes.
+ * Joined, the two read exactly as the whole group. Anything that cannot be split cleanly stays one message.
+ */
+function splitGroupAtSummaryCacheSegment(
+  sections: ResolvedSection[],
+  groupName: string,
+  wrapFormat: WrapFormat,
+  content: string,
+): ChatMLMessage[] {
+  const whole: ChatMLMessage[] = [{ role: sections[0]!.role, content, contextKind: "prompt" }];
+  const parts = sections.flatMap((section) => section.messages);
+  const segmentIndex = parts.findIndex((message) => message.summaryCacheSegment === true);
+  if (segmentIndex <= 0 || sections[0]!.role !== "system") return whole;
+  // Wrap again with a one-line stand-in for Past Events onward, to find where that line starts in the group's text.
+  const marker = `\u0000past-events-${Date.now().toString(36)}\u0000`;
+  const probeInner = [...parts.slice(0, segmentIndex).map((message) => message.content), marker].join("\n\n");
+  const probe = wrapGroup(probeInner, groupName, wrapFormat) || probeInner;
+  const markerAt = probe.indexOf(marker);
+  if (markerAt < 0) return whole;
+  const cut = probe.lastIndexOf("\n", markerAt) + 1;
+  if (cut <= 0 || probe.slice(0, cut) !== content.slice(0, cut)) return whole;
+  return [
+    { role: "system", content: content.slice(0, cut), contextKind: "prompt" },
+    { role: "system", content: content.slice(cut), contextKind: "prompt", summaryCacheSegment: true },
+  ];
+}
+
 function buildGroupMessages(
   sections: ResolvedSection[],
   group: { name: string },
@@ -1225,10 +1275,9 @@ function buildGroupMessages(
 
   if (roles.size === 1) {
     // All same role — combine content and wrap in group
-    const role = sections[0]!.role;
     const innerContent = sections.flatMap((s) => s.messages.map((m) => m.content)).join("\n\n");
     const wrapped = wrapGroup(innerContent, group.name, wrapFormat);
-    return [{ role, content: wrapped || innerContent, contextKind: "prompt" }];
+    return splitGroupAtSummaryCacheSegment(sections, group.name, wrapFormat, wrapped || innerContent);
   }
 
   // Mixed roles — group consecutive same-role sections and wrap each group
@@ -1292,6 +1341,8 @@ export function appendFallbackChatSummaryToSystemPrompt(
   macroCtx: MacroContext,
   macroOptions?: ResolveMacroOptions,
   readers?: readonly CharacterMacroProfile[],
+  /** A caching connection: Past Events becomes its own system message after the system prompt. */
+  separateForCache = false,
 ): ChatMLMessage[] {
   const summary = sanitizePromptLeaf(
     resolveChatSummaryMacros(chatSummary ?? "", macroCtx, macroOptions, readers),
@@ -1310,6 +1361,17 @@ export function appendFallbackChatSummaryToSystemPrompt(
     lastLeadingSystemIdx = i;
   }
 
+  if (lastLeadingSystemIdx >= 0 && separateForCache) {
+    const target = next[lastLeadingSystemIdx]!;
+    next[lastLeadingSystemIdx] = { ...target, content: endBeforeSummaryCacheSegment(target.content) };
+    next.splice(lastLeadingSystemIdx + 1, 0, {
+      role: "system",
+      content: wrapped,
+      contextKind: "prompt",
+      summaryCacheSegment: true,
+    });
+    return next;
+  }
   if (lastLeadingSystemIdx >= 0) {
     const target = next[lastLeadingSystemIdx]!;
     next[lastLeadingSystemIdx] = {
@@ -1348,7 +1410,10 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   while (idx < messages.length && messages[idx]!.role === "system") {
     const msg = messages[idx]!;
     const leadingSystem = result[result.length - 1];
-    if (leadingSystem?.role === "system" && hasSamePromptAudience(leadingSystem, msg)) {
+    if (leadingSystem && startsSummaryCacheSegment(leadingSystem, msg)) {
+      leadingSystem.content = endBeforeSummaryCacheSegment(leadingSystem.content);
+      result.push({ ...msg });
+    } else if (leadingSystem?.role === "system" && hasSamePromptAudience(leadingSystem, msg)) {
       mergeInto(leadingSystem, msg);
     } else {
       result.push({ ...msg });

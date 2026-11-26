@@ -4300,6 +4300,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             })(),
             chatMessages: mappedMessages,
             historyDropStep,
+            separateSummaryForCache: conn.enableCaching === "true",
             lorebookScanMessages: toLorebookScanMessages(),
             chatSummary: activeChatSummary,
             chatSummaryReaders,
@@ -5458,6 +5459,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             promptMacroContext,
             deferCharacterMacros ? { deferCharacterMacros: "all" } : undefined,
             chatSummaryReaders,
+            conn.enableCaching === "true",
           );
         }
 

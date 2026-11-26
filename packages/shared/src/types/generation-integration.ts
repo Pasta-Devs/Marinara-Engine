@@ -42,6 +42,11 @@ export interface ChatMessage {
    * the connection caches, its history cache breakpoint goes here instead of Cache depth messages back.
    */
   historyCacheBreakpoint?: boolean;
+  /**
+   * Internal: Past Events, kept as its own leading system message on a caching connection. Its text changes when a
+   * summary is saved, so a cache breakpoint ends the fixed system prompt right before it.
+   */
+  summaryCacheSegment?: boolean;
 }
 
 export interface ChatMediaAttachment {

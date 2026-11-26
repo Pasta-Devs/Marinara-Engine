@@ -16,6 +16,22 @@ export function hasSamePromptAudience(first: ChatMLMessage | undefined, second: 
 }
 
 /**
+ * Past Events stays its own system message on a caching connection (`summaryCacheSegment`): merging stops before it,
+ * and the message before it ends in a blank line, so the system prompt reads exactly as if it had been merged.
+ */
+export function startsSummaryCacheSegment(
+  previous: { role: string } | undefined,
+  message: { role: string; summaryCacheSegment?: boolean },
+): boolean {
+  return message.summaryCacheSegment === true && message.role === "system" && previous?.role === "system";
+}
+
+/** The text of the message before Past Events, ending in the blank line merging would have put between them. */
+export function endBeforeSummaryCacheSegment(content: string): string {
+  return content.endsWith("\n") ? content : `${content}\n\n`;
+}
+
+/**
  * Merge consecutive messages that share the same role, with a double-newline separator.
  *
  * Rules:
@@ -42,6 +58,7 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
 
   const canMerge = (a: ChatMLMessage, b: ChatMLMessage) => {
     if (a.role !== b.role) return false;
+    if (startsSummaryCacheSegment(a, b)) return false;
     // Reasoning/signatures must stay paired with their own assistant output.
     if (a.role === "assistant" && (a.providerMetadata || b.providerMetadata)) return false;
     if ((a.characterId ?? null) !== (b.characterId ?? null)) return false;
@@ -81,9 +98,13 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
         ...(mergedImages ? { images: mergedImages } : {}),
         ...(mergedFiles ? { files: mergedFiles } : {}),
         ...(mergedMeta ? { providerMetadata: mergedMeta } : {}),
+        ...(current.summaryCacheSegment ? { summaryCacheSegment: true } : {}),
       };
     } else {
       // Different role — push current and start new accumulator
+      if (current && startsSummaryCacheSegment(current, msg)) {
+        current = { ...current, content: endBeforeSummaryCacheSegment(current.content) };
+      }
       if (current) result.push(current);
       current = { ...msg };
     }
@@ -120,6 +141,7 @@ export function squashLeadingSystemMessages(messages: ChatMLMessage[]): ChatMLMe
       ...(run[0]?.hiddenFromAICharacterIds?.length
         ? { hiddenFromAICharacterIds: run[0].hiddenFromAICharacterIds }
         : {}),
+      ...(run[0]?.summaryCacheSegment ? { summaryCacheSegment: true } : {}),
     };
   };
 
@@ -128,11 +150,18 @@ export function squashLeadingSystemMessages(messages: ChatMLMessage[]): ChatMLMe
   for (let index = 1; index <= leadingSystemMessages.length; index += 1) {
     if (
       index < leadingSystemMessages.length &&
-      hasSamePromptAudience(leadingSystemMessages[runStart], leadingSystemMessages[index]!)
+      hasSamePromptAudience(leadingSystemMessages[runStart], leadingSystemMessages[index]!) &&
+      !startsSummaryCacheSegment(leadingSystemMessages[index - 1], leadingSystemMessages[index]!)
     ) {
       continue;
     }
-    squashedSystemMessages.push(squashRun(leadingSystemMessages.slice(runStart, index)));
+    const squashed = squashRun(leadingSystemMessages.slice(runStart, index));
+    const next = leadingSystemMessages[index];
+    squashedSystemMessages.push(
+      next && startsSummaryCacheSegment(squashed, next)
+        ? { ...squashed, content: endBeforeSummaryCacheSegment(squashed.content) }
+        : squashed,
+    );
     runStart = index;
   }
 

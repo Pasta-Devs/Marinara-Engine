@@ -1946,6 +1946,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         })(),
         chatMessages: mappedMessages,
         historyDropStep,
+        separateSummaryForCache: conn.enableCaching === "true",
         chatSummary: resolvedInjectChatSummary ? activeChatSummary : null,
         chatSummaryReaders,
         ...(advancedMemoryEnabled ? { advancedMemory: {}, deferAdvancedMemory: true } : {}),

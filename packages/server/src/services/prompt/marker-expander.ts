@@ -64,6 +64,8 @@ export interface MarkerContext {
   chatMessages: ChatMLMessage[];
   /** Chat setting "Drop in steps of": Chat History's Max messages lets old messages go this many at once. */
   historyDropStep?: number;
+  /** A caching connection keeps Past Events as its own system message (see `summaryCacheSegment`). */
+  separateSummaryForCache?: boolean;
   /** Optional scan-only messages for lorebook matching. */
   lorebookScanMessages?: ChatMLMessage[];
   chatSummary: string | null;

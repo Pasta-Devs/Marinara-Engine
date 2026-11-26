@@ -6,9 +6,9 @@ import type { ChatMessage } from "@marinara-engine/shared";
  */
 
 /**
- * Anthropic: the marked end of the older part plus the end of the leading system block become the request's two
- * cache breakpoints. Requests that already carry their own breakpoints, or a connection that does not cache, are
- * left as they are.
+ * Anthropic: the marked end of the older part plus the end of the leading system block become the request's cache
+ * breakpoints, with one more before Past Events when it is its own system message (see `summaryCacheSegmentIndex`).
+ * Requests that already carry their own breakpoints, or a connection that does not cache, are left as they are.
  */
 export function withHistoryCacheBreakpoint(messages: ChatMessage[], enableCaching: boolean | undefined): ChatMessage[] {
   if (!enableCaching || messages.some((message) => message.cacheBreakpoint === true)) return messages;
@@ -16,9 +16,25 @@ export function withHistoryCacheBreakpoint(messages: ChatMessage[], enableCachin
   if (anchor < 0) return messages;
   const firstTurn = messages.findIndex((message) => message.role !== "system");
   const lastSystem = (firstTurn < 0 ? messages.length : firstTurn) - 1;
+  const beforeSummary = summaryCacheSegmentIndex(messages) - 1;
   return messages.map((message, index) =>
-    index === anchor || index === lastSystem ? { ...message, cacheBreakpoint: true } : message,
+    index === anchor || index === lastSystem || (beforeSummary >= 0 && index === beforeSummary)
+      ? { ...message, cacheBreakpoint: true }
+      : message,
   );
+}
+
+/**
+ * Where Past Events starts in the leading system messages, or -1. A new summary changes the prompt from there on, so a
+ * breakpoint right before it keeps the fixed system prompt cached on the turn a summary is saved.
+ */
+export function summaryCacheSegmentIndex(messages: readonly ChatMessage[]): number {
+  for (let index = 1; index < messages.length; index++) {
+    const message = messages[index]!;
+    if (message.role !== "system") return -1;
+    if (message.summaryCacheSegment === true) return index;
+  }
+  return -1;
 }
 
 /**

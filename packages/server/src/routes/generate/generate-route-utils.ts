@@ -56,6 +56,7 @@ import {
   type WrapFormat,
 } from "@marinara-engine/shared";
 import { wrapContent } from "../../services/prompt/format-engine.js";
+import { endBeforeSummaryCacheSegment, startsSummaryCacheSegment } from "../../services/prompt/merger.js";
 import { resolveChatUserIdentity } from "../../services/chat-user-identity.js";
 import type { createCharactersStorage } from "../../services/storage/characters.storage.js";
 import {
@@ -782,6 +783,11 @@ export function postProcessMessages(
       delete message.providerMetadata;
     }
     const previous = result.at(-1);
+    if (previous && leadingSystem && startsSummaryCacheSegment(previous, message)) {
+      previous.content = endBeforeSummaryCacheSegment(previous.content);
+      result.push(message);
+      continue;
+    }
     const canMerge =
       previous &&
       previous.role === message.role &&
