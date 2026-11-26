@@ -181,7 +181,8 @@ function MariDraftReply({ chatId }: { chatId: string }) {
   const draft = useChatStore((state) => state.mariDraftByChatId.get(chatId) ?? "").trim();
   if (!draft) return null;
   return (
-    <div className="mari-work-timeline__draft" aria-hidden="true">
+    // Inert as well as hidden: a code block in the draft gets a Copy button, which must not take focus.
+    <div className="mari-work-timeline__draft" aria-hidden="true" inert>
       <MariAnswer restStory={null}>
         <CompactMarkdown content={draft} streaming />
       </MariAnswer>
