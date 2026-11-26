@@ -8,13 +8,11 @@ import {
   addReference,
   buildEntryItems,
   buildReferenceItems,
-  completedNameAt,
   defaultActiveIndex,
   isCommandRow,
   isFieldRow,
   isLinkRow,
   isSlashLinkable,
-  linkCompletedReference,
   locateReferenceTokens,
   maskReferenceQuery,
   MAX_COMPOSER_REFERENCES,
@@ -207,12 +205,9 @@ export function useMariComposerReferences({
 
   // The rows already hold only what the cap allows (commands, fields).
   const pickerOpen = rows.length > 0 && dismissedKey !== tokenKey;
-  // Prose: the first Tab completed a name and it still ends the draft, so a second Tab links it. A name
-  // already written as `@Name` is not at a boundary, so it does not count twice.
-  // The ghost never suggests a pick-only kind, so a name that ends the draft is not one of theirs.
+  // The ghost never suggests a pick-only kind.
   const nameItems = useMemo(() => items.filter((item) => !PICK_ONLY_GROUPS.has(item.group)), [items]);
   const labels = useMemo(() => nameItems.map((item) => item.ref.label), [nameItems]);
-  const canLinkCompletion = !pickerOpen && !token && !atCap && completedNameAt(draft, labels) !== null;
   const moveKey = `${tokenKey}|${activeDrill?.id ?? ""}`;
   const activeIndex = Math.min(moved?.key === moveKey ? moved.index : defaultActiveIndex(rows), rows.length - 1);
   const fieldsDrillable = editorFields.length > 0;
@@ -259,24 +254,13 @@ export function useMariComposerReferences({
     } else if (action === "picker-accept") pick(rows[activeIndex]);
     else if (action === "ghost-link") {
       // Inside the `@` token the link is the name the ghost shows (the first in list order, not the best
-      // score); in prose it is the name just completed.
-      if (rows.length > 0) {
-        const shown = token ? `${maskReferenceQuery(token.query)}${completeInline(token.query, labels)}` : "";
-        const ghosted = rows.find(
-          (row) => isLinkRow(row) && row.ref.label.toLocaleLowerCase() === shown.toLocaleLowerCase(),
-        );
-        pick(ghosted ?? rows[defaultActiveIndex(rows)]);
-      } else {
-        const linked = linkCompletedReference(
-          draft,
-          labels,
-          nameItems.map((item) => item.ref),
-        );
-        if (!linked) return;
-        setDraft(linked.value);
-        setPicked((current) => addReference(current, linked.ref));
-        setCaretRequest((current) => ({ pos: linked.caret, n: (current?.n ?? 0) + 1 }));
-      }
+      // score). Names are not guessed in plain sentences, so there is nothing to link outside a token.
+      if (rows.length === 0 || !token) return;
+      const shown = `${maskReferenceQuery(token.query)}${completeInline(token.query, labels)}`;
+      const ghosted = rows.find(
+        (row) => isLinkRow(row) && row.ref.label.toLocaleLowerCase() === shown.toLocaleLowerCase(),
+      );
+      pick(ghosted ?? rows[defaultActiveIndex(rows)]);
     } else if (action === "picker-close") setDismissedKey(tokenKey);
     else if (action === "picker-drill") drillInto(rows[activeIndex]);
     else setDrill(null);
@@ -315,8 +299,6 @@ export function useMariComposerReferences({
     references,
     referenceMarks,
     pickerOpen,
-    /** A just-completed name at the caret: Tab again links it instead of moving focus. */
-    canLinkCompletion,
     onActiveTokenChange: trackToken,
     onPickerAction,
     /** Everything `MariComposer` needs besides the four props above. */
