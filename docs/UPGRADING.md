@@ -35,7 +35,7 @@ The launcher updates Marinara when you start it.
 1. Close Marinara Engine.
 2. Open it again from the desktop or Start Menu shortcut, or run `start.bat`.
 
-The launcher fetches the latest code, reinstalls what changed, rebuilds and starts the new version. If you changed the code yourself, it sets your changes aside and puts them back after the update. If it cannot, it keeps your current version and prints a note. It copies your data before it updates, and it skips an update that would land on a version older than your data (see [Downgrading to an older version](#downgrading-to-an-older-version)).
+The launcher fetches the latest code, reinstalls what changed, rebuilds and starts the new version. If you changed the code yourself, it sets your changes aside and puts them back after the update. If it cannot, it keeps your current version and prints a note. It copies your data before it updates, and it skips an update that would land on a version older than your data (see [Downgrading to an older version](#downgrading-to-an-older-version)). The copy leaves out your automatic backups (the `marinara-automatic-backup` zip files in the `backups/` folder inside the data folder). Other backups in that folder are still copied.
 
 To skip the update once, run `start.bat --skip-update`. To keep your installed version across launches, set `AUTO_UPDATE_ENABLED=false` in the project `.env`. This turns off only automatic updates. Manual commands and **Settings → Advanced → Check for Updates** still work.
 
