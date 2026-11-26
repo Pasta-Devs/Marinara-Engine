@@ -15179,6 +15179,20 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
   await page.route("**/api/capability-packages/agents", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
+  await page.route("**/api/capability-packages/uno/documentation?*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        packageId: "uno",
+        guideId: "overview",
+        title: "Overview",
+        topics: [{ id: "overview", title: "Overview" }],
+        status: "available",
+        content: "# UNO\n\nHow to play UNO.",
+      }),
+    });
+  });
   await page.route("**/api/agents", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
@@ -15268,8 +15282,13 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
   const facts = catalogView.locator("dl");
   await expect(facts.locator("div", { hasText: "Works in" }).getByText("Conversation", { exact: true })).toBeVisible();
   await expect(facts.locator("div", { hasText: "Needs Engine" }).getByText("2.3.0 or newer")).toBeVisible();
-  const documentationLink = catalogView.getByRole("link", { name: "Read how this agent works" });
-  await expect(documentationLink).toHaveAttribute("href", "https://github.com/Pasta-Devs/Marinara-Agents#uno");
+  // #9783 opens the agent's guide in the documentation window instead of linking out; agent-package-docs.e2e.ts
+  // covers the reader itself.
+  await catalogView.getByRole("button", { name: "Read how this agent works" }).click();
+  const guide = page.getByRole("dialog", { name: "UNO guides", exact: true });
+  await expect(guide.getByText("How to play UNO.", { exact: true })).toBeVisible();
+  await guide.getByRole("button", { name: "Close UNO guides", exact: true }).click();
+  await expect(guide).toBeHidden();
   // #8494 put the install action (Get) in the page header and the documentation link in About as a text
   // link, so the two no longer share one button style.
   await expect(catalogView.getByRole("button", { name: "Get UNO", exact: true })).toBeVisible();
