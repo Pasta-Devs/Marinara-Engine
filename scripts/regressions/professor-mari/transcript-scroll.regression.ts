@@ -2,6 +2,7 @@
 // and her window opens, stops following once the reader scrolls away, and lets go once the transcript settles.
 import assert from "node:assert/strict";
 import {
+  followTranscriptGrowth,
   isProfessorMariTranscriptNearBottom,
   landProfessorMariTranscript,
   scrollProfessorMariTranscriptToBottom,
@@ -65,3 +66,32 @@ assert.equal(
   false,
   "Professor Mari streaming must stop following output after the reader scrolls away from the bottom",
 );
+// #9821: after she landed, a picture in one of her replies loads and grows the transcript by its whole height at
+// once. A following reader at the bottom stays on the newest line; one who scrolled away stays where they are.
+{
+  let grow = () => {};
+  const realResizeObserver = globalThis.ResizeObserver;
+  globalThis.ResizeObserver = class {
+    constructor(callback: () => void) {
+      grow = callback;
+    }
+    observe() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+  try {
+    const scroller = { clientHeight: 600, scrollHeight: 4000, scrollTop: 3400 };
+    let following = true;
+    const stop = followTranscriptGrowth(scroller as unknown as HTMLElement, {} as HTMLElement, () => following);
+    scroller.scrollHeight = 4512; // a 512px picture took its height
+    grow();
+    assert.equal(scroller.scrollTop, 4512, "a picture that loads after the landing keeps the newest line in view");
+    scroller.scrollTop = 2000; // the reader scrolled up to read
+    following = false;
+    scroller.scrollHeight = 5024;
+    grow();
+    assert.equal(scroller.scrollTop, 2000, "a reader who scrolled away is not pulled down by a picture");
+    stop();
+  } finally {
+    globalThis.ResizeObserver = realResizeObserver;
+  }
+}

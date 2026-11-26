@@ -130,3 +130,75 @@ test("a long Mari chat opens at its newest turn and reopens at once", async ({ p
     await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
   }
 });
+
+/**
+ * #9821: her replies show the pictures she made, and a picture loads after she has landed on the newest line. It grew
+ * the transcript by its whole height at once, which the follow read as the reader having left the bottom, so she
+ * stayed put and the newest line ended up far below the fold.
+ */
+test("pictures that load after she lands keep her newest line in view", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const picture = readFileSync(new URL("../packages/client/public/icon-512.png", import.meta.url));
+  await page.route("**/api/gallery/file/mari-images/**", async (route) => {
+    // Later than her landing settles.
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.fulfill({ status: 200, contentType: "image/png", body: picture });
+  });
+  const restart = await request.post("/api/chats/internal/professor-mari/restart?name=Portraits");
+  expect(restart.ok(), await restart.text()).toBeTruthy();
+  const chatId = ((await restart.json()) as { id: string }).id;
+  const turns = 12;
+  const newest = `Last line of portrait ${turns - 1}.`;
+  try {
+    const t0 = Date.parse("2026-09-01T10:00:00Z");
+    for (let i = 0; i < turns; i += 1) {
+      const user = await request.post(`/api/chats/${chatId}/messages`, {
+        data: {
+          role: "user",
+          content: `Make portrait ${i}.`,
+          characterId: null,
+          createdAt: new Date(t0 + i * 60_000).toISOString(),
+        },
+      });
+      expect(user.ok(), await user.text()).toBeTruthy();
+      const image = i >= turns - 3 ? [`![Portrait ${i}](/api/gallery/file/mari-images/portrait-${i}.png)`] : [];
+      const reply = await request.post(`/api/chats/${chatId}/messages`, {
+        data: {
+          role: "assistant",
+          content: [`Here is portrait ${i}.`, ...image, `Last line of portrait ${i}.`].join("\n\n"),
+          characterId: "professor-mari",
+          createdAt: new Date(t0 + i * 60_000 + 30_000).toISOString(),
+        },
+      });
+      expect(reply.ok(), await reply.text()).toBeTruthy();
+    }
+
+    await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), APP_VERSION);
+    await isolateSyncedUISettings(page);
+    await seedUIState(page, { hasCompletedOnboarding: true, rightPanelOpen: false, sidebarOpen: false });
+    await page.goto("/");
+    await page
+      .locator("main")
+      .first()
+      .click({ position: { x: 5, y: 5 } });
+    const mariShortcut = await page.evaluate(async () => {
+      const { isApplePlatform } = await import("/src/lib/command-center.ts" as string);
+      return isApplePlatform() ? "Meta+j" : "Control+j";
+    });
+    await page.keyboard.press(mariShortcut);
+    const pane = page.locator('[data-component="GlobalOmnibar.Mari"]');
+    await expect(pane.getByText(newest)).toBeInViewport({ timeout: 20_000 });
+    // The pictures in view have loaded and taken their height.
+    await expect
+      .poll(() =>
+        pane
+          .locator('img[src*="/mari-images/"]')
+          .evaluateAll((images) => images.filter((image) => (image as HTMLImageElement).naturalWidth > 0).length),
+      )
+      .toBeGreaterThan(0);
+    await page.waitForTimeout(300);
+    await expect(pane.getByText(newest)).toBeInViewport();
+  } finally {
+    await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
+  }
+});
