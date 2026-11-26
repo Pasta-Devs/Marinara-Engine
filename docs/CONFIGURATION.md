@@ -102,7 +102,7 @@ openssl rand -hex 32
 
 Marinara keeps your data as plain JSON files, so you can copy and read backups. For what each folder holds, see [Where Your Data Is Stored](data/where-data-is-stored.md).
 
-To keep your data on a network share, point `DATA_DIR` at it and make sure the share is connected before Marinara starts. See [Cannot access a network or external folder](TROUBLESHOOTING.md#cannot-access-a-network-or-external-folder).
+To keep your data on a network share, point `DATA_DIR` at a folder on it and make sure the share is connected before Marinara starts. See [Cannot access a network or external folder](TROUBLESHOOTING.md#cannot-access-a-network-or-external-folder).
 
 ## Logging levels
 

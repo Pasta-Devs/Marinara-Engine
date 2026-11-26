@@ -343,12 +343,11 @@ Marinara clears a lease left by a crashed process on its own on Linux, Android, 
 
 ### Cannot access a network or external folder
 
-Marinara reads and writes only inside its data folder, so a folder outside it is refused. You see **Path escapes the allowed directory**, **Access denied: path outside home directory**, or **folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS.**
+Marinara keeps your data only in its data folder, and a SillyTavern folder import reads only from folders the server allows. A network share or another drive works when you set it up in one of these ways:
 
-The folder must sit inside the data folder or an import root, and it must be connected before Marinara reads or writes it. On Windows, a mapped drive is the most reliable choice.
-
-- **Your data lives on a network folder.** Point `DATA_DIR` at it in `.env`, then restart Marinara. See [Storage](CONFIGURATION.md#storage).
-- **You only import from a network folder.** Choose it with the folder picker, or add it to `IMPORT_ALLOWED_ROOTS` in `.env`, comma separated.
+- **Your data lives on a network share.** Point `DATA_DIR` in `.env` at a folder on the share, then restart Marinara. See [Storage](CONFIGURATION.md#storage). Move the whole data folder: if you link one folder inside it, such as `avatars` or `backgrounds`, to another drive, Marinara refuses its files with **Path escapes the allowed directory**.
+- **You import a SillyTavern folder from a share.** A typed path must be inside the home folder of the user that runs the server, or you see **Marinara can only read folders inside your home folder**. On the server's own computer, click **Browse** and pick the folder instead. Or add the folder to `IMPORT_ALLOWED_ROOTS` in `.env`, separated by commas, and restart Marinara. Once that setting is set, only its folders are allowed, even for a picked folder, so add your home folder too if you still import from it.
+- **The in-app folder browser opens your home folder.** It lists only folders inside the home folder, whatever `IMPORT_ALLOWED_ROOTS` says. Type the share's path in **SillyTavern folder path** instead.
 - **The share is disconnected.** Reconnect it before you start Marinara, then retry.
 
 ### Backup or Export returns 403
