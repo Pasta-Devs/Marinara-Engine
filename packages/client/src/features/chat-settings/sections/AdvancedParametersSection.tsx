@@ -36,7 +36,9 @@ import {
   DEFAULT_IMAGE_CAPTIONING_PROMPT,
   HISTORY_DROP_STEP,
   normalizeHistoryDropStep,
+  normalizeSummaryTailMessages,
   parseConnectionImageCaptioningDefaults,
+  summaryFriendlyMessageLimit,
 } from "@marinara-engine/shared";
 
 const EDITABLE_PARAMETER_KEYS: Array<keyof EditableGenerationParameters> = [
@@ -117,6 +119,34 @@ export function AdvancedParametersSection({
 }: AdvancedParametersSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const dropStep = normalizeHistoryDropStep(historyDropStep);
+  // Roleplay with automatic summaries hiding what they cover: a limit below this cuts history between summaries.
+  const summaryLimitFloor = useMemo(() => {
+    if (isConversation || advancedMemoryManagesHistory || metadata.hideSummarisedMessages !== true) return null;
+    const agentIds = Array.isArray(metadata.activeAgentIds) ? metadata.activeAgentIds : [];
+    const automatic =
+      metadata.automaticSummaryEnabled === true ||
+      (metadata.enableAgents === true && agentIds.includes("chat-summary"));
+    if (!automatic) return null;
+    const every =
+      typeof metadata.summaryRunInterval === "number" && Number.isFinite(metadata.summaryRunInterval)
+        ? Math.max(1, Math.min(200, Math.trunc(metadata.summaryRunInterval)))
+        : 5;
+    return summaryFriendlyMessageLimit({
+      tail: normalizeSummaryTailMessages(metadata.summaryTailMessages),
+      every,
+      step: dropStep,
+    });
+  }, [
+    advancedMemoryManagesHistory,
+    dropStep,
+    isConversation,
+    metadata.activeAgentIds,
+    metadata.automaticSummaryEnabled,
+    metadata.enableAgents,
+    metadata.hideSummarisedMessages,
+    metadata.summaryRunInterval,
+    metadata.summaryTailMessages,
+  ]);
   const modeDefaults = isConversation ? CHAT_PARAMETER_DEFAULTS : ROLEPLAY_PARAMETER_DEFAULTS;
   const strictModeDefaults: EditableGenerationParameters = {
     ...modeDefaults,
@@ -354,6 +384,11 @@ export function AdvancedParametersSection({
               {localizeUi("ui.agents.agenteditor.messages")}
             </span>
           </div>
+        )}
+        {contextMessageLimit && summaryLimitFloor !== null && contextMessageLimit < summaryLimitFloor && (
+          <p className="px-1 text-[0.625rem] leading-snug text-amber-400" data-summary-limit-hint role="note">
+            {localizeUi("ui.chatSettings.advancedparameterssection.summaryLimitHint", { count: summaryLimitFloor })}
+          </p>
         )}
         {!advancedMemoryManagesHistory && (
           <SettingsSwitch

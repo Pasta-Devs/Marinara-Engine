@@ -6,6 +6,7 @@ import {
   applyContextMessageLimitWithPins,
   normalizeHistoryDropStep,
   steppedDropCount,
+  summaryFriendlyMessageLimit,
 } from "../../../packages/shared/src/utils/message-marks.js";
 import type { DB } from "../../../packages/server/src/db/connection.js";
 import { assemblePrompt } from "../../../packages/server/src/services/prompt/index.js";
@@ -90,6 +91,8 @@ const cases: RegressionCase[] = [
       const drops = Array.from({ length: 21 }, (_, index) => steppedDropCount(20 + index, 20, 10));
       assert.deepEqual(drops, [0, ...Array(10).fill(10), ...Array(10).fill(20)]);
       assert.equal(steppedDropCount(25, 20, 1), 5, "a step of 1 is the old one-at-a-time cut");
+      assert.equal(summaryFriendlyMessageLimit({ tail: 10, every: 5, step: 10 }), 30, "tail + 2 x every + step");
+      assert.equal(summaryFriendlyMessageLimit({ tail: 10, every: 5, step: 1 }), 20, "no step: no extra");
     },
   },
   {

@@ -14181,6 +14181,7 @@
   "ui.chatSettings.advancedparameterssection.resetToDefaults": "Reset to Defaults",
   "ui.chatSettings.advancedparameterssection.saveAsConnectionDefault": "Save as Connection Default",
   "ui.chatSettings.advancedparameterssection.selectACaptioningConnection": "Select a captioning connection",
+  "ui.chatSettings.advancedparameterssection.summaryLimitHint": "Automatic summaries hide what they cover, so keep this at {{count}} or more. A lower limit drops messages between summaries, and each drop re-sends the prompt without its cache.",
   "ui.chatSettings.advancedparameterssection.value1": "- {{value1}}",
   "ui.chatSettings.cardFieldAlternatives.help": "Choose which version of each card field this chat uses. Your choice is saved to the card right away and applies from the next reply.",
   "ui.chatSettings.cardFieldAlternatives.original": "Original",

@@ -31,6 +31,17 @@ export function steppedDropCount(total: number, keep: number, step: number): num
   const size = normalizeHistoryDropStep(step);
   return Math.min(Math.floor(total), Math.ceil(overflow / size) * size);
 }
+
+/**
+ * The smallest message limit that never cuts history between two automatic summaries when summarised messages are
+ * hidden: the messages kept after a summary, plus the user and assistant messages until the next one (`every` counts
+ * user messages, so about twice as many in all), plus one step when old messages drop in steps. Below it the limit
+ * starts dropping messages on ordinary turns, and each drop is another prompt-cache rewrite.
+ */
+export function summaryFriendlyMessageLimit(input: { tail: number; every: number; step: number }): number {
+  const step = normalizeHistoryDropStep(input.step);
+  return Math.max(0, Math.floor(input.tail)) + 2 * Math.max(1, Math.floor(input.every)) + (step > 1 ? step : 0);
+}
 export const MAX_BOOKMARK_LABEL_LENGTH = 80;
 export const MAX_PRIVATE_NOTE_LENGTH = 2000;
 /** Trashed messages older than this are purged automatically. */

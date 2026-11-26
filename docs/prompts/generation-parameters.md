@@ -133,6 +133,8 @@ It applies to every place old messages are cut:
 
 The cost: right after a step, the AI sees up to that many fewer old messages than would fit. Advanced Memory Recall sizes the history by scenes instead, so this setting is hidden while it is on.
 
+With automatic summaries hiding summarised messages, keep **Limit Context Messages** at or above the messages kept after a summary, plus twice the summary's **Every** (it counts your messages, so about twice as many in all), plus the step. With 10, 5 and 10 that is 30. A lower limit drops messages between summaries, and each drop is another cache rewrite. Advanced Parameters shows the number when the limit is below it.
+
 ## Exclude Past Reasoning
 
 **Exclude Past Reasoning** is on by default. It keeps saved reasoning from earlier turns out of new prompts. Leave it on unless you have a clear reason to feed old reasoning back.
