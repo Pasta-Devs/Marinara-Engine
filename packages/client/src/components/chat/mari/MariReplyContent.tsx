@@ -24,21 +24,22 @@ import { ProfessorMariAttachment, isProfessorMariImageAttachment } from "./mari-
 import { WorkspaceToolCall } from "./mari-tool-presentation";
 import { Spinner } from "../../ui/Spinner";
 
-/** While Mari streams, each new word mounts in its own span and blurs in; words already shown keep their key. */
-function renderStreamingInline(text: string, keyPrefix: string): ReactNode[] {
-  return renderCompactInline(text, keyPrefix).map((node, nodeIndex) =>
-    typeof node === "string"
-      ? node.split(/(\s+)/).map((word, wordIndex) =>
-          /\S/.test(word) ? (
-            <span key={`${keyPrefix}-${nodeIndex}-${wordIndex}`} className="mari-stream-word">
-              {word}
-            </span>
-          ) : (
-            word
-          ),
-        )
-      : node,
-  );
+/**
+ * Text cut off mid-write: a bold or code span she has opened but not closed yet is closed for her, so it shows
+ * as bold (or code) from its first word instead of raw asterisks that snap to bold
+ * when the closing marker arrives. An open code fence is closed too, so its lines stream inside the code box.
+ */
+export function closeStreamingMarkers(text: string): string {
+  if ((text.match(/^\s*```/gm) ?? []).length % 2) return `${text}\n\`\`\``;
+  // A lone `*` at the very end is the first half of `**`; wait for the other half.
+  let out = /[^*]\*$/.test(text) ? text.slice(0, -1) : text;
+  const tail = out.slice(out.lastIndexOf("\n") + 1);
+  if ((tail.match(/`/g) ?? []).length % 2) return `${out}\``;
+  if ((tail.replace(/`[^`]*`/g, "").match(/\*\*/g) ?? []).length % 2) {
+    // Just opened, nothing inside yet: leave it out until a word follows.
+    out = /\*\*\s*$/.test(out) ? out.replace(/\*\*\s*$/, "") : `${out.trimEnd()}**`;
+  }
+  return out;
 }
 
 /** Slice 72: a name in her answer that opens its record (it replaces the reference cards under the answer). */
@@ -203,6 +204,7 @@ export const CompactMarkdown = memo(function CompactMarkdown({
   referenceTokens,
 }: {
   content: string;
+  /** Still being written: a caret leads the words and half-written bold/code shows as it will end up. */
   streaming?: boolean;
   /** Slice 72: names to turn into links (a finished answer only). */
   links?: readonly MariReplyLink[];
@@ -214,7 +216,9 @@ export const CompactMarkdown = memo(function CompactMarkdown({
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const rendered = useMemo(() => {
     if (!trimmed) return null;
-    if (streaming) return renderMarkdownBlocks(trimmed, renderStreamingInline, "home-mari");
+    // No per-word spans or fades: re-rendering a span per word every frame halved the frame rate on a
+    // 4x-throttled CPU, and the whole answer blurred in again when it replaced her draft.
+    if (streaming) return renderMarkdownBlocks(closeStreamingMarkers(trimmed), renderCompactInline, "home-mari");
     if (referenceTokens?.length) {
       return renderMarkdownBlocks(
         trimmed,

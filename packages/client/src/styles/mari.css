@@ -3060,17 +3060,6 @@ html[data-mari-pull-landing] .mari-arrival-content * {
   gap: 0.5rem;
 }
 
-.mari-stream-word {
-  animation: mari-word-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes mari-word-in {
-  from {
-    opacity: 0;
-    filter: blur(4px);
-  }
-}
-
 /* A small glowing dot leads her words while she writes. */
 .mari-stream-caret {
   display: inline-block;
@@ -3122,19 +3111,9 @@ html[data-mari-pull-landing] .mari-arrival-content * {
 
 /* Her words while she writes them: provisional, so muted, and capped to three lines that keep the newest
    words in view (older ones are clipped at the top). The real answer replaces it once checked. */
+/* Her words while she writes them: the reply's own column and type, so the answer lands where they were. */
 .mari-work-timeline__draft {
-  display: flex;
-  max-height: calc(0.875rem * 1.45 * 3);
-  flex-direction: column;
-  justify-content: flex-end;
-  overflow: hidden;
-  margin: 0;
-  padding-inline: 0.5rem;
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.45;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 /* A finished run: where the live line was, "Worked for Ns · N steps" folds the work away. Older turns
@@ -4585,7 +4564,6 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   .mari-work-timeline__timer > span,
   .mari-reasoning-panel__ticker > span,
   .mari-live-work__sprite[data-role="working"] > span::before,
-  .mari-stream-word,
   .mari-stream-caret,
   .mari-reasoning-panel__star--live,
   .mari-inline-review {
