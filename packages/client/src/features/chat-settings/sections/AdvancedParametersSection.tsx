@@ -385,6 +385,11 @@ export function AdvancedParametersSection({
             </span>
           </div>
         )}
+        {contextMessageLimit && !advancedMemoryManagesHistory && dropStep <= 1 && (
+          <p className="px-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)]" data-limit-cache-note>
+            {localizeUi("ui.chatSettings.advancedparameterssection.limitBreaksCache")}
+          </p>
+        )}
         {contextMessageLimit && summaryLimitFloor !== null && contextMessageLimit < summaryLimitFloor && (
           <p className="px-1 text-[0.625rem] leading-snug text-amber-400" data-summary-limit-hint role="note">
             {localizeUi("ui.chatSettings.advancedparameterssection.summaryLimitHint", { count: summaryLimitFloor })}

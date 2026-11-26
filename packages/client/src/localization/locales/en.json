@@ -14175,6 +14175,7 @@
   "ui.chatSettings.advancedparameterssection.excludePastReasoning": "Exclude Past Reasoning",
   "ui.chatSettings.advancedparameterssection.imageCaptioning": "Image captioning",
   "ui.chatSettings.advancedparameterssection.keepStoredThinkingReasoningMetadataOutOfFuturePrompts": "Keep stored thinking/reasoning metadata out of future prompts.",
+  "ui.chatSettings.advancedparameterssection.limitBreaksCache": "Once the chat is longer than this, the oldest message leaves on every reply, so prompt caching cannot reuse the chat history. Turn on Drop Old Messages in Steps below to keep it cached between steps.",
   "ui.chatSettings.advancedparameterssection.limitContextMessages": "Limit Context Messages",
   "ui.chatSettings.advancedparameterssection.onlySendTheLastNMessagesToTheModel": "Only send the last N messages to the model.",
   "ui.chatSettings.advancedparameterssection.overrideGenerationParametersForThisChatOnlyChangeThese": "Change generation settings for this chat only. Leave these alone unless you know what they do.",
