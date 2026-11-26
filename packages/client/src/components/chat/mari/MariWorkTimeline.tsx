@@ -172,20 +172,21 @@ function MariLiveHeadline({ text, subject }: { text: string; subject?: string | 
   );
 }
 
-/** Longest tail of her draft kept in the DOM; the line shows its last three lines, older words give way. */
-const MARI_DRAFT_TAIL = 280;
-
 /**
- * Her words while she writes them: provisional, so muted and hidden from screen readers (the real text is
- * announced once it lands). Subscribes to the store itself, so a streaming draft re-renders only this line.
+ * Her words while she writes them, laid out like the reply they become (same column, same formatting), so
+ * the finished answer lands in place instead of replacing a raw-text ticker. Hidden from screen readers
+ * (the real text is announced once it lands). Subscribes to the store itself, so a streaming draft
+ * re-renders only this block.
  */
-function MariDraftLine({ chatId }: { chatId: string }) {
+function MariDraftReply({ chatId }: { chatId: string }) {
   const draft = useChatStore((state) => state.mariDraftByChatId.get(chatId) ?? "").trim();
   if (!draft) return null;
   return (
-    <p className="mari-work-timeline__draft" aria-hidden="true">
-      {draft.slice(-MARI_DRAFT_TAIL)}
-    </p>
+    <div className="mari-work-timeline__draft" aria-hidden="true">
+      <MariAnswer restStory={null}>
+        <CompactMarkdown content={draft} streaming />
+      </MariAnswer>
+    </div>
   );
 }
 
@@ -755,7 +756,7 @@ export function MariWorkTimeline({
           </MariAnswer>
         ) : null}
 
-        {active && draftChatId ? <MariDraftLine chatId={draftChatId} /> : null}
+        {active && draftChatId ? <MariDraftReply chatId={draftChatId} /> : null}
         {active ? (
           // The live line is always the last line, and working Mari leads it on the left: new work lands above
           // it and pushes the older lines up, so she is never left behind on an old step or clipped.
