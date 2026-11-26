@@ -810,10 +810,20 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         await expect(destination).not.toHaveAttribute("data-drag-target");
       }
       await transfer.dispose();
-      await library
-        .locator("[data-sprite-loose]")
-        .getByRole("button", { name: "Preview idle", exact: true })
-        .dragTo(frontSection.getByRole("button", { name: "Front", exact: true }));
+      // The Front header sits just above the view here. dragTo would press on the loose tile, then scroll the header
+      // into view before its first move, and Chromium would drag the Front tile under the press point instead.
+      // Bring both ends into view first and drag in steps like the move to the loose area above.
+      const frontHeader = frontSection.getByRole("button", { name: "Front", exact: true });
+      const looseIdle = looseTile.getByRole("button", { name: "Preview idle", exact: true });
+      await frontSection.evaluate((element) => element.scrollIntoView({ block: "start" }));
+      await expect(frontHeader).toBeInViewport();
+      await expect(looseIdle).toBeInViewport({ ratio: 0.5 });
+      const looseFrom = (await looseIdle.boundingBox())!;
+      const frontTo = (await frontHeader.boundingBox())!;
+      await page.mouse.move(looseFrom.x + looseFrom.width / 2, looseFrom.y + looseFrom.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(frontTo.x + frontTo.width / 2, frontTo.y + frontTo.height / 2, { steps: 10 });
+      await page.mouse.up();
       await expectFolder("full_idle", front);
     }
     await expect(library.getByRole("checkbox", { name: /^Select/ })).toHaveCount(0);
