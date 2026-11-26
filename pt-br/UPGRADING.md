@@ -37,7 +37,7 @@ O inicializador atualiza Marinara toda vez que você o inicia.
 1. Feche Marinara Engine.
 2. Abra de novo pelo atalho da área de trabalho ou do Menu Iniciar, ou execute `start.bat`.
 
-O inicializador busca o código mais novo, reinstala o que mudou, recompila e inicia a nova versão. Se você mesmo alterou o código, ele deixa as suas alterações de lado e as devolve depois da atualização. Se não conseguir, ele mantém a versão atual e mostra um aviso. Ele copia os seus dados antes de atualizar e pula uma atualização que levaria a uma versão mais antiga do que os seus dados (veja [Como voltar para uma versão anterior](#downgrading-to-an-older-version)).
+O inicializador busca o código mais novo, reinstala o que mudou, recompila e inicia a nova versão. Se você mesmo alterou o código, ele deixa as suas alterações de lado e as devolve depois da atualização. Se não conseguir, ele mantém a versão atual e mostra um aviso. Ele copia os seus dados antes de atualizar e pula uma atualização que levaria a uma versão mais antiga do que os seus dados (veja [Como voltar para uma versão anterior](#downgrading-to-an-older-version)). A cópia deixa de fora os seus backups automáticos (os arquivos zip `marinara-automatic-backup` na pasta `backups/`, dentro da pasta de dados). Os outros backups dessa pasta continuam sendo copiados.
 
 Para pular a atualização uma vez, execute `start.bat --skip-update`. Para manter a versão instalada em todas as inicializações, defina `AUTO_UPDATE_ENABLED=false` no `.env` do projeto. Isso desativa só as atualizações automáticas. Os comandos manuais e **Settings → Advanced → Check for Updates** (Configurações → Avançado → Verificar atualizações) continuam funcionando.
 
