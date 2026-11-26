@@ -1,5 +1,10 @@
 import { isDeepStrictEqual } from "node:util";
 import {
+  combineSummaryEntries,
+  normalizeSummaryAutoCombineAbove,
+  selectEntriesToAutoCombine,
+} from "../services/chat-summary/combine-entries.js";
+import {
   labelInjectedParts,
   peekBlocksForResponder,
   worldInfoPeekBlocks,
@@ -13837,6 +13842,51 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 type: "chat_summary",
                 data: { summary: combined, entry: createdEntry, entries: summaryEntries, hiddenMessageIds },
               });
+              // "Combine older summaries automatically": right after a new entry is saved, the moment Past
+              // Events changes anyway, so folding the older entries together costs no extra cache write.
+              const combineIds = selectEntriesToAutoCombine(
+                summaryEntries,
+                normalizeSummaryAutoCombineAbove(chatMeta.summaryAutoCombineAbove),
+              );
+              if (combineIds.length >= 2 && !generationSignal.aborted) {
+                try {
+                  const folded = await combineSummaryEntries({
+                    chatId: input.chatId,
+                    chatMeta,
+                    entryIds: combineIds,
+                    provider: summaryProvider,
+                    model: summaryModel,
+                    temperatureOptions: summaryTemperatureOptions,
+                    summaryMaxTokens,
+                    promptTemplateId:
+                      typeof chatMeta.activeSummaryPromptTemplateId === "string"
+                        ? chatMeta.activeSummaryPromptTemplateId
+                        : null,
+                    globalSummaryPromptSettings,
+                    storage: chats,
+                    signal: generationSignal,
+                  });
+                  if (folded.ok) {
+                    chatMeta = { ...chatMeta, summary: folded.summary, summaryEntries: folded.entries };
+                    sendSseEvent(reply, {
+                      type: "chat_summary",
+                      data: {
+                        summary: folded.summary,
+                        entry: folded.entry,
+                        entries: folded.entries,
+                        hiddenMessageIds: [],
+                      },
+                    });
+                  } else {
+                    logger.warn(
+                      { chatId: input.chatId, error: folded.error },
+                      "[chat-summary] Automatic combine skipped",
+                    );
+                  }
+                } catch (err) {
+                  logger.warn(err, "[chat-summary] Automatic combine failed; the entries stay as they are");
+                }
+              }
             }
           }
         };

@@ -105,6 +105,8 @@ import { OvSeg } from "../overhaul/LoreEntryParts";
 import { Select } from "../ui/Select";
 import { Tabs } from "../ui/Tabs";
 
+/** First value "Combine older summaries automatically" offers (server: SUMMARY_AUTO_COMBINE.SUGGESTED). */
+const AUTO_COMBINE_SUGGESTED = 10;
 /** The Select value for the built-in default prompt, which the settings store as no template. */
 const DEFAULT_SUMMARY_TEMPLATE = "__builtin-default__";
 
@@ -129,6 +131,8 @@ interface ChatSummaryPanelProps {
   hideSummarisedMessages?: boolean;
   /** How many recent messages stay visible when summarised messages are auto-hidden (roleplay tail). Default 10. */
   summaryTailMessages?: number;
+  /** "Combine older summaries automatically": combine when there are more entries than this; 0 = off. */
+  summaryAutoCombineAbove?: number;
   automaticSummariesAvailable?: boolean;
   totalMessageCount: number;
   summaryInjectionHint?: string | null;
@@ -360,6 +364,7 @@ export function ChatSummaryPanel({
   summaryRunInterval,
   hideSummarisedMessages,
   summaryTailMessages,
+  summaryAutoCombineAbove = 0,
   automaticSummariesAvailable = true,
   totalMessageCount,
   summaryInjectionHint = null,
@@ -1828,6 +1833,35 @@ export function ChatSummaryPanel({
                   <span>{localizeUi("ui.chat.summarypopover.userMessages")}</span>
                 </span>
               </label>
+
+              <div data-summary-auto-combine>
+                <SummarySettingsToggle
+                  label={localizeUi("ui.chat.summarypopover.autoCombine")}
+                  description={localizeUi("ui.chat.summarypopover.autoCombineDescription")}
+                  checked={summaryAutoCombineAbove >= 2}
+                  onChange={(checked) =>
+                    updateMeta.mutate({ id: chatId, summaryAutoCombineAbove: checked ? AUTO_COMBINE_SUGGESTED : 0 })
+                  }
+                />
+                {summaryAutoCombineAbove >= 2 && (
+                  <label className="flex flex-wrap items-center justify-between gap-2 px-1.5 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+                    <span>{localizeUi("ui.chat.summarypopover.autoCombineWhenMoreThan")}</span>
+                    <span className="flex items-center gap-2">
+                      <DraftNumberInput
+                        ariaLabel={localizeUi("ui.chat.summarypopover.autoCombineWhenMoreThan")}
+                        min={2}
+                        max={100}
+                        value={summaryAutoCombineAbove}
+                        onCommit={(value) =>
+                          updateMeta.mutate({ id: chatId, summaryAutoCombineAbove: Math.max(2, Math.min(100, value)) })
+                        }
+                        className="w-16 rounded-md bg-[var(--secondary)] px-2 py-1 text-right text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                      />
+                      <span>{localizeUi("ui.chat.summarypopover.autoCombineEntries")}</span>
+                    </span>
+                  </label>
+                )}
+              </div>
 
               {import.meta.env.VITE_MARINARA_LITE !== "true" && (
                 <div>

@@ -117,6 +117,8 @@ The **Automatic Summaries** panel keeps summaries current as you chat.
 2. Set **Every** to how many user messages pass between summaries. The default is 5. The range is 1 to 200.
 3. Optional: click **Backfill Summary** to summarize an older chat that never had summaries. A progress bar shows. Click **Stop** to end it early.
 
+**Combine older summaries automatically** is off by default. Turn it on and set **When there are more than** (it starts at 10, from 2 to 100). Once a new automatic summary takes the chat past that many turned-on entries, every turned-on entry except the newest is combined into one, using your **Combine prompt**. The combined entry keeps the messages the old ones covered, in order, and the newest entry stays as it is. It runs right after the new summary is saved, the moment the summary block changes anyway, so it does not break prompt caching an extra time. If combining fails, the entries stay as they are.
+
 ### Summary prompt, provider and output size
 
 - **Summary Prompt**: click **Edit** to change the instructions the AI uses. Click **Templates** to manage saved prompts with **New template**, **Duplicate**, **Edit** and **Delete**. Templates are global: picking one in a Roleplay chat changes the prompt for every Roleplay chat.

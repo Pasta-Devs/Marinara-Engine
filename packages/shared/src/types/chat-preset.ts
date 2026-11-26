@@ -385,6 +385,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "summaryConnectionId", // Summary connection
   "summaryMaxTokens", // Summary length
   "summaryTailMessages", // Recent messages left visible when summarised ones are hidden
+  "summaryAutoCombineAbove", // Combine older summary entries once there are more than this
   "dayRolloverHour", // Hour a new day starts for day summaries
   "semanticSummaryRetrievalEnabled", // Find older summaries by meaning
   "semanticSummaryRecentCount", // How many recent weeks to include
