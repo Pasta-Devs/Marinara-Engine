@@ -87,6 +87,7 @@ function QuickAnswerHandoff({
       {long ? (
         <button
           type="button"
+          aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}
           className="self-start font-semibold underline-offset-2 hover:underline"
         >

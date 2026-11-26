@@ -55,5 +55,5 @@ assert.equal(cachedMariThread(general)?.chatId, "a");
 assert.equal(cachedMariThread({ context: { key: "character:c1" } }), null);
 // "Continue here" picked earlier for this context wins, as in the routing.
 assert.equal(cachedMariThread({ context: { key: "character:c1" }, continuedThereId: "a" })?.chatId, "a");
-// A context with no thread asks about the most recent one ("b"), not "a".
-assert.equal(cachedMariThread({ context: { key: "lorebook:l1" } }), null);
+// A context with no thread asks in the thread she showed last ("a", #9821), so it draws at once.
+assert.equal(cachedMariThread({ context: { key: "lorebook:l1" } })?.chatId, "a");

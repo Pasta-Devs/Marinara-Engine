@@ -76,7 +76,7 @@ export type MariThreadChoice =
    *  subject of its own, the thread she showed last. */
   | { kind: "continue"; chatId: string }
   /**
-   * No thread for this context: continue her most recent conversation and offer "New about <context>"
+   * No thread for this context: continue the thread you were last in (else her most recent conversation) and offer "New about <context>"
    * there. R13: silently starting an empty thread read as "she forgot everything".
    */
   | { kind: "ask"; recentChatId: string }
@@ -101,16 +101,19 @@ export function chooseMariThread({
         !best || (thread.lastMessageAt ?? thread.createdAt) > (best.lastMessageAt ?? best.createdAt) ? thread : best,
       null,
     );
+  const recent = newest(threads.filter((thread) => thread.lastMessageAt !== null));
   // Home and every other screen without a subject of its own: the thread you were last in, whatever it is about.
   // Picking the newest "general" one instead opened an older thread whenever the latest began in an editor or chat.
   if (contextKey === MARI_GENERAL_CONTEXT) {
-    const current = threads.find((thread) => thread.active) ?? newest(threads.filter((thread) => thread.lastMessageAt));
+    const current = threads.find((thread) => thread.active) ?? recent;
     if (current) return { kind: "continue", chatId: current.id };
   }
   const match = newest(threads.filter((thread) => thread.contextKey === contextKey));
   if (match) return { kind: "continue", chatId: match.id };
-  const recent = newest(threads.filter((thread) => thread.lastMessageAt !== null));
-  return recent ? { kind: "ask", recentChatId: recent.id } : { kind: "new" };
+  // #9821: a screen with no thread of its own continues the thread you were last in too, when it has a conversation.
+  // The newest one by its last message moved you out of an older thread you had just opened from her Chats.
+  const current = threads.find((thread) => thread.active && thread.lastMessageAt !== null) ?? recent;
+  return current ? { kind: "ask", recentChatId: current.id } : { kind: "new" };
 }
 
 /** K1/L2: the "fix this" row a lastAppError points at: the connection, or the agent for a failed run. */

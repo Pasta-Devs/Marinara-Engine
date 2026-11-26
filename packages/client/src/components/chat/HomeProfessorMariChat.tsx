@@ -1864,10 +1864,10 @@ export function HomeProfessorMariChat({
   // Scrolled up to read: a small round arrow above the composer brings you back to the newest line.
   // Same-value state updates bail out, so this re-renders only when the pill appears or leaves.
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
-  const transcriptGlideCleanupRef = useRef<(() => void) | null>(null);
+  const transcriptFollowRef = useRef<ReturnType<typeof followTranscriptGrowth> | null>(null);
   const setTranscriptStackNode = useCallback((node: HTMLDivElement | null) => {
-    transcriptGlideCleanupRef.current?.();
-    transcriptGlideCleanupRef.current = node?.parentElement
+    transcriptFollowRef.current?.stop();
+    transcriptFollowRef.current = node?.parentElement
       ? followTranscriptGrowth(
           node.parentElement,
           node,
@@ -1920,6 +1920,8 @@ export function HomeProfessorMariChat({
       following: transcriptFollowOutputRef.current,
     });
     transcriptFollowOutputRef.current = decision.following;
+    // A pin from just before the send (the question replacing her welcome) must not turn following back on.
+    transcriptFollowRef.current?.unpin();
     setShowJumpToLatest(false);
     if (decision.scrollTo === "top") {
       // Instant, not smooth: a multi-frame animation would fire more than the one "scroll" event the
