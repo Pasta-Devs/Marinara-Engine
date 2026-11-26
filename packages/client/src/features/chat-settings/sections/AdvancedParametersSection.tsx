@@ -342,7 +342,7 @@ export function AdvancedParametersSection({
         {contextMessageLimit && (
           <div className="flex items-center gap-2 px-1">
             <DraftNumberInput
-              aria-label={localizeUi("ui.chatSettings.advancedparameterssection.contextMessageLimit")}
+              ariaLabel={localizeUi("ui.chatSettings.advancedparameterssection.contextMessageLimit")}
               min={1}
               max={9999}
               value={contextMessageLimit}
@@ -374,7 +374,7 @@ export function AdvancedParametersSection({
         {!advancedMemoryManagesHistory && dropStep > 1 && (
           <div className="flex items-center gap-2 px-1" data-history-drop-step>
             <DraftNumberInput
-              aria-label={localizeUi("ui.chatSettings.advancedparameterssection.dropInSteps")}
+              ariaLabel={localizeUi("ui.chatSettings.advancedparameterssection.dropInSteps")}
               min={2}
               max={HISTORY_DROP_STEP.MAX}
               value={dropStep}
