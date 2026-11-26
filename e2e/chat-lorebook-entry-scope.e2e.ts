@@ -32,10 +32,7 @@ test("shared entry duplication keeps a pending enabled change", async ({ page, r
     }, book.id);
     const row = page.locator(`[data-lorebook-entry-row-id="${entry.id}"]`);
     await expect(row).toBeVisible();
-    await row
-      .locator("label")
-      .filter({ has: page.getByRole("switch", { name: "Disable entry", exact: true }) })
-      .click();
+    await row.getByRole("switch", { name: "Disable entry", exact: true }).click();
     await expect.poll(() => patchStarted).toBe(true);
     await row.getByRole("button", { name: "Duplicate entry", exact: true }).click();
     await expect
@@ -120,10 +117,7 @@ for (const mode of ["game", "roleplay", "conversation"] as const) {
       };
       await page.goto("/");
       let row = await openEditor();
-      await row
-        .locator("label")
-        .filter({ has: page.getByRole("switch", { name: "Disable entry for this chat", exact: true }) })
-        .click();
+      await row.getByRole("switch", { name: "Disable entry for this chat", exact: true }).click();
       await expect
         .poll(async () => (await metadata(a.id)).entryStateOverrides[entry.id])
         .toEqual({ ephemeral: 3, enabled: false });
@@ -154,10 +148,7 @@ for (const mode of ["game", "roleplay", "conversation"] as const) {
       await page.reload();
       row = await openEditor();
       await expect(row.getByRole("switch", { name: "Enable entry for this chat", exact: true })).not.toBeChecked();
-      await row
-        .locator("label")
-        .filter({ has: page.getByRole("switch", { name: "Enable entry for this chat", exact: true }) })
-        .click();
+      await row.getByRole("switch", { name: "Enable entry for this chat", exact: true }).click();
       await expect.poll(async () => (await metadata(a.id)).entryStateOverrides[entry.id]).toEqual({ ephemeral: 3 });
       await request.patch(`/api/lorebooks/${book.id}/entries/${entry.id}`, { data: { enabled: false } });
       await page.reload();

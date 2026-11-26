@@ -144,7 +144,11 @@ for (const theme of ["dark", "light"] as const) {
       await expect(picker).toHaveAttribute("data-connection-value", "default-schedule-fixture");
       await picker.click();
       const models = page.getByRole("dialog", { name: "Model for Schedule", exact: true });
-      const chosen = models.locator('[data-switcher-entry="chosen-schedule-fixture"]');
+      // A Model with no account is listed both beside the account panes and in the open pane: use the first shown.
+      const chosen = models
+        .locator('[data-switcher-entry="chosen-schedule-fixture"]')
+        .filter({ visible: true })
+        .first();
       // A narrow picker opens on one pane; its back button returns to the list of every Model.
       const back = models.locator("[data-switcher-back]");
       await expect(chosen.or(back).filter({ visible: true }).first()).toBeVisible();

@@ -133,6 +133,9 @@ test("soup/onboarding language picker closes on Escape without ending the tutori
   const popup = page.getByRole("dialog", { name: "Documentation Language", exact: true });
   await expect(popup).toBeVisible();
   await expect(popup.locator('[data-pick-row][title="English"]')).toBeVisible();
+  // The picker takes focus a frame after it opens. An Escape before that lands on the trigger in the tour card,
+  // which ends the tour; a user's key comes later.
+  await expect.poll(() => popup.evaluate((element) => element.contains(document.activeElement))).toBe(true);
   await page.keyboard.press("Escape");
   await expect(popup).toHaveCount(0);
   await expect(tour).toBeVisible();

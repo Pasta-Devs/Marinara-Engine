@@ -674,10 +674,13 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
         return;
       }
       const section = drawer.locator(`[data-chat-settings-section="${mode}-background"]`);
-      const agents = drawer.locator(`[data-chat-settings-section="${mode}-agents"]`);
-      expect(Number(await section.evaluate((el) => getComputedStyle(el).order))).toBeGreaterThan(
-        Number(await agents.evaluate((el) => getComputedStyle(el).order)),
-      );
+      await expect(section).toBeVisible();
+      // Sections show in code order since #9355 dropped their CSS order: Background comes after Agents.
+      const sectionOrder = await drawer
+        .locator("[data-chat-settings-section]")
+        .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-chat-settings-section")));
+      expect(sectionOrder.indexOf(`${mode}-agents`)).toBeGreaterThanOrEqual(0);
+      expect(sectionOrder.indexOf(`${mode}-background`)).toBeGreaterThan(sectionOrder.indexOf(`${mode}-agents`));
       // The shared drawer (f502a1ffd) keeps the help tip beside its toggle; 76d1e52c3 gave Background the wallpaper icon.
       const headerRow = section.locator(":scope > .mari-drawer__header");
       const header = headerRow.locator("[data-drawer-toggle]");

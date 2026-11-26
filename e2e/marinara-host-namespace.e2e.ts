@@ -563,6 +563,9 @@ for (const [name, m] of Object.entries(modules)) {
     const dialog = page.getByRole("dialog", { name: `${name} Motion dialog` });
     await expect(dialog).toBeVisible();
     await expect(dialog.locator(`[data-motion-probe="${name}"]`)).toHaveText(`${name}:always`);
+    // Escape from this fixture's own element counts as a browser extension's (a custom element under <body>),
+    // so press it once the dialog has taken focus, as Modal does a frame after opening.
+    await expect(dialog.getByRole("button", { name: `Close ${name} Motion dialog`, exact: true })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
   }

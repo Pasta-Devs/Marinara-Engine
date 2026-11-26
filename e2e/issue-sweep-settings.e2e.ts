@@ -152,7 +152,7 @@ for (const theme of ["dark", "light"] as const) {
     await section.getByRole("button", { name: "Asset Browser", exact: true }).click();
     if (testInfo.project.name.includes("mobile"))
       await page.getByRole("button", { name: "Search in folder", exact: true }).click();
-    await expect(page.getByRole("textbox", { name: "Search in folder", exact: true })).toBeVisible();
+    await expect(page.getByRole("searchbox", { name: "Search in folder", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   });
 
