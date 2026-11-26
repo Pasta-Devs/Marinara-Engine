@@ -3199,7 +3199,13 @@ export const useUIStore = create<UIState>()(
         openModal: (type, props) => {
           // UI overhaul: Docs open as a tab (the Docs page on phones) instead of a modal.
           if (type === "docs-viewer" && isOverhaulLook()) {
-            const initialDoc = typeof props?.initialDoc === "string" ? props.initialDoc : null;
+            // A downloadable agent's help reads its package's guides on the Docs page ("pkg:<id>/<guide>").
+            const initialDoc =
+              typeof props?.packageId === "string"
+                ? `pkg:${props.packageId}/overview`
+                : typeof props?.initialDoc === "string"
+                  ? props.initialDoc
+                  : null;
             get().closeAllDetails();
             useOverhaulStore.getState().openDocs(initialDoc, { newTab: Boolean(props?.newTab) });
             return;

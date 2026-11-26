@@ -24,7 +24,8 @@ import {
   X,
 } from "lucide-react";
 import { useCodeBlockCopy } from "../../hooks/use-code-block-copy";
-import { useDocContent, useDocsIndex, useDocsSearch, type DocSummary } from "../../hooks/use-docs";
+import { useDocContent, useDocsIndex, useDocsSearch, type DocContent, type DocSummary } from "../../hooks/use-docs";
+import { usePackageDocumentation } from "../../hooks/use-capability-packages";
 import { useDocsFind } from "../../hooks/use-docs-find";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { cn } from "../../lib/utils";
@@ -92,6 +93,12 @@ function ShotFigure({ shot, onOpen }: { shot: DocShot; onOpen: (shot: DocShot) =
   );
 }
 
+/** "pkg:<package id>/<guide id>": a downloadable agent's guide, read from its package (#9762). */
+function parsePackageDocPath(path: string | null): { id: string; guide: string } | null {
+  const match = path ? /^pkg:([^/]+)\/(.+)$/.exec(path) : null;
+  return match ? { id: match[1]!, guide: match[2]! } : null;
+}
+
 export function OverhaulDocsPage({ tabId }: { tabId: string }) {
   const localize = useLocalizedUiText();
   const path = useOverhaulStore((s) => s.docsTabs[tabId] ?? null);
@@ -118,26 +125,56 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
   }, [query]);
 
   const { data: index, isLoading: indexLoading } = useDocsIndex(true);
-  const { data: doc, isLoading: docLoading, isError: docError } = useDocContent(path);
+  // A downloadable agent's help (#9762) opens here too: its path is "pkg:<package id>/<guide id>", and the package's
+  // overview and topic guides show as their own group at the top of the list.
+  const pkg = parsePackageDocPath(path);
+  const localDoc = useDocContent(pkg ? null : path);
+  const packageOverview = usePackageDocumentation(pkg?.id, "overview", !!pkg);
+  const packageDoc = usePackageDocumentation(pkg?.id, pkg?.guide ?? "overview", !!pkg);
+  const doc: DocContent | undefined = pkg
+    ? packageDoc.data?.content !== undefined
+      ? {
+          path: path!,
+          language: "en",
+          title: packageDoc.data.title,
+          content: packageDoc.data.content,
+          updatedAt: packageDoc.data.retrievedAt ?? "",
+        }
+      : undefined
+    : localDoc.data;
+  const docLoading = pkg ? packageDoc.isLoading : localDoc.isLoading;
+  const docError = pkg ? packageDoc.isError : localDoc.isError;
   const term = debounced.trim();
   const searching = term.length >= 2;
   const { data: search } = useDocsSearch(term);
   const docsLanguage = index?.language ?? "en";
 
   const groups = useMemo(() => {
-    const out: { dir: string; docs: DocSummary[] }[] = [];
+    const out: { dir: string; docs: DocSummary[]; label?: string }[] = [];
+    if (pkg) {
+      const topics = packageOverview.data?.topics ?? [];
+      out.push({
+        dir: `pkg:${pkg.id}`,
+        label: packageOverview.data?.title || pkg.id,
+        docs: (topics.length ? topics : [{ id: "overview", title: localize("Overview") }]).map((topic) => ({
+          path: `pkg:${pkg.id}/${topic.id}`,
+          dir: `pkg:${pkg.id}`,
+          title: topic.id === "overview" ? localize("Overview") : topic.title,
+        })) as DocSummary[],
+      });
+    }
     for (const entry of index?.docs ?? []) {
       const group = out.find((g) => g.dir === entry.dir);
       if (group) group.docs.push(entry);
       else out.push({ dir: entry.dir, docs: [entry] });
     }
     return out;
-  }, [index]);
+  }, [index, pkg?.id, packageOverview.data, localize]);
 
   // The guide's title renders on its own, so the "On this page" outline can sit right under it (QC panel 3, F8).
   const [renderedTitle, rendered] = useMemo(() => {
     if (!doc) return [null, null];
-    const prepared = prepareDocMarkdown(doc.content, doc.path);
+    const prepared = prepareDocMarkdown(doc.content, doc.path, pkg ? packageDoc.data?.sourceUrl : undefined);
     const titleMatch = /^\s*#\s+[^\n]+(?:\n|$)/.exec(prepared);
     const title = titleMatch
       ? renderMarkdownBlocks(titleMatch[0].trim(), applyInlineMarkdown, "docs-viewer-title")
@@ -156,7 +193,7 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
         ),
       ),
     ];
-  }, [doc]);
+  }, [doc, pkg?.id, packageDoc.data?.sourceUrl]);
   useCodeBlockCopy(contentEl, rendered);
 
   const minutes = useMemo(() => {
@@ -233,6 +270,10 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
   useEffect(() => {
     if (current) setOpenGroups((prev) => (prev.has(current.dir) ? prev : new Set(prev).add(current.dir)));
   }, [current]);
+  const pkgDir = pkg ? `pkg:${pkg.id}` : null;
+  useEffect(() => {
+    if (pkgDir) setOpenGroups((prev) => (prev.has(pkgDir) ? prev : new Set(prev).add(pkgDir)));
+  }, [pkgDir]);
 
   const select = (target: string, fromSearch = false) => {
     jumpToFirstHit.current = fromSearch;
@@ -377,7 +418,9 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
             <div className="ov-docs__landing" hidden={searching || undefined}>
               {groups.map((group) => (
                 <div key={group.dir || "root"}>
-                  <p className="ov-docs__eyebrow">{dirLabel(group.dir, docsLanguage) || localize("Start here")}</p>
+                  <p className="ov-docs__eyebrow">
+                    {group.label ?? (dirLabel(group.dir, docsLanguage) || localize("Start here"))}
+                  </p>
                   <ul>
                     {group.docs.map((entry) => (
                       <li key={entry.path}>
@@ -522,7 +565,7 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
                         onClick={() => toggleGroup(group.dir)}
                       >
                         <ChevronRight size={13} aria-hidden="true" />
-                        <span>{dirLabel(group.dir, docsLanguage) || localize("Start here")}</span>
+                        <span>{group.label ?? (dirLabel(group.dir, docsLanguage) || localize("Start here"))}</span>
                         <small>{group.docs.length}</small>
                       </button>
                       {open ? (
