@@ -384,9 +384,16 @@ test.describe("Chat Settings window on desktop", () => {
       await openSettingsWindow(page);
       expectSameBox(await box(settings), keyResized, "remembered after reload");
 
-      // A resize cue shows in the corner while the pointer is over the window, and fades away after.
-      const grip = settings.locator(".mari-window__resize-grip");
-      await expect(grip).toHaveCount(1);
+      // Every corner has a resize cue since #9837. The bottom-right one shows while the pointer is over the
+      // window, and fades away after.
+      await expect
+        .poll(() =>
+          settings
+            .locator(".mari-window__resize-grip")
+            .evaluateAll((grips) => grips.map((grip) => (grip as HTMLElement).dataset.corner).sort()),
+        )
+        .toEqual(["ne", "nw", "se", "sw"]);
+      const grip = settings.locator('.mari-window__resize-grip[data-corner="se"]');
       await page.mouse.move(1, 450);
       await settings.evaluate((element) => (element as HTMLElement).blur());
       await expect(grip).toHaveCSS("opacity", "0");

@@ -524,8 +524,10 @@ async function exerciseWindow(page: Page, desktop: boolean) {
 async function expectCompactFramedWidgets(page: Page, preset: "dottore" | "mari", theme: string) {
   const settings = await openChatSettings(page);
   const header = settings.locator(".mari-window__header");
-  const grip = settings.locator(".mari-window__resize-grip");
-  if (await grip.count()) {
+  // Every corner has a cue since #9837; the bottom-right one shows while the pointer is in the window.
+  const grip = settings.locator('.mari-window__resize-grip[data-corner="se"]');
+  if (await settings.locator(".mari-window__resize-grip").count()) {
+    await expect(grip).toHaveCount(1);
     await page.mouse.move(1, 1);
     await expect(grip).toHaveCSS(
       "color",
