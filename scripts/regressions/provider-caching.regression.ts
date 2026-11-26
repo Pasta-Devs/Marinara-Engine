@@ -148,6 +148,39 @@ try {
       }
     }
   });
+  await test("a history split by Recent History caches up to the end of its older part", async () => {
+    const split: ChatMessage[] = [
+      { role: "system", content: "Stable system" },
+      { role: "user", content: "Past user" },
+      { role: "assistant", content: "Past reply", historyCacheBreakpoint: true },
+      { role: "system", content: "Scene now" },
+      { role: "user", content: "Recent user" },
+      { role: "assistant", content: "Recent reply" },
+      { role: "user", content: "Latest user" },
+    ];
+    const cachedTexts = (value: unknown): string[] =>
+      JSON.stringify(value)
+        .match(/"text":"[^"]*","cache_control"/gu)
+        ?.map((match) => match.slice(8, -17)) ?? [];
+    const anthropic = new AnthropicProvider(`${baseUrl}/anthropic`, "test");
+    for (const tools of [undefined, [tool]]) {
+      await anthropic.chatComplete(split, { model: "claude-opus-5", stream: false, enableCaching: true, tools });
+      const body = requests.at(-1)!;
+      assert.deepEqual(cachedTexts(body.system), ["Stable system"], "the system prompt still caches");
+      assert.deepEqual(cachedTexts(body.messages), ["Past reply"], "the history breakpoint ends the older part");
+      await anthropic.chatComplete(split, { model: "claude-opus-5", stream: false, enableCaching: false, tools });
+      assert.equal(JSON.stringify(requests.at(-1)).includes("cache_control"), false, "caching off stays off");
+    }
+
+    const openRouter = new OpenAIProvider(`${baseUrl}/proxy/v1`, "test", undefined, undefined, undefined, "openrouter");
+    await openRouter.chatComplete(split, { model: "anthropic/claude-opus-5", stream: false, enableCaching: true });
+    const marked = requests
+      .at(-1)!
+      .messages.filter((message: any) => JSON.stringify(message.content).includes("cache_control"))
+      .map((message: any) => JSON.stringify(message.content));
+    assert.equal(marked.length, 2);
+    assert.ok(marked[1]!.includes("Past reply"), "OpenRouter Claude marks the end of the older part too");
+  });
   await test("Anthropic retains empty tool results paired with their tool calls", async () => {
     const provider = new AnthropicProvider(`${baseUrl}/anthropic`, "test");
     for (const content of ["", " \n "]) {

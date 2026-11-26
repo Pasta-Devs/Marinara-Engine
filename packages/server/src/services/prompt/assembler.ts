@@ -25,10 +25,18 @@ import {
   resolveMacros,
   withoutPresetTokenLimits,
   isStockMarinaraUniversalPreset,
+  RECENT_HISTORY_DEFAULT_MESSAGES,
+  RECENT_HISTORY_MAX_MESSAGES,
 } from "@marinara-engine/shared";
 import { wrapContent, wrapGroup } from "./format-engine.js";
 import { sanitizePromptLeaf } from "./prompt-escaping.js";
-import { ensureLorebookScan, expandMarker, type MarkerContext } from "./marker-expander.js";
+import {
+  ensureLorebookScan,
+  expandChatHistory,
+  expandMarker,
+  type ChatHistoryPart,
+  type MarkerContext,
+} from "./marker-expander.js";
 import { hasSamePromptAudience, mergeAdjacentMessages, squashLeadingSystemMessages } from "./merger.js";
 import { injectAtDepth } from "../lorebook/prompt-injector.js";
 import { MEMORY_RECALL_SLOT_TOKEN, markMemoryRecallOnlyGroup, stripMemoryRecallSlot } from "./memory-recall-slot.js";
@@ -573,6 +581,8 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     macroCtx,
   };
 
+  const historySplit = planHistorySplit(sectionOrder, sectionMap, groupMap);
+
   // ── Phase 1: Resolve sections in preset order ──
   // Separate ordered sections from depth-injected ones
   const orderedSections: ResolvedSection[] = [];
@@ -677,6 +687,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
         runtimeAgentData: input.runtimeAgentData ?? {},
         runtimeAgentTypesUsed,
         usedImageOutlets,
+        historySplit,
       });
     } catch (err) {
       logger.warn(err, "[prompt] Skipping section %s after marker expansion failed", section.id);
@@ -760,6 +771,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       }
     }
   }
+  if (historySplit.kind === "split") tagSectionsBetweenHistoryParts(messages);
   if (referencedCardContent && !idMacroCardMarkerSection) {
     messages.unshift({
       role: "system",
@@ -830,7 +842,14 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     finalMessages = injectAtDepth(
       finalMessages,
       combinedDepthEntries as Array<{ content: string; role: "system" | "user" | "assistant"; depth: number }>,
-      historyBounds ? { minIndex: historyBounds.start, anchorIndex: historyBounds.end } : undefined,
+      historyBounds
+        ? {
+            minIndex: historyBounds.start,
+            anchorIndex: historyBounds.end,
+            // A split history has blocks between its parts: depth counts chat messages only.
+            ...(historySplit.kind === "split" ? { historyIndexes: historyMessageIndexes(finalMessages) } : {}),
+          }
+        : undefined,
     );
     lorebookDepthEntriesCount = combinedDepthEntries.length;
   }
@@ -941,6 +960,90 @@ function markerTypeOf(section: { markerConfig?: string | null }): MarkerConfig["
   }
 }
 
+/**
+ * How a preset's history markers send the chat history. With an enabled Recent History after an enabled Chat History,
+ * the history is split: Chat History sends the older messages and the first Recent History the newest ones.
+ * A Recent History with no Chat History sends the whole history; one above Chat History, or a second one, sends nothing.
+ */
+type HistorySplit =
+  | { kind: "none"; recentSectionId?: undefined; chatHistoryConfig?: undefined; recentMessages?: undefined }
+  | { kind: "standalone"; recentSectionId: string; chatHistoryConfig?: undefined; recentMessages?: undefined }
+  | { kind: "ignored"; recentSectionId?: undefined; chatHistoryConfig?: undefined; recentMessages?: undefined }
+  | { kind: "split"; recentSectionId: string; chatHistoryConfig: MarkerConfig; recentMessages: number };
+
+function planHistorySplit(
+  sectionOrder: readonly string[],
+  sectionMap: ReadonlyMap<string, AssemblerInput["sections"][number]>,
+  groupMap: ReadonlyMap<string, AssemblerInput["groups"][number]>,
+): HistorySplit {
+  const markers = sectionOrder.flatMap((sectionId) => {
+    const section = sectionMap.get(sectionId);
+    if (!section || section.enabled !== "true" || section.isMarker !== "true" || !section.markerConfig) return [];
+    const group = section.groupId ? groupMap.get(section.groupId) : undefined;
+    if (group && group.enabled !== "true") return [];
+    try {
+      const config = JSON.parse(section.markerConfig) as MarkerConfig;
+      return config?.type === "chat_history" || config?.type === "recent_history" ? [{ section, config }] : [];
+    } catch {
+      return [];
+    }
+  });
+  const recentIndex = markers.findIndex((marker) => marker.config.type === "recent_history");
+  if (recentIndex < 0) return { kind: "none" };
+  const recent = markers[recentIndex]!;
+  const chatIndex = markers.findIndex((marker) => marker.config.type === "chat_history");
+  if (chatIndex < 0) return { kind: "standalone", recentSectionId: recent.section.id };
+  if (chatIndex > recentIndex) return { kind: "ignored" };
+  const requested = recent.config.recentHistoryOptions?.recentMessages;
+  const recentMessages = Math.min(
+    RECENT_HISTORY_MAX_MESSAGES,
+    Math.max(
+      1,
+      Math.floor(typeof requested === "number" && requested > 0 ? requested : RECENT_HISTORY_DEFAULT_MESSAGES),
+    ),
+  );
+  return {
+    kind: "split",
+    recentSectionId: recent.section.id,
+    chatHistoryConfig: markers[chatIndex]!.config,
+    recentMessages,
+  };
+}
+
+/** What a history marker sends under the preset's split: a part of the history, or nothing (null). */
+function historyPartForSection(
+  sectionId: string,
+  type: "chat_history" | "recent_history",
+  split: HistorySplit,
+): ChatHistoryPart | null {
+  if (type === "chat_history") {
+    return split.kind === "split" ? { kind: "past", recentMessages: split.recentMessages } : { kind: "all" };
+  }
+  if (sectionId !== split.recentSectionId) return null;
+  return split.kind === "split" ? { kind: "recent", recentMessages: split.recentMessages } : { kind: "all" };
+}
+
+/**
+ * Preset blocks between the two history parts sit inside the conversation, like depth injections: tag them the same,
+ * so strict-role formatting gives a system block its own turn there instead of merging it into a chat message.
+ */
+function tagSectionsBetweenHistoryParts(messages: ChatMLMessage[]): void {
+  let lastPast = -1;
+  for (let index = 0; index < messages.length; index++) if (messages[index]!.historyPart === "past") lastPast = index;
+  const firstRecent = messages.findIndex((message) => message.historyPart === "recent");
+  // The end of the older part is the newest point that stays the same next turn: the history cache breakpoint.
+  if (lastPast >= 0) messages[lastPast] = { ...messages[lastPast]!, historyCacheBreakpoint: true };
+  if (lastPast < 0 || firstRecent < 0) return;
+  for (let index = lastPast + 1; index < firstRecent; index++) {
+    const message = messages[index]!;
+    if (message.contextKind !== "history") messages[index] = { ...message, contextKind: "injection" };
+  }
+}
+
+function historyMessageIndexes(messages: ChatMLMessage[]): number[] {
+  return messages.flatMap((message, index) => (message.contextKind === "history" ? [index] : []));
+}
+
 interface ResolveSectionCtx {
   macroCtx: MacroContext;
   markerCtx: MarkerContext;
@@ -949,6 +1052,7 @@ interface ResolveSectionCtx {
   runtimeAgentData: Record<string, string | RuntimeAgentData>;
   runtimeAgentTypesUsed: Set<string>;
   usedImageOutlets: Set<string>;
+  historySplit: HistorySplit;
 }
 
 // ═══════════════════════════════════════════════
@@ -998,12 +1102,23 @@ async function resolveSection(
     runtimeAgentEndToken = normalizedRuntimeAgentData.endToken;
     const hasRuntimeAgentData =
       runtimeAgentType !== null && Object.prototype.hasOwnProperty.call(ctx.runtimeAgentData, runtimeAgentType);
+    const historyPart =
+      markerConfig.type === "chat_history" || markerConfig.type === "recent_history"
+        ? historyPartForSection(section.id, markerConfig.type, ctx.historySplit)
+        : undefined;
+    if (historyPart === null) return null;
     const expanded = hasRuntimeAgentData
       ? { content: runtimeAgentText }
-      : await expandMarker(markerConfig, ctx.markerCtx, ctx.macroOptions);
+      : historyPart
+        ? await expandChatHistory(
+            historyPart.kind === "all" ? markerConfig : ctx.historySplit.chatHistoryConfig!,
+            ctx.markerCtx,
+            historyPart,
+          )
+        : await expandMarker(markerConfig, ctx.markerCtx, ctx.macroOptions);
 
     // Chat history marker returns multiple messages
-    if (markerConfig.type === "chat_history" && expanded.messages) {
+    if ((markerConfig.type === "chat_history" || markerConfig.type === "recent_history") && expanded.messages) {
       return {
         id: section.id,
         groupId: section.groupId,

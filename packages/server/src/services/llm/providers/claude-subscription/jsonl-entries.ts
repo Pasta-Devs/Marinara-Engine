@@ -421,7 +421,8 @@ export function splitHistoryForResume(messages: readonly ChatMessage[]): SplitRe
   };
 }
 
-const XML_HISTORY_CLOSE = "\n</chat_history>";
+/** Closing tags a history entry can end on: Chat History, or Recent History when a preset splits the history. */
+const XML_HISTORY_CLOSES = ["\n</chat_history>", "\n</recent_history>"];
 
 /**
  * Claude Code puts its own cache marker on the last history entry, and the
@@ -434,9 +435,10 @@ const XML_HISTORY_CLOSE = "\n</chat_history>";
  */
 function moveHistoryCloseToCurrent(history: ChatMessage[], current: ChatMessage): ChatMessage {
   const last = history.at(-1);
-  if (!last?.content?.endsWith(XML_HISTORY_CLOSE)) return current;
-  history[history.length - 1] = { ...last, content: last.content.slice(0, -XML_HISTORY_CLOSE.length) };
-  return { ...current, content: `${XML_HISTORY_CLOSE.trimStart()}\n${current.content ?? ""}` };
+  const close = XML_HISTORY_CLOSES.find((tag) => last?.content?.endsWith(tag));
+  if (!last || !close) return current;
+  history[history.length - 1] = { ...last, content: last.content.slice(0, -close.length) };
+  return { ...current, content: `${close.trimStart()}\n${current.content ?? ""}` };
 }
 
 // ──────────────────────────────────────────────

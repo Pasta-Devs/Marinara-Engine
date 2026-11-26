@@ -37,6 +37,11 @@ export interface ChatMessage {
    * here whether or not `enableCaching` is on, keeping the last four, and then adds none of its own.
    */
   cacheBreakpoint?: boolean;
+  /**
+   * Internal: the last message of the older history part when a preset splits the history with Recent History. When
+   * the connection caches, its history cache breakpoint goes here instead of Cache depth messages back.
+   */
+  historyCacheBreakpoint?: boolean;
 }
 
 export interface ChatMediaAttachment {

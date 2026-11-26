@@ -341,12 +341,14 @@ function wrapConversationHistoryAndLastMessageInPlace(
           c.includes("<last_message>") ||
           c.includes("</last_message>") ||
           c.includes("<chat_history>") ||
-          c.includes("</chat_history>")
+          c.includes("</chat_history>") ||
+          c.includes("<recent_history>")
         ) {
           return true;
         }
       } else {
-        if (c.includes("## Last Message") || c.includes("## Chat History")) return true;
+        if (c.includes("## Last Message") || c.includes("## Chat History") || c.includes("## Recent History"))
+          return true;
       }
     }
     return false;

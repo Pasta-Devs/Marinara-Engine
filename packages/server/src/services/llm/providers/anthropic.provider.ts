@@ -16,6 +16,7 @@ import {
   type LLMUsage,
   readSseData,
 } from "../base-provider.js";
+import { withHistoryCacheBreakpoint } from "../history-cache-breakpoint.js";
 import {
   capabilityModelId,
   rejectsClaudeAssistantPrefill,
@@ -543,7 +544,7 @@ export class AnthropicProvider extends BaseLLMProvider {
 
     const configuredMaxTokens = this.applyMaxTokensCap(options.maxTokens ?? 4096);
     const contextFit = this.fitMessagesToContext(messages, { ...options, maxTokens: configuredMaxTokens });
-    messages = contextFit.messages;
+    messages = withHistoryCacheBreakpoint(contextFit.messages, options.enableCaching);
     this.logContextTrim(contextFit, options.model);
     const maxTokens = this.applyMaxTokensCap(contextFit.maxTokens ?? configuredMaxTokens);
 
@@ -862,7 +863,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     const suppressModelParameters = this.shouldSuppressModelParameters(options);
     const configuredMaxTokens = this.applyMaxTokensCap(options.maxTokens ?? 4096);
     const contextFit = this.fitMessagesToContext(messages, { ...options, maxTokens: configuredMaxTokens });
-    messages = contextFit.messages;
+    messages = withHistoryCacheBreakpoint(contextFit.messages, options.enableCaching);
     this.logContextTrim(contextFit, options.model);
     const maxTokens = configuredMaxTokens === undefined ? undefined : (contextFit.maxTokens ?? configuredMaxTokens);
 

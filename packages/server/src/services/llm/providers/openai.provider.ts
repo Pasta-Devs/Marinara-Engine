@@ -2,6 +2,7 @@
 // LLM Provider — OpenAI (& OAI-Compatible)
 // ──────────────────────────────────────────────
 import { createHash } from "node:crypto";
+import { historyCacheBreakpointDepth } from "../history-cache-breakpoint.js";
 import {
   BaseLLMProvider,
   ASSISTANT_CONTINUATION_PROMPT,
@@ -1975,7 +1976,11 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   /** Marks what OpenRouter caches for the model's family (see `openRouterCacheFamily`) when the connection caches. */
-  private applyOpenRouterPromptCaching(body: Record<string, unknown>, options: ChatOptions): void {
+  private applyOpenRouterPromptCaching(
+    body: Record<string, unknown>,
+    options: ChatOptions,
+    messages: ChatMessage[],
+  ): void {
     if (!this.isOpenRouterEndpoint() || !options.enableCaching) return;
     const family = openRouterCacheFamily(options.model);
     // Only Claude takes the 1-hour cache. Every mark of a request gets the same lifetime: Anthropic refuses a top-level
@@ -1991,7 +1996,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         body.messages as ChatCompletionsWireMessage[],
         family,
         cacheControl,
-        normalizeCachingAtDepth(options.cachingAtDepth),
+        // A history split by Recent History caches up to the end of its older part.
+        historyCacheBreakpointDepth(messages) ?? normalizeCachingAtDepth(options.cachingAtDepth),
       );
     }
     logger.debug("[OpenAI] Enabling OpenRouter prompt caching (%s) for model=%s", family, options.model);
@@ -2317,7 +2323,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.applyChatCompletionsReasoning(body, options);
     }
 
-    this.applyOpenRouterPromptCaching(body, options);
+    this.applyOpenRouterPromptCaching(body, options, messages);
     this.applyServiceTier(body, options);
     this.applyCustomParameters(body, options);
     // Local chat templates may ignore reasoning_effort. Apply this after custom
@@ -2609,7 +2615,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.applyChatCompletionsReasoning(body, options);
     }
 
-    this.applyOpenRouterPromptCaching(body, options);
+    this.applyOpenRouterPromptCaching(body, options, messages);
     this.applyServiceTier(body, options);
     this.applyCustomParameters(body, options);
     this.enforceLocalInferenceThinkingDisable(body, options, suppressModelParameters);

@@ -88,11 +88,16 @@ export const injectionPositionSchema = z.enum(["ordered", "depth"]);
 export const wrapFormatSchema = z.enum(["xml", "markdown", "none"]);
 export const scopedRegexModeSchema = z.enum(["disabled", "exclusive", "chat"]);
 
+/** Recent History marker: how many of the newest chat messages it takes from Chat History. */
+export const RECENT_HISTORY_DEFAULT_MESSAGES = 4;
+export const RECENT_HISTORY_MAX_MESSAGES = 50;
+
 export const markerTypeSchema = z.enum([
   "character",
   "lorebook",
   "persona",
   "chat_history",
+  "recent_history",
   "chat_summary",
   "current_scene_summary",
   "recalled_scenes",
@@ -113,6 +118,11 @@ export const markerConfigSchema = z.object({
     .object({
       maxMessages: z.number().int().min(1).optional(),
       includeSystemMessages: z.boolean().optional(),
+    })
+    .optional(),
+  recentHistoryOptions: z
+    .object({
+      recentMessages: z.number().int().min(1).max(RECENT_HISTORY_MAX_MESSAGES).optional(),
     })
     .optional(),
   agentType: z.string().optional(),

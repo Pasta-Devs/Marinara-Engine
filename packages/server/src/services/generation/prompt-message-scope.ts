@@ -6,6 +6,8 @@ export type GenerationPromptMessage = {
   role: "system" | "user" | "assistant";
   content: string;
   contextKind?: "prompt" | "history" | "injection";
+  /** Which history marker sends this message when Recent History splits the history. */
+  historyPart?: "past" | "recent";
   characterId?: string | null;
   personaSnapshotName?: string | null;
   hiddenFromAICharacterIds?: string[];
@@ -168,7 +170,7 @@ function removeOtherCharacterProfileContent(content: string, otherCharacters: Ch
 
 function stripChatHistoryXmlWrappers(content: string): string {
   let stripped = content;
-  for (const tagName of ["chat_history", "last_message"]) {
+  for (const tagName of ["chat_history", "recent_history", "last_message"]) {
     const openingTag = `<${tagName}>`;
     const withoutLeadingWhitespace = stripped.trimStart();
     if (withoutLeadingWhitespace.slice(0, openingTag.length).toLowerCase() === openingTag) {
@@ -186,7 +188,7 @@ function stripChatHistoryXmlWrappers(content: string): string {
 
 function stripChatHistoryMarkdownWrappers(content: string): string {
   let stripped = content;
-  for (const heading of ["chat history", "last message"]) {
+  for (const heading of ["chat history", "recent history", "last message"]) {
     const withoutLeadingWhitespace = stripped.trimStart();
     const lineEnd = withoutLeadingWhitespace.indexOf("\n");
     if (lineEnd < 0 || normalizeHistoryMarkdownHeading(withoutLeadingWhitespace.slice(0, lineEnd)) !== heading) {
@@ -203,7 +205,7 @@ function normalizeHistoryMarkdownHeading(line: string): string | null {
   const boundary = trimmed[2];
   if (!boundary || boundary.trim() !== "") return null;
   const heading = trimmed.slice(3).trim().toLowerCase();
-  return heading === "chat history" || heading === "last message" ? heading : null;
+  return heading === "chat history" || heading === "recent history" || heading === "last message" ? heading : null;
 }
 
 function hasChatHistoryMarkdownWrapper(content: string): boolean {
@@ -229,7 +231,7 @@ function reassignHistoryLastMessageWrapper(
 
   const referenceHistory = wrapperReference.filter((message) => message.contextKind === "history");
   const hasXmlWrappers = referenceHistory.some((message) =>
-    /<\/?(?:chat_history|last_message)>/i.test(message.content),
+    /<\/?(?:chat_history|recent_history|last_message)>/i.test(message.content),
   );
   const hasMarkdownWrappers = referenceHistory.some((message) => hasChatHistoryMarkdownWrapper(message.content));
   if (!hasXmlWrappers && !hasMarkdownWrappers) return;
@@ -243,36 +245,35 @@ function reassignHistoryLastMessageWrapper(
 
   const lastHistoryIndex = historyIndexes[historyIndexes.length - 1]!;
   const historyBeforeLast = historyIndexes.filter((index) => index < lastHistoryIndex);
-  if (hasXmlWrappers) {
-    if (historyBeforeLast.length > 0) {
-      const firstHistoryIndex = historyBeforeLast[0]!;
-      const lastChatHistoryIndex = historyBeforeLast[historyBeforeLast.length - 1]!;
-      messages[firstHistoryIndex] = {
-        ...messages[firstHistoryIndex]!,
-        content: `<chat_history>\n${messages[firstHistoryIndex]!.content}`,
-      };
-      messages[lastChatHistoryIndex] = {
-        ...messages[lastChatHistoryIndex]!,
-        content: `${messages[lastChatHistoryIndex]!.content}\n</chat_history>`,
-      };
+  // A history split by Recent History keeps a wrapper per part; an unsplit history is one Chat History part.
+  const runs = [
+    {
+      indexes: historyBeforeLast.filter((index) => messages[index]!.historyPart !== "recent"),
+      xml: "chat_history",
+      markdown: "## Chat History",
+    },
+    {
+      indexes: historyBeforeLast.filter((index) => messages[index]!.historyPart === "recent"),
+      xml: "recent_history",
+      markdown: "## Recent History",
+    },
+  ];
+  for (const run of runs) {
+    if (run.indexes.length === 0) continue;
+    const first = run.indexes[0]!;
+    if (hasXmlWrappers) {
+      const last = run.indexes[run.indexes.length - 1]!;
+      messages[first] = { ...messages[first]!, content: `<${run.xml}>\n${messages[first]!.content}` };
+      messages[last] = { ...messages[last]!, content: `${messages[last]!.content}\n</${run.xml}>` };
+    } else {
+      messages[first] = { ...messages[first]!, content: `${run.markdown}\n${messages[first]!.content}` };
     }
-    messages[lastHistoryIndex] = {
-      ...messages[lastHistoryIndex]!,
-      content: `<last_message>\n${messages[lastHistoryIndex]!.content}\n</last_message>`,
-    };
-    return;
-  }
-
-  if (historyBeforeLast.length > 0) {
-    const firstHistoryIndex = historyBeforeLast[0]!;
-    messages[firstHistoryIndex] = {
-      ...messages[firstHistoryIndex]!,
-      content: `## Chat History\n${messages[firstHistoryIndex]!.content}`,
-    };
   }
   messages[lastHistoryIndex] = {
     ...messages[lastHistoryIndex]!,
-    content: `## Last Message\n${messages[lastHistoryIndex]!.content}`,
+    content: hasXmlWrappers
+      ? `<last_message>\n${messages[lastHistoryIndex]!.content}\n</last_message>`
+      : `## Last Message\n${messages[lastHistoryIndex]!.content}`,
   };
 }
 

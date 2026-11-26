@@ -586,22 +586,18 @@ function stripBoundaryLastMessageWrapper(content: string): string {
   return stripped.trim();
 }
 
-function hasBoundaryChatHistoryClose(content: string): boolean {
-  const trimmed = content.trimEnd();
-  const closingTag = "</chat_history>";
-  return trimmed.slice(-closingTag.length).toLowerCase() === closingTag;
+/** The history wrapper (Chat History, or Recent History in a split history) whose closing tag ends `content`. */
+function boundaryHistoryCloseTag(content: string): string | null {
+  const trimmed = content.trimEnd().toLowerCase();
+  return ["</chat_history>", "</recent_history>"].find((closingTag) => trimmed.endsWith(closingTag)) ?? null;
 }
 
-function stripBoundaryChatHistoryClose(content: string): string {
-  const trimmed = content.trimEnd();
-  const closingTag = "</chat_history>";
-  return trimmed.slice(-closingTag.length).toLowerCase() === closingTag
-    ? trimmed.slice(0, -closingTag.length).trimEnd()
-    : trimmed;
+function stripBoundaryHistoryClose(content: string, closingTag: string): string {
+  return content.trimEnd().slice(0, -closingTag.length).trimEnd();
 }
 
-function appendBoundaryChatHistoryClose(content: string): string {
-  return `${content.trimEnd()}\n</chat_history>`;
+function appendBoundaryHistoryClose(content: string, closingTag: string): string {
+  return `${content.trimEnd()}\n${closingTag}`;
 }
 
 export function dedupeLastMessageWrappers<T extends { content: string }>(messages: T[]): void {
@@ -618,12 +614,13 @@ export function dedupeLastMessageWrappers<T extends { content: string }>(message
     if (index === keepIndex) continue;
     let content = stripBoundaryLastMessageWrapper(messages[index]!.content);
     const previousMessage = messages[index - 1];
-    if (previousMessage && hasBoundaryChatHistoryClose(previousMessage.content)) {
+    const closingTag = previousMessage ? boundaryHistoryCloseTag(previousMessage.content) : null;
+    if (previousMessage && closingTag) {
       messages[index - 1] = {
         ...previousMessage,
-        content: stripBoundaryChatHistoryClose(previousMessage.content),
+        content: stripBoundaryHistoryClose(previousMessage.content, closingTag),
       };
-      content = appendBoundaryChatHistoryClose(content);
+      content = appendBoundaryHistoryClose(content, closingTag);
     }
     messages[index] = {
       ...messages[index]!,
@@ -1302,7 +1299,7 @@ export function appendGenerationTailMessages(
 }
 
 const HISTORY_REPLY_HEADER =
-  /^(?:<(?:chat_history|last_message)>\n|## (?:Chat History|Last Message)\n|<date="[^"\n]*">\n|(?:## )?Date: [^\n]*\n)*(?:\[(?:\d\d\.\d\d )?\d\d:\d\d\] )?/u;
+  /^(?:<(?:chat_history|recent_history|last_message)>\n|## (?:Chat History|Recent History|Last Message)\n|<date="[^"\n]*">\n|(?:## )?Date: [^\n]*\n)*(?:\[(?:\d\d\.\d\d )?\d\d:\d\d\] )?/u;
 
 /**
  * End the prompt on the Assistant Prefill turn, after every injection, instruction and reply it gained. Its text is

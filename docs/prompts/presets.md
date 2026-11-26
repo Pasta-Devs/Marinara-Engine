@@ -122,6 +122,7 @@ A **Prompt Block** is text you write: system instructions, tone rules, anything 
 | **Character Info** | The active character card details. |
 | **Persona** | Your active persona details. |
 | **Chat History** | The chat messages. |
+| **Recent History** | The newest chat messages, taken from **Chat History**. See [Split the history with Recent History](#split-the-history-with-recent-history). |
 | **Chat Summary** | The compiled chat summary. |
 | **Dialogue Examples** | The character's example dialogue. |
 | **Lorebook Marker (All)** | All active lorebook entries. |
@@ -209,6 +210,24 @@ Game chats add more controls. **Story style**, **Violence**, **Content boundarie
 Prompt caching lets a service reuse the start of a prompt it has already read, so long chats cost less and answer sooner. The service reuses the prompt only up to the first text that changed since the last message. Recalled memories change with almost every message, so in front of the chat history they keep the whole history out of the cache.
 
 To place them yourself, add a **Memory Recall** marker to the preset. Drag it below **Chat History**, or set its **Position** to **Depth (from end of chat)** to put it inside the history. Memories read before the story keep replies closer to them, so the default stays before the history.
+
+## Split the history with Recent History
+
+**Recent History** sends the newest chat messages where it sits, and **Chat History** sends the older ones. Sections you place between the two markers go between older and newer messages. Use it for details that change during the story, such as where the scene takes place or who is present. Details that never change stay above **Chat History**.
+
+1. On the **Sections** tab, click **Add Section**, then **Recent History**. It is placed right after **Chat History**.
+2. Expand it and set **Recent messages**. The default is 4.
+3. Drag the sections that change, such as a **Lorebook Marker** or an agent section, between **Chat History** and **Recent History**.
+4. Click **Save**.
+
+This helps in two ways. The model reads the changing details close to the newest messages, so it keeps them in mind. The older messages stay the same from one message to the next, so a service with prompt caching can reuse them. With Claude and caching on, the history cache point goes at the end of the older messages.
+
+- **Max messages** on **Chat History** counts both parts together. Leave it empty to send every message.
+- With fewer messages than **Recent messages**, all of them go to **Recent History**.
+- A section with **Depth (from end of chat)** counts chat messages only. A depth larger than **Recent messages** lands among the older messages and stops them from being reused.
+- Without **Chat History**, **Recent History** sends the whole history. A **Recent History** above **Chat History**, or a second one, sends nothing. The row shows a warning in each case.
+- With **XML**, the older messages are wrapped in `<chat_history>`, the newer ones in `<recent_history>`, and the newest message in `<last_message>`.
+- Older Marinara versions do not know **Recent History** and may refuse a preset that has it when you import it.
 
 ## Decision blocks and prompt caching
 

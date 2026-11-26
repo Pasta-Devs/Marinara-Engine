@@ -304,9 +304,9 @@ function splitPromptSegments(messages: PeekPiece[]): PromptSegment[] {
 
     while (remaining.length > 0) {
       if (inXmlChatHistory) {
-        const closeIdx = remaining.search(/\n?<\/chat_history>/i);
+        const closeIdx = remaining.search(/\n?<\/(?:chat|recent)_history>/i);
         if (closeIdx >= 0) {
-          const closeMatch = remaining.slice(closeIdx).match(/^\n?<\/chat_history>/i);
+          const closeMatch = remaining.slice(closeIdx).match(/^\n?<\/(?:chat|recent)_history>/i);
           pushSegment(message.role, remaining.slice(0, closeIdx), true);
           remaining = remaining.slice(closeIdx + (closeMatch?.[0].length ?? 0));
           inXmlChatHistory = false;
@@ -328,8 +328,8 @@ function splitPromptSegments(messages: PeekPiece[]): PromptSegment[] {
         break;
       }
 
-      const xmlOpenIdx = remaining.search(/<chat_history>\n?/i);
-      const markdownOpenIdx = remaining.search(/^## Chat History\n?/im);
+      const xmlOpenIdx = remaining.search(/<(?:chat|recent)_history>\n?/i);
+      const markdownOpenIdx = remaining.search(/^## (?:Chat|Recent) History\n?/im);
       const hasXmlOpen = xmlOpenIdx >= 0;
       const hasMarkdownOpen = markdownOpenIdx >= 0;
       const useXmlOpen = hasXmlOpen && (!hasMarkdownOpen || xmlOpenIdx <= markdownOpenIdx);
@@ -337,7 +337,9 @@ function splitPromptSegments(messages: PeekPiece[]): PromptSegment[] {
 
       if (openIdx >= 0) {
         pushSegment(message.role, remaining.slice(0, openIdx), false);
-        const openMatch = remaining.slice(openIdx).match(useXmlOpen ? /<chat_history>\n?/i : /^## Chat History\n?/i);
+        const openMatch = remaining
+          .slice(openIdx)
+          .match(useXmlOpen ? /<(?:chat|recent)_history>\n?/i : /^## (?:Chat|Recent) History\n?/i);
         remaining = remaining.slice(openIdx + (openMatch?.[0].length ?? 0));
         if (useXmlOpen) inXmlChatHistory = true;
         else inMarkdownChatHistory = true;
