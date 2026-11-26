@@ -139,10 +139,14 @@ test("a long Mari chat opens at its newest turn and reopens at once", async ({ p
 test("pictures that load after she lands keep her newest line in view", async ({ page, request }) => {
   test.setTimeout(90_000);
   const picture = readFileSync(new URL("../packages/client/public/icon-512.png", import.meta.url));
+  // The pictures are held until her landing has let go, so they always grow the transcript after it.
+  let releasePictures = () => {};
+  const picturesReleased = new Promise<void>((resolve) => (releasePictures = resolve));
+  const heldPictures = new Set<string>();
   await page.route("**/api/gallery/file/mari-images/**", async (route) => {
-    // Later than her landing settles.
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    await route.fulfill({ status: 200, contentType: "image/png", body: picture });
+    heldPictures.add(new URL(route.request().url()).pathname);
+    await picturesReleased;
+    await route.fulfill({ status: 200, contentType: "image/png", body: picture }).catch(() => undefined);
   });
   const restart = await request.post("/api/chats/internal/professor-mari/restart?name=Portraits");
   expect(restart.ok(), await restart.text()).toBeTruthy();
@@ -188,17 +192,49 @@ test("pictures that load after she lands keep her newest line in view", async ({
     await page.keyboard.press(mariShortcut);
     const pane = page.locator('[data-component="GlobalOmnibar.Mari"]');
     await expect(pane.getByText(newest)).toBeInViewport({ timeout: 20_000 });
-    // The pictures in view have loaded and taken their height.
+    // Her landing has let go: her chat holds still for 500 ms, and the landing loop ends after 6 still frames.
+    const geometry = () =>
+      pane.locator(".mari-transcript-stack").evaluate((stack) => {
+        const scroller = stack.parentElement!;
+        return `${scroller.scrollHeight}:${scroller.clientHeight}:${scroller.scrollTop}`;
+      });
+    let last = "";
+    await expect
+      .poll(
+        async () => {
+          const next = await geometry();
+          const still = next === last;
+          last = next;
+          return still;
+        },
+        { intervals: [500] },
+      )
+      .toBe(true);
+    // The pictures near her newest line asked to load (they are lazy, so one scrolled above her chat does not).
+    const held = [...heldPictures];
+    expect(held.length, "a picture was held across her landing").toBeGreaterThan(0);
+    releasePictures();
+    // Every held picture has loaded and taken its height.
     await expect
       .poll(() =>
         pane
           .locator('img[src*="/mari-images/"]')
-          .evaluateAll((images) => images.filter((image) => (image as HTMLImageElement).naturalWidth > 0).length),
+          .evaluateAll(
+            (images, paths) =>
+              images.filter(
+                (image) =>
+                  paths.includes(new URL((image as HTMLImageElement).src).pathname) &&
+                  (image as HTMLImageElement).complete &&
+                  (image as HTMLImageElement).naturalWidth > 0 &&
+                  image.getBoundingClientRect().height > 0,
+              ).length,
+            held,
+          ),
       )
-      .toBeGreaterThan(0);
-    await page.waitForTimeout(300);
+      .toBe(held.length);
     await expect(pane.getByText(newest)).toBeInViewport();
   } finally {
+    releasePictures();
     await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
   }
 });
