@@ -69,8 +69,8 @@ assert.equal(
 // #9821: after she landed, a picture in one of her replies loads and grows the transcript by its whole height at
 // once. A following reader at the bottom stays on the newest line; one who scrolled away stays where they are, even
 // before their scroll event clears "following"; a disclosure the reader opens stays where they opened it; a click on
-// her reply text just before a picture loads does not stop the follow; and neither does the pin's own scroll event
-// when it arrives after the next picture grew.
+// her reply text just before a picture loads does not stop the follow; neither does the pin's own scroll event when
+// it arrives after the next picture grew; and a pin long past does not make a later send follow her reply.
 {
   let grow = () => {};
   let click = (_event: { target: unknown }) => {};
@@ -132,11 +132,55 @@ assert.equal(
     scroller.scrollHeight = 6960;
     grow();
     assert.equal(scroller.scrollTop, 6960, "the pin's own scroll event does not stop the next picture's follow");
-    scroller.scrollTop = 6300; // the reader scrolled up a little; their scroll event cleared "following"
-    scroller.scrollHeight = 7472;
+    nextFrame(); // the pin before it no longer counts, and this one still does
+    scroller.scrollHeight = 7472; // a third picture, in the frame after
     grow();
-    assert.equal(scroller.scrollTop, 6300, "a reader who moved after the pin is not pulled down");
+    assert.equal(scroller.scrollTop, 7472, "a third picture in the next frame is followed too");
+    scroller.scrollTop = 6800; // the reader scrolled up a little; their scroll event cleared "following"
+    scroller.scrollHeight = 7984;
+    grow();
+    assert.equal(scroller.scrollTop, 6800, "a reader who moved after the pin is not pulled down");
     stop();
+    // An empty chat: everything fits, so the pin on Enter (her welcome gives way to the question) leaves the
+    // transcript at the top and sends no scroll event. The send right after it stops following and places her question
+    // under the header, which is the top already, so it does not move; her reply must not pull it down.
+    const short = {
+      clientHeight: 600,
+      scrollHeight: 400,
+      top: 0,
+      get scrollTop() {
+        return this.top;
+      },
+      set scrollTop(value: number) {
+        this.top = Math.max(0, Math.min(value, this.scrollHeight - this.clientHeight));
+      },
+    };
+    following = true;
+    const stopShort = followTranscriptGrowth(
+      short as unknown as HTMLElement,
+      stack as unknown as HTMLElement,
+      () => following,
+    );
+    grow(); // Enter: the question replaces her welcome, and the follow pins it where it is
+    assert.equal(short.scrollTop, 0);
+    following = false; // the send, before the next frame
+    short.scrollHeight = 616; // the turn reserves the transcript's height
+    grow();
+    short.scrollHeight = 1400; // her reply grows past the reserve
+    grow();
+    assert.equal(short.scrollTop, 0, "the first question in an empty chat stays under the header as her reply grows");
+    short.scrollTop = 800; // the reader scrolled to the bottom, so they follow again
+    following = true;
+    short.scrollHeight = 1912; // a picture
+    grow();
+    assert.equal(short.scrollTop, 1312);
+    nextFrame();
+    nextFrame(); // that pin's scroll event has come
+    following = false; // and following stopped without the transcript moving
+    short.scrollHeight = 2424;
+    grow();
+    assert.equal(short.scrollTop, 1312, "a pin two frames past does not keep following");
+    stopShort();
   } finally {
     globalThis.ResizeObserver = realResizeObserver;
     globalThis.requestAnimationFrame = realRequestAnimationFrame;
