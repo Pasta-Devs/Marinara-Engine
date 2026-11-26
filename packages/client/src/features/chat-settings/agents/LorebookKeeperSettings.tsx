@@ -7,9 +7,12 @@ import { useUIStore } from "../../../stores/ui.store";
 import { Settings2, RefreshCw } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import type { useLorebooks } from "../../../hooks/use-lorebooks";
+import { RetireStoredSetting } from "./RetireStoredSetting";
 
 interface LorebookKeeperSettingsProps {
   chat: Chat;
+  /** The chat's metadata; Roleplay passes it to show "Leave stored messages out of Chat History". */
+  metadata?: Record<string, unknown>;
   lorebookKeeperTargetLorebookId: string;
   lorebookKeeperReadBehindMessages: number;
   lorebooks: ReturnType<typeof useLorebooks>["data"];
@@ -20,6 +23,7 @@ interface LorebookKeeperSettingsProps {
 
 export function LorebookKeeperSettings({
   chat,
+  metadata,
   lorebookKeeperTargetLorebookId,
   lorebookKeeperReadBehindMessages,
   lorebooks,
@@ -109,6 +113,9 @@ export function LorebookKeeperSettings({
       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
         {localizeUi("ui.chat.chatsettingsdrawer.readBehindUsesAssistantMessages0MeansTheNewest")}
       </p>
+      {metadata && chat.mode === "roleplay" && (
+        <RetireStoredSetting chatId={chat.id} metadata={metadata} settingKey="lorebookKeeperRetireStored" />
+      )}
     </>
   );
 }

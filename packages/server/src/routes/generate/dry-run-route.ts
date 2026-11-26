@@ -1,4 +1,5 @@
 import { withLorebookImageCompatibility } from "../../services/llm/lorebook-image-provider.js";
+import { longTermMemoryStoredThroughMessageId } from "../../services/generation/long-term-memory-runtime.js";
 import {
   labelInjectedParts,
   worldInfoPeekBlocks,
@@ -162,6 +163,9 @@ import {
   postProcessMessages,
   buildGenerationGuideInstruction,
   capSummarizedHistory,
+  resolveRetireStoredTail,
+  resolveStoredThroughIds,
+  retireStoredHistory,
   createLocalSidecarGenerationConnection,
   dedupeLastMessageWrappers,
   endPromptOnAssistantPrefill,
@@ -799,6 +803,20 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       chatMessages = capSummarizedHistory(chatMessages, chatMeta, {
         excludeMessageIds: regenerateMessageId ? [regenerateMessageId] : undefined,
       }).messages;
+      chatMessages = retireStoredHistory(
+        chatMessages,
+        allChatMessages,
+        await resolveStoredThroughIds({
+          chatId,
+          chatMeta,
+          agentsStore: createAgentsStorage(app.db),
+          longTermMemoryStoredThrough: longTermMemoryStoredThroughMessageId,
+        }),
+        {
+          tail: resolveRetireStoredTail(chatMeta.retireStoredTailMessages),
+          step: normalizeHistoryDropStep(chatMeta.historyDropStep),
+        },
+      );
     }
     const dryRunBeholderState = await loadPriorBeholderState({
       agentsStore: createAgentsStorage(app.db),

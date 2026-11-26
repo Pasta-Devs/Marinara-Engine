@@ -293,6 +293,7 @@ Extracts lasting memories from chat summaries, character records and lorebooks i
 - **Key settings**: recall token budget (128-16,384), maximum recalled chunks (1-100), score threshold, recent-message context (1-20), recall style, search weights, resolved-memory inclusion, recall preamble, extraction settings, source limits, prompt templates, AI keyword extraction and Game-mode extraction.
 - **Data**: use the Memory Settings backup controls to export or replace the vault, drafts and settings. **Delete all data** permanently removes memories, drafts, activity and indexes but keeps settings. Uninstalling keeps the vault for a later reinstall. Installing, updating or removing it needs a restart.
 - **Compatibility**: Engine `2.3.5` through before `4.0.0`. Permissions: `agent-runtime`, `chat-read`, `chat-write`, `routes`, `storage`, `ui`.
+- **Leave stored messages out of Chat History** (Roleplay, on the chat's Long-Term Memory card): once the package has stored messages, they leave Chat History and only the newest few stay (10 by default). They remain in the chat and in the vault. This needs a package version that reports how far it has stored; older versions leave the switch with no effect.
 
 ### Illustrator
 
@@ -309,6 +310,7 @@ Creates and updates lorebook entries from important facts in your chat, so your 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay. In Game Mode, a session-end variant called **Game Session Keeper** does the same job.
 - **Key settings**: runs once every 8 user and assistant messages by default. **Target Lorebook** chooses where entries go, with an auto-select option. Advanced prompts can return a writable lorebook name or an alias such as `world`, `npc`, `scene` or `player`. Missing alias destinations are created and linked to the chat. With no destination, the single-lorebook behavior stays.
+- **Leave stored messages out of Chat History** (on the chat's Lorebook Keeper card): messages up to the Keeper's last successful run leave Chat History, keeping the newest few (10 by default). They stay in the chat, and their facts reach the prompt through the lorebook. With **Drop Old Messages in Steps** on, they leave a whole step at a time.
 
 ### Combat
 

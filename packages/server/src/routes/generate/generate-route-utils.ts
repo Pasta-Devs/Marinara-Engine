@@ -921,6 +921,76 @@ export function capSummarizedHistory<T extends { id: string; extra?: unknown }>(
 }
 
 /**
+ * "Leave stored messages out of Chat History" for Lorebook Keeper and Long-term memory: a message one of them has
+ * already stored (`storedThroughIds`, each the newest message that memory covers) leaves the prompt, except the
+ * newest `tail` messages; the memory still holds it. With "Drop in steps of" the retired part grows a whole step
+ * at a time, so the history start holds still between steps. A message the user showed again by hand stays.
+ * Pure: `messages` must be the chat-ordered history the model may see; `allMessages` the whole chat in order.
+ */
+export function retireStoredHistory<T extends { id: string; extra?: unknown }>(
+  messages: T[],
+  allMessages: ReadonlyArray<{ id: string }>,
+  storedThroughIds: ReadonlyArray<string | null>,
+  options: { tail: number; step: number },
+): T[] {
+  let storedThrough = -1;
+  for (const id of storedThroughIds) {
+    if (!id) continue;
+    storedThrough = Math.max(
+      storedThrough,
+      allMessages.findIndex((message) => message.id === id),
+    );
+  }
+  if (storedThrough < 0) return messages;
+  const stored = new Set(allMessages.slice(0, storedThrough + 1).map((message) => message.id));
+  let storedPrefix = 0;
+  while (storedPrefix < messages.length && stored.has(messages[storedPrefix]!.id)) storedPrefix++;
+  const step = normalizeHistoryDropStep(options.step);
+  const limit = Math.min(storedPrefix, Math.max(0, messages.length - Math.max(0, Math.floor(options.tail))));
+  const cut = Math.floor(limit / step) * step;
+  if (cut <= 0) return messages;
+  return messages.filter((message, index) => index >= cut || parseExtra(message.extra).visibilityManual === true);
+}
+
+/** Chat settings for "Leave stored messages out of Chat History" (Lorebook Keeper and Long-term memory). */
+export const RETIRE_STORED_TAIL = { MIN: 0, DEFAULT: 10 } as const;
+
+/**
+ * The newest message each memory the chat turned "Leave stored messages out of Chat History" on for has stored:
+ * Lorebook Keeper's last successful run, and Long-term memory's own answer. Empty when none applies.
+ */
+export async function resolveStoredThroughIds(args: {
+  chatId: string;
+  chatMeta: Record<string, unknown>;
+  agentsStore: {
+    getLastSuccessfulRunByType(type: string, chatId: string): Promise<{ messageId?: string | null } | null | undefined>;
+  };
+  longTermMemoryStoredThrough: (chatId: string) => Promise<string | null>;
+}): Promise<string[]> {
+  const active = (id: string) =>
+    args.chatMeta.enableAgents === true &&
+    Array.isArray(args.chatMeta.activeAgentIds) &&
+    args.chatMeta.activeAgentIds.includes(id);
+  const ids: string[] = [];
+  if (args.chatMeta.lorebookKeeperRetireStored === true && active("lorebook-keeper")) {
+    const run = await args.agentsStore.getLastSuccessfulRunByType("lorebook-keeper", args.chatId);
+    if (run?.messageId) ids.push(run.messageId);
+  }
+  if (args.chatMeta.longTermMemoryRetireStored === true && active("long-term-memory")) {
+    const id = await args.longTermMemoryStoredThrough(args.chatId);
+    if (id) ids.push(id);
+  }
+  return ids;
+}
+
+/** The newest messages "Leave stored messages out of Chat History" keeps word for word. */
+export function resolveRetireStoredTail(value: unknown): number {
+  if (value === undefined || value === null) return RETIRE_STORED_TAIL.DEFAULT;
+  const parsed = Math.floor(Number(value));
+  return Number.isFinite(parsed) && parsed >= RETIRE_STORED_TAIL.MIN ? parsed : RETIRE_STORED_TAIL.DEFAULT;
+}
+
+/**
  * Hide or show a chat's summarised messages when `next` turns "Hide summarised messages" on or off
  * compared with `current`. Turning it on hides each enabled entry's messages, except the recent tail,
  * and records them in the entry's `hiddenMessageIds`; turning it off shows only those again. Returns

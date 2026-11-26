@@ -1,14 +1,14 @@
 // "Combine older summaries automatically" (chat setting summaryAutoCombineAbove): once a chat has more turned-on
 // summary entries than the limit, every one but the newest is folded into one entry with the combine prompt.
 import assert from "node:assert/strict";
-import type { ChatSummaryEntry } from "../../packages/shared/src/index.js";
+import type { ChatSummaryEntry } from "../../../packages/shared/src/index.js";
 import {
   combineSummaryEntries,
   normalizeSummaryAutoCombineAbove,
   selectEntriesToAutoCombine,
-} from "../../packages/server/src/services/chat-summary/combine-entries.js";
-import type { BaseLLMProvider } from "../../packages/server/src/services/llm/base-provider.js";
-import { type RegressionCase, runNamedCases } from "./fixtures/named-cases.js";
+} from "../../../packages/server/src/services/chat-summary/combine-entries.js";
+import type { BaseLLMProvider } from "../../../packages/server/src/services/llm/base-provider.js";
+import { type RegressionCase, runNamedCases } from "../fixtures/named-cases.js";
 
 const entry = (n: number, enabled = true): ChatSummaryEntry =>
   ({

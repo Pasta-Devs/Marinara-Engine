@@ -686,6 +686,7 @@ import {
   recallLongTermMemory,
   recordLongTermMemoryPromptAccepted,
   type LongTermMemoryRecallReceipt,
+  longTermMemoryStoredThroughMessageId,
 } from "../services/generation/long-term-memory-runtime.js";
 import { resolveMemoryRecallPolicy, splitCachedLongTermMemory } from "./generate/memory-recall-policy.js";
 import {
@@ -711,6 +712,9 @@ import {
   postProcessMessages,
   appendSeparateAgentInjectionMessage,
   capSummarizedHistory,
+  resolveRetireStoredTail,
+  resolveStoredThroughIds,
+  retireStoredHistory,
   computeSummaryHideIds,
   computeSummaryMessageRange,
   selectRollingSummaryMessages,
@@ -2288,6 +2292,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         chatMessages = capSummarizedHistory(chatMessages, chatMeta, {
           excludeMessageIds: input.regenerateMessageId ? [input.regenerateMessageId] : undefined,
         }).messages;
+        chatMessages = retireStoredHistory(
+          chatMessages,
+          allChatMessages,
+          await resolveStoredThroughIds({
+            chatId: input.chatId,
+            chatMeta,
+            agentsStore,
+            longTermMemoryStoredThrough: longTermMemoryStoredThroughMessageId,
+          }),
+          {
+            tail: resolveRetireStoredTail(chatMeta.retireStoredTailMessages),
+            step: normalizeHistoryDropStep(chatMeta.historyDropStep),
+          },
+        );
       }
       const promptLastGenerationType = resolvePromptLastGenerationType(input);
       const promptIdleDuration = resolvePromptIdleDuration(chatMessages, {
