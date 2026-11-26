@@ -87,6 +87,16 @@ export function followTranscriptGrowth(
   // pins to the newest line for a reader who was following, whatever position the hidden scroll left.
   let shown = scroller.clientHeight > 0;
   let height = scroller.scrollHeight;
+  // Growth the reader causes - a disclosure in her reply they open (her steps, her reasoning, "Why", "Show
+  // all") - lands in the frame after their click, and they read it from where they opened it. The
+  // before-the-growth test below skips that frame, so a long one does not scroll its start away. A frame
+  // runs its animation callbacks before its ResizeObserver, so the flag clears in the frame after.
+  let readerClicked = false;
+  const noteReaderClick = () => {
+    readerClicked = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => (readerClicked = false)));
+  };
+  stack.addEventListener("click", noteReaderClick, true);
   const observer = new ResizeObserver(() => {
     const revealed = !shown && scroller.clientHeight > 0;
     shown = scroller.clientHeight > 0;
@@ -103,7 +113,7 @@ export function followTranscriptGrowth(
     height = scroller.scrollHeight;
     const { scrollTo } = transcriptScrollAction({
       event: "grow",
-      nearBottom: revealed || wasNearBottom || isProfessorMariTranscriptNearBottom(scroller),
+      nearBottom: revealed || (wasNearBottom && !readerClicked) || isProfessorMariTranscriptNearBottom(scroller),
       following,
     });
     if (scrollTo === "bottom") scrollProfessorMariTranscriptToBottom(scroller);
@@ -112,7 +122,10 @@ export function followTranscriptGrowth(
     onGrown?.(!following && !isProfessorMariTranscriptNearBottom(scroller));
   });
   observer.observe(stack);
-  return () => observer.disconnect();
+  return () => {
+    observer.disconnect();
+    stack.removeEventListener("click", noteReaderClick, true);
+  };
 }
 
 export type ProfessorMariTranscriptScrollEvent = "send" | "grow" | "complete" | "user-scroll";

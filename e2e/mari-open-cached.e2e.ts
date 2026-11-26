@@ -202,3 +202,63 @@ test("pictures that load after she lands keep her newest line in view", async ({
     await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
   }
 });
+
+/**
+ * #9821 review: the follow that keeps a picture's growth on her newest line must not treat a disclosure the reader
+ * opens as output to follow, or opening her reasoning under her newest reply scrolls its start away.
+ */
+test("a disclosure opened at the bottom stays where the reader opened it", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const restart = await request.post("/api/chats/internal/professor-mari/restart?name=Reasoning");
+  expect(restart.ok(), await restart.text()).toBeTruthy();
+  const chatId = ((await restart.json()) as { id: string }).id;
+  const turns = 6;
+  try {
+    for (let i = 0; i < turns; i += 1) {
+      const user = await request.post(`/api/chats/${chatId}/messages`, {
+        data: { role: "user", content: `Check step ${i}.`, characterId: null },
+      });
+      expect(user.ok(), await user.text()).toBeTruthy();
+      const thinking = i === turns - 1 ? Array.from({ length: 60 }, (_, k) => `Thought ${k} about step ${i}.`) : [];
+      const reply = await request.post(`/api/chats/${chatId}/messages`, {
+        data: {
+          role: "assistant",
+          content: [`Step ${i} looks fine.`, `Last line of step ${i}.`].join("\n\n"),
+          characterId: "professor-mari",
+          ...(thinking.length > 0 ? { extra: { thinking: thinking.join("\n") } } : {}),
+        },
+      });
+      expect(reply.ok(), await reply.text()).toBeTruthy();
+    }
+
+    await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), APP_VERSION);
+    await isolateSyncedUISettings(page);
+    await seedUIState(page, { hasCompletedOnboarding: true, rightPanelOpen: false, sidebarOpen: false });
+    await page.goto("/");
+    await page
+      .locator("main")
+      .first()
+      .click({ position: { x: 5, y: 5 } });
+    const mariShortcut = await page.evaluate(async () => {
+      const { isApplePlatform } = await import("/src/lib/command-center.ts" as string);
+      return isApplePlatform() ? "Meta+j" : "Control+j";
+    });
+    await page.keyboard.press(mariShortcut);
+    const pane = page.locator('[data-component="GlobalOmnibar.Mari"]');
+    const reasoning = pane.locator(".mari-reasoning-panel > summary").last();
+    await expect(reasoning).toBeInViewport({ timeout: 20_000 });
+    // Her landing has let go.
+    await page.waitForTimeout(1_000);
+    const scrollTop = () =>
+      pane.locator(".mari-transcript-stack").evaluate((stack) => Math.round(stack.parentElement!.scrollTop));
+    const before = await scrollTop();
+    // A DOM click: Playwright's own click may scroll the summary into a better position first.
+    await reasoning.evaluate((summary) => (summary as HTMLElement).click());
+    await expect(pane.locator(".mari-reasoning-panel").last()).toHaveAttribute("open", "");
+    await page.waitForTimeout(300);
+    expect(await scrollTop(), "opening it did not scroll her chat").toBe(before);
+    await expect(reasoning).toBeInViewport();
+  } finally {
+    await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
+  }
+});

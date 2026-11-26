@@ -67,10 +67,19 @@ assert.equal(
   "Professor Mari streaming must stop following output after the reader scrolls away from the bottom",
 );
 // #9821: after she landed, a picture in one of her replies loads and grows the transcript by its whole height at
-// once. A following reader at the bottom stays on the newest line; one who scrolled away stays where they are.
+// once. A following reader at the bottom stays on the newest line; one who scrolled away stays where they are, even
+// before their scroll event clears "following"; and a disclosure the reader opens stays where they opened it.
 {
   let grow = () => {};
+  let click = () => {};
+  let frames: Array<() => void> = [];
+  const nextFrame = () => {
+    const due = frames;
+    frames = [];
+    for (const frame of due) frame();
+  };
   const realResizeObserver = globalThis.ResizeObserver;
+  const realRequestAnimationFrame = globalThis.requestAnimationFrame;
   globalThis.ResizeObserver = class {
     constructor(callback: () => void) {
       grow = callback;
@@ -78,20 +87,39 @@ assert.equal(
     observe() {}
     disconnect() {}
   } as unknown as typeof ResizeObserver;
+  globalThis.requestAnimationFrame = ((frame: () => void) => frames.push(frame)) as typeof requestAnimationFrame;
   try {
     const scroller = { clientHeight: 600, scrollHeight: 4000, scrollTop: 3400 };
-    let following = true;
-    const stop = followTranscriptGrowth(scroller as unknown as HTMLElement, {} as HTMLElement, () => following);
+    const stack = {
+      addEventListener: (type: string, listener: () => void) => type === "click" && (click = listener),
+      removeEventListener() {},
+    };
+    const stop = followTranscriptGrowth(
+      scroller as unknown as HTMLElement,
+      stack as unknown as HTMLElement,
+      () => true,
+    );
     scroller.scrollHeight = 4512; // a 512px picture took its height
     grow();
     assert.equal(scroller.scrollTop, 4512, "a picture that loads after the landing keeps the newest line in view");
-    scroller.scrollTop = 2000; // the reader scrolled up to read
-    following = false;
+    scroller.scrollTop = 2000; // the reader scrolled up to read; their scroll event has not arrived yet
     scroller.scrollHeight = 5024;
     grow();
     assert.equal(scroller.scrollTop, 2000, "a reader who scrolled away is not pulled down by a picture");
+    scroller.scrollTop = 4424; // back at the bottom
+    click(); // they open a 400px disclosure in her newest reply
+    nextFrame();
+    scroller.scrollHeight = 5424;
+    grow();
+    assert.equal(scroller.scrollTop, 4424, "a disclosure the reader opens stays where they opened it");
+    nextFrame();
+    scroller.scrollTop = 4824; // back at the bottom; another picture loads
+    scroller.scrollHeight = 5936;
+    grow();
+    assert.equal(scroller.scrollTop, 5936, "after the reader's click, a picture keeps the newest line in view again");
     stop();
   } finally {
     globalThis.ResizeObserver = realResizeObserver;
+    globalThis.requestAnimationFrame = realRequestAnimationFrame;
   }
 }
