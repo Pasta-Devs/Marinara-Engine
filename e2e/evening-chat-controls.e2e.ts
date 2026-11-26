@@ -129,6 +129,28 @@ for (const theme of ["dark", "light"] as const) {
       const docsCopy = page.locator(".docs-reader-content").getByRole("button", { name: "Copy code", exact: true });
       await docsCopy.click();
       await expect.poll(() => page.evaluate(() => (window as any).__copiedCode)).toBe("pnpm check");
+
+      // The UI language changes in place and the button stays, so a press after the switch answers in the new language.
+      const docsButton = page.locator(".docs-reader-content pre.mari-md-codeblock").getByRole("button");
+      await expect(docsButton).toHaveAccessibleName("Copy code");
+      const originalButton = await docsButton.elementHandle();
+      await page.evaluate(async () => {
+        const { activateLocale, i18n } = (await import("/src/localization/i18n.ts" as string)) as PageI18nModule;
+        i18n.addResourceBundle("fr", "translation", {
+          "markdown.copy": "Copier",
+          "markdown.copied": "Copié",
+          "markdown.copyCode": "Copier le code",
+        });
+        await activateLocale("fr");
+      });
+      await expect(docsButton).toHaveAccessibleName("Copier le code");
+      // A locator finds whatever button is there now, so check it is the node from before the switch.
+      expect(await docsButton.evaluate((button, original) => button === original, originalButton)).toBe(true);
+      await docsButton.click();
+      await expect(docsButton).toHaveText("Copié");
+      await expect(docsButton).toHaveAccessibleName("Copié");
+      await expect(docsButton).toHaveText("Copier");
+      await expect(docsButton).toHaveAccessibleName("Copier le code");
     } finally {
       await page.request.delete(`/api/chats/${chat.id}/messages/${message.id}`);
     }
