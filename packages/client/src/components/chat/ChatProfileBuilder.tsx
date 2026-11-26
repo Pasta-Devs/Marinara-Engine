@@ -96,7 +96,9 @@ const SLOT_META: Record<SlotKey, { type: string; icon: typeof Link; multi?: bool
 
 /** Settings edited in Chat Settings, shown here as a summary the profile already holds. */
 const isParamsKey = (key: string) =>
-  ["chatParameters", "contextMessageLimit", "excludePastReasoning", "pastReasoningLimit"].includes(key);
+  ["chatParameters", "contextMessageLimit", "historyDropStep", "excludePastReasoning", "pastReasoningLimit"].includes(
+    key,
+  );
 const isMemoryKey = (key: string) =>
   /^(enableMemoryRecall|advancedMemory|longTermMemory|summary|semanticSummary|dayRolloverHour)/.test(key);
 const isTranslationKey = (key: string) =>

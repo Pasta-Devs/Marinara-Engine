@@ -14,7 +14,12 @@ import {
   safeFetch,
   type SafeFetchOptions,
 } from "../../utils/security.js";
-import { estimateTextTokens, sliceTextToTokenBudget, type GenerationParameterSendKey } from "@marinara-engine/shared";
+import {
+  estimateTextTokens,
+  normalizeHistoryDropStep,
+  sliceTextToTokenBudget,
+  type GenerationParameterSendKey,
+} from "@marinara-engine/shared";
 
 /** For models that reject assistant prefill but can continue an existing reply from history. */
 export const ASSISTANT_CONTINUATION_PROMPT =
@@ -295,7 +300,13 @@ export type {
 
 type ContextFitOptions = Pick<
   ChatOptions,
-  "maxContext" | "maxTokens" | "tools" | "responseFormat" | "suppressModelParameters" | "preserveContext"
+  | "maxContext"
+  | "maxTokens"
+  | "tools"
+  | "responseFormat"
+  | "suppressModelParameters"
+  | "preserveContext"
+  | "historyDropStep"
 >;
 
 const MESSAGE_OVERHEAD_TOKENS = 6;
@@ -462,6 +473,36 @@ function findOldestRemovableConversationBlock(
   return null;
 }
 
+const HISTORY_OPEN_PREFIX = /^(?:<(chat|recent)_history>\n|## (Chat|Recent) History\n)/;
+const HISTORY_CLOSE_SUFFIX = /\n<\/(?:chat|recent)_history>$/;
+
+/**
+ * Remove the oldest history block and keep the history wrapper whole: when the removed message opened
+ * `<chat_history>` (or `<recent_history>`, or their markdown headings) and the part goes on, its opening tag
+ * moves to the message that now starts the part. Returns the token estimate of what was removed.
+ */
+function spliceHistoryBlock(messages: ChatMessage[], block: { start: number; deleteCount: number }): number {
+  const removed = messages.splice(block.start, block.deleteCount);
+  const opener =
+    typeof removed[0]?.content === "string" ? HISTORY_OPEN_PREFIX.exec(removed[0].content)?.[0] : undefined;
+  const lastRemoved = removed.at(-1)?.content;
+  const partEnded = typeof lastRemoved === "string" && HISTORY_CLOSE_SUFFIX.test(lastRemoved);
+  const next = messages[block.start];
+  if (
+    opener &&
+    !partEnded &&
+    next &&
+    next.contextKind === "history" &&
+    typeof next.content === "string" &&
+    !HISTORY_OPEN_PREFIX.test(next.content)
+  ) {
+    const added = estimateTextTokens(opener);
+    messages[block.start] = { ...next, content: `${opener}${next.content}` };
+    return estimateMessagesTokens(removed) - added;
+  }
+  return estimateMessagesTokens(removed);
+}
+
 function findOldestRemovableSystemMessage(messages: ChatMessage[]): number {
   for (let index = 1; index < messages.length - 1; index++) {
     if (messages[index]?.role === "system") return index;
@@ -588,10 +629,26 @@ export function fitMessagesToContext(
 
   // The estimate is a sum over messages, so subtract what each pass removes. Recounting the whole prompt after every
   // removal took over a minute for a chat of a few thousand messages far over its window.
+  let droppedHistory = 0;
   while (estimatedTokensAfter > inputBudget && fittedMessages.length > 1) {
     const block = findOldestRemovableConversationBlock(fittedMessages, "history");
     if (!block) break;
-    estimatedTokensAfter -= estimateMessagesTokens(fittedMessages.splice(block.start, block.deleteCount));
+    droppedHistory += block.deleteCount;
+    estimatedTokensAfter -= spliceHistoryBlock(fittedMessages, block);
+  }
+  // Drop in whole steps: the history then starts at the same message for several turns, so a prompt cache
+  // on it keeps hitting, and jumps a full step when the next one is due (chat setting "Drop in steps of").
+  const dropStep = normalizeHistoryDropStep(options.historyDropStep);
+  if (droppedHistory > 0 && dropStep > 1) {
+    const target = Math.ceil(droppedHistory / dropStep) * dropStep;
+    while (droppedHistory < target && fittedMessages.length > 1) {
+      const block = findOldestRemovableConversationBlock(fittedMessages, "history");
+      // The step never takes the newest history message: the fit already kept it on purpose.
+      const historyLeft = fittedMessages.filter((message) => message.contextKind === "history").length;
+      if (!block || historyLeft - block.deleteCount < 1) break;
+      droppedHistory += block.deleteCount;
+      estimatedTokensAfter -= spliceHistoryBlock(fittedMessages, block);
+    }
   }
 
   // Some legacy/manual prompt paths do not annotate chat turns. Only treat
@@ -601,7 +658,7 @@ export function fitMessagesToContext(
     while (estimatedTokensAfter > inputBudget && fittedMessages.length > 1) {
       const block = findOldestRemovableConversationBlock(fittedMessages);
       if (!block) break;
-      estimatedTokensAfter -= estimateMessagesTokens(fittedMessages.splice(block.start, block.deleteCount));
+      estimatedTokensAfter -= spliceHistoryBlock(fittedMessages, block);
     }
   }
 
@@ -618,7 +675,7 @@ export function fitMessagesToContext(
   while (estimatedTokensAfter > inputBudget && fittedMessages.length > 1) {
     const block = findOldestRemovableConversationBlock(fittedMessages);
     if (!block) break;
-    estimatedTokensAfter -= estimateMessagesTokens(fittedMessages.splice(block.start, block.deleteCount));
+    estimatedTokensAfter -= spliceHistoryBlock(fittedMessages, block);
   }
 
   while (estimatedTokensAfter > inputBudget && fittedMessages.length > 1) {

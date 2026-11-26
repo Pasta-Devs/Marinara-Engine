@@ -25,11 +25,25 @@ import {
   resolveMacros,
   withoutPresetTokenLimits,
   isStockMarinaraUniversalPreset,
+  RECENT_HISTORY_DEFAULT_MESSAGES,
+  RECENT_HISTORY_MAX_MESSAGES,
 } from "@marinara-engine/shared";
 import { wrapContent, wrapGroup } from "./format-engine.js";
 import { sanitizePromptLeaf } from "./prompt-escaping.js";
-import { ensureLorebookScan, expandMarker, type MarkerContext } from "./marker-expander.js";
-import { hasSamePromptAudience, mergeAdjacentMessages, squashLeadingSystemMessages } from "./merger.js";
+import {
+  ensureLorebookScan,
+  expandChatHistory,
+  expandMarker,
+  type ChatHistoryPart,
+  type MarkerContext,
+} from "./marker-expander.js";
+import {
+  endBeforeSummaryCacheSegment,
+  hasSamePromptAudience,
+  mergeAdjacentMessages,
+  squashLeadingSystemMessages,
+  startsSummaryCacheSegment,
+} from "./merger.js";
 import { injectAtDepth } from "../lorebook/prompt-injector.js";
 import { MEMORY_RECALL_SLOT_TOKEN, markMemoryRecallOnlyGroup, stripMemoryRecallSlot } from "./memory-recall-slot.js";
 import {
@@ -162,6 +176,13 @@ export interface AssemblerInput {
   lorebookScanMessages?: ChatMLMessage[];
   /** Current chat summary text (if any) */
   chatSummary?: string | null;
+  /** Chat setting "Drop in steps of" (`historyDropStep`), for Chat History's Max messages. */
+  historyDropStep?: number;
+  /**
+   * The connection caches prompts: keep Past Events (the Chat Summary marker, or the fallback summary) as its own
+   * leading system message, so a new summary leaves the fixed system prompt before it cached.
+   */
+  separateSummaryForCache?: boolean;
   /** Characters a merged group reply may voice; the Chat Summary marks who knows what (#7252). */
   chatSummaryReaders?: readonly CharacterMacroProfile[];
   /** Presence enables advanced memory placement; values must already be audience-scoped. */
@@ -539,6 +560,8 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     personaFields: input.personaFields,
     personaStats: input.personaStats,
     chatMessages: input.chatMessages,
+    historyDropStep: input.historyDropStep,
+    separateSummaryForCache: input.separateSummaryForCache,
     lorebookScanMessages: input.lorebookScanMessages,
     chatSummary,
     chatSummaryReaders: input.chatSummaryReaders,
@@ -572,6 +595,8 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     impersonatePublicFaces: input.impersonate === true && input.impersonatePublicFaces === true,
     macroCtx,
   };
+
+  const historySplit = planHistorySplit(sectionOrder, sectionMap, groupMap);
 
   // ── Phase 1: Resolve sections in preset order ──
   // Separate ordered sections from depth-injected ones
@@ -677,6 +702,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
         runtimeAgentData: input.runtimeAgentData ?? {},
         runtimeAgentTypesUsed,
         usedImageOutlets,
+        historySplit,
       });
     } catch (err) {
       logger.warn(err, "[prompt] Skipping section %s after marker expansion failed", section.id);
@@ -760,6 +786,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       }
     }
   }
+  if (historySplit.kind === "split") tagSectionsBetweenHistoryParts(messages);
   if (referencedCardContent && !idMacroCardMarkerSection) {
     messages.unshift({
       role: "system",
@@ -830,7 +857,14 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     finalMessages = injectAtDepth(
       finalMessages,
       combinedDepthEntries as Array<{ content: string; role: "system" | "user" | "assistant"; depth: number }>,
-      historyBounds ? { minIndex: historyBounds.start, anchorIndex: historyBounds.end } : undefined,
+      historyBounds
+        ? {
+            minIndex: historyBounds.start,
+            anchorIndex: historyBounds.end,
+            // A split history has blocks between its parts: depth counts chat messages only.
+            ...(historySplit.kind === "split" ? { historyIndexes: historyMessageIndexes(finalMessages) } : {}),
+          }
+        : undefined,
     );
     lorebookDepthEntriesCount = combinedDepthEntries.length;
   }
@@ -857,6 +891,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       macroCtx,
       deferAllMacroOptions(),
       input.chatSummaryReaders,
+      input.separateSummaryForCache === true,
     );
   }
 
@@ -941,6 +976,90 @@ function markerTypeOf(section: { markerConfig?: string | null }): MarkerConfig["
   }
 }
 
+/**
+ * How a preset's history markers send the chat history. With an enabled Recent History after an enabled Chat History,
+ * the history is split: Chat History sends the older messages and the first Recent History the newest ones.
+ * A Recent History with no Chat History sends the whole history; one above Chat History, or a second one, sends nothing.
+ */
+type HistorySplit =
+  | { kind: "none"; recentSectionId?: undefined; chatHistoryConfig?: undefined; recentMessages?: undefined }
+  | { kind: "standalone"; recentSectionId: string; chatHistoryConfig?: undefined; recentMessages?: undefined }
+  | { kind: "ignored"; recentSectionId?: undefined; chatHistoryConfig?: undefined; recentMessages?: undefined }
+  | { kind: "split"; recentSectionId: string; chatHistoryConfig: MarkerConfig; recentMessages: number };
+
+function planHistorySplit(
+  sectionOrder: readonly string[],
+  sectionMap: ReadonlyMap<string, AssemblerInput["sections"][number]>,
+  groupMap: ReadonlyMap<string, AssemblerInput["groups"][number]>,
+): HistorySplit {
+  const markers = sectionOrder.flatMap((sectionId) => {
+    const section = sectionMap.get(sectionId);
+    if (!section || section.enabled !== "true" || section.isMarker !== "true" || !section.markerConfig) return [];
+    const group = section.groupId ? groupMap.get(section.groupId) : undefined;
+    if (group && group.enabled !== "true") return [];
+    try {
+      const config = JSON.parse(section.markerConfig) as MarkerConfig;
+      return config?.type === "chat_history" || config?.type === "recent_history" ? [{ section, config }] : [];
+    } catch {
+      return [];
+    }
+  });
+  const recentIndex = markers.findIndex((marker) => marker.config.type === "recent_history");
+  if (recentIndex < 0) return { kind: "none" };
+  const recent = markers[recentIndex]!;
+  const chatIndex = markers.findIndex((marker) => marker.config.type === "chat_history");
+  if (chatIndex < 0) return { kind: "standalone", recentSectionId: recent.section.id };
+  if (chatIndex > recentIndex) return { kind: "ignored" };
+  const requested = recent.config.recentHistoryOptions?.recentMessages;
+  const recentMessages = Math.min(
+    RECENT_HISTORY_MAX_MESSAGES,
+    Math.max(
+      1,
+      Math.floor(typeof requested === "number" && requested > 0 ? requested : RECENT_HISTORY_DEFAULT_MESSAGES),
+    ),
+  );
+  return {
+    kind: "split",
+    recentSectionId: recent.section.id,
+    chatHistoryConfig: markers[chatIndex]!.config,
+    recentMessages,
+  };
+}
+
+/** What a history marker sends under the preset's split: a part of the history, or nothing (null). */
+function historyPartForSection(
+  sectionId: string,
+  type: "chat_history" | "recent_history",
+  split: HistorySplit,
+): ChatHistoryPart | null {
+  if (type === "chat_history") {
+    return split.kind === "split" ? { kind: "past", recentMessages: split.recentMessages } : { kind: "all" };
+  }
+  if (sectionId !== split.recentSectionId) return null;
+  return split.kind === "split" ? { kind: "recent", recentMessages: split.recentMessages } : { kind: "all" };
+}
+
+/**
+ * Preset blocks between the two history parts sit inside the conversation, like depth injections: tag them the same,
+ * so strict-role formatting gives a system block its own turn there instead of merging it into a chat message.
+ */
+function tagSectionsBetweenHistoryParts(messages: ChatMLMessage[]): void {
+  let lastPast = -1;
+  for (let index = 0; index < messages.length; index++) if (messages[index]!.historyPart === "past") lastPast = index;
+  const firstRecent = messages.findIndex((message) => message.historyPart === "recent");
+  // The end of the older part is the newest point that stays the same next turn: the history cache breakpoint.
+  if (lastPast >= 0) messages[lastPast] = { ...messages[lastPast]!, historyCacheBreakpoint: true };
+  if (lastPast < 0 || firstRecent < 0) return;
+  for (let index = lastPast + 1; index < firstRecent; index++) {
+    const message = messages[index]!;
+    if (message.contextKind !== "history") messages[index] = { ...message, contextKind: "injection" };
+  }
+}
+
+function historyMessageIndexes(messages: ChatMLMessage[]): number[] {
+  return messages.flatMap((message, index) => (message.contextKind === "history" ? [index] : []));
+}
+
 interface ResolveSectionCtx {
   macroCtx: MacroContext;
   markerCtx: MarkerContext;
@@ -949,6 +1068,7 @@ interface ResolveSectionCtx {
   runtimeAgentData: Record<string, string | RuntimeAgentData>;
   runtimeAgentTypesUsed: Set<string>;
   usedImageOutlets: Set<string>;
+  historySplit: HistorySplit;
 }
 
 // ═══════════════════════════════════════════════
@@ -967,11 +1087,17 @@ async function resolveSection(
   let runtimeAgentText = "";
   let runtimeAgentStartToken: string | undefined;
   let runtimeAgentEndToken: string | undefined;
+  let summaryCacheSegment = false;
   const wrapperName = section.name;
 
   // Handle marker sections
   if (section.isMarker === "true" && section.markerConfig) {
     const markerConfig = JSON.parse(section.markerConfig) as MarkerConfig;
+    summaryCacheSegment =
+      markerConfig.type === "chat_summary" &&
+      role === "system" &&
+      ctx.markerCtx.separateSummaryForCache === true &&
+      !ctx.markerCtx.advancedMemory;
     if (markerConfig.type === "id_macro_cards") {
       return {
         id: section.id,
@@ -998,12 +1124,23 @@ async function resolveSection(
     runtimeAgentEndToken = normalizedRuntimeAgentData.endToken;
     const hasRuntimeAgentData =
       runtimeAgentType !== null && Object.prototype.hasOwnProperty.call(ctx.runtimeAgentData, runtimeAgentType);
+    const historyPart =
+      markerConfig.type === "chat_history" || markerConfig.type === "recent_history"
+        ? historyPartForSection(section.id, markerConfig.type, ctx.historySplit)
+        : undefined;
+    if (historyPart === null) return null;
     const expanded = hasRuntimeAgentData
       ? { content: runtimeAgentText }
-      : await expandMarker(markerConfig, ctx.markerCtx, ctx.macroOptions);
+      : historyPart
+        ? await expandChatHistory(
+            historyPart.kind === "all" ? markerConfig : ctx.historySplit.chatHistoryConfig!,
+            ctx.markerCtx,
+            historyPart,
+          )
+        : await expandMarker(markerConfig, ctx.markerCtx, ctx.macroOptions);
 
     // Chat history marker returns multiple messages
-    if (markerConfig.type === "chat_history" && expanded.messages) {
+    if ((markerConfig.type === "chat_history" || markerConfig.type === "recent_history") && expanded.messages) {
       return {
         id: section.id,
         groupId: section.groupId,
@@ -1083,7 +1220,9 @@ async function resolveSection(
     id: section.id,
     groupId: section.groupId,
     role,
-    messages: [{ role, content: messageContent, contextKind: "prompt" }],
+    messages: [
+      { role, content: messageContent, contextKind: "prompt", ...(summaryCacheSegment ? { summaryCacheSegment } : {}) },
+    ],
     depth: section.injectionDepth,
   };
 }
@@ -1097,6 +1236,35 @@ async function resolveSection(
  * If all sections share the same role, wrap them in a group tag.
  * If roles differ, create separate messages per role (no group wrapping across roles).
  */
+/**
+ * A group holding Past Events on a caching connection (`summaryCacheSegment`): the group's text splits into two system
+ * messages at the line where Past Events starts, so the fixed part before it can stay cached when a summary changes.
+ * Joined, the two read exactly as the whole group. Anything that cannot be split cleanly stays one message.
+ */
+function splitGroupAtSummaryCacheSegment(
+  sections: ResolvedSection[],
+  groupName: string,
+  wrapFormat: WrapFormat,
+  content: string,
+): ChatMLMessage[] {
+  const whole: ChatMLMessage[] = [{ role: sections[0]!.role, content, contextKind: "prompt" }];
+  const parts = sections.flatMap((section) => section.messages);
+  const segmentIndex = parts.findIndex((message) => message.summaryCacheSegment === true);
+  if (segmentIndex <= 0 || sections[0]!.role !== "system") return whole;
+  // Wrap again with a one-line stand-in for Past Events onward, to find where that line starts in the group's text.
+  const marker = `\u0000past-events-${Date.now().toString(36)}\u0000`;
+  const probeInner = [...parts.slice(0, segmentIndex).map((message) => message.content), marker].join("\n\n");
+  const probe = wrapGroup(probeInner, groupName, wrapFormat) || probeInner;
+  const markerAt = probe.indexOf(marker);
+  if (markerAt < 0) return whole;
+  const cut = probe.lastIndexOf("\n", markerAt) + 1;
+  if (cut <= 0 || probe.slice(0, cut) !== content.slice(0, cut)) return whole;
+  return [
+    { role: "system", content: content.slice(0, cut), contextKind: "prompt" },
+    { role: "system", content: content.slice(cut), contextKind: "prompt", summaryCacheSegment: true },
+  ];
+}
+
 function buildGroupMessages(
   sections: ResolvedSection[],
   group: { name: string },
@@ -1107,10 +1275,9 @@ function buildGroupMessages(
 
   if (roles.size === 1) {
     // All same role — combine content and wrap in group
-    const role = sections[0]!.role;
     const innerContent = sections.flatMap((s) => s.messages.map((m) => m.content)).join("\n\n");
     const wrapped = wrapGroup(innerContent, group.name, wrapFormat);
-    return [{ role, content: wrapped || innerContent, contextKind: "prompt" }];
+    return splitGroupAtSummaryCacheSegment(sections, group.name, wrapFormat, wrapped || innerContent);
   }
 
   // Mixed roles — group consecutive same-role sections and wrap each group
@@ -1174,6 +1341,8 @@ export function appendFallbackChatSummaryToSystemPrompt(
   macroCtx: MacroContext,
   macroOptions?: ResolveMacroOptions,
   readers?: readonly CharacterMacroProfile[],
+  /** A caching connection: Past Events becomes its own system message after the system prompt. */
+  separateForCache = false,
 ): ChatMLMessage[] {
   const summary = sanitizePromptLeaf(
     resolveChatSummaryMacros(chatSummary ?? "", macroCtx, macroOptions, readers),
@@ -1192,6 +1361,17 @@ export function appendFallbackChatSummaryToSystemPrompt(
     lastLeadingSystemIdx = i;
   }
 
+  if (lastLeadingSystemIdx >= 0 && separateForCache) {
+    const target = next[lastLeadingSystemIdx]!;
+    next[lastLeadingSystemIdx] = { ...target, content: endBeforeSummaryCacheSegment(target.content) };
+    next.splice(lastLeadingSystemIdx + 1, 0, {
+      role: "system",
+      content: wrapped,
+      contextKind: "prompt",
+      summaryCacheSegment: true,
+    });
+    return next;
+  }
   if (lastLeadingSystemIdx >= 0) {
     const target = next[lastLeadingSystemIdx]!;
     next[lastLeadingSystemIdx] = {
@@ -1230,7 +1410,10 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   while (idx < messages.length && messages[idx]!.role === "system") {
     const msg = messages[idx]!;
     const leadingSystem = result[result.length - 1];
-    if (leadingSystem?.role === "system" && hasSamePromptAudience(leadingSystem, msg)) {
+    if (leadingSystem && startsSummaryCacheSegment(leadingSystem, msg)) {
+      leadingSystem.content = endBeforeSummaryCacheSegment(leadingSystem.content);
+      result.push({ ...msg });
+    } else if (leadingSystem?.role === "system" && hasSamePromptAudience(leadingSystem, msg)) {
       mergeInto(leadingSystem, msg);
     } else {
       result.push({ ...msg });

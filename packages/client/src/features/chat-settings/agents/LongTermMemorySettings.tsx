@@ -8,6 +8,7 @@ import { SettingsSwitch } from "../../../components/panels/settings/SettingContr
 import { showAlertDialog } from "../../../lib/app-dialogs";
 import { cn } from "../../../lib/utils";
 import { useUIStore } from "../../../stores/ui.store";
+import { RetireStoredSetting } from "./RetireStoredSetting";
 
 export function LongTermMemoryEnableSwitch({
   enabledForChat,
@@ -67,7 +68,7 @@ export function LongTermMemoryCapabilitySettings({
 }) {
   const updateMeta = useUpdateChatMetadata();
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
-  return (
+  const settings = (
     <CapabilityElement
       packageId={packageId}
       view="settings"
@@ -95,5 +96,13 @@ export function LongTermMemoryCapabilitySettings({
       }}
       className={className}
     />
+  );
+  // Roleplay only: the other modes build their history in ways this does not reach.
+  if (chat.mode !== "roleplay" || !enabledForChat) return settings;
+  return (
+    <div className="space-y-2">
+      {settings}
+      <RetireStoredSetting chatId={chat.id} metadata={metadata} settingKey="longTermMemoryRetireStored" />
+    </div>
   );
 }

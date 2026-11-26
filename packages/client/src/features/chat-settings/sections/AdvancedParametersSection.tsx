@@ -32,7 +32,14 @@ import {
 import { useEffectiveChatModel } from "../../../components/connections/ConnectionSwitcherBody";
 import { cn } from "../../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { DEFAULT_IMAGE_CAPTIONING_PROMPT, parseConnectionImageCaptioningDefaults } from "@marinara-engine/shared";
+import {
+  DEFAULT_IMAGE_CAPTIONING_PROMPT,
+  HISTORY_DROP_STEP,
+  normalizeHistoryDropStep,
+  normalizeSummaryTailMessages,
+  parseConnectionImageCaptioningDefaults,
+  summaryFriendlyMessageLimit,
+} from "@marinara-engine/shared";
 
 const EDITABLE_PARAMETER_KEYS: Array<keyof EditableGenerationParameters> = [
   "temperature",
@@ -74,6 +81,9 @@ interface AdvancedParametersSectionProps {
   imageCaptioningConnectionId: string | null | undefined;
   onChatParametersChange: (chatParameters: Record<string, unknown>) => void;
   onContextMessageLimitChange: (value: number | null) => void;
+  /** "Drop in steps of": old messages leave the prompt this many at a time (null or 1 = one at a time). */
+  historyDropStep: number | null | undefined;
+  onHistoryDropStepChange: (value: number | null) => void;
   onExcludePastReasoningChange: (value: boolean) => void;
   onPastReasoningLimitChange: (value: number) => void;
   onImageCaptioningChange: (patch: {
@@ -101,11 +111,42 @@ export function AdvancedParametersSection({
   imageCaptioningConnectionId,
   onChatParametersChange,
   onContextMessageLimitChange,
+  historyDropStep,
+  onHistoryDropStepChange,
   onExcludePastReasoningChange,
   onPastReasoningLimitChange,
   onImageCaptioningChange,
 }: AdvancedParametersSectionProps) {
   const { t: localizeUi } = useUiTranslation();
+  const dropStep = normalizeHistoryDropStep(historyDropStep);
+  // Roleplay with automatic summaries hiding what they cover: a limit below this cuts history between summaries.
+  const summaryLimitFloor = useMemo(() => {
+    if (isConversation || advancedMemoryManagesHistory || metadata.hideSummarisedMessages !== true) return null;
+    const agentIds = Array.isArray(metadata.activeAgentIds) ? metadata.activeAgentIds : [];
+    const automatic =
+      metadata.automaticSummaryEnabled === true ||
+      (metadata.enableAgents === true && agentIds.includes("chat-summary"));
+    if (!automatic) return null;
+    const every =
+      typeof metadata.summaryRunInterval === "number" && Number.isFinite(metadata.summaryRunInterval)
+        ? Math.max(1, Math.min(200, Math.trunc(metadata.summaryRunInterval)))
+        : 5;
+    return summaryFriendlyMessageLimit({
+      tail: normalizeSummaryTailMessages(metadata.summaryTailMessages),
+      every,
+      step: dropStep,
+    });
+  }, [
+    advancedMemoryManagesHistory,
+    dropStep,
+    isConversation,
+    metadata.activeAgentIds,
+    metadata.automaticSummaryEnabled,
+    metadata.enableAgents,
+    metadata.hideSummarisedMessages,
+    metadata.summaryRunInterval,
+    metadata.summaryTailMessages,
+  ]);
   const modeDefaults = isConversation ? CHAT_PARAMETER_DEFAULTS : ROLEPLAY_PARAMETER_DEFAULTS;
   const strictModeDefaults: EditableGenerationParameters = {
     ...modeDefaults,
@@ -318,7 +359,13 @@ export function AdvancedParametersSection({
           label={localizeUi("ui.chatSettings.advancedparameterssection.limitContextMessages")}
           description={localizeUi("ui.chatSettings.advancedparameterssection.onlySendTheLastNMessagesToTheModel")}
           checked={Boolean(contextMessageLimit)}
-          onChange={(checked) => onContextMessageLimitChange(checked ? 50 : null)}
+          onChange={(checked) => {
+            onContextMessageLimitChange(checked ? 50 : null);
+            // A limit without steps drops a message every reply and breaks prompt caching, so steps come with it.
+            if (checked && !advancedMemoryManagesHistory && dropStep <= 1) {
+              onHistoryDropStepChange(HISTORY_DROP_STEP.SUGGESTED);
+            }
+          }}
           labelPosition="start"
           className={cn(
             "justify-between rounded-lg px-3 py-2.5 text-left",
@@ -331,11 +378,53 @@ export function AdvancedParametersSection({
         {contextMessageLimit && (
           <div className="flex items-center gap-2 px-1">
             <DraftNumberInput
-              aria-label={localizeUi("ui.chatSettings.advancedparameterssection.contextMessageLimit")}
+              ariaLabel={localizeUi("ui.chatSettings.advancedparameterssection.contextMessageLimit")}
               min={1}
               max={9999}
               value={contextMessageLimit}
               onCommit={(value) => onContextMessageLimitChange(Math.max(1, Math.min(9999, value)))}
+              selectOnFocus
+              className="w-20 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+            />
+            <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+              {localizeUi("ui.agents.agenteditor.messages")}
+            </span>
+          </div>
+        )}
+        {contextMessageLimit && !advancedMemoryManagesHistory && dropStep <= 1 && (
+          <p className="px-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)]" data-limit-cache-note>
+            {localizeUi("ui.chatSettings.advancedparameterssection.limitBreaksCache")}
+          </p>
+        )}
+        {contextMessageLimit && summaryLimitFloor !== null && contextMessageLimit < summaryLimitFloor && (
+          <p className="px-1 text-[0.625rem] leading-snug text-amber-400" data-summary-limit-hint role="note">
+            {localizeUi("ui.chatSettings.advancedparameterssection.summaryLimitHint", { count: summaryLimitFloor })}
+          </p>
+        )}
+        {!advancedMemoryManagesHistory && (
+          <SettingsSwitch
+            label={localizeUi("ui.chatSettings.advancedparameterssection.dropInSteps")}
+            description={localizeUi("ui.chatSettings.advancedparameterssection.dropInStepsDescription")}
+            checked={dropStep > 1}
+            onChange={(checked) => onHistoryDropStepChange(checked ? HISTORY_DROP_STEP.SUGGESTED : null)}
+            labelPosition="start"
+            className={cn(
+              "justify-between rounded-lg px-3 py-2.5 text-left",
+              dropStep > 1
+                ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+            )}
+            labelClassName="text-xs font-medium"
+          />
+        )}
+        {!advancedMemoryManagesHistory && dropStep > 1 && (
+          <div className="flex items-center gap-2 px-1" data-history-drop-step>
+            <DraftNumberInput
+              ariaLabel={localizeUi("ui.chatSettings.advancedparameterssection.dropInSteps")}
+              min={2}
+              max={HISTORY_DROP_STEP.MAX}
+              value={dropStep}
+              onCommit={(value) => onHistoryDropStepChange(Math.max(2, Math.min(HISTORY_DROP_STEP.MAX, value)))}
               selectOnFocus
               className="w-20 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
             />

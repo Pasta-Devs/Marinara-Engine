@@ -31,6 +31,7 @@ import {
   withTrackerIdAlias,
   type CharacterCardCastSource,
   type CharacterMacroProfile,
+  normalizeHistoryDropStep,
   normalizeSummaryTailMessages,
   normalizeWorldCustomFields,
   isTrackerRowsUpdate,
@@ -55,6 +56,7 @@ import {
   type WrapFormat,
 } from "@marinara-engine/shared";
 import { wrapContent } from "../../services/prompt/format-engine.js";
+import { endBeforeSummaryCacheSegment, startsSummaryCacheSegment } from "../../services/prompt/merger.js";
 import { resolveChatUserIdentity } from "../../services/chat-user-identity.js";
 import type { createCharactersStorage } from "../../services/storage/characters.storage.js";
 import {
@@ -586,22 +588,18 @@ function stripBoundaryLastMessageWrapper(content: string): string {
   return stripped.trim();
 }
 
-function hasBoundaryChatHistoryClose(content: string): boolean {
-  const trimmed = content.trimEnd();
-  const closingTag = "</chat_history>";
-  return trimmed.slice(-closingTag.length).toLowerCase() === closingTag;
+/** The history wrapper (Chat History, or Recent History in a split history) whose closing tag ends `content`. */
+function boundaryHistoryCloseTag(content: string): string | null {
+  const trimmed = content.trimEnd().toLowerCase();
+  return ["</chat_history>", "</recent_history>"].find((closingTag) => trimmed.endsWith(closingTag)) ?? null;
 }
 
-function stripBoundaryChatHistoryClose(content: string): string {
-  const trimmed = content.trimEnd();
-  const closingTag = "</chat_history>";
-  return trimmed.slice(-closingTag.length).toLowerCase() === closingTag
-    ? trimmed.slice(0, -closingTag.length).trimEnd()
-    : trimmed;
+function stripBoundaryHistoryClose(content: string, closingTag: string): string {
+  return content.trimEnd().slice(0, -closingTag.length).trimEnd();
 }
 
-function appendBoundaryChatHistoryClose(content: string): string {
-  return `${content.trimEnd()}\n</chat_history>`;
+function appendBoundaryHistoryClose(content: string, closingTag: string): string {
+  return `${content.trimEnd()}\n${closingTag}`;
 }
 
 export function dedupeLastMessageWrappers<T extends { content: string }>(messages: T[]): void {
@@ -618,12 +616,13 @@ export function dedupeLastMessageWrappers<T extends { content: string }>(message
     if (index === keepIndex) continue;
     let content = stripBoundaryLastMessageWrapper(messages[index]!.content);
     const previousMessage = messages[index - 1];
-    if (previousMessage && hasBoundaryChatHistoryClose(previousMessage.content)) {
+    const closingTag = previousMessage ? boundaryHistoryCloseTag(previousMessage.content) : null;
+    if (previousMessage && closingTag) {
       messages[index - 1] = {
         ...previousMessage,
-        content: stripBoundaryChatHistoryClose(previousMessage.content),
+        content: stripBoundaryHistoryClose(previousMessage.content, closingTag),
       };
-      content = appendBoundaryChatHistoryClose(content);
+      content = appendBoundaryHistoryClose(content, closingTag);
     }
     messages[index] = {
       ...messages[index]!,
@@ -784,6 +783,11 @@ export function postProcessMessages(
       delete message.providerMetadata;
     }
     const previous = result.at(-1);
+    if (previous && leadingSystem && startsSummaryCacheSegment(previous, message)) {
+      previous.content = endBeforeSummaryCacheSegment(previous.content);
+      result.push(message);
+      continue;
+    }
     const canMerge =
       previous &&
       previous.role === message.role &&
@@ -900,7 +904,18 @@ export function capSummarizedHistory<T extends { id: string; extra?: unknown }>(
   if (covered.size === 0) return { messages, backlog: 0 };
   const entries = normalizeChatSummaryEntries(chatMeta.summaryEntries);
   const summarized = new Set(entries.flatMap((entry) => entry.messageIds ?? []));
-  const cut = messages.length - resolveRoleplaySummaryTail(chatMeta.summaryTailMessages);
+  const tail = resolveRoleplaySummaryTail(chatMeta.summaryTailMessages);
+  // With "Drop in steps of" on, the tail is counted back from the newest message a summary covers, not from
+  // the newest message: summarised messages then leave only on the turn a new summary is saved, the turn the
+  // Past Events block changes anyway, and the history start holds still in between.
+  let cut = messages.length - tail;
+  if (normalizeHistoryDropStep(chatMeta.historyDropStep) > 1) {
+    let newestCovered = -1;
+    messages.forEach((message, index) => {
+      if (covered.has(message.id)) newestCovered = index;
+    });
+    cut = newestCovered + 1 - tail;
+  }
   let backlog = 0;
   const kept = messages.filter((message, index) => {
     if (index >= cut) return true;
@@ -909,6 +924,76 @@ export function capSummarizedHistory<T extends { id: string; extra?: unknown }>(
     return true;
   });
   return { messages: kept, backlog };
+}
+
+/**
+ * "Leave stored messages out of Chat History" for Lorebook Keeper and Long-term memory: a message one of them has
+ * already stored (`storedThroughIds`, each the newest message that memory covers) leaves the prompt, except the
+ * newest `tail` messages; the memory still holds it. With "Drop in steps of" the retired part grows a whole step
+ * at a time, so the history start holds still between steps. A message the user showed again by hand stays.
+ * Pure: `messages` must be the chat-ordered history the model may see; `allMessages` the whole chat in order.
+ */
+export function retireStoredHistory<T extends { id: string; extra?: unknown }>(
+  messages: T[],
+  allMessages: ReadonlyArray<{ id: string }>,
+  storedThroughIds: ReadonlyArray<string | null>,
+  options: { tail: number; step: number },
+): T[] {
+  let storedThrough = -1;
+  for (const id of storedThroughIds) {
+    if (!id) continue;
+    storedThrough = Math.max(
+      storedThrough,
+      allMessages.findIndex((message) => message.id === id),
+    );
+  }
+  if (storedThrough < 0) return messages;
+  const stored = new Set(allMessages.slice(0, storedThrough + 1).map((message) => message.id));
+  let storedPrefix = 0;
+  while (storedPrefix < messages.length && stored.has(messages[storedPrefix]!.id)) storedPrefix++;
+  const step = normalizeHistoryDropStep(options.step);
+  const limit = Math.min(storedPrefix, Math.max(0, messages.length - Math.max(0, Math.floor(options.tail))));
+  const cut = Math.floor(limit / step) * step;
+  if (cut <= 0) return messages;
+  return messages.filter((message, index) => index >= cut || parseExtra(message.extra).visibilityManual === true);
+}
+
+/** Chat settings for "Leave stored messages out of Chat History" (Lorebook Keeper and Long-term memory). */
+export const RETIRE_STORED_TAIL = { MIN: 0, DEFAULT: 10 } as const;
+
+/**
+ * The newest message each memory the chat turned "Leave stored messages out of Chat History" on for has stored:
+ * Lorebook Keeper's last successful run, and Long-term memory's own answer. Empty when none applies.
+ */
+export async function resolveStoredThroughIds(args: {
+  chatId: string;
+  chatMeta: Record<string, unknown>;
+  agentsStore: {
+    getLastSuccessfulRunByType(type: string, chatId: string): Promise<{ messageId?: string | null } | null | undefined>;
+  };
+  longTermMemoryStoredThrough: (chatId: string) => Promise<string | null>;
+}): Promise<string[]> {
+  const active = (id: string) =>
+    args.chatMeta.enableAgents === true &&
+    Array.isArray(args.chatMeta.activeAgentIds) &&
+    args.chatMeta.activeAgentIds.includes(id);
+  const ids: string[] = [];
+  if (args.chatMeta.lorebookKeeperRetireStored === true && active("lorebook-keeper")) {
+    const run = await args.agentsStore.getLastSuccessfulRunByType("lorebook-keeper", args.chatId);
+    if (run?.messageId) ids.push(run.messageId);
+  }
+  if (args.chatMeta.longTermMemoryRetireStored === true && active("long-term-memory")) {
+    const id = await args.longTermMemoryStoredThrough(args.chatId);
+    if (id) ids.push(id);
+  }
+  return ids;
+}
+
+/** The newest messages "Leave stored messages out of Chat History" keeps word for word. */
+export function resolveRetireStoredTail(value: unknown): number {
+  if (value === undefined || value === null) return RETIRE_STORED_TAIL.DEFAULT;
+  const parsed = Math.floor(Number(value));
+  return Number.isFinite(parsed) && parsed >= RETIRE_STORED_TAIL.MIN ? parsed : RETIRE_STORED_TAIL.DEFAULT;
 }
 
 /**
@@ -1302,7 +1387,7 @@ export function appendGenerationTailMessages(
 }
 
 const HISTORY_REPLY_HEADER =
-  /^(?:<(?:chat_history|last_message)>\n|## (?:Chat History|Last Message)\n|<date="[^"\n]*">\n|(?:## )?Date: [^\n]*\n)*(?:\[(?:\d\d\.\d\d )?\d\d:\d\d\] )?/u;
+  /^(?:<(?:chat_history|recent_history|last_message)>\n|## (?:Chat History|Recent History|Last Message)\n|<date="[^"\n]*">\n|(?:## )?Date: [^\n]*\n)*(?:\[(?:\d\d\.\d\d )?\d\d:\d\d\] )?/u;
 
 /**
  * End the prompt on the Assistant Prefill turn, after every injection, instruction and reply it gained. Its text is

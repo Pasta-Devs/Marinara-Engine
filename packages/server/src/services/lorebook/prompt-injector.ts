@@ -58,6 +58,11 @@ export interface InjectAtDepthOptions {
   minIndex?: number;
   /** Index considered "after the last message" for depth 0. Defaults to the full prompt length. */
   anchorIndex?: number;
+  /**
+   * Indexes of the chat messages, oldest first, when other blocks sit between them (a history split by Recent
+   * History). Depth then counts these messages only: depth N goes right before the Nth newest one.
+   */
+  historyIndexes?: readonly number[];
 }
 
 /**
@@ -139,7 +144,13 @@ export function injectAtDepth(
   const byIndex = new Map<number, Array<{ content: string; role: LorebookRole; depth: number; order: number }>>();
   for (const [order, entry] of depthEntries.entries()) {
     const depth = Number.isFinite(entry.depth) ? Math.max(0, Math.floor(entry.depth)) : 0;
-    const insertionIndex = Math.max(minIndex, anchorIndex - depth);
+    const history = options.historyIndexes;
+    const insertionIndex =
+      history && history.length > 0
+        ? depth === 0
+          ? anchorIndex
+          : history[Math.max(0, history.length - depth)]!
+        : Math.max(minIndex, anchorIndex - depth);
     const list = byIndex.get(insertionIndex) ?? [];
     list.push({ content: entry.content, role: entry.role, depth, order });
     byIndex.set(insertionIndex, list);

@@ -1,4 +1,5 @@
 import { withLorebookImageCompatibility } from "../../services/llm/lorebook-image-provider.js";
+import { longTermMemoryStoredThroughMessageId } from "../../services/generation/long-term-memory-runtime.js";
 import {
   labelInjectedParts,
   worldInfoPeekBlocks,
@@ -32,6 +33,7 @@ import {
   isBuiltInAgentRuntimeDisabled,
   normalizeAdvancedMemorySettings,
   applyContextMessageLimitWithPins,
+  normalizeHistoryDropStep,
   advancedMemoryDecisionDiagnosticsSchema,
   type DecisionDebugReport,
   type AdvancedMemoryDecisionDiagnostics,
@@ -161,6 +163,9 @@ import {
   postProcessMessages,
   buildGenerationGuideInstruction,
   capSummarizedHistory,
+  resolveRetireStoredTail,
+  resolveStoredThroughIds,
+  retireStoredHistory,
   createLocalSidecarGenerationConnection,
   dedupeLastMessageWrappers,
   endPromptOnAssistantPrefill,
@@ -341,12 +346,14 @@ function wrapConversationHistoryAndLastMessageInPlace(
           c.includes("<last_message>") ||
           c.includes("</last_message>") ||
           c.includes("<chat_history>") ||
-          c.includes("</chat_history>")
+          c.includes("</chat_history>") ||
+          c.includes("<recent_history>")
         ) {
           return true;
         }
       } else {
-        if (c.includes("## Last Message") || c.includes("## Chat History")) return true;
+        if (c.includes("## Last Message") || c.includes("## Chat History") || c.includes("## Recent History"))
+          return true;
       }
     }
     return false;
@@ -796,6 +803,20 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       chatMessages = capSummarizedHistory(chatMessages, chatMeta, {
         excludeMessageIds: regenerateMessageId ? [regenerateMessageId] : undefined,
       }).messages;
+      chatMessages = retireStoredHistory(
+        chatMessages,
+        allChatMessages,
+        await resolveStoredThroughIds({
+          chatId,
+          chatMeta,
+          agentsStore: createAgentsStorage(app.db),
+          longTermMemoryStoredThrough: longTermMemoryStoredThroughMessageId,
+        }),
+        {
+          tail: resolveRetireStoredTail(chatMeta.retireStoredTailMessages),
+          step: normalizeHistoryDropStep(chatMeta.historyDropStep),
+        },
+      );
     }
     const dryRunBeholderState = await loadPriorBeholderState({
       agentsStore: createAgentsStorage(app.db),
@@ -820,13 +841,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       ? resolveRegenerationGameStateAnchor(scopedMessages, regenerateMessageId)
       : resolveVisibleGameStateAnchor(allChatMessages);
     const contextMessageLimit = chatMeta.contextMessageLimit as number | null;
+    const historyDropStep = normalizeHistoryDropStep(chatMeta.historyDropStep);
     if (
       !advancedMemoryEnabled &&
       contextMessageLimit &&
       contextMessageLimit > 0 &&
       chatMessages.length > contextMessageLimit
     ) {
-      chatMessages = applyContextMessageLimitWithPins(chatMessages, contextMessageLimit);
+      chatMessages = applyContextMessageLimitWithPins(chatMessages, contextMessageLimit, undefined, historyDropStep);
     }
 
     // Ephemeral user line (normal dry run only): mirrors an unsaved "what if I said this" turn.
@@ -1923,6 +1945,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           }
         })(),
         chatMessages: mappedMessages,
+        historyDropStep,
+        separateSummaryForCache: conn.enableCaching === "true",
         chatSummary: resolvedInjectChatSummary ? activeChatSummary : null,
         chatSummaryReaders,
         ...(advancedMemoryEnabled ? { advancedMemory: {}, deferAdvancedMemory: true } : {}),
@@ -2709,6 +2733,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           await advancedMemoryService!.validatePrepared(chatId, advancedMemorySourceMessages, advancedContext.receipt);
         const result = await provider.chatComplete(providerMessages as any, {
           preserveContext: Boolean(advancedContext),
+          historyDropStep,
           model: conn.model,
           temperature,
           maxTokens: maxTokensForSend,
@@ -2777,6 +2802,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         await advancedMemoryService!.validatePrepared(chatId, advancedMemorySourceMessages, advancedContext.receipt);
       const result = await provider.chatComplete(providerMessages as any, {
         preserveContext: Boolean(advancedContext),
+        historyDropStep,
         model: conn.model,
         temperature,
         maxTokens: maxTokensForSend,

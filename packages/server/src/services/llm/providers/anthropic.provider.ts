@@ -16,6 +16,7 @@ import {
   type LLMUsage,
   readSseData,
 } from "../base-provider.js";
+import { summaryCacheSegmentIndex, withHistoryCacheBreakpoint } from "../history-cache-breakpoint.js";
 import {
   capabilityModelId,
   rejectsClaudeAssistantPrefill,
@@ -59,8 +60,12 @@ function hasCacheBreakpoints(messages: ChatMessage[]): boolean {
  */
 function anthropicSystemField(systemMessages: ChatMessage[], options: ChatOptions, marked: boolean) {
   if (systemMessages.length === 0) return undefined;
+  // Unmarked, a caching connection also caches the fixed part before Past Events (see `summaryCacheSegmentIndex`).
+  const beforeSummary = summaryCacheSegmentIndex(systemMessages) - 1;
   const caches = (message: ChatMessage, index: number) =>
-    marked ? message.cacheBreakpoint === true : options.enableCaching === true && index === systemMessages.length - 1;
+    marked
+      ? message.cacheBreakpoint === true
+      : options.enableCaching === true && (index === systemMessages.length - 1 || index === beforeSummary);
   if (!systemMessages.some(caches)) return systemMessages.map((message) => message.content).join("\n\n");
   const cacheControl = buildAnthropicCacheControl(options);
   return systemMessages.map((message, index) => ({
@@ -543,7 +548,7 @@ export class AnthropicProvider extends BaseLLMProvider {
 
     const configuredMaxTokens = this.applyMaxTokensCap(options.maxTokens ?? 4096);
     const contextFit = this.fitMessagesToContext(messages, { ...options, maxTokens: configuredMaxTokens });
-    messages = contextFit.messages;
+    messages = withHistoryCacheBreakpoint(contextFit.messages, options.enableCaching);
     this.logContextTrim(contextFit, options.model);
     const maxTokens = this.applyMaxTokensCap(contextFit.maxTokens ?? configuredMaxTokens);
 
@@ -862,7 +867,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     const suppressModelParameters = this.shouldSuppressModelParameters(options);
     const configuredMaxTokens = this.applyMaxTokensCap(options.maxTokens ?? 4096);
     const contextFit = this.fitMessagesToContext(messages, { ...options, maxTokens: configuredMaxTokens });
-    messages = contextFit.messages;
+    messages = withHistoryCacheBreakpoint(contextFit.messages, options.enableCaching);
     this.logContextTrim(contextFit, options.model);
     const maxTokens = configuredMaxTokens === undefined ? undefined : (contextFit.maxTokens ?? configuredMaxTokens);
 

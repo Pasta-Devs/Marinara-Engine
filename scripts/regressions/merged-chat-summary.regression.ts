@@ -307,7 +307,7 @@ try {
   }
   assert.match(
     generate,
-    /appendFallbackChatSummaryToSystemPrompt\(\s*finalMessages,\s*activeChatSummary,[^)]*chatSummaryReaders,\s*\)/u,
+    /appendFallbackChatSummaryToSystemPrompt\(\s*finalMessages,\s*activeChatSummary,[^)]*chatSummaryReaders,[^)]*\)/u,
     "preset-less generation passes them too",
   );
   // A chosen responder in a merged chat still voices the cast (mergedSpeaksOnlyTarget), as Advanced Memory reads it.

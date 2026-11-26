@@ -3945,6 +3945,7 @@ export function ChatSettingsDrawer({
                             {renderAgentLorebookAttachment("lorebook-keeper")}
                             <LorebookKeeperSettings
                               chat={chat}
+                              metadata={metadata}
                               lorebookKeeperTargetLorebookId={lorebookKeeperTargetLorebookId}
                               lorebookKeeperReadBehindMessages={lorebookKeeperReadBehindMessages}
                               lorebooks={lorebooks}
@@ -5300,6 +5301,8 @@ export function ChatSettingsDrawer({
                 onContextMessageLimitChange={(contextMessageLimit) =>
                   updateMeta.mutate({ id: chat.id, contextMessageLimit })
                 }
+                historyDropStep={metadata.historyDropStep as number | null | undefined}
+                onHistoryDropStepChange={(historyDropStep) => updateMeta.mutate({ id: chat.id, historyDropStep })}
                 onExcludePastReasoningChange={(excludePastReasoning) =>
                   updateMeta.mutate({ id: chat.id, excludePastReasoning })
                 }

@@ -1,5 +1,10 @@
 import { isDeepStrictEqual } from "node:util";
 import {
+  combineSummaryEntries,
+  normalizeSummaryAutoCombineAbove,
+  selectEntriesToAutoCombine,
+} from "../services/chat-summary/combine-entries.js";
+import {
   labelInjectedParts,
   peekBlocksForResponder,
   worldInfoPeekBlocks,
@@ -681,6 +686,7 @@ import {
   recallLongTermMemory,
   recordLongTermMemoryPromptAccepted,
   type LongTermMemoryRecallReceipt,
+  longTermMemoryStoredThroughMessageId,
 } from "../services/generation/long-term-memory-runtime.js";
 import { resolveMemoryRecallPolicy, splitCachedLongTermMemory } from "./generate/memory-recall-policy.js";
 import {
@@ -706,6 +712,9 @@ import {
   postProcessMessages,
   appendSeparateAgentInjectionMessage,
   capSummarizedHistory,
+  resolveRetireStoredTail,
+  resolveStoredThroughIds,
+  retireStoredHistory,
   computeSummaryHideIds,
   computeSummaryMessageRange,
   selectRollingSummaryMessages,
@@ -901,7 +910,11 @@ import {
   resolveGenerationProviderRuntime,
   resolveReasoningMacroValue,
 } from "../services/generation/provider-generation-runtime.js";
-import { applyContextMessageLimitWithPins, supportsNativeToolCalls } from "@marinara-engine/shared";
+import {
+  applyContextMessageLimitWithPins,
+  normalizeHistoryDropStep,
+  supportsNativeToolCalls,
+} from "@marinara-engine/shared";
 import { planGameToolCalls } from "../services/generation/game-tool-planning.js";
 import { extractLeadingGmPlanning, stripStrayRuleLines } from "../services/game/gm-planning.js";
 import {
@@ -2279,6 +2292,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         chatMessages = capSummarizedHistory(chatMessages, chatMeta, {
           excludeMessageIds: input.regenerateMessageId ? [input.regenerateMessageId] : undefined,
         }).messages;
+        chatMessages = retireStoredHistory(
+          chatMessages,
+          allChatMessages,
+          await resolveStoredThroughIds({
+            chatId: input.chatId,
+            chatMeta,
+            agentsStore,
+            longTermMemoryStoredThrough: longTermMemoryStoredThroughMessageId,
+          }),
+          {
+            tail: resolveRetireStoredTail(chatMeta.retireStoredTailMessages),
+            step: normalizeHistoryDropStep(chatMeta.historyDropStep),
+          },
+        );
       }
       const promptLastGenerationType = resolvePromptLastGenerationType(input);
       const promptIdleDuration = resolvePromptIdleDuration(chatMessages, {
@@ -2549,13 +2576,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       // ── Context message limit (from chat metadata, off by default) ──
       const lorebookKeeperSettings = getLorebookKeeperSettings(chatMeta);
       const contextMessageLimit = chatMeta.contextMessageLimit as number | null;
+      const historyDropStep = normalizeHistoryDropStep(chatMeta.historyDropStep);
       if (
         !advancedMemoryEnabled &&
         contextMessageLimit &&
         contextMessageLimit > 0 &&
         chatMessages.length > contextMessageLimit
       ) {
-        chatMessages = applyContextMessageLimitWithPins(chatMessages, contextMessageLimit);
+        chatMessages = applyContextMessageLimitWithPins(chatMessages, contextMessageLimit, undefined, historyDropStep);
       }
       const pastReasoning = collectPastReasoningMetadata(
         chatMessages,
@@ -4271,6 +4299,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               }
             })(),
             chatMessages: mappedMessages,
+            historyDropStep,
+            separateSummaryForCache: conn.enableCaching === "true",
             lorebookScanMessages: toLorebookScanMessages(),
             chatSummary: activeChatSummary,
             chatSummaryReaders,
@@ -4419,6 +4449,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             deferPresenceDelayToResponders,
             supportsHiddenFromAI,
             contextMessageLimit,
+            historyDropStep,
             chatMessages,
             finalMessages,
             abortSignal: generationSignal,
@@ -5428,6 +5459,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             promptMacroContext,
             deferCharacterMacros ? { deferCharacterMacros: "all" } : undefined,
             chatSummaryReaders,
+            conn.enableCaching === "true",
           );
         }
 
@@ -9976,6 +10008,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           const textChatOptions: ChatOptions = {
             ...(advancedMemoryEnabled ? { preserveContext: true } : {}),
+            historyDropStep,
             localPriority: "reply",
             model: conn.model,
             temperature,
@@ -10056,6 +10089,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     localPriority: "reply",
                     model: conn.model,
                     preserveContext: advancedMemoryEnabled,
+                    historyDropStep,
                     temperature,
                     maxTokens: effectiveMaxTokensForSend,
                     maxContext: maxContextForSend,
@@ -13828,6 +13862,52 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 type: "chat_summary",
                 data: { summary: combined, entry: createdEntry, entries: summaryEntries, hiddenMessageIds },
               });
+              // "Combine older summaries automatically": right after a new entry is saved, the moment Past
+              // Events changes anyway, so folding the older entries together costs no extra cache write.
+              const combineIds = selectEntriesToAutoCombine(
+                summaryEntries,
+                normalizeSummaryAutoCombineAbove(chatMeta.summaryAutoCombineAbove),
+              );
+              if (combineIds.length >= 2 && !generationSignal.aborted) {
+                try {
+                  const folded = await combineSummaryEntries({
+                    chatId: input.chatId,
+                    chatMeta,
+                    entryIds: combineIds,
+                    provider: summaryProvider,
+                    model: summaryModel,
+                    temperatureOptions: summaryTemperatureOptions,
+                    summaryMaxTokens,
+                    promptTemplateId:
+                      typeof chatMeta.activeSummaryPromptTemplateId === "string"
+                        ? chatMeta.activeSummaryPromptTemplateId
+                        : null,
+                    globalSummaryPromptSettings,
+                    storage: chats,
+                    signal: generationSignal,
+                    chapter: true,
+                  });
+                  if (folded.ok) {
+                    chatMeta = { ...chatMeta, summary: folded.summary, summaryEntries: folded.entries };
+                    sendSseEvent(reply, {
+                      type: "chat_summary",
+                      data: {
+                        summary: folded.summary,
+                        entry: folded.entry,
+                        entries: folded.entries,
+                        hiddenMessageIds: [],
+                      },
+                    });
+                  } else {
+                    logger.warn(
+                      { chatId: input.chatId, error: folded.error },
+                      "[chat-summary] Automatic combine skipped",
+                    );
+                  }
+                } catch (err) {
+                  logger.warn(err, "[chat-summary] Automatic combine failed; the entries stay as they are");
+                }
+              }
             }
           }
         };

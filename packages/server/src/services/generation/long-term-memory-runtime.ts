@@ -32,6 +32,12 @@ export interface LongTermMemoryRuntimeService {
    * and a call slower than a few seconds are logged and ignored; the branch is returned either way.
    */
   chatBranched?(input: { chatId: string; parentChatId: string }): Promise<void>;
+  /**
+   * Optional. The newest chat message the package has fully stored, so "Leave stored messages out of Chat
+   * History" can drop it and everything before it from the prompt (the package still has them for recall).
+   * No method, `null` or an unknown id leaves the history unchanged.
+   */
+  storedThroughMessageId?(input: { chatId: string }): Promise<string | null>;
   /** Optional for older packages. The package owns freshness checks, locking and rebuilding. */
   refresh?(input: { signal: AbortSignal }): Promise<{ status: "refreshed" | "deferred" }>;
   recall(input: {
@@ -56,6 +62,26 @@ function runtimeService() {
 /** A chat can still list the package after it is uninstalled; built-in recall then stays in charge. */
 export function longTermMemoryRuntimeAvailable(): boolean {
   return runtimeService() !== null;
+}
+
+/** Whether the installed package can say which messages it has stored (for retiring them from the prompt). */
+export function longTermMemoryReportsStoredMessages(): boolean {
+  return typeof runtimeService()?.storedThroughMessageId === "function";
+}
+
+/** The newest message Long-term memory has stored for this chat, or null when it can't say. */
+export async function longTermMemoryStoredThroughMessageId(chatId: string): Promise<string | null> {
+  const service = runtimeService();
+  if (typeof service?.storedThroughMessageId !== "function") return null;
+  try {
+    const id = await withLongTermMemoryRuntimeTimeout(CHAT_BRANCHED_TIMEOUT_MS, () =>
+      service.storedThroughMessageId!({ chatId }),
+    );
+    return typeof id === "string" && id ? id : null;
+  } catch (error) {
+    logger.warn(error, "Long-term memory could not say which messages it stored; the history is sent whole");
+    return null;
+  }
 }
 
 /** The package's instruction for Advanced Memory's scene summary block, or null when it offers none. */

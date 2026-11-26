@@ -83,6 +83,8 @@ export async function resolveConversationPresenceRuntime(args: {
   deferPresenceDelayToResponders?: boolean;
   supportsHiddenFromAI: boolean;
   contextMessageLimit: number | null | undefined;
+  /** Chat setting "Drop in steps of" for the message limit. */
+  historyDropStep?: number;
   chatMessages: any[];
   finalMessages: GenerationPromptMessage[];
   abortSignal: AbortSignal;
@@ -307,7 +309,12 @@ export async function resolveConversationPresenceRuntime(args: {
       const rScoped = rStartIdx > 0 ? refreshed.slice(rStartIdx) : refreshed;
       chatMessages = args.supportsHiddenFromAI ? rScoped.filter((message) => !isMessageHiddenFromAI(message)) : rScoped;
       if (args.contextMessageLimit && args.contextMessageLimit > 0 && chatMessages.length > args.contextMessageLimit) {
-        chatMessages = applyContextMessageLimitWithPins(chatMessages, args.contextMessageLimit);
+        chatMessages = applyContextMessageLimitWithPins(
+          chatMessages,
+          args.contextMessageLimit,
+          undefined,
+          args.historyDropStep,
+        );
       }
       finalMessages = [];
       const latestUserMessageId = [...chatMessages].reverse().find((message) => message.role === "user")?.id;

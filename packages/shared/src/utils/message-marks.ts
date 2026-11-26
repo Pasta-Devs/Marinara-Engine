@@ -8,6 +8,40 @@
 
 /** Most messages one chat may pin into its prompt context. */
 export const MAX_PINNED_CONTEXT_MESSAGES = 10;
+
+/** Chat setting `historyDropStep`: how many old messages leave the prompt at once when a limit is hit. */
+export const HISTORY_DROP_STEP = { MIN: 1, MAX: 100, SUGGESTED: 10 } as const;
+
+/** Read a chat's `historyDropStep`; anything unset or invalid means 1 (one message at a time). */
+export function normalizeHistoryDropStep(value: unknown): number {
+  const parsed = Math.floor(Number(value));
+  if (!Number.isFinite(parsed) || parsed < HISTORY_DROP_STEP.MIN) return HISTORY_DROP_STEP.MIN;
+  return Math.min(HISTORY_DROP_STEP.MAX, parsed);
+}
+
+/**
+ * How many of the oldest of `total` messages to leave out so at most `keep` remain, rounded up to a whole
+ * number of `step`s. With a step of 10 the start of the history stays put for about ten new messages and then
+ * jumps ten at once, instead of moving every turn; a prompt cache keyed on that start keeps hitting in between.
+ * The count is taken from the oldest message, so the same chat gives the same cut on every turn.
+ */
+export function steppedDropCount(total: number, keep: number, step: number): number {
+  const overflow = Math.floor(total) - Math.max(0, Math.floor(keep));
+  if (overflow <= 0) return 0;
+  const size = normalizeHistoryDropStep(step);
+  return Math.min(Math.floor(total), Math.ceil(overflow / size) * size);
+}
+
+/**
+ * The smallest message limit that never cuts history between two automatic summaries when summarised messages are
+ * hidden: the messages kept after a summary, plus the user and assistant messages until the next one (`every` counts
+ * user messages, so about twice as many in all), plus one step when old messages drop in steps. Below it the limit
+ * starts dropping messages on ordinary turns, and each drop is another prompt-cache rewrite.
+ */
+export function summaryFriendlyMessageLimit(input: { tail: number; every: number; step: number }): number {
+  const step = normalizeHistoryDropStep(input.step);
+  return Math.max(0, Math.floor(input.tail)) + 2 * Math.max(1, Math.floor(input.every)) + (step > 1 ? step : 0);
+}
 export const MAX_BOOKMARK_LABEL_LENGTH = 80;
 export const MAX_PRIVATE_NOTE_LENGTH = 2000;
 /** Trashed messages older than this are purged automatically. */
@@ -135,13 +169,15 @@ export function applyContextMessageLimitWithPins<T extends { content?: unknown; 
   messages: readonly T[],
   limit: number | null | undefined,
   maxPinned = MAX_PINNED_CONTEXT_MESSAGES,
+  step = 1,
 ): T[] {
   if (typeof limit !== "number" || !Number.isFinite(limit)) {
     return [...messages];
   }
   const normalizedLimit = Math.floor(limit);
   if (normalizedLimit <= 0 || messages.length <= normalizedLimit) return [...messages];
-  const cut = messages.length - normalizedLimit;
+  // Never drop the newest message, even when a step is larger than the limit.
+  const cut = Math.min(messages.length - 1, steppedDropCount(messages.length, normalizedLimit, step));
   const kept = messages.slice(cut);
   if (maxPinned <= 0) return kept;
   const pinned = messages

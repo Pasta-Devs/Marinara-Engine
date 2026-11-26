@@ -30,12 +30,10 @@ import {
   createMessageSchema,
   appendChatSummaryEntryToMetadata,
   CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
-  combineChatSummaryEntryHistory,
   compileChatSummaryEntries,
   createChatSummaryEntry,
   DEFAULT_CONVERSATION_PROMPT,
   DEFAULT_GAME_SYSTEM_PROMPT,
-  estimateChatSummaryTokens,
   getChatSummaryMessageIdsToUnhideAfterDelete,
   markAutonomousUnreadSchema,
   reassignMessagePersonaSchema,
@@ -65,6 +63,7 @@ import {
   readGameInventoryTurn,
   rulesetLiveStatesSchema,
   applyContextMessageLimitWithPins,
+  normalizeHistoryDropStep,
   isMessagePinnedToContext,
   normalizeMessageMarkPatch,
   normalizeGroupChatMode,
@@ -194,6 +193,7 @@ import { forwardPromptPreview } from "./generate/prompt-preview.js";
 import { wrapContent } from "../services/prompt/format-engine.js";
 import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../services/prompt/chat-summary-fingerprint.js";
 import { newId } from "../utils/id-generator.js";
+import { combineSummaryEntries } from "../services/chat-summary/combine-entries.js";
 import { runHtmlArtifactCommand } from "../services/generation/html-artifact.js";
 import { readChatBranchGraph } from "../services/chat-branch-graph.js";
 import {
@@ -257,7 +257,6 @@ import {
   normalizeChatSummaryTitle,
   parseChatSummaryResult,
   resolveChatSummaryPrompt,
-  resolveChatSummaryCombinePrompt,
 } from "../services/generation/roleplay-summary-runtime.js";
 import { resolveLorebookTokenBudget } from "../services/generation/lorebook-generation-runtime.js";
 import { resolveGameGmPromptTemplate } from "../services/generation/game-gm-prompt-runtime.js";
@@ -281,8 +280,6 @@ const PROFESSOR_MARI_INTERNAL_CHAT_MARKER = "professor-mari";
 const CHAT_ROW_PREVIEW_MAX_LENGTH = 140;
 /** The row-preview sweep lets loaded chats go after this many, back down to the resident cap. */
 const ROW_PREVIEW_TRIM_EVERY_CHATS = 16;
-const SUMMARY_COMBINE_DEFAULT_CONTEXT_TOKENS = 32_768;
-const SUMMARY_COMBINE_MESSAGE_OVERHEAD_TOKENS = 64;
 
 function createChatSummaryAbortTracker(reply: FastifyReply) {
   const controller = new AbortController();
@@ -4153,7 +4150,12 @@ export async function chatsRoutes(app: FastifyInstance) {
           // Apply context message limit
           const contextLimit = chatMeta.contextMessageLimit as number | null;
           if (contextLimit && contextLimit > 0 && filteredMessages.length > contextLimit) {
-            filteredMessages = applyContextMessageLimitWithPins(filteredMessages, contextLimit);
+            filteredMessages = applyContextMessageLimitWithPins(
+              filteredMessages,
+              contextLimit,
+              undefined,
+              normalizeHistoryDropStep(chatMeta.historyDropStep),
+            );
           }
 
           const mappedMessages = filteredMessages.map((m: any) => ({
@@ -6372,131 +6374,42 @@ export async function chatsRoutes(app: FastifyInstance) {
     const summaryTemperatureOptions = resolveChatSummaryTemperatureOptions(resolvedSummaryConnection);
 
     if (requestedSummaryEntryIds.length >= 2) {
-      const currentEntries = normalizeChatSummaryEntries(chatMeta.summaryEntries, {
-        legacySummary: typeof chatMeta.summary === "string" ? chatMeta.summary : null,
-      });
-      const requestedIds = new Set(requestedSummaryEntryIds);
-      const selectedEntries = currentEntries.filter((entry) => requestedIds.has(entry.id));
-      if (selectedEntries.length !== requestedIds.size) {
-        return reply.status(400).send({ error: "One or more selected summary entries no longer exist" });
-      }
-      const effectiveSummaryMaxTokens = Math.min(summaryMaxTokens, provider.maxTokensOverrideValue ?? summaryMaxTokens);
       const requestedPromptTemplateId =
         typeof body.promptTemplateId === "string" && body.promptTemplateId.trim()
           ? body.promptTemplateId.trim()
           : typeof chatMeta.activeSummaryPromptTemplateId === "string" && chatMeta.activeSummaryPromptTemplateId.trim()
             ? chatMeta.activeSummaryPromptTemplateId.trim()
             : null;
-      const globalSummaryPromptSettings = await appSettings.get(CHAT_SUMMARY_PROMPT_SETTINGS_KEY);
-      const summaryPrompt = resolveChatSummaryPrompt({
-        requestedTemplateId: requestedPromptTemplateId,
-        chatMetadata: chatMeta,
-        globalSettingsValue: globalSummaryPromptSettings,
-      });
-      const combinePrompt = resolveChatSummaryCombinePrompt(globalSummaryPromptSettings);
-      const sourceText = selectedEntries
-        .map((entry, index) => `Summary ${index + 1} — ${entry.title}:\n${entry.content}`)
-        .join("\n\n");
-      const combinedSummaryInputBudget = Math.max(
-        0,
-        (provider.maxContextValue ?? SUMMARY_COMBINE_DEFAULT_CONTEXT_TOKENS) -
-          effectiveSummaryMaxTokens -
-          estimateChatSummaryTokens(summaryPrompt) -
-          estimateChatSummaryTokens(combinePrompt) -
-          SUMMARY_COMBINE_MESSAGE_OVERHEAD_TOKENS,
-      );
-      if (estimateChatSummaryTokens(sourceText) > combinedSummaryInputBudget) {
-        return reply.status(400).send({ error: "Selected summaries are too large to combine at once" });
-      }
-      throwIfChatSummaryAborted(signal);
-      let result;
+      let combined;
       try {
-        result = await provider.chatComplete(
-          [
-            { role: "system", content: summaryPrompt },
-            {
-              role: "user",
-              content: `${combinePrompt}\n\n${sourceText}`,
-            },
-          ],
-          {
-            model,
-            ...summaryTemperatureOptions,
-            maxTokens: effectiveSummaryMaxTokens,
-            signal,
-          },
-        );
+        combined = await combineSummaryEntries({
+          chatId: req.params.id,
+          chatMeta,
+          entryIds: requestedSummaryEntryIds,
+          provider,
+          model,
+          temperatureOptions: summaryTemperatureOptions,
+          summaryMaxTokens,
+          promptTemplateId: requestedPromptTemplateId,
+          globalSummaryPromptSettings: await appSettings.get(CHAT_SUMMARY_PROMPT_SETTINGS_KEY),
+          storage,
+          signal,
+          throwIfAborted: () => throwIfChatSummaryAborted(signal),
+        });
       } catch (error) {
         if (signal.aborted) return reply;
         throw error;
       }
-      throwIfChatSummaryAborted(signal);
-      if (!result.content) {
-        return reply.status(500).send({ error: "No response from AI" });
-      }
-      const parsedSummary = parseChatSummaryResult(result.content);
-      const summaryText = parsedSummary.summary;
-      if (!summaryText) {
-        return reply.status(500).send({ error: "No summary returned by AI" });
-      }
-
-      let combinedEntry: ChatSummaryEntry | null = null;
-      let combinedEntries: ChatSummaryEntry[] = [];
-      let combinedSummary: string | null = null;
-      throwIfChatSummaryAborted(signal);
-      const updatedChat = await storage.patchMetadata(req.params.id, (freshMeta) => {
-        throwIfChatSummaryAborted(signal);
-        const entries = normalizeChatSummaryEntries(freshMeta.summaryEntries, {
-          legacySummary: typeof freshMeta.summary === "string" ? freshMeta.summary : null,
-        });
-        const selected = entries.filter((entry) => requestedIds.has(entry.id));
-        if (selected.length !== requestedIds.size) {
-          throw new Error("One or more selected summary entries changed while they were being combined");
-        }
-
-        const messageIds = Array.from(new Set(selected.flatMap((entry) => entry.messageIds ?? [])));
-        const hiddenMessageIds = Array.from(new Set(selected.flatMap((entry) => entry.hiddenMessageIds ?? [])));
-        const starts = selected.flatMap((entry) => entry.rangeStartIndex ?? []);
-        const ends = selected.flatMap((entry) => entry.rangeEndIndex ?? []);
-        const now = new Date().toISOString();
-        combinedEntry = createChatSummaryEntry(
-          {
-            kind: "rolling",
-            origin: "manual",
-            title: parsedSummary.title || "Combined summary",
-            content: summaryText,
-            enabled: selected.some((entry) => entry.enabled),
-            sourceMode: starts.length > 0 || ends.length > 0 ? "range" : "last",
-            messageCount:
-              messageIds.length > 0
-                ? messageIds.length
-                : selected.reduce((total, entry) => total + (entry.messageCount ?? 0), 0) || undefined,
-            rangeStartIndex: starts.length > 0 ? Math.min(...starts) : undefined,
-            rangeEndIndex: ends.length > 0 ? Math.max(...ends) : undefined,
-            messageIds,
-            hiddenMessageIds,
-            promptTemplateId: requestedPromptTemplateId,
-            createdAt: selected[0]?.createdAt ?? now,
-            updatedAt: now,
-          },
-          { createId: newId, now },
-        );
-        combinedEntries = combineChatSummaryEntryHistory(entries, requestedIds, combinedEntry, now);
-        combinedSummary = compileChatSummaryEntries(combinedEntries);
-        return {
-          summary: combinedSummary,
-          summaryEntries: combinedEntries,
-        };
-      });
-      const persistedCombinedEntry = combinedEntry as ChatSummaryEntry | null;
-      if (!updatedChat || !persistedCombinedEntry) {
-        return notFound(reply, "Chat not found");
+      if (!combined.ok) {
+        return combined.status === 404
+          ? notFound(reply, combined.error)
+          : reply.status(combined.status).send({ error: combined.error });
       }
       return {
-        summary: combinedSummary,
-        entry: persistedCombinedEntry,
-        entries: combinedEntries,
-        messageIds: persistedCombinedEntry.messageIds ?? [],
+        summary: combined.summary,
+        entry: combined.entry,
+        entries: combined.entries,
+        messageIds: combined.entry.messageIds ?? [],
         hideMessageIds: [],
       };
     }

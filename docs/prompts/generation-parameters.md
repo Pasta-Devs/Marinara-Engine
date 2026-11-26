@@ -114,9 +114,26 @@ A value still shows in the box when its Send switch is off. It is not sent until
 
 ## Context message limit
 
-**Limit Context Messages** (also labeled **Context message limit**) sends only the last N messages instead of the whole chat. It is off by default. When you turn it on, the count starts at 50, and you can set 1 to 9999. A smaller number lowers cost and speeds things up, and the AI remembers less.
+**Limit Context Messages** (also labeled **Context message limit**) sends only the last N messages instead of the whole chat. It is off by default. When you turn it on, the count starts at 50, and you can set 1 to 9999. Turning it on also turns on **Drop Old Messages in Steps** at 10, unless you already set a step, because a limit that drops one message per reply keeps prompt caching from reusing the history. A smaller number lowers cost and speeds things up, and the AI remembers less.
 
 In a Roleplay chat with **Advanced Memory Recall** on, this limit is not used. Advanced Memory Recall sets how much history is sent with **Maximum allowed context before compression (tokens)**. To send less, lower that setting in **Chat Settings → Memory Recall**. See [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay-and-game-mode).
+
+## Drop old messages in steps
+
+**Drop Old Messages in Steps** is off by default. When it is on, old messages leave the prompt this many at a time instead of one per reply. The count starts at 10, and you can set 2 to 100.
+
+Without it, a long chat drops its oldest message on every reply once it hits a limit. The start of the history then changes every turn, so prompt caching can't reuse it. With a step of 10, the history keeps the same start for about ten new messages, then drops ten at once. Most replies reuse the cached history, and one reply in about ten writes a new cache.
+
+It applies to every place old messages are cut:
+
+- **Limit Context Messages**.
+- The connection's context size, when the prompt is too long to fit.
+- **Max messages** on the preset's Chat History.
+- Summarised messages, when **Hide summarised messages** is on. Here the step is the summary itself: they leave Chat History only on the turn a new summary is saved, the turn Past Events changes anyway, and the history start stays put in between.
+
+The cost: right after a step, the AI sees up to that many fewer old messages than would fit. Advanced Memory Recall sizes the history by scenes instead, so this setting is hidden while it is on.
+
+With automatic summaries hiding summarised messages, keep **Limit Context Messages** at or above the messages kept after a summary, plus twice the summary's **Every** (it counts your messages, so about twice as many in all), plus the step. With 10, 5 and 10 that is 30. A lower limit drops messages between summaries, and each drop is another cache rewrite. Advanced Parameters shows the number when the limit is below it.
 
 ## Exclude Past Reasoning
 

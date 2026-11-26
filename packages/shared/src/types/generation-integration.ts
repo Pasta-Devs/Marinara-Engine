@@ -37,6 +37,16 @@ export interface ChatMessage {
    * here whether or not `enableCaching` is on, keeping the last four, and then adds none of its own.
    */
   cacheBreakpoint?: boolean;
+  /**
+   * Internal: the last message of the older history part when a preset splits the history with Recent History. When
+   * the connection caches, its history cache breakpoint goes here instead of Cache depth messages back.
+   */
+  historyCacheBreakpoint?: boolean;
+  /**
+   * Internal: Past Events, kept as its own leading system message on a caching connection. Its text changes when a
+   * summary is saved, so a cache breakpoint ends the fixed system prompt right before it.
+   */
+  summaryCacheSegment?: boolean;
 }
 
 export interface ChatMediaAttachment {
@@ -81,6 +91,8 @@ export interface ChatOptions {
   maxContext?: number;
   /** Managed context must fail visibly instead of silently trimming scene history or instructions. */
   preserveContext?: boolean;
+  /** When history must be trimmed to fit, drop it in whole steps of this many messages (chat `historyDropStep`). */
+  historyDropStep?: number;
   topP?: number;
   topK?: number;
   minP?: number;

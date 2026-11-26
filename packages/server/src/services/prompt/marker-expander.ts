@@ -9,6 +9,7 @@ import {
   isExternallyImportedAgent,
   publicAgentOutput,
   resolveMacros,
+  steppedDropCount,
 } from "@marinara-engine/shared";
 import type {
   CharacterMacroProfile,
@@ -61,6 +62,10 @@ export interface MarkerContext {
   /** Raw personaStats JSON (for rpgStats injection) */
   personaStats?: any;
   chatMessages: ChatMLMessage[];
+  /** Chat setting "Drop in steps of": Chat History's Max messages lets old messages go this many at once. */
+  historyDropStep?: number;
+  /** A caching connection keeps Past Events as its own system message (see `summaryCacheSegment`). */
+  separateSummaryForCache?: boolean;
   /** Optional scan-only messages for lorebook matching. */
   lorebookScanMessages?: ChatMLMessage[];
   chatSummary: string | null;
@@ -203,6 +208,8 @@ export async function expandMarker(
     case "world_info_after":
       return expandLorebook(config, ctx);
     case "chat_history":
+    case "recent_history":
+      // The assembler decides how a preset with Recent History splits the history; on its own, either sends all.
       return expandChatHistory(config, ctx);
     case "chat_summary":
       if (ctx.advancedMemory) return { content: advancedMemoryMarkerContent(config.type, ctx.advancedMemory) };
@@ -538,7 +545,54 @@ async function expandLorebook(config: MarkerConfig, ctx: MarkerContext): Promise
 
 // ── Chat History ───────────────────────────────
 
-async function expandChatHistory(config: MarkerConfig, ctx: MarkerContext): Promise<ExpandedMarker> {
+/**
+ * Which part of the chat history a history marker sends. A preset with Recent History splits the history: Chat
+ * History sends the older messages ("past") and Recent History the newest `recentMessages` ("recent").
+ */
+export type ChatHistoryPart = { kind: "all" } | { kind: "past" | "recent"; recentMessages: number };
+
+/** History wrapper labels, in the order a split history sends them. */
+const HISTORY_WRAPPERS = {
+  past: { xml: "chat_history", markdown: "## Chat History" },
+  recent: { xml: "recent_history", markdown: "## Recent History" },
+} as const;
+
+/** Wrap one run of history messages; `lastMessage` gives its final message the Last Message wrapper. */
+function wrapHistoryRun(
+  messages: ChatMLMessage[],
+  wrapper: (typeof HISTORY_WRAPPERS)[keyof typeof HISTORY_WRAPPERS],
+  wrapFormat: WrapFormat,
+  lastMessage: boolean,
+): ChatMLMessage[] {
+  if (messages.length === 0 || wrapFormat === "none") return messages;
+  const out = [...messages];
+  const lastMessageIdx = out.length - 1;
+  const historyEnd = lastMessage ? lastMessageIdx : out.length;
+  if (wrapFormat === "xml") {
+    if (historyEnd > 0) {
+      out[0] = { ...out[0]!, content: `<${wrapper.xml}>\n${out[0]!.content}` };
+      out[historyEnd - 1] = { ...out[historyEnd - 1]!, content: `${out[historyEnd - 1]!.content}\n</${wrapper.xml}>` };
+    }
+    if (lastMessage) {
+      out[lastMessageIdx] = {
+        ...out[lastMessageIdx]!,
+        content: `<last_message>\n${out[lastMessageIdx]!.content}\n</last_message>`,
+      };
+    }
+  } else {
+    if (historyEnd > 0) out[0] = { ...out[0]!, content: `${wrapper.markdown}\n${out[0]!.content}` };
+    if (lastMessage) {
+      out[lastMessageIdx] = { ...out[lastMessageIdx]!, content: `## Last Message\n${out[lastMessageIdx]!.content}` };
+    }
+  }
+  return out;
+}
+
+export async function expandChatHistory(
+  config: MarkerConfig,
+  ctx: MarkerContext,
+  part: ChatHistoryPart = { kind: "all" },
+): Promise<ExpandedMarker> {
   const opts = config.chatHistoryOptions ?? {};
   let messages = [...ctx.chatMessages];
 
@@ -547,9 +601,20 @@ async function expandChatHistory(config: MarkerConfig, ctx: MarkerContext): Prom
     messages = messages.filter((m) => m.role !== "system");
   }
 
-  // Limit messages if configured
+  // Limit messages if configured. The limit counts the whole history, before Recent History takes its share.
+  // With "Drop in steps of", old messages leave a whole step at a time so the start stays put between steps.
   if (opts.maxMessages && opts.maxMessages > 0) {
-    messages = messages.slice(-opts.maxMessages);
+    const drop = Math.min(
+      messages.length - 1,
+      steppedDropCount(messages.length, opts.maxMessages, ctx.historyDropStep ?? 1),
+    );
+    if (drop > 0) messages = messages.slice(drop);
+  }
+
+  // Count from the newest message, so the older part only ever grows at its end and stays a cacheable prefix.
+  if (part.kind !== "all") {
+    const recentStart = Math.max(0, messages.length - Math.max(1, Math.floor(part.recentMessages)));
+    messages = part.kind === "past" ? messages.slice(0, recentStart) : messages.slice(recentStart);
   }
 
   messages = messages.map((message) => {
@@ -560,39 +625,30 @@ async function expandChatHistory(config: MarkerConfig, ctx: MarkerContext): Prom
     };
   });
 
-  // Add chat_history / last_message wrapping based on format
-  if (messages.length > 0 && ctx.wrapFormat !== "none") {
-    // Everything before the final chat turn is "chat history"; the final turn gets
-    // "last_message" wrapping, regardless of whether it is user or assistant.
-    const lastMessageIdx = messages.length - 1;
-    const historyEnd = lastMessageIdx;
-
-    if (ctx.wrapFormat === "xml") {
-      if (historyEnd > 0) {
-        messages[0] = { ...messages[0]!, content: `<chat_history>\n${messages[0]!.content}` };
-        messages[historyEnd - 1] = {
-          ...messages[historyEnd - 1]!,
-          content: `${messages[historyEnd - 1]!.content}\n</chat_history>`,
-        };
-      }
-      messages[lastMessageIdx] = {
-        ...messages[lastMessageIdx]!,
-        content: `<last_message>\n${messages[lastMessageIdx]!.content}\n</last_message>`,
-      };
-    } else if (ctx.wrapFormat === "markdown") {
-      if (historyEnd > 0) {
-        messages[0] = { ...messages[0]!, content: `## Chat History\n${messages[0]!.content}` };
-      }
-      messages[lastMessageIdx] = {
-        ...messages[lastMessageIdx]!,
-        content: `## Last Message\n${messages[lastMessageIdx]!.content}`,
-      };
-    }
+  // Everything before the final chat turn is "chat history"; the final turn gets "last_message" wrapping,
+  // regardless of whether it is user or assistant. A split history wraps each part on its own: the older part
+  // is all chat history, the newest part is recent history ending on the last message.
+  if (part.kind === "past") {
+    messages = wrapHistoryRun(messages, HISTORY_WRAPPERS.past, ctx.wrapFormat, false);
+  } else {
+    messages = wrapHistoryRun(
+      messages,
+      part.kind === "recent" ? HISTORY_WRAPPERS.recent : HISTORY_WRAPPERS.past,
+      ctx.wrapFormat,
+      true,
+    );
   }
 
   // Chat history is special — it returns multiple messages to be inserted directly,
   // not a single content block. The assembler handles this.
-  return { content: "", messages: messages.map((message) => ({ ...message, contextKind: "history" as const })) };
+  return {
+    content: "",
+    messages: messages.map((message) => ({
+      ...message,
+      contextKind: "history" as const,
+      ...(part.kind === "all" ? {} : { historyPart: part.kind }),
+    })),
+  };
 }
 
 // ── Dialogue Examples ──────────────────────────

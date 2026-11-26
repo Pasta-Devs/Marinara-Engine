@@ -1854,6 +1854,10 @@ export function ChatRoleplaySurface({
     typeof chatMeta.summaryTailMessages === "number" && Number.isFinite(chatMeta.summaryTailMessages)
       ? chatMeta.summaryTailMessages
       : undefined;
+  const summaryAutoCombineAbove =
+    typeof chatMeta.summaryAutoCombineAbove === "number" && Number.isFinite(chatMeta.summaryAutoCombineAbove)
+      ? chatMeta.summaryAutoCombineAbove
+      : 0;
   const storyboardAgentActive = chatMeta.enableAgents === true && summaryActiveAgentIds.includes(STORYBOARD_AGENT_ID);
   const roleplayStoryboardAutoMode =
     chatMeta.roleplayStoryboardAutoGenerateMode === "manual" ||
@@ -2007,6 +2011,7 @@ export function ChatRoleplaySurface({
             summaryRunInterval={summaryRunInterval}
             hideSummarisedMessages={hideSummarisedMessages}
             summaryTailMessages={summaryTailMessages}
+            summaryAutoCombineAbove={summaryAutoCombineAbove}
             automaticSummariesAvailable={chatMode === "roleplay"}
             totalMessageCount={totalMessageCount}
             promptPresetId={typeof chat.promptPresetId === "string" ? chat.promptPresetId : null}

@@ -2,6 +2,7 @@
 // LLM Provider — OpenAI (& OAI-Compatible)
 // ──────────────────────────────────────────────
 import { createHash } from "node:crypto";
+import { historyCacheBreakpointDepth, summaryCacheSegmentIndex } from "../history-cache-breakpoint.js";
 import {
   BaseLLMProvider,
   ASSISTANT_CONTINUATION_PROMPT,
@@ -448,6 +449,20 @@ function openRouterCacheFamily(model: string): OpenRouterCacheFamily {
   return capabilityModelId(model).startsWith("qwen/") ? "qwen" : "automatic";
 }
 
+/**
+ * Past Events' place among the wire messages, when the leading system messages went over one for one; else -1, and
+ * the request keeps its usual marks.
+ */
+function openRouterSummarySegment(messages: ChatMessage[], wire: ChatCompletionsWireMessage[]): number {
+  const segment = summaryCacheSegmentIndex(messages);
+  if (segment < 0) return -1;
+  const leading = (list: ReadonlyArray<{ role?: unknown }>) => {
+    const first = list.findIndex((message) => message.role !== "system" && message.role !== "developer");
+    return first < 0 ? list.length : first;
+  };
+  return leading(messages) === leading(wire) ? segment : -1;
+}
+
 /** The content with `cache_control` on its last text part, or undefined when it has no text to mark. */
 function contentWithCacheBreakpoint(content: unknown, cacheControl: OpenRouterCacheControl): unknown[] | undefined {
   const parts = wireContentParts(content);
@@ -473,6 +488,8 @@ function withOpenRouterCacheBreakpoints(
   family: Exclude<OpenRouterCacheFamily, "automatic">,
   cacheControl: OpenRouterCacheControl,
   cachingAtDepth: number,
+  /** Where Past Events starts among the leading system messages, or -1 (see `summaryCacheSegmentIndex`). */
+  summarySegment = -1,
 ): ChatCompletionsWireMessage[] {
   const result = [...messages];
   const firstTurn = result.findIndex((message) => message.role !== "system" && message.role !== "developer");
@@ -493,6 +510,8 @@ function withOpenRouterCacheBreakpoints(
     return !!content;
   };
   for (let index = systemCount - 1; index >= 0 && !mark(index); index--);
+  // The fixed system prompt before Past Events stays cached when a new summary changes Past Events.
+  if (summarySegment > 0 && summarySegment < systemCount) mark(summarySegment - 1);
   const newest = result.length - 1;
   for (let index = Math.max(systemCount, newest - cachingAtDepth); index >= systemCount && index <= newest; index--) {
     const message = result[index]!;
@@ -1975,7 +1994,11 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   /** Marks what OpenRouter caches for the model's family (see `openRouterCacheFamily`) when the connection caches. */
-  private applyOpenRouterPromptCaching(body: Record<string, unknown>, options: ChatOptions): void {
+  private applyOpenRouterPromptCaching(
+    body: Record<string, unknown>,
+    options: ChatOptions,
+    messages: ChatMessage[],
+  ): void {
     if (!this.isOpenRouterEndpoint() || !options.enableCaching) return;
     const family = openRouterCacheFamily(options.model);
     // Only Claude takes the 1-hour cache. Every mark of a request gets the same lifetime: Anthropic refuses a top-level
@@ -1991,7 +2014,9 @@ export class OpenAIProvider extends BaseLLMProvider {
         body.messages as ChatCompletionsWireMessage[],
         family,
         cacheControl,
-        normalizeCachingAtDepth(options.cachingAtDepth),
+        // A history split by Recent History caches up to the end of its older part.
+        historyCacheBreakpointDepth(messages) ?? normalizeCachingAtDepth(options.cachingAtDepth),
+        openRouterSummarySegment(messages, body.messages as ChatCompletionsWireMessage[]),
       );
     }
     logger.debug("[OpenAI] Enabling OpenRouter prompt caching (%s) for model=%s", family, options.model);
@@ -2317,7 +2342,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.applyChatCompletionsReasoning(body, options);
     }
 
-    this.applyOpenRouterPromptCaching(body, options);
+    this.applyOpenRouterPromptCaching(body, options, messages);
     this.applyServiceTier(body, options);
     this.applyCustomParameters(body, options);
     // Local chat templates may ignore reasoning_effort. Apply this after custom
@@ -2609,7 +2634,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.applyChatCompletionsReasoning(body, options);
     }
 
-    this.applyOpenRouterPromptCaching(body, options);
+    this.applyOpenRouterPromptCaching(body, options, messages);
     this.applyServiceTier(body, options);
     this.applyCustomParameters(body, options);
     this.enforceLocalInferenceThinkingDisable(body, options, suppressModelParameters);
