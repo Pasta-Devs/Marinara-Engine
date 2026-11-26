@@ -428,9 +428,6 @@ export function HomeProfessorMariChat({
     [completionLorebooks.data],
   );
   const draftSuffix = useMemo(() => completeInline(draft, completionCandidates), [completionCandidates, draft]);
-  const acceptDraftCompletion = useCallback(() => {
-    if (draftSuffix) setDraft((current) => current + draftSuffix);
-  }, [draftSuffix, setDraft]);
   const [attachments, setAttachments] = useState<ProfessorMariAttachment[]>([]);
   const [composerScroll, setComposerScroll] = useState({ left: 0, top: 0 });
   const [handoffContext, setHandoffContext] = useState<ProfessorMariAskContext | null>(() => initialAskContext ?? null);
@@ -4060,7 +4057,6 @@ export function HomeProfessorMariChat({
                           onSendPendingNow={(id) => void sendPendingNow(id)}
                           workspaceStatus={workspaceStatus}
                           refreshWorkspaceStatus={refreshWorkspaceStatus}
-                          acceptDraftCompletion={acceptDraftCompletion}
                           attachComposerDock={attachComposerDock}
                           attachedContext={attachedContext}
                           attachmentInputRef={attachmentInputRef}
@@ -4088,7 +4084,6 @@ export function HomeProfessorMariChat({
                           }}
                           referenceUi={{
                             ...composerReferences.referenceUi,
-                            canLinkCompletion: composerReferences.canLinkCompletion,
                           }}
                           effectiveConnection={effectiveConnection}
                           effectiveConnectionId={effectiveConnectionId}
