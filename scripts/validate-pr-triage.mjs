@@ -81,10 +81,9 @@ export function validatePullRequestTriage() {
     reviewEvaluator,
     /on:\n  workflow_run:\n    workflows: \[Owner Approval Review Signal\]\n    types: \[completed\]/u,
   );
-  assert.match(
-    reviewEvaluator,
-    /group: owner-approval-review-\$\{\{ github\.event\.workflow_run\.pull_requests\[0\]\.number \|\| github\.event\.workflow_run\.head_sha \}\}\n  cancel-in-progress: true/u,
-  );
+  // GitHub runs the evaluator on main, where a cancelled run is a failed check; a superseded run ends in the script.
+  assert.doesNotMatch(reviewEvaluator, /^\s*concurrency:/mu);
+  assert.match(reviewEvaluator, /SIGNAL_RUN_ID: \$\{\{ github\.event\.workflow_run\.id \}\}/u);
   assert.match(reviewEvaluator, /statuses: write/u);
   assert.match(reviewEvaluator, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/u);
   assert.match(reviewEvaluator, /GET \/repos\/\{owner\}\/\{repo\}\/commits\/\{commit_sha\}\/pulls/u);
@@ -133,9 +132,23 @@ export function validatePullRequestTriage() {
     [...nightly.matchAll(/^\s+run: (.+)$/gmu)].map((match) => match[1]),
     ['gh api --method POST "repos/$GH_REPO/actions/workflows/playwright.yml/dispatches" -f ref=staging'],
   );
+  // The full-run report runs repository code with a read-only token; the job that files it has the only write token
+  // and runs no repository code or action, on staging alone. It reads the workflow's runs to skip an out-of-date report.
+  const nightlyReport = extractJob(browserWorkflow, "nightly-report");
+  assert.match(nightlyReport, /github\.event_name == 'workflow_dispatch'/u);
+  assert.doesNotMatch(nightlyReport, /^\s+[\w-]+: write\s*$/mu);
+  const nightlyIssue = extractJob(browserWorkflow, "nightly-issue");
+  assert.match(nightlyIssue, /needs: nightly-report\n/u);
+  assert.match(nightlyIssue, /needs\.nightly-report\.result == 'success' && github\.ref == 'refs\/heads\/staging'/u);
+  assert.deepEqual(
+    [...nightlyIssue.matchAll(/^\s+([\w-]+): (read|write)\s*$/gmu)].map((match) => `${match[1]}: ${match[2]}`),
+    ["actions: read", "issues: write"],
+  );
+  assert.doesNotMatch(nightlyIssue, /uses:|\b(?:node|pnpm|npx|bash \.|\.\/)/u);
   const browserRevision = extractJob(browserWorkflow, "revision");
   assert.match(browserRevision, /if: github\.event_name != 'schedule'/u);
-  assert.match(browserRevision, /permissions: \{\}/u);
+  // It reads only package.json, for the Playwright image version.
+  assert.match(browserRevision, /permissions:\n\s+contents: read\n\s+outputs:/u);
   assert.match(
     browserRevision,
     /full: \$\{\{ github\.event_name == 'workflow_dispatch' \|\| github\.base_ref == 'main' \}\}/u,

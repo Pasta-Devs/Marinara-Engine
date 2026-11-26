@@ -239,11 +239,15 @@ function* iterateMarkdownHeadings(lines: string[]): Generator<{ index: number; l
   }
 }
 
-function listMarkdownHeadings(content: string): string[] {
+export function listMarkdownHeadings(content: string): string[] {
   return [...iterateMarkdownHeadings(content.split(/\r?\n/))].map((entry) => entry.heading);
 }
 
-function readMarkdownHeading(path: string, content: string, requestedHeading: string): DocumentationSection | null {
+export function readMarkdownHeading(
+  path: string,
+  content: string,
+  requestedHeading: string,
+): DocumentationSection | null {
   const lines = content.split(/\r?\n/);
   const normalizedHeading = requestedHeading.toLocaleLowerCase();
   const headings = [...iterateMarkdownHeadings(lines)];
@@ -457,15 +461,21 @@ async function resolveCanonicalDocPath(workspaceRoot: string, requestedPath: str
   return { normalized, absolute: canonicalTarget };
 }
 
+/** Full bounded source for readers that apply their own output budget. */
+export async function readCanonicalDocumentationFile(workspaceRoot: string, requestedPath: string) {
+  const { normalized, absolute } = await resolveCanonicalDocPath(workspaceRoot, requestedPath);
+  const content = await readBoundedMarkdown(absolute);
+  if (content === null) throw new Error(`Documentation file not found or too large: ${normalized}`);
+  return { path: normalized, content };
+}
+
 export async function readCanonicalDocumentation(
   workspaceRoot: string,
   requestedPath: string,
   requestedHeading?: string,
   requestedMaxChars = DEFAULT_READ_CHARS,
 ) {
-  const { normalized, absolute } = await resolveCanonicalDocPath(workspaceRoot, requestedPath);
-  const content = await readBoundedMarkdown(absolute);
-  if (content === null) throw new Error(`Documentation file not found or too large: ${normalized}`);
+  const { path: normalized, content } = await readCanonicalDocumentationFile(workspaceRoot, requestedPath);
   const heading = requestedHeading?.trim();
   const section = heading ? readMarkdownHeading(normalized, content, heading) : null;
   if (heading && !section) {

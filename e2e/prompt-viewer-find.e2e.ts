@@ -89,6 +89,23 @@ for (const mode of ["roleplay", "conversation"] as const) {
       const next = viewer.getByRole("button", { name: "Next match (Enter)", exact: true });
       await expect(previous).toBeDisabled();
       await expect(next).toBeDisabled();
+      // "Prompt copied." shows below the viewer's header rows. Over Copy, under the pointer that pressed it,
+      // the toast would pause (WebKit hovers it) and keep covering Close.
+      const expectCopiedToastClearsHeader = async () => {
+        const toast = page.locator("[data-sonner-toast]").filter({ hasText: "Prompt copied." }).first();
+        await expect(toast).toHaveAttribute("data-mounted", "true");
+        await toast.evaluate((element) =>
+          Promise.all(element.getAnimations().map((animation) => animation.finished.catch(() => undefined))),
+        );
+        for (const name of ["Copy assembled prompt", "Close assembled prompt"]) {
+          const covered = await viewer.getByRole("button", { name, exact: true }).evaluate((button) => {
+            const rect = button.getBoundingClientRect();
+            const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+            return Boolean(hit?.closest("[data-sonner-toast]"));
+          });
+          expect(covered, `the copied toast covers ${name}`).toBe(false);
+        }
+      };
 
       await viewer.focus();
       await page.keyboard.press("Shift+Tab");
@@ -150,7 +167,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
       await expect(viewer.getByRole("status")).toHaveText("2 of 3");
       await viewer.getByRole("button", { name: "Copy assembled prompt", exact: true }).click();
       await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(copied);
-      await page.getByRole("button", { name: "Close toast", exact: true }).click();
+      await expectCopiedToastClearsHeader();
       await find.fill("[a+b].*?");
       await expect(viewer.getByRole("status")).toHaveText("1 of 1");
       await expect(viewer.locator("mark")).toHaveText("[a+b].*?");
@@ -195,6 +212,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
       await expect(viewer.getByRole("button", { name: /Chat History/ })).toBeVisible();
       await viewer.getByRole("button", { name: "Copy assembled prompt", exact: true }).click();
       await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(copied);
+      await expectCopiedToastClearsHeader();
       await viewer.getByRole("button", { name: "Close assembled prompt", exact: true }).click();
       await expect(viewer).toHaveCount(0);
       const composer = page.locator("textarea[data-chat-composer]").first();

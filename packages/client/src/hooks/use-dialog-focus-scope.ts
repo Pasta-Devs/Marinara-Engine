@@ -52,7 +52,8 @@ export function useDialogFocusScope(
     });
 
     const trapFocus = (event: KeyboardEvent) => {
-      if (!containFocusRef.current || event.key !== "Tab") return;
+      // A control that used Tab itself (a textarea indenting its lines) keeps focus.
+      if (!containFocusRef.current || event.key !== "Tab" || event.defaultPrevented) return;
       if (isActive && !isActive()) return;
       const container = containerRef.current;
       if (!container) return;

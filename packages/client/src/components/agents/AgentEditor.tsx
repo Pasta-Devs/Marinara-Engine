@@ -9,7 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
-import { rebaseUntouchedKeys } from "../../lib/mari-editor-fields";
+import { rebaseAgentSettings } from "../../lib/agent-settings-rebase";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { api, getPrivilegedActionErrorMessage } from "../../lib/api-client";
@@ -89,6 +89,9 @@ import {
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { CommandCenterSegmentedChoice } from "../command-center/CommandCenterSegmentedChoice";
+import { PickerChevron, useFieldWindow } from "../ui/PickerField";
+import { PickerFolderList } from "../ui/PickerFolderList";
+import { PickerWindow } from "../ui/PickerWindow";
 import {
   BUILT_IN_AGENTS,
   agentSupportsActivationGate,
@@ -120,6 +123,11 @@ import {
   getAgentCardContextMode,
   getAgentContextSources,
   setAgentCardContextMode,
+  AGENT_TRACKER_DATA_SECTIONS,
+  AGENT_TRACKER_DATA_SECTIONS_SETTING,
+  BUILT_IN_TRACKER_AGENT_TYPES,
+  getAgentTrackerDataSections,
+  type AgentTrackerDataSection,
   normalizeAgentPromptTemplateOptions,
   normalizeStoryboardAgentSettings,
   normalizeIllustratorRunInterval,
@@ -140,6 +148,11 @@ import {
   type ToolDefinition,
   isChatProvider,
   NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
+  DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+  isCustomTrackerPortraitRewritePrompt,
+  serializeTrackerPortraitRewriteSettings,
+  shouldClearTrackerPortraitRewriteDraftAfterSave,
+  shouldShowTrackerPortraitRewriteEditor,
   DEFAULT_WRITER_REFERENCE_INSTRUCTION,
   readWriterReferenceSettings,
   REFERENCE_PICTURE_TARGETS,
@@ -840,6 +853,8 @@ export function AgentEditor() {
   const [localContextSources, setLocalContextSources] = useState<CustomAgentContextSources>(() => ({
     ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES,
   }));
+  // Picked Tracker Data sections (#9745); null means All sections.
+  const [localTrackerDataSections, setLocalTrackerDataSections] = useState<AgentTrackerDataSection[] | null>(null);
   const [localInjectAsSection, setLocalInjectAsSection] = useState(false);
   const [localIncludePreGenInjections, setLocalIncludePreGenInjections] = useState(false);
   const [localIncludeParallelResults, setLocalIncludeParallelResults] = useState(false);
@@ -872,6 +887,18 @@ export function AgentEditor() {
   const [localSourceFileIds, setLocalSourceFileIds] = useState<string[]>([]);
   const [localAutoGenerateAvatars, setLocalAutoGenerateAvatars] = useState(false);
   const [localIncludeOutfitInAvatars, setLocalIncludeOutfitInAvatars] = useState(true);
+  const [localUseCardReferenceInPortraits, setLocalUseCardReferenceInPortraits] = useState(false);
+  const [localRewritePortraitPrompts, setLocalRewritePortraitPrompts] = useState(false);
+  const [localPortraitRewritePrompt, setLocalPortraitRewritePrompt] = useState("");
+  const [editingPortraitRewritePrompt, setEditingPortraitRewritePrompt] = useState(false);
+  const activeAgentDetailIdRef = useRef(agentDetailId);
+  activeAgentDetailIdRef.current = agentDetailId;
+  const portraitRewritePromptRevRef = useRef(0);
+  const editRevisionRef = useRef(0);
+  const setPortraitRewritePromptDraft = useCallback((value: string) => {
+    portraitRewritePromptRevRef.current += 1;
+    setLocalPortraitRewritePrompt(value);
+  }, []);
   const [localUseAvatarReferences, setLocalUseAvatarReferences] = useState(false);
   const [localIncludeCharacterAppearance, setLocalIncludeCharacterAppearance] = useState(false);
   const [localReferencePictureTarget, setLocalReferencePictureTarget] = useState<ReferencePictureTarget>("auto");
@@ -1093,6 +1120,12 @@ export function AgentEditor() {
       setLocalSourceFileIds(normalizeStringArray(settings.sourceFileIds));
       setLocalAutoGenerateAvatars(settings.autoGenerateAvatars === true);
       setLocalIncludeOutfitInAvatars(settings.includeOutfitInAvatars !== false);
+      setLocalUseCardReferenceInPortraits(settings.useCardReferenceInPortraits === true);
+      setLocalRewritePortraitPrompts(settings.rewritePortraitPrompts === true);
+      const savedPortraitRewritePrompt =
+        typeof settings.portraitRewritePrompt === "string" ? settings.portraitRewritePrompt : "";
+      setPortraitRewritePromptDraft(savedPortraitRewritePrompt);
+      setEditingPortraitRewritePrompt(Boolean(savedPortraitRewritePrompt.trim()));
       setLocalUseAvatarReferences(
         (settings.useAvatarReferences as boolean | undefined) ?? defaultSettings.useAvatarReferences === true,
       );
@@ -1141,6 +1174,7 @@ export function AgentEditor() {
       );
       setLocalCustomCapabilities(normalizeCustomAgentCapabilities(settings));
       setLocalContextSources(getAgentContextSources({ isCustomAgent: !builtIn, settings }));
+      setLocalTrackerDataSections(getAgentTrackerDataSections(settings));
       setLocalResultType(normalizeCustomResultType(settings.resultType));
       setLocalOutputOptions({
         jsonContextOutput: settings.jsonContextOutput === true,
@@ -1179,6 +1213,10 @@ export function AgentEditor() {
       setLocalSourceFileIds([]);
       setLocalAutoGenerateAvatars(false);
       setLocalIncludeOutfitInAvatars(true);
+      setLocalUseCardReferenceInPortraits(false);
+      setLocalRewritePortraitPrompts(false);
+      setPortraitRewritePromptDraft("");
+      setEditingPortraitRewritePrompt(false);
       setLocalUseAvatarReferences(defaultSettings.useAvatarReferences === true);
       setLocalReferencePictureTarget("auto");
       setLocalWriterReferenceInstruction("");
@@ -1198,6 +1236,7 @@ export function AgentEditor() {
       setLocalSecretPlotPrompt("");
       setLocalCustomCapabilities({});
       setLocalContextSources(getAgentContextSources({ settings: defaultSettings }));
+      setLocalTrackerDataSections(getAgentTrackerDataSections(defaultSettings));
       setLocalResultType("context_injection");
       setLocalOutputOptions({ jsonContextOutput: false, hideOutput: false });
       setLocalIncludePreGenInjections(false);
@@ -1255,6 +1294,10 @@ export function AgentEditor() {
       setLocalSourceFileIds([]);
       setLocalAutoGenerateAvatars(false);
       setLocalIncludeOutfitInAvatars(true);
+      setLocalUseCardReferenceInPortraits(false);
+      setLocalRewritePortraitPrompts(false);
+      setPortraitRewritePromptDraft("");
+      setEditingPortraitRewritePrompt(false);
       setLocalUseAvatarReferences(false);
       setLocalIncludeCharacterAppearance(false);
       setLocalReferencePictureTarget("auto");
@@ -1270,6 +1313,7 @@ export function AgentEditor() {
       setLocalSecretPlotPrompt("");
       setLocalCustomCapabilities({});
       setLocalContextSources({ ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES });
+      setLocalTrackerDataSections(null);
       setLocalResultType("context_injection");
       setLocalOutputOptions({ jsonContextOutput: false, hideOutput: false });
       setLocalIncludePreGenInjections(false);
@@ -1297,6 +1341,7 @@ export function AgentEditor() {
     isCustomAgent,
     normalizeTextConnectionOverride,
     normalizeImageConnectionOverride,
+    setPortraitRewritePromptDraft,
   ]);
 
   // Fetch music connection status when viewing Music DJ.
@@ -1605,6 +1650,9 @@ export function AgentEditor() {
         ...(isEditingCustomAgent ? { customCapabilities } : {}),
         ...(isEditingCustomAgent ? { homeWidgets: localHomeWidgets } : {}),
         contextSources: localContextSources,
+        ...(localContextSources.trackerData && localTrackerDataSections
+          ? { [AGENT_TRACKER_DATA_SECTIONS_SETTING]: localTrackerDataSections }
+          : {}),
         batchWithOtherAgents: localBatchWithOtherAgents,
         ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
         ...(isEditingCustomAgent ? localOutputOptions : {}),
@@ -1684,6 +1732,11 @@ export function AgentEditor() {
         ...(savedImageConnectionId ? { imageConnectionId: savedImageConnectionId } : {}),
         ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
         ...(localIncludeOutfitInAvatars ? {} : { includeOutfitInAvatars: false }),
+        ...(localUseCardReferenceInPortraits ? { useCardReferenceInPortraits: true } : {}),
+        ...serializeTrackerPortraitRewriteSettings({
+          enabled: localRewritePortraitPrompts,
+          prompt: localPortraitRewritePrompt,
+        }),
         ...(supportsImagePromptSettings
           ? {
               useAvatarReferences: localUseAvatarReferences,
@@ -1729,6 +1782,7 @@ export function AgentEditor() {
     localOutputOptions,
     localCustomCapabilities,
     localContextSources,
+    localTrackerDataSections,
     localConnectionId,
     localImageConnectionId,
     localIncludePreGenInjections,
@@ -1773,6 +1827,9 @@ export function AgentEditor() {
     localSourceFileIds,
     localAutoGenerateAvatars,
     localIncludeOutfitInAvatars,
+    localUseCardReferenceInPortraits,
+    localRewritePortraitPrompts,
+    localPortraitRewritePrompt,
     localUseAvatarReferences,
     localIncludeCharacterAppearance,
     localReferencePictureTarget,
@@ -1826,6 +1883,11 @@ export function AgentEditor() {
       return;
     }
 
+    const saveAgentDetailId = agentDetailId;
+    const savePortraitRewritePrompt = localPortraitRewritePrompt;
+    const savePortraitRewritePromptRev = portraitRewritePromptRevRef.current;
+    const saveEditRevision = editRevisionRef.current;
+
     try {
       if (dbConfig) {
         const loaded = loadedMariFieldsRef.current;
@@ -1849,7 +1911,8 @@ export function AgentEditor() {
             payload.connectionId === storedConnection
           )
             delete patch.connectionId;
-          patch.settings = rebaseUntouchedKeys(
+          // The Tracker Data mode (Off / All / Pick) spans two keys and rebases as one unit.
+          patch.settings = rebaseAgentSettings(
             payload.settings,
             loadedSave.payload.settings,
             parseAgentSettingsRecord(loadedSave.config.settings),
@@ -1877,10 +1940,28 @@ export function AgentEditor() {
           openAgentDetail(created.id);
         }
       }
-      setDirty(false);
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 1500);
-      return true;
+      const saveSnapshotCurrent =
+        activeAgentDetailIdRef.current === saveAgentDetailId &&
+        portraitRewritePromptRevRef.current === savePortraitRewritePromptRev &&
+        editRevisionRef.current === saveEditRevision;
+      if (
+        shouldClearTrackerPortraitRewriteDraftAfterSave({
+          savedPrompt: savePortraitRewritePrompt,
+          startedAgentId: saveAgentDetailId,
+          currentAgentId: activeAgentDetailIdRef.current,
+          startedRevision: savePortraitRewritePromptRev,
+          currentRevision: portraitRewritePromptRevRef.current,
+        })
+      ) {
+        setPortraitRewritePromptDraft("");
+        setEditingPortraitRewritePrompt(false);
+      }
+      if (saveSnapshotCurrent) {
+        setDirty(false);
+        setSavedFlash(true);
+        setTimeout(() => setSavedFlash(false), 1500);
+      }
+      return saveSnapshotCurrent;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save agent config");
       return false;
@@ -1895,6 +1976,8 @@ export function AgentEditor() {
     updateAgent,
     createAgent,
     openAgentDetail,
+    localPortraitRewritePrompt,
+    setPortraitRewritePromptDraft,
   ]);
 
   const handleExportAgent = () => {
@@ -1955,6 +2038,9 @@ export function AgentEditor() {
       ...(isEditingCustomAgent ? { customCapabilities } : {}),
       ...(isEditingCustomAgent ? { homeWidgets: localHomeWidgets } : {}),
       contextSources: localContextSources,
+      ...(localContextSources.trackerData && localTrackerDataSections
+        ? { [AGENT_TRACKER_DATA_SECTIONS_SETTING]: localTrackerDataSections }
+        : {}),
       batchWithOtherAgents: localBatchWithOtherAgents,
       ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
       ...(isEditingCustomAgent ? localOutputOptions : {}),
@@ -2022,6 +2108,11 @@ export function AgentEditor() {
       ...(agentType !== "background" && localImageConnectionId ? { imageConnectionId: localImageConnectionId } : {}),
       ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
       ...(localIncludeOutfitInAvatars ? {} : { includeOutfitInAvatars: false }),
+      ...(localUseCardReferenceInPortraits ? { useCardReferenceInPortraits: true } : {}),
+      ...serializeTrackerPortraitRewriteSettings({
+        enabled: localRewritePortraitPrompts,
+        prompt: localPortraitRewritePrompt,
+      }),
       ...(supportsImagePromptSettings
         ? {
             useAvatarReferences: localUseAvatarReferences,
@@ -2090,7 +2181,10 @@ export function AgentEditor() {
     setDirty(true);
   }, [defaultPrompt]);
 
-  const markDirty = useCallback(() => setDirty(true), []);
+  const markDirty = useCallback(() => {
+    editRevisionRef.current += 1;
+    setDirty(true);
+  }, []);
 
   // Prof. Mari and the agent's own fields (`agent.update`), as in the Preset editor. A built-in agent
   // without a saved config has no record for her to change.
@@ -2368,6 +2462,13 @@ export function AgentEditor() {
       ? "ui.agents.agenteditor.writePromptForJsonResultExample"
       : "ui.agents.agenteditor.writePromptForTextResultExample",
   )}\n\n${customResultExample.value}`;
+  const hasCustomPortraitRewritePrompt = isCustomTrackerPortraitRewritePrompt(localPortraitRewritePrompt);
+  const isEditingPortraitRewritePrompt = editingPortraitRewritePrompt || hasCustomPortraitRewritePrompt;
+  const showPortraitRewritePromptEditor = shouldShowTrackerPortraitRewriteEditor({
+    enabled: localRewritePortraitPrompts,
+    editing: editingPortraitRewritePrompt,
+    prompt: localPortraitRewritePrompt,
+  });
 
   // ── Loading / not found ──
   if (!agentDetailId || (!builtIn && !dbConfig && agentDetailId !== "__new__")) {
@@ -2807,6 +2908,27 @@ export function AgentEditor() {
                 {CUSTOM_AGENT_CONTEXT_SOURCE_META.map((source) => {
                   const allowed =
                     !source.requiredCapability || localCustomCapabilities[source.requiredCapability] === true;
+                  // Built-in trackers keep their fixed section; Knowledge Retrieval and Music DJ build their prompts
+                  // without the agent's sources, so a section pick would do nothing there.
+                  if (
+                    source.id === "trackerData" &&
+                    !TRACKER_DATA_PICK_EXCLUDED_AGENT_TYPES.includes(builtIn?.id ?? "")
+                  ) {
+                    return (
+                      <TrackerDataSourceRow
+                        key={source.id}
+                        label={localizeUi(source.label)}
+                        description={localizeUi("ui.agents.agenteditor.contextSource.trackerData.pickDescription")}
+                        enabled={localContextSources.trackerData}
+                        sections={localTrackerDataSections}
+                        onChange={(enabled, sections) => {
+                          setLocalContextSources((current) => ({ ...current, trackerData: enabled }));
+                          setLocalTrackerDataSections(sections);
+                          markDirty();
+                        }}
+                      />
+                    );
+                  }
                   if (source.id === "characters" || source.id === "persona") {
                     const cardSource: AgentCardContextSource = source.id;
                     return (
@@ -3376,6 +3498,88 @@ export function AgentEditor() {
                   }}
                 />
               )}
+              {localAutoGenerateAvatars && (
+                <EditorSwitchRow
+                  label={localizeUi("ui.agents.agenteditor.useCardReferenceInPortraits")}
+                  description={localizeUi("ui.agents.agenteditor.useCardReferenceInPortraitsDescription")}
+                  checked={localUseCardReferenceInPortraits}
+                  onChange={(checked) => {
+                    setLocalUseCardReferenceInPortraits(checked);
+                    markDirty();
+                  }}
+                />
+              )}
+              <div className="grid gap-2">
+                <EditorSwitchRow
+                  label={localizeUi("ui.agents.agenteditor.rewritePortraitPrompts")}
+                  description={localizeUi("ui.agents.agenteditor.rewritePortraitPromptsDescription")}
+                  checked={localRewritePortraitPrompts}
+                  onChange={(checked) => {
+                    setLocalRewritePortraitPrompts(checked);
+                    markDirty();
+                  }}
+                />
+                {showPortraitRewritePromptEditor && (
+                  <div className="grid gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium text-[var(--foreground)]">
+                        {localizeUi("ui.agents.agenteditor.portraitRewritePrompt")}
+                      </span>
+                      {hasCustomPortraitRewritePrompt ? (
+                        <span className="flex items-center gap-1 rounded-lg bg-[var(--primary)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]">
+                          <FileText size="0.625rem" /> {localizeUi("ui.agents.agenteditor.customOverride")}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 rounded-lg bg-[var(--background)] px-2 py-0.5 text-[0.625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                          <Check size="0.625rem" /> {localizeUi("ui.agents.agenteditor.usingBuiltInDefault")}
+                        </span>
+                      )}
+                      <div className="flex-1" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isEditingPortraitRewritePrompt) {
+                            setPortraitRewritePromptDraft("");
+                            setEditingPortraitRewritePrompt(false);
+                          } else {
+                            setPortraitRewritePromptDraft(DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT);
+                            setEditingPortraitRewritePrompt(true);
+                          }
+                          markDirty();
+                        }}
+                        className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                      >
+                        {isEditingPortraitRewritePrompt ? (
+                          <>
+                            <RotateCcw size="0.625rem" /> {localizeUi("ui.agents.agenteditor.resetToDefault")}
+                          </>
+                        ) : (
+                          <>
+                            <FileText size="0.625rem" /> {localizeUi("ui.agents.agenteditor.copyDefaultToEdit")}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {isEditingPortraitRewritePrompt ? (
+                      <textarea
+                        aria-label={localizeUi("ui.agents.agenteditor.portraitRewritePrompt")}
+                        value={localPortraitRewritePrompt}
+                        onChange={(event) => {
+                          setPortraitRewritePromptDraft(event.target.value);
+                          markDirty();
+                        }}
+                        placeholder={DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT}
+                        rows={7}
+                        className="min-h-[7rem] w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs leading-relaxed text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/45 focus:border-[var(--primary)]/50"
+                      />
+                    ) : (
+                      <pre className="w-full max-h-48 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs leading-relaxed text-[var(--muted-foreground)] whitespace-pre-wrap">
+                        {DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT}
+                      </pre>
+                    )}
+                  </div>
+                )}
+              </div>
               {localAutoGenerateAvatars && (
                 <div className="mt-2">
                   <label className="block text-xs text-[var(--muted-foreground)] mb-1">
@@ -4700,6 +4904,10 @@ export function AgentEditor() {
                         setLocalSourceLorebookIds((prev) => [...prev, ...ids.filter((id) => !prev.includes(id))]);
                         setDirty(true);
                       }}
+                      onApplySet={(ids) => {
+                        setLocalSourceLorebookIds(ids);
+                        setDirty(true);
+                      }}
                       ariaLabel={localizeUi("ui.agents.agenteditor.fixedSourceOverride")}
                       triggerClassName="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                     />
@@ -5271,6 +5479,153 @@ function AgentCardSourceRow({
         ]}
       />
     </div>
+  );
+}
+
+const TRACKER_DATA_PICK_EXCLUDED_AGENT_TYPES: readonly string[] = [
+  ...BUILT_IN_TRACKER_AGENT_TYPES,
+  "knowledge-retrieval",
+  "spotify",
+];
+
+type TrackerDataMode = "off" | "all" | "pick";
+
+/**
+ * Tracker Data as a three-way choice like the Characters and Persona rows (#9426): Off, All
+ * sections, or Pick sections with a toggle per section (#9745).
+ */
+function TrackerDataSourceRow({
+  label,
+  description,
+  enabled,
+  sections,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  enabled: boolean;
+  sections: AgentTrackerDataSection[] | null;
+  onChange: (enabled: boolean, sections: AgentTrackerDataSection[] | null) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const mode: TrackerDataMode = !enabled ? "off" : sections ? "pick" : "all";
+  const toggleSection = (section: AgentTrackerDataSection) => {
+    const current = sections ?? [];
+    const next = current.includes(section) ? current.filter((entry) => entry !== section) : [...current, section];
+    // At least one section stays picked; clearing the last one would read as All sections.
+    if (next.length === 0) return;
+    onChange(
+      true,
+      AGENT_TRACKER_DATA_SECTIONS.filter((entry) => next.includes(entry)),
+    );
+  };
+  return (
+    <div
+      className={cn(
+        "flex w-full flex-col gap-2 rounded-xl p-3 text-left text-xs ring-1",
+        mode === "off"
+          ? "bg-[var(--secondary)]/55 text-[var(--muted-foreground)] ring-[var(--border)]"
+          : "bg-[var(--primary)]/10 text-[var(--foreground)] ring-[var(--primary)]/40",
+      )}
+    >
+      {/* Same label and description styles as the Characters and Persona rows (AgentCardSourceRow). */}
+      <div className="flex flex-col">
+        <span className="font-semibold">{label}</span>
+        <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
+          {description}
+        </span>
+      </div>
+      <CommandCenterSegmentedChoice<TrackerDataMode>
+        value={mode}
+        label={label}
+        onValueChange={(next) => {
+          if (next === "off") onChange(false, sections);
+          else if (next === "all") onChange(true, null);
+          else onChange(true, sections ?? ["scene"]);
+        }}
+        options={[
+          { value: "off", label: localizeUi("ui.agents.agenteditor.trackerDataMode.off") },
+          { value: "all", label: localizeUi("ui.agents.agenteditor.trackerDataMode.all") },
+          { value: "pick", label: localizeUi("ui.agents.agenteditor.trackerDataMode.pick") },
+        ]}
+      />
+      {mode === "pick" && <TrackerDataSectionsField sections={sections ?? []} onToggle={toggleSection} />}
+    </div>
+  );
+}
+
+const TRACKER_DATA_SECTION_LABELS: Record<AgentTrackerDataSection, string> = {
+  scene: "ui.agents.agenteditor.trackerDataSection.scene",
+  world: "ui.agents.agenteditor.trackerDataSection.world",
+  characters: "ui.agents.agenteditor.trackerDataSection.characters",
+  persona: "ui.agents.agenteditor.trackerDataSection.persona",
+  quests: "ui.agents.agenteditor.trackerDataSection.quests",
+  customFields: "ui.agents.agenteditor.trackerDataSection.customFields",
+  inventory: "ui.agents.agenteditor.trackerDataSection.inventory",
+};
+
+const TRACKER_DATA_SECTION_HINTS: Record<AgentTrackerDataSection, string> = {
+  scene: "ui.agents.agenteditor.trackerDataSectionHint.scene",
+  world: "ui.agents.agenteditor.trackerDataSectionHint.world",
+  characters: "ui.agents.agenteditor.trackerDataSectionHint.characters",
+  persona: "ui.agents.agenteditor.trackerDataSectionHint.persona",
+  quests: "ui.agents.agenteditor.trackerDataSectionHint.quests",
+  customFields: "ui.agents.agenteditor.trackerDataSectionHint.customFields",
+  inventory: "ui.agents.agenteditor.trackerDataSectionHint.inventory",
+};
+
+/**
+ * The picked sections as a field that opens the shared picker window (a popover on desktop, a
+ * sheet on a phone), like Select; rows toggle and the window stays open while picking.
+ */
+function TrackerDataSectionsField({
+  sections,
+  onToggle,
+}: {
+  sections: readonly AgentTrackerDataSection[];
+  onToggle: (section: AgentTrackerDataSection) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const { open, triggerRef, close, toggle } = useFieldWindow(false);
+  const label = localizeUi("ui.agents.agenteditor.trackerDataSections");
+  const summary = AGENT_TRACKER_DATA_SECTIONS.filter((section) => sections.includes(section))
+    .map((section) => localizeUi(TRACKER_DATA_SECTION_LABELS[section]))
+    .join(", ");
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={toggle}
+        className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-left text-xs text-[var(--foreground)]"
+      >
+        <span className="min-w-0 flex-1 truncate">{summary}</span>
+        <PickerChevron open={open} />
+      </button>
+      {open && (
+        <PickerWindow title={label} anchorRef={triggerRef} onClose={close} hug>
+          <PickerFolderList
+            items={AGENT_TRACKER_DATA_SECTIONS.map((section) => ({
+              id: section,
+              label: localizeUi(TRACKER_DATA_SECTION_LABELS[section]),
+              subtitle: localizeUi(TRACKER_DATA_SECTION_HINTS[section]),
+            }))}
+            folders={[]}
+            selectedIds={sections}
+            multiple
+            onToggle={(id) => onToggle(id as AgentTrackerDataSection)}
+            searchable={false}
+            listLabel={label}
+            searchLabel={localizeUi("ui.select.search")}
+            emptyLabel={localizeUi("ui.select.empty")}
+            noMatchesLabel={localizeUi("ui.select.noMatches")}
+          />
+        </PickerWindow>
+      )}
+    </>
   );
 }
 

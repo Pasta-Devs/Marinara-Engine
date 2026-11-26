@@ -455,6 +455,11 @@ export interface AgentContext {
   /** Host resolves only this agent's output on the visible message history. */
   loadPreviousOutput?: (agentConfigId: string) => Promise<unknown>;
   previousOutput?: { agentType: string; text: string };
+  /**
+   * Each active tracker's saved state, by agent type: a preset's Agent Data text without the narrator's
+   * Markdown note. `{{agent::TYPE}}` in agent prompts reads it; the executor drops the agent's own type (#9658).
+   */
+  trackerMacroData?: Record<string, string>;
   /** All lorebook IDs the agent can write to */
   writableLorebookIds: string[] | null;
   /** Chat summary text (if any) — helps agents avoid duplicating summarized info */
@@ -674,6 +679,41 @@ export const DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES: CustomAgentContextSources = {
   charactersPublicFace: false,
   personaPublicFace: false,
 };
+
+/**
+ * Sections of the Tracker Data source an agent can pick (#9745). Stored apart from `contextSources`
+ * (booleans only) as `settings.trackerDataSections`; absent or empty means All sections.
+ * Built-in trackers ignore it and keep their own section.
+ */
+export const AGENT_TRACKER_DATA_SECTIONS = [
+  "scene",
+  "world",
+  "characters",
+  "persona",
+  "quests",
+  "customFields",
+  "inventory",
+] as const;
+export type AgentTrackerDataSection = (typeof AGENT_TRACKER_DATA_SECTIONS)[number];
+export const AGENT_TRACKER_DATA_SECTIONS_SETTING = "trackerDataSections";
+
+/** Built-in trackers: each reads its own section plus the scene line, whatever is picked. */
+export const BUILT_IN_TRACKER_AGENT_TYPES: readonly string[] = [
+  "world-state",
+  "character-tracker",
+  "persona-stats",
+  "quest",
+  "custom-tracker",
+  "inventory-tracker",
+];
+
+/** The picked sections in canonical order, or null for All sections. */
+export function getAgentTrackerDataSections(settings: unknown): AgentTrackerDataSection[] | null {
+  const stored = parseAgentSettingsRecord(settings)[AGENT_TRACKER_DATA_SECTIONS_SETTING];
+  if (!Array.isArray(stored)) return null;
+  const picked = AGENT_TRACKER_DATA_SECTIONS.filter((section) => stored.includes(section));
+  return picked.length > 0 ? picked : null;
+}
 
 /** How much of a character or persona card an agent's Characters or Persona source sends. */
 export type AgentCardContextMode = "off" | "full" | "publicFace";

@@ -42,9 +42,11 @@ const provider = createServer(async (request, response) => {
 
 const { createFileNativeDB } = await import("../../../packages/server/src/db/file-backed-store.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
-const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createConnectionsStorage } =
+  await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
-const { createAppSettingsStorage } = await import("../../../packages/server/src/services/storage/app-settings.storage.js");
+const { createAppSettingsStorage } =
+  await import("../../../packages/server/src/services/storage/app-settings.storage.js");
 const { createAdvancedMemoryService } = await import("../../../packages/server/src/services/advanced-memory.js");
 const { CHAT_SUMMARY_PROMPT_SETTINGS_KEY, characterDataSchema, createChatSummaryEntry, estimateChatSummaryTokens } =
   await import("../../../packages/shared/src/index.js");
@@ -248,15 +250,30 @@ try {
     }
   });
 
-  await test("(5) a failed reply for one set of readers is one failed attempt, with no smaller groups", async () => {
-    // The Helper returns the text both read unchanged: nothing is saved, no smaller groups are tried, and nothing
-    // is sent again.
+  await test("(5, #9669) a failed reply for one set of readers keeps that set's text; the others are still shortened", async () => {
+    // The Helper returns the text both read unchanged. That set keeps its text, the private set is still asked and
+    // shortened, and the combined summary is saved, since it is shorter overall.
     answer = (text) => ({ content: text.startsWith("SHARED_WALK") ? text : shorten(text) });
     requests.length = 0;
-    const unchanged = await fixture("unchanged-set", sections, true);
+    const partial = await fixture("unchanged-set", sections, true);
+    await update(partial.chat.id);
+    assert.equal(requests.length, 2, "the set after the failed one is still asked");
+    const active = (await saved(partial.chat.id)).filter((entry) => entry.enabled);
+    assert.equal(active.length, 1, "the summaries are combined into one");
+    assert(active[0]!.content.includes(walk) && active[0]!.content.includes(later), "the shared text stays whole");
+    assert(active[0]!.content.includes(`${forMaukie}MAUKIE_SECRET{{/if}}`), "the private set is shortened");
+    assert(!active[0]!.content.includes(secret), "the private set's original text is replaced");
+  });
+
+  await test("(#9669) when no set is shortened, nothing is saved and nothing is sent again", async () => {
+    answer = (text) => ({ content: text });
+    requests.length = 0;
+    const unchanged = await fixture("unchanged-sets", sections, true);
     await update(unchanged.chat.id);
+    const asked = requests.length;
     await update(unchanged.chat.id);
-    assert.equal(requests.length, 1, "the first set's failed reply ends the attempt, and it is not asked again");
+    assert.equal(asked, 2, "every set is asked once");
+    assert.equal(requests.length, asked, "and none again on the next update");
     assert.deepEqual(await saved(unchanged.chat.id), unchanged.entries);
   });
 

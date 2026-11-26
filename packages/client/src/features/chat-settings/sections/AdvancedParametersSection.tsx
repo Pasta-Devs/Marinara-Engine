@@ -7,6 +7,8 @@ import {
   CHAT_PARAMETER_DEFAULTS,
   GenerationParametersFields,
   getEditableGenerationParameters,
+  managedParameterOverrides,
+  parseEditableGenerationParameters,
   type EditableGenerationParameters,
   ROLEPLAY_PARAMETER_DEFAULTS,
   STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS,
@@ -20,6 +22,8 @@ import {
   useSaveConnectionDefaults,
 } from "../../../hooks/use-connections";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
+import { useFeatureModels } from "../../../hooks/use-connection-accounts";
+import { useImageReadingSettings } from "../../../hooks/use-image-reading-settings";
 import { isLanguageGenerationConnection, type ConnectionProviderLike } from "../../../lib/connection-filters";
 import { cn } from "../../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -30,6 +34,7 @@ const EDITABLE_PARAMETER_KEYS: Array<keyof EditableGenerationParameters> = [
   "maxTokens",
   "topP",
   "topK",
+  "minP",
   "frequencyPenalty",
   "presencePenalty",
   "reasoningEffort",
@@ -126,6 +131,14 @@ export function AdvancedParametersSection({
     typeof metadata.imageCaptioningPrompt === "string" && metadata.imageCaptioningPrompt.trim()
       ? metadata.imageCaptioningPrompt
       : "";
+  // Without the chat's own prompt, the engine-wide Image reading prompt (Connections panel) is used.
+  const imageReadingQuery = useImageReadingSettings();
+  const imageReadingSettings = imageReadingQuery.data;
+  const engineCaptioningPrompt = imageReadingSettings?.prompt?.trim() || DEFAULT_IMAGE_CAPTIONING_PROMPT;
+  // Automatic captioning (an Image reading model, switch never touched here) reads with this prompt too.
+  const imageReadingDefaultSet = !!useFeatureModels().data?.visionConnectionId;
+  const showCaptioningPrompt =
+    captioningEnabled || (typeof imageCaptioningEnabled !== "boolean" && imageReadingDefaultSet);
   const mayReadImages = useMayReadImages();
   const chatConnectionCanCaption = !!conn && canCaption(conn);
   const connectionOptions = useMemo(
@@ -179,11 +192,18 @@ export function AdvancedParametersSection({
       if (!editableKeys.has(key)) sparse[key] = value;
     }
     for (const key of EDITABLE_PARAMETER_KEYS) {
-      if (key === "enabledParameters") continue;
+      if (key === "enabledParameters" || key === "managedCustomParameters") continue;
       if (JSON.stringify(next[key]) !== JSON.stringify(defaults[key])) {
         sparse[key] = next[key];
       }
     }
+    // Custom parameter values are merged per parameter, so an edit keeps only this chat's own ones.
+    const managedOverrides = managedParameterOverrides(
+      parseEditableGenerationParameters(params)?.managedCustomParameters,
+      defaults.managedCustomParameters,
+      next.managedCustomParameters,
+    );
+    if (Object.keys(managedOverrides).length > 0) sparse.managedCustomParameters = managedOverrides;
     // Preserve explicit Send choices without freezing inherited connection switches
     // when the user edits an unrelated value.
     const previousSend = (params.enabledParameters ?? {}) as Record<string, unknown>;
@@ -366,7 +386,25 @@ export function AdvancedParametersSection({
             />
           </label>
         )}
-        {captioningEnabled && (
+        {showCaptioningPrompt && !captioningEnabled && (
+          <p className="px-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi("chatSettings.advanced.imageCaptioningAutomatic")}
+          </p>
+        )}
+        {showCaptioningPrompt && !imageReadingSettings && !customCaptioningPrompt && imageReadingQuery.isError && (
+          <p className="flex items-center gap-2 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
+            {localizeUi("chatSettings.advanced.imageCaptioningPromptLoadFailed")}
+            <button
+              type="button"
+              onClick={() => void imageReadingQuery.refetch()}
+              className="rounded-lg bg-[var(--secondary)] px-2 py-1 ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            >
+              {localizeUi("chatSettings.advanced.imageCaptioningPromptRetry")}
+            </button>
+          </p>
+        )}
+        {/* Waits for the engine prompt, so a box focused early can't save the built-in text as this chat's own. */}
+        {showCaptioningPrompt && (imageReadingSettings || customCaptioningPrompt) && (
           <div className="space-y-1 px-1">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
@@ -386,12 +424,12 @@ export function AdvancedParametersSection({
             </div>
             <DraftTextarea
               aria-label={localizeUi("chatSettings.advanced.imageCaptioningPrompt")}
-              value={customCaptioningPrompt || DEFAULT_IMAGE_CAPTIONING_PROMPT}
+              value={customCaptioningPrompt || engineCaptioningPrompt}
               onCommit={(value) => {
-                // Clearing the box or matching the default drops the chat's own prompt.
+                // Clearing the box or matching the Image reading prompt drops the chat's own prompt.
                 const trimmed = value.trim();
                 onImageCaptioningChange({
-                  imageCaptioningPrompt: trimmed && trimmed !== DEFAULT_IMAGE_CAPTIONING_PROMPT ? value : null,
+                  imageCaptioningPrompt: trimmed && trimmed !== engineCaptioningPrompt.trim() ? value : null,
                 });
               }}
               rows={5}

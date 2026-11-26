@@ -24,7 +24,7 @@ import type {
 import { LOCAL_SIDECAR_CONNECTION_ID, matchOmnibarCapabilityAgentPackageIds } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import { MARI_QUICK_CONNECTION, marisConnectionFor } from "../../lib/omnibar-aside-text";
-import { ChevronLeft, PanelBottom, PanelLeft, Search, X } from "lucide-react";
+import { ChevronLeft, PanelBottom, PanelLeft, PictureInPicture2, Search, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { checkReply } from "../../lib/reply-checkup";
@@ -68,6 +68,7 @@ import {
   advanceMariHandoff,
   isApplePlatform,
   isAskMariShortcut,
+  isOmnibarShortcut,
   recordCommandUse,
   writeCommandRankingState,
   writeCommandCenterSessionState,
@@ -130,7 +131,7 @@ import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
-import { MARI_WINDOW_HEIGHT_MIN_REM, useUIStore } from "../../stores/ui.store";
+import { useUIStore } from "../../stores/ui.store";
 import { InlineGhostText } from "../ui/InlineGhostText";
 import {
   getCommandCenterCategoryVisual,
@@ -165,6 +166,7 @@ import {
 import { buildOmnibarPreviewActions } from "./omnibar/omnibar-preview-actions";
 import { createOmnibarKeyHandlers } from "./omnibar/omnibar-keyboard";
 import { MariCompanionResizeHandle, MariSheetHandle, useMariCompanion } from "./omnibar/use-mari-companion";
+import { MariFloatResizeHandles, useMariFloat } from "./omnibar/use-mari-float";
 import { useOmnibarEntityRows } from "./omnibar/use-omnibar-entity-rows";
 import { useOmnibarMessageSearch } from "./omnibar/use-omnibar-message-search";
 import { useOmnibarScreenContext } from "./omnibar/use-omnibar-screen-context";
@@ -199,9 +201,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const mariWindowHeightRem = useUIStore((state) => state.mariWindowHeightRem);
-  const mariWindowViewportHeight = Math.min(88, (80 * mariWindowHeightRem) / MARI_WINDOW_HEIGHT_MIN_REM);
-  const mariWindowWidthRem = useUIStore((state) => state.mariWindowWidthRem);
   const omnibarWindowWidthRem = useUIStore((state) => state.omnibarWindowWidthRem);
   const omnibarWindowHeightRem = useUIStore((state) => state.omnibarWindowHeightRem);
   const firstResultPaintMarked = useRef(false);
@@ -1024,27 +1023,62 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     setSnap: setSheetSnap,
     ...companionSize
   } = useMariCompanion(mariSurface, dialogRef);
+  // #9818: on a computer she can float instead: no backdrop, movable, open while the app is used.
+  const float = useMariFloat(mariSurface, companion, companionAvailable, dialogRef);
+  // Both companion and float leave the app usable: no backdrop, no focus trap, Escape only from inside her.
+  const nonModal = companion || float.active;
+  const floatLabel = float.active
+    ? t("omnibar.float.dock", "Dock Prof. Mari back")
+    : t("omnibar.float.float", "Float Prof. Mari");
   const dockLabel = companionDesktop
     ? t("omnibar.companion.dock", "Keep Prof. Mari beside the editor")
     : t("omnibar.companion.dockSheet", "Keep Prof. Mari below the editor");
-  const lastCompanionRef = useRef(companion);
+  const lastNonModalRef = useRef(nonModal);
+  const lastFloatRef = useRef(float.active);
+  // Where the dialog was last drawn while not floating (search, or her centred window): it morphs from there into
+  // her floating window (FLIP). Read after each commit, when the browser lays the page out anyway.
+  const searchRectRef = useRef<DOMRect | null>(null);
   useLayoutEffect(() => {
-    if (lastCompanionRef.current === companion) return;
-    lastCompanionRef.current = companion;
+    if (!float.active && !companion) searchRectRef.current = dialogRef.current?.getBoundingClientRect() ?? null;
+  });
+  useLayoutEffect(() => {
+    if (lastNonModalRef.current === nonModal && lastFloatRef.current === float.active) return;
+    const wasFloat = lastFloatRef.current;
+    lastNonModalRef.current = nonModal;
+    lastFloatRef.current = float.active;
     const dialog = dialogRef.current;
     // Now modal (toggle, or the viewport shrank): focus must not stay behind the backdrop.
-    if (!companion && dialog && !dialog.contains(document.activeElement)) {
+    if (!nonModal && dialog && !dialog.contains(document.activeElement)) {
       dialog.querySelector<HTMLElement>("textarea, input, button")?.focus();
     }
-    if (reduceMotion) return;
-    dialogRef.current?.animate(
+    if (reduceMotion || !dialog) return;
+    // Search, her centred window and her floating window are one dialog in different places: it moves and grows
+    // from one to the other (Float, Dock back, Back to Search, ⌘J), like the centred search grows into her window.
+    const from = wasFloat ? float.drawn : float.active ? searchRectRef.current : null;
+    if (from && wasFloat !== float.active) {
+      const to = dialog.getBoundingClientRect();
+      if (to.width > 0 && to.height > 0) {
+        dialog.animate(
+          [
+            {
+              transformOrigin: "top left",
+              transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`,
+            },
+            { transformOrigin: "top left", transform: "none" },
+          ],
+          { duration: 220, easing: "cubic-bezier(0.2, 0, 0, 1)" },
+        );
+        return;
+      }
+    }
+    dialog.animate(
       [
         { opacity: 0.4, transform: "scale(0.985)" },
         { opacity: 1, transform: "none" },
       ],
       { duration: 200, easing: "ease-out" },
     );
-  }, [companion, reduceMotion]);
+  }, [nonModal, float.active, float.drawn, reduceMotion]);
   // K6: fire once per open, the first time the results pane actually paints
   // (opening straight into Mari's pane has no results list to time).
   useLayoutEffect(() => {
@@ -1060,13 +1094,13 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       setInputTravel(0);
       return;
     }
-    // The panel grows into the takeover, so aim at the taller shell, not this one.
+    // The panel grows into the takeover, so aim at the taller shell (48rem, at most 87dvh), not this one.
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-    const grown = Math.min(mariWindowHeightRem * rem, window.innerHeight * (mariWindowViewportHeight / 100));
+    const grown = Math.min(48 * rem, window.innerHeight * 0.87);
     setInputTravel(
       Math.max(0, grown - (input.getBoundingClientRect().bottom - dialog.getBoundingClientRect().top) - 44),
     );
-  }, [mariSurface, reduceMotion, mariWindowHeightRem, mariWindowViewportHeight]);
+  }, [mariSurface, reduceMotion]);
   // Ghost text: continue the query with the best-ranked result title. Uses the
   // ranked list already on screen, so the guess never disagrees with row 1.
   // It completes the name only. Completing the whole sentence ("add Eliza to
@@ -1598,7 +1632,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   });
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || !isAskMariShortcut(event)) return;
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || !isAskMariShortcut(event)) return;
       // A dialog opened above the omnibar (a confirm from Mari, say) keeps the keyboard, as with ⌘K.
       const dialog = event.target instanceof Element ? event.target.closest('[aria-modal="true"]') : null;
       if (dialog && !dialog.closest('[data-component="GlobalOmnibar"]')) return;
@@ -1608,12 +1642,30 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+  // #9818: ⌘K with her open goes to Search, like Back, instead of closing the whole omnibar (the host's toggle).
+  // Floating, the app stays usable, so closing her on the search shortcut lost her for nothing.
+  const mariToSearch = useEffectEvent((event: globalThis.KeyboardEvent) => {
+    if (pane !== "mari") return;
+    event.preventDefault();
+    leaveDetail();
+  });
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || !isOmnibarShortcut(event)) return;
+      const dialog = event.target instanceof Element ? event.target.closest('[aria-modal="true"]') : null;
+      if (dialog && !dialog.closest('[data-component="GlobalOmnibar"]')) return;
+      mariToSearch(event);
+    };
+    // Capture: runs before the host's bubble listener, which skips a handled (defaultPrevented) key.
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, []);
   // UX-02: a card action (Accept, Undo) removes the button that had focus, so focus falls to the page and
   // the dialog never hears Escape. From the page, Escape still goes back from her window.
   const escapeFromPage = useEffectEvent((event: globalThis.KeyboardEvent) => {
-    if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
-    // Companion mode: Escape closes her only from inside her panel (closeCompanionOnEscape).
-    if (document.activeElement !== document.body || pane !== "mari" || companion) return;
+    if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+    // Companion and float: Escape closes her only from inside her panel (closeCompanionOnEscape).
+    if (document.activeElement !== document.body || pane !== "mari" || nonModal) return;
     event.preventDefault();
     leaveDetail();
   });
@@ -2011,7 +2063,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const setCompanionDocked = useUIStore((state) => state.setMariCompanionDocked);
   // Companion mode is not a dialog: no focus trap, and Escape closes her only from inside her panel.
   const closeCompanionOnEscape = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Escape" || event.defaultPrevented) return;
+    // An IME cancels its composition with Escape: that key is not the panel's.
+    if (event.key !== "Escape" || event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229)
+      return;
     event.preventDefault();
     event.stopPropagation();
     onClose();
@@ -2058,11 +2112,13 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       data-mode={pane === "mari" ? "work" : "find"}
       data-mari-companion={companionShape ?? undefined}
       data-mari-sheet-snap={companionShape === "sheet" ? sheetSnap : undefined}
+      data-mari-float={float.active ? (float.zone ?? "free") : undefined}
+      data-mari-float-dragging={float.dragging ? "true" : undefined}
       data-mari-composer-focused={composerFocused ? "true" : undefined}
       onFocus={(event) => setComposerFocused(event.target.classList.contains("mari-workspace-composer__input"))}
       onBlur={() => setComposerFocused(false)}
       className={
-        companion
+        nonModal
           ? "pointer-events-none fixed inset-0 z-(--mari-layer-omnibar)"
           : "fixed inset-0 z-(--mari-layer-omnibar) flex items-start justify-center bg-black/55 backdrop-blur-sm motion-safe:transition-[padding] motion-safe:duration-300 sm:pt-[var(--omnibar-top)] sm:pr-[max(1.5rem,var(--mari-safe-area-inset-right))] sm:pl-[max(1.5rem,var(--mari-safe-area-inset-left))]"
       }
@@ -2077,7 +2133,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         // React bubbles keys from overlays portaled out of her window (the image lightbox and its model picker,
         // #9387) up to here. They belong to that overlay: Escape there must not close her, nor Tab pull focus back.
         if (!event.currentTarget.contains(event.target as Node)) return;
-        if (companion) closeCompanionOnEscape(event);
+        if (nonModal) closeCompanionOnEscape(event);
         else trapFocus(event);
       }}
     >
@@ -2085,7 +2141,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
           animating it let every keyboard close leave her composer up to ~200 px above the bottom for 300 ms. */}
       <div
         role={companion ? "complementary" : "dialog"}
-        aria-modal={companion ? undefined : "true"}
+        aria-modal={nonModal ? undefined : "true"}
         aria-labelledby={companion ? undefined : "global-omnibar-title"}
         aria-label={
           companionShape === "sheet"
@@ -2098,9 +2154,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         data-component="GlobalOmnibar.Panel"
         style={
           {
-            "--mari-window-height": `${mariWindowHeightRem}rem`,
-            "--mari-window-viewport-height": `${mariWindowViewportHeight}dvh`,
-            "--mari-window-width": `${mariWindowWidthRem}rem`,
             "--omnibar-window-width": `${omnibarWindowWidthRem}rem`,
             "--omnibar-window-height": `${omnibarWindowHeightRem ?? 0}rem`,
           } as React.CSSProperties
@@ -2108,15 +2161,17 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         className={
           companion
             ? "mari-companion-panel mari-workspace-shell isolate flex flex-col overflow-hidden bg-[var(--card)]"
-            : `relative isolate flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--card)] shadow-2xl ${fromPull ? "" : "motion-safe:animate-omnibar-in"} ${pane === "mari" ? "sm:max-w-[max(44rem,min(var(--mari-window-width),92vw))]" : "sm:max-w-[max(44rem,min(var(--omnibar-window-width),92vw))]"} sm:rounded-2xl sm:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.55)] sm:ring-1 sm:ring-[var(--border)]/60 sm:motion-safe:transition-[height,max-height,max-width] sm:motion-safe:duration-300 sm:motion-safe:ease-out motion-reduce:transition-none ${
-                pane === "mari"
-                  ? "mari-workspace-shell sm:h-[min(var(--mari-window-height),var(--mari-window-viewport-height))] sm:max-h-[min(var(--mari-window-height),var(--mari-window-viewport-height))]"
-                  : omnibarWindowHeightRem !== null
-                    ? "sm:h-[min(var(--omnibar-window-height),88dvh)] sm:max-h-[min(var(--omnibar-window-height),88dvh)]"
-                    : idle && !settingsOpen
-                      ? "sm:h-auto sm:max-h-none"
-                      : "sm:h-[min(36rem,68dvh)] sm:max-h-[min(36rem,68dvh)]"
-              }`
+            : float.active
+              ? "mari-float-panel mari-workspace-shell isolate flex flex-col overflow-hidden bg-[var(--card)]"
+              : `relative isolate flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--card)] shadow-2xl ${fromPull ? "" : "motion-safe:animate-omnibar-in"} ${pane === "mari" ? "sm:max-w-[44rem]" : "sm:max-w-[max(44rem,min(var(--omnibar-window-width),92vw))]"} sm:rounded-2xl sm:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.55)] sm:ring-1 sm:ring-[var(--border)]/60 sm:motion-safe:transition-[height,max-height,max-width] sm:motion-safe:duration-300 sm:motion-safe:ease-out motion-reduce:transition-none ${
+                  pane === "mari"
+                    ? "mari-workspace-shell sm:h-[min(48rem,87dvh)] sm:max-h-[min(48rem,87dvh)]"
+                    : omnibarWindowHeightRem !== null
+                      ? "sm:h-[min(var(--omnibar-window-height),88dvh)] sm:max-h-[min(var(--omnibar-window-height),88dvh)]"
+                      : idle && !settingsOpen
+                        ? "sm:h-auto sm:max-h-none"
+                        : "sm:h-[min(36rem,68dvh)] sm:max-h-[min(36rem,68dvh)]"
+                }`
         }
       >
         <div
@@ -2130,7 +2185,10 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         <h2 id="global-omnibar-title" className="sr-only">
           {mariSurface ? t("commandCenter.workTitle", "Professor Mari") : t("omnibar.title", "Search Marinara")}
         </h2>
-        <header className="relative z-50 shrink-0 overflow-visible pt-[env(safe-area-inset-top)]">
+        <header
+          className="relative z-50 shrink-0 overflow-visible pt-[env(safe-area-inset-top)]"
+          onPointerDown={float.active || companionShape === "panel" ? float.onHeaderPointerDown : undefined}
+        >
           <div
             className={cn(
               "flex items-center",
@@ -2283,6 +2341,18 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                 {companionDesktop ? <PanelLeft size={14} /> : <PanelBottom size={14} />}
               </button>
             ) : null}
+            {float.available ? (
+              <button
+                type="button"
+                onClick={float.toggle}
+                aria-pressed={float.active}
+                aria-label={floatLabel}
+                title={floatLabel}
+                className={cn("omnibar-settings-menu__trigger", float.active && "omnibar-settings-menu__trigger--open")}
+              >
+                <PictureInPicture2 size={14} />
+              </button>
+            ) : null}
             {mariSurface ? <OmnibarSettingsButton open={settingsOpen} onOpen={() => openSettings()} /> : null}
             <button
               type="button"
@@ -2432,6 +2502,12 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
           />
         ) : null}
       </div>
+
+      {float.active ? <MariFloatResizeHandles onResizePointerDown={float.onResizePointerDown} /> : null}
+      {/* Where a drag would snap her, drawn under her window while she is held over that edge. use-mari-float moves it. */}
+      {float.active ? (
+        <div ref={float.previewRef} aria-hidden="true" data-shown="false" className="mari-float-zone-preview" />
+      ) : null}
 
       <AnimatePresence>
         {fieldFlight ? (

@@ -1,10 +1,22 @@
 // ──────────────────────────────────────────────
-// ConnectionDefaults — the Jobs box at the top of the Connections panel: one row per job with its Model, and
-// its "If it fails" Model when set. A row opens the job's one picker (Model and If it fails). A job with a
-// problem shows it as a chip on its row. Agents and Decision keep their other settings behind a gear.
+// ConnectionDefaults — the jobs' Models. The Jobs card at the top of the Connections panel shows Main, one
+// sentence on what the other jobs follow, and their problems; the Jobs page lists every job: the ones with a
+// Model of their own as rows (with "If it fails"), the ones that follow Main or Agents or are off as chips. A row
+// or chip opens the job's one picker; a job with settings of its own keeps them behind a gear.
 // ──────────────────────────────────────────────
-import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Shuffle, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { AlertTriangle, ChevronRight, Shuffle, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -60,9 +72,11 @@ import {
   type Job,
   type JobKey,
 } from "../../lib/connection-jobs";
+import { summarizeJobs, type JobBucket } from "../../lib/connection-jobs-summary";
 import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
+import { ImageReadingSettings } from "./ImageReadingSettings";
 import { LocalWhisper, SMALL_ACTION } from "./DeviceDetail";
 import { ROW_BUTTON, type ConnectionRowData } from "./ConnectionRow";
 import { JobRow, isUnset } from "./JobRow";
@@ -490,9 +504,6 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
 /** Voice job picker values for a built-in text to speech source, not a Model. */
 export const DEVICE_VOICE = "tts-source:";
 
-/** Persisted with the Connection folds; no Connection id is "defaults". */
-const DEFAULTS_FOLD_ID = "defaults";
-
 type RoleField = (typeof FLAG_JOBS)[number]["flag"] | (typeof FLAG_JOBS)[number]["fallback"];
 
 /** The jobs' Model pickers and the setters behind them; one hook so the rows stay plain. */
@@ -715,7 +726,7 @@ function overridesOf(key: JobKey, rows: readonly ConnectionRowData[]) {
 }
 
 /** Jobs with behaviour of their own: a gear opens the job's settings window. */
-const JOB_SETTINGS = new Set<JobKey>(["voice", "stt", "decision", "agents"]);
+const JOB_SETTINGS = new Set<JobKey>(["voice", "stt", "decision", "agents", "vision"]);
 
 /** A titled box in the job settings window. */
 function JobSettingsSection({ title, children }: { title: string; children: ReactNode }) {
@@ -748,13 +759,19 @@ export function DictationSettings() {
   );
 }
 
-/** One job: its row opens the job's picker; a job with behaviour of its own has a gear for its settings window. */
+/**
+ * One job: its row opens the job's picker; a job with behaviour of its own has a gear for its settings window.
+ * `chip` draws it as a compact chip (icon and name) that opens the same picker, page or set-up; its text says what
+ * the job does ("Follows Main", "Off"), for the chip's name.
+ */
 function DefaultsJobRow({
   tile,
   job,
   modelFor,
   onOpenDevice,
   overrides = [],
+  chip,
+  onBusyChange,
 }: {
   /** Models that keep a setting of this job on their own row, edited here */
   overrides?: readonly ConnectionRowData[];
@@ -762,15 +779,28 @@ function DefaultsJobRow({
   job: Job;
   modelFor: ReturnType<typeof useJobModels>;
   onOpenDevice: (item: DeviceItem) => void;
+  chip?: string;
+  /** Told while the job's picker or settings window is open, so the Jobs page keeps it where it is. */
+  onBusyChange?: (key: JobKey, busy: boolean) => void;
 }) {
   const { t } = useTranslation();
   const mayReadImages = useMayReadImages();
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const busy = open || settingsOpen;
+  useEffect(() => {
+    if (!onBusyChange) return;
+    onBusyChange(job.key as JobKey, busy);
+    return () => onBusyChange(job.key as JobKey, false);
+  }, [busy, job.key, onBusyChange]);
   const connectionSaving = useUIStore((s) => s.connectionSaving);
   const embeddings = job.key === "embeddings";
   const decision = job.key === "decision";
   const hasSettings = JOB_SETTINGS.has(job.key as JobKey) || overrides.length > 0;
+  // A settings window that no longer applies (Embeddings' last override cleared) must not hold the job as busy.
+  useEffect(() => {
+    if (!hasSettings) setSettingsOpen(false);
+  }, [hasSettings]);
   const model = embeddings || decision || job.device ? null : modelFor(job);
   const title = t(jobLabelKey(job));
   const onClick = () => {
@@ -781,46 +811,87 @@ function DefaultsJobRow({
     if (job.device) return setSettingsOpen(true);
     setOpen(true);
   };
+  // A chip that has just been given a Model of its own (the Jobs page keeps it in place while its window is open)
+  // names that Model instead of its section's word.
+  const chipModel = chip !== undefined && !tile.find && !tile.setup && !tile.follows && !!tile.source;
+  const chipAction =
+    chip === undefined
+      ? null
+      : tile.find
+        ? t(tile.find.count || tile.find.unknown ? "connections.defaults.pick" : "connections.defaults.add")
+        : tile.setup
+          ? t("connections.defaults.setUp")
+          : chipModel
+            ? tile.value
+            : null;
   const chevron = <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />;
+  const settingsButton = hasSettings && (
+    <button
+      type="button"
+      onClick={() => setSettingsOpen(true)}
+      aria-haspopup="dialog"
+      aria-label={t("connections.defaults.settingsFor", { role: title })}
+      // The panel's row-button look (quiet at rest, the shared accent hover), like the Connections rows.
+      className={ROW_BUTTON}
+    >
+      <SlidersHorizontal size="0.875rem" aria-hidden />
+    </button>
+  );
   return (
-    <div className="relative" data-defaults-role={job.key}>
-      <JobRow
-        // Pick or Add is the fix, so an empty job's own warning chip would only repeat it.
-        tile={tile.find ? { ...tile, warning: null } : tile}
-        data-defaults-tile={job.key}
-        onClick={onClick}
-        aria-haspopup={tile.device ? undefined : "dialog"}
-        aria-label={t("connections.defaults.jobLabel", {
-          role: tile.title,
-          value: [tile.follows, tile.value].filter(Boolean).join(" · "),
-        })}
-        trailing={chevron}
-        end={
-          <>
-            {tile.find && (
-              <button
-                type="button"
-                onClick={onClick}
-                className="mari-chrome-control mari-chrome-control--primary shrink-0 !min-h-7 !px-3 !py-1 !text-xs"
-              >
-                {t(tile.find.count || tile.find.unknown ? "connections.defaults.pick" : "connections.defaults.add")}
-              </button>
-            )}
-            {hasSettings && (
-              <button
-                type="button"
-                onClick={() => setSettingsOpen(true)}
-                aria-haspopup="dialog"
-                aria-label={t("connections.defaults.settingsFor", { role: title })}
-                // The panel's row-button look (quiet at rest, the shared accent hover), like the Connections rows.
-                className={ROW_BUTTON}
-              >
-                <SlidersHorizontal size="0.875rem" aria-hidden />
-              </button>
-            )}
-          </>
-        }
-      />
+    <div
+      className={chip === undefined ? "relative" : "relative inline-flex max-w-full items-center"}
+      data-defaults-role={job.key}
+    >
+      {chip === undefined ? (
+        <JobRow
+          // Pick or Add is the fix, so an empty job's own warning chip would only repeat it.
+          tile={tile.find ? { ...tile, warning: null } : tile}
+          data-defaults-tile={job.key}
+          onClick={onClick}
+          aria-haspopup={tile.device ? undefined : "dialog"}
+          aria-label={t("connections.defaults.jobLabel", {
+            role: tile.title,
+            value: [tile.follows, tile.value].filter(Boolean).join(" · "),
+          })}
+          trailing={chevron}
+          end={
+            <>
+              {tile.find && (
+                <button
+                  type="button"
+                  onClick={onClick}
+                  className="mari-chrome-control mari-chrome-control--primary shrink-0 !min-h-7 !px-3 !py-1 !text-xs"
+                >
+                  {t(tile.find.count || tile.find.unknown ? "connections.defaults.pick" : "connections.defaults.add")}
+                </button>
+              )}
+              {settingsButton}
+            </>
+          }
+        />
+      ) : (
+        <>
+          <button
+            type="button"
+            data-defaults-tile={job.key}
+            onClick={onClick}
+            aria-haspopup={tile.device ? undefined : "dialog"}
+            aria-label={t("connections.defaults.jobLabel", {
+              role: tile.title,
+              value: chipModel ? tile.value : [chip, chipAction].filter(Boolean).join(" · "),
+            })}
+            className={cn("mari-connection-chip min-w-0 gap-1.5", FOCUS)}
+          >
+            <span aria-hidden className="flex shrink-0">
+              {tile.icon}
+            </span>
+            <span className="truncate">{tile.title}</span>
+            {/* An empty job's chip says what a click does, as its row's Pick, Add or Set up did. */}
+            {chipAction && <span className="shrink-0 text-[var(--muted-foreground)]">· {chipAction}</span>}
+          </button>
+          {settingsButton}
+        </>
+      )}
       {model && (
         <ConnectionSelect
           variant="controlled"
@@ -828,6 +899,7 @@ function DefaultsJobRow({
           onOpenChange={setOpen}
           job={title}
           jobKey={job.key as JobKey}
+          showJobSettings={job.key === "vision"}
           rowFilter={job.key === "vision" ? mayReadImages : undefined}
           {...model}
         />
@@ -855,6 +927,11 @@ function DefaultsJobRow({
               <Suspense fallback={null}>
                 <ConnectionEditor connectionId={tile.source.id} part="decision" />
               </Suspense>
+            )}
+            {job.key === "vision" && (
+              <JobSettingsSection title={t("connections.imageReading.title")}>
+                <ImageReadingSettings />
+              </JobSettingsSection>
             )}
             {overrides.length > 0 && (
               <JobSettingsSection title={t("connections.jobSettings.overrides")}>
@@ -924,13 +1001,159 @@ export function JobPickerWindow({ job, onClose }: { job: Job; onClose: () => voi
       open
       onOpenChange={(open) => !open && onClose()}
       job={t(jobLabelKey(job))}
+      showJobSettings={job.key === "vision"}
       {...model}
     />
   );
 }
 
-/** The Jobs box at the top of the Connections panel: every job, its Model, and its "If it fails" Model. */
-export function ConnectionDefaultsBox({
+/** The card shows this many problems; "+N more" opens the Jobs page for the rest. */
+const PROBLEMS_SHOWN = 3;
+
+/** The tiles, sorted for the card and the page (lib/connection-jobs-summary.ts). */
+function useJobsSummary(connectionsList: ConnectionRowData[]) {
+  const { t } = useTranslation();
+  const tiles = useConnectionDefaults(connectionsList);
+  return summarizeJobs(tiles, t("connections.defaults.followsAgents"));
+}
+
+/** One job's problem on the card: "Job: short warning", and its fix when it has one, in the row fix's look. */
+function JobProblemLine({ tile }: { tile: DefaultsTile }) {
+  const { t } = useTranslation();
+  const textId = useId();
+  const warning = tile.warning;
+  if (!warning) return null;
+  return (
+    <li className="flex min-h-9 min-w-0 items-center gap-2 px-1.5 text-xs max-md:min-h-11">
+      <AlertTriangle size="0.75rem" aria-hidden className="shrink-0 text-[var(--warning)]" />
+      <span id={textId} title={warning.text} className="min-w-0 flex-1 truncate text-[var(--foreground)]">
+        {t("connections.defaults.jobLabel", { role: tile.title, value: warning.short ?? warning.text })}
+      </span>
+      {warning.fix && (
+        <button
+          type="button"
+          onClick={warning.fix.run}
+          title={warning.text}
+          aria-describedby={textId}
+          className="group flex min-h-9 shrink-0 items-center rounded-md outline-none focus-visible:[&>span]:ring-1 focus-visible:[&>span]:ring-[var(--ring)] max-md:min-h-11"
+        >
+          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] px-1.5 py-0.5 text-[0.625rem] text-[var(--warning)] transition-colors group-hover:bg-[color-mix(in_srgb,var(--warning)_20%,transparent)]">
+            <AlertTriangle size="0.625rem" aria-hidden className="shrink-0" />
+            {warning.fix.label}
+          </span>
+        </button>
+      )}
+    </li>
+  );
+}
+
+/** A quiet text button on the card, such as "All jobs". */
+const CARD_LINK = cn(
+  "inline-flex min-h-9 w-fit items-center gap-1 rounded-md px-1.5 text-xs font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] max-md:min-h-11",
+  FOCUS,
+);
+
+/**
+ * The Jobs card at the top of the Connections panel: Main (one tap to change), one sentence on what the other jobs
+ * follow, their problems, and the way to the Jobs page.
+ */
+export function ConnectionJobsSummary({
+  connectionsList,
+  onOpenJobs,
+  onOpenDevice,
+  current = false,
+}: {
+  connectionsList: ConnectionRowData[];
+  onOpenJobs: () => void;
+  onOpenDevice: (item: DeviceItem) => void;
+  /** The Jobs page shows beside the list (a wide panel), so its row reads as the current one. */
+  current?: boolean;
+}) {
+  const { t } = useTranslation();
+  useMigrateVoiceJob();
+  const summary = useJobsSummary(connectionsList);
+  const modelFor = useJobModels(connectionsList);
+  const titleId = useId();
+  // Off jobs are not named: the sentence says what runs, and the Jobs page lists them.
+  const sentence = summary.exceptions.length
+    ? t("connections.jobs.followMainExcept", {
+        jobs: new Intl.ListFormat(i18n.resolvedLanguage ?? i18n.language, { type: "conjunction" }).format(
+          summary.exceptions.map((tile) => tile.title),
+        ),
+      })
+    : t("connections.jobs.allFollowMain");
+  const shown = summary.problems.slice(0, PROBLEMS_SHOWN);
+  const more = summary.problems.length - shown.length;
+  return (
+    <section aria-labelledby={titleId} className="mari-connection-group mari-connection-defaults-box">
+      <button
+        type="button"
+        data-connections-row="defaults"
+        onClick={onOpenJobs}
+        aria-current={current || undefined}
+        aria-label={t("connections.jobs.openWithSummary", { summary: sentence })}
+        className={cn(
+          "relative flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-start",
+          current && "bg-foreground/[0.06]",
+          FOCUS,
+        )}
+      >
+        <span id={titleId} className="min-w-0 flex-1 text-base font-semibold leading-6 text-[var(--foreground)]">
+          {t("connections.defaults.title")}
+        </span>
+        <ChevronRight size="1rem" aria-hidden className="shrink-0 text-[var(--muted-foreground)]" />
+      </button>
+      <div className="flex flex-col gap-1 pt-0.5">
+        {summary.main && (
+          <div className="mari-connection-model-well">
+            <div className="mari-connection-model-slot min-w-0">
+              <DefaultsJobRow tile={summary.main} job={JOB.main} modelFor={modelFor} onOpenDevice={onOpenDevice} />
+            </div>
+          </div>
+        )}
+        <p className="px-1.5 pt-1 text-xs text-[var(--muted-foreground)]">{sentence}</p>
+        {shown.length > 0 && (
+          <ul aria-label={t("connections.jobs.problems", { count: summary.problems.length })} className="flex flex-col">
+            {shown.map((tile) => (
+              <JobProblemLine key={tile.key} tile={tile} />
+            ))}
+            {more > 0 && (
+              <li>
+                <button type="button" onClick={onOpenJobs} className={CARD_LINK}>
+                  {t("connections.jobs.moreProblems", { count: more })}
+                </button>
+              </li>
+            )}
+          </ul>
+        )}
+        <button type="button" data-connections-jobs-open onClick={onOpenJobs} className={CARD_LINK}>
+          {t("connections.jobs.all")}
+          <ChevronRight size="0.875rem" aria-hidden className="shrink-0" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** One part of the Jobs page under its own small heading. */
+function JobsPageSection({ title, part, children }: { title: string; part: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <section aria-labelledby={id} data-jobs-section={part} className="flex min-w-0 flex-col">
+      <h4 id={id} className="mari-connection-defaults-group">
+        {title}
+      </h4>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * The Jobs page (the Connections panel's "jobs" page): Main, the jobs with a Model of their own (and the ones with a
+ * problem) as rows, then the jobs that follow Main or Agents, and the ones that are off, as chips. Every job shows
+ * once; Main always shows, so the page is never empty.
+ */
+export function ConnectionJobsPage({
   connectionsList,
   onOpenDevice,
 }: {
@@ -938,75 +1161,134 @@ export function ConnectionDefaultsBox({
   onOpenDevice: (item: DeviceItem) => void;
 }) {
   const { t } = useTranslation();
-  useMigrateVoiceJob();
-  const tiles = useConnectionDefaults(connectionsList);
+  const live = useJobsSummary(connectionsList);
   const modelFor = useJobModels(connectionsList);
-  const folded = useUIStore((s) => s.connectionsCollapsed.includes(DEFAULTS_FOLD_ID));
-  const toggleFold = useUIStore((s) => s.toggleConnectionCollapsed);
-  const groups = [...new Set(JOBS.map((job) => job.group))];
-  const main = tiles.find((tile) => tile.key === "main");
-  const mainModel = main?.source && !main.muted ? main.value : null;
-  return (
-    <section
-      aria-labelledby="connections-defaults-title"
-      className={cn("mari-connection-group mari-connection-defaults-box", folded && "!py-1")}
-    >
-      <button
-        type="button"
-        data-connections-row="defaults"
-        onClick={() => toggleFold(DEFAULTS_FOLD_ID)}
-        aria-expanded={!folded}
-        aria-controls={folded ? undefined : "connections-defaults"}
-        className={cn(
-          "relative flex w-full min-w-0 items-center gap-1.5 px-1.5 text-start",
-          folded ? "min-h-10 py-0" : "min-h-11 py-1",
-          FOCUS,
-        )}
-      >
-        <span
-          id="connections-defaults-title"
-          className="min-w-0 flex-1 text-base font-semibold leading-6 text-[var(--foreground)]"
-        >
-          {t("connections.defaults.title")}
-        </span>
-        {/* Closed, the bar still says which Model chats use. */}
-        {folded && mainModel && (
-          <span className="min-w-0 truncate text-xs text-[var(--muted-foreground)]">{mainModel}</span>
-        )}
-        <ChevronDown
-          size="1rem"
-          className={cn(
-            "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
-            folded && "-rotate-90",
-          )}
+  const titleId = useId();
+  const rootRef = useRef<HTMLElement>(null);
+  // A job that changes section (an Off chip that gets a Model becomes a row) remounts. While any job's picker or
+  // settings window is open, every job keeps its place, so no window closes under the person using it; once they
+  // are all closed the page sorts again and focus follows the job it was on.
+  const [busy, setBusy] = useState<ReadonlySet<JobKey>>(() => new Set());
+  // The job whose window was open last: closing a window can re-sort the page while focus is still in that
+  // window (a portal outside the page), so focus then goes back to this job in its new place.
+  const lastBusyRef = useRef<JobKey | null>(null);
+  const onBusyChange = useCallback((key: JobKey, isBusy: boolean) => {
+    if (isBusy) lastBusyRef.current = key;
+    setBusy((keys) => {
+      if (keys.has(key) === isBusy) return keys;
+      const next = new Set(keys);
+      if (isBusy) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+  const liveBuckets = useMemo(() => {
+    const buckets = new Map<JobKey, JobBucket>();
+    for (const bucket of ["own", "followsMain", "followsAgents", "off"] as const)
+      for (const tile of live[bucket]) buckets.set(tile.key, bucket);
+    return buckets;
+  }, [live]);
+  const [placed, setPlaced] = useState(liveBuckets);
+  const refocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (busy.size > 0) return;
+    // Used once: a later re-sort with nothing open never moves focus on its own.
+    const closed = lastBusyRef.current;
+    lastBusyRef.current = null;
+    const same =
+      placed.size === liveBuckets.size && [...liveBuckets].every(([key, bucket]) => placed.get(key) === bucket);
+    if (same) return;
+    const active = document.activeElement;
+    refocusRef.current =
+      active instanceof HTMLElement && rootRef.current?.contains(active)
+        ? (active.closest("[data-defaults-role]")?.getAttribute("data-defaults-role") ?? null)
+        : closed;
+    setPlaced(liveBuckets);
+  }, [busy, liveBuckets, placed]);
+  useLayoutEffect(() => {
+    const key = refocusRef.current;
+    if (!key) return;
+    refocusRef.current = null;
+    const focusJob = () =>
+      rootRef.current?.querySelector<HTMLElement>(`[data-defaults-tile="${CSS.escape(key)}"]`)?.focus();
+    focusJob();
+    // A closing window gives focus back to its opener a frame later (useDialogFocusScope). Safari never focuses a
+    // tapped button, so that opener can be another control on the page, which would take focus from the job.
+    const frame = window.requestAnimationFrame(focusJob);
+    return () => window.cancelAnimationFrame(frame);
+  }, [placed]);
+  const sectionOf = (bucket: JobBucket) =>
+    (["own", "followsMain", "followsAgents", "off"] as const)
+      .flatMap((from) => live[from])
+      .filter((tile) => (placed.get(tile.key) ?? liveBuckets.get(tile.key)) === bucket)
+      .sort((a, b) => JOBS.findIndex((job) => job.key === a.key) - JOBS.findIndex((job) => job.key === b.key));
+  const summary = {
+    main: live.main,
+    own: sectionOf("own"),
+    followsMain: sectionOf("followsMain"),
+    followsAgents: sectionOf("followsAgents"),
+    off: sectionOf("off"),
+  };
+  const row = (tile: DefaultsTile) => (
+    <div key={tile.key} className="mari-connection-model-slot min-w-0">
+      <DefaultsJobRow
+        tile={tile}
+        job={JOB[tile.key]}
+        modelFor={modelFor}
+        onOpenDevice={onOpenDevice}
+        overrides={overridesOf(tile.key, connectionsList)}
+        onBusyChange={onBusyChange}
+      />
+    </div>
+  );
+  const chips = (tiles: DefaultsTile[], state: string) => (
+    <div className="flex flex-wrap gap-1.5 px-1.5 pb-1">
+      {tiles.map((tile) => (
+        <DefaultsJobRow
+          key={tile.key}
+          tile={tile}
+          job={JOB[tile.key]}
+          modelFor={modelFor}
+          onOpenDevice={onOpenDevice}
+          overrides={overridesOf(tile.key, connectionsList)}
+          chip={state}
+          onBusyChange={onBusyChange}
         />
-      </button>
-      {!folded && (
-        <div id="connections-defaults" className="flex flex-col gap-1 pt-0.5">
-          {groups.map((group) => (
-            <div key={group} role="group" aria-labelledby={`connections-defaults-group-${group}`}>
-              <p id={`connections-defaults-group-${group}`} className="mari-connection-defaults-group">
-                {t(`connections.defaults.group.${group}`)}
-              </p>
-              <div className="mari-connection-model-well">
-                {tiles
-                  .filter((tile) => JOB[tile.key].group === group)
-                  .map((tile) => (
-                    <div key={tile.key} className="mari-connection-model-slot min-w-0">
-                      <DefaultsJobRow
-                        tile={tile}
-                        job={JOB[tile.key]}
-                        modelFor={modelFor}
-                        onOpenDevice={onOpenDevice}
-                        overrides={overridesOf(tile.key, connectionsList)}
-                      />
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      ))}
+    </div>
+  );
+  return (
+    <section ref={rootRef} aria-labelledby={titleId} className="flex flex-col gap-2" data-connections-jobs-page>
+      <h3 id={titleId} className="px-1.5 text-base font-semibold leading-tight text-[var(--foreground)]">
+        {t("connections.defaults.title")}
+      </h3>
+      <div className="mari-connection-group flex flex-col gap-1">
+        {summary.main && (
+          <JobsPageSection title={t(jobLabelKey(JOB.main))} part="main">
+            <div className="mari-connection-model-well">{row(summary.main)}</div>
+          </JobsPageSection>
+        )}
+        {summary.own.length > 0 && (
+          <JobsPageSection title={t("connections.jobs.section.own")} part="own">
+            <div className="mari-connection-model-well">{summary.own.map(row)}</div>
+          </JobsPageSection>
+        )}
+        {summary.followsMain.length > 0 && (
+          <JobsPageSection title={t("connections.jobs.section.followMain")} part="follows-main">
+            {chips(summary.followsMain, t("connections.defaults.followsMain"))}
+          </JobsPageSection>
+        )}
+        {summary.followsAgents.length > 0 && (
+          <JobsPageSection title={t("connections.jobs.section.followAgents")} part="follows-agents">
+            {chips(summary.followsAgents, t("connections.defaults.followsAgents"))}
+          </JobsPageSection>
+        )}
+        {summary.off.length > 0 && (
+          <JobsPageSection title={t("connections.jobs.section.off")} part="off">
+            {chips(summary.off, t("connections.defaults.off"))}
+          </JobsPageSection>
+        )}
+      </div>
     </section>
   );
 }

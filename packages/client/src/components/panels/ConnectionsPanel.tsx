@@ -1,9 +1,10 @@
 // ──────────────────────────────────────────────
-// Panel: Connections (concept A, the library). One header row (Search, Add, ⋯ with Import and Export); then the
-// Defaults box, one folding block per Connection with its Models of every kind, and the engines set up on this
-// device. A device or the other Models open as a second column on a wide panel; a narrow one drills in. Search
-// narrows the blocks in place: a Connection that matches shows all its Models, and its fold still works. With no
-// Connection yet the panel teaches the first step and shows the Jobs controls.
+// Panel: Connections (concept A, the library). One header row (Search once there are enough Models, Add, ⋯ with
+// Import, Export, sort and the filters); then the Jobs summary, one folding block per Connection with its Models of
+// every kind, and the engines set up on this device. The Jobs page, a device or the other Models open as a second
+// column on a wide panel; a narrow one drills in. Search narrows the blocks in place: a Connection that matches
+// shows all its Models, and its fold still works. With no Connection yet the panel teaches the first step and shows
+// the Jobs summary.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import {
@@ -52,7 +53,6 @@ import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
-import { librarySortOption, type LibrarySortKey } from "../../lib/library-sort-options";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
 import { createConnectionExportEnvelope, type ConnectionTransferRow } from "../../lib/connection-transfer";
@@ -92,7 +92,7 @@ import {
 import { SearchInput } from "../ui/SearchInput";
 import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionHeading, ConnectionHeadingMeta } from "../connections/ConnectionHeading";
-import { ConnectionDefaultsBox } from "../connections/ConnectionDefaults";
+import { ConnectionJobsPage, ConnectionJobsSummary } from "../connections/ConnectionDefaults";
 import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";
 import { DeviceDetail, SMALL_ACTION, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
 import { ProviderIcon } from "../connections/ProviderIcon";
@@ -101,7 +101,6 @@ import { openAddConnection } from "../../lib/add-connection";
 import { newLocalServers } from "../../lib/local-servers";
 import { useChatModelPick } from "../connections/ConnectionSwitcherBody";
 import { PanelSection } from "../ui/PanelSection";
-import { Select } from "../ui/Select";
 import { ContextMenu } from "../ui/ContextMenu";
 import { PictureMenu } from "../connections/PictureMenu";
 import { MoveConnectionDialog } from "../connections/MoveConnectionDialog";
@@ -123,6 +122,8 @@ const SORT_OPTIONS = [
 
 /** Two columns from this panel width; below it a row drills in. */
 const WIDE_PANEL_PX = 768;
+/** Search shows from this many Models; a shorter list is quicker to scan than to search. */
+const SEARCH_MIN_MODELS = 8;
 /** First run: the providers a new user is most likely to know, each one tap from its key step. */
 const FIRST_RUN_SERVICES = ["nanogpt", "openrouter", "openai", "anthropic", "google", "local_model"] as const;
 const FIRST_RUN_TAGS: Partial<Record<ServiceId, string>> = {
@@ -159,6 +160,11 @@ function connectionMatchesSearch(conn: ConnectionRowData, query: string, categor
   return haystack.includes(query);
 }
 
+/** A Connection that works: on, with its key, and no failed test this session (the card shows that failure too). */
+function accountReady(account: ConnectionGroupData["account"], testFailures: Record<string, string>) {
+  return account.state === "ok" && !testFailures[account.id];
+}
+
 /**
  * The Connections a search and the attention filter keep, each with the Models it shows: a Connection that matches
  * by its own name, service or host shows all its Models, and an empty one shows only while it matches (or with no
@@ -168,10 +174,11 @@ function narrowGroups<G extends { account: ConnectionGroupData["account"]; rows:
   groups: G[],
   query: string,
   needsAttention: boolean,
+  testFailures: Record<string, string>,
 ): (G & { visibleRows: ConnectionRowData[] })[] {
   return groups.flatMap((group) => {
     const { account, rows } = group;
-    if (needsAttention && account.state === "ok") return [];
+    if (needsAttention && accountReady(account, testFailures)) return [];
     const accountHit =
       !!query &&
       [account.name, PROVIDERS[account.provider as APIProvider]?.name ?? account.provider, hostOf(account.baseUrl)]
@@ -214,8 +221,11 @@ export function ConnectionsPanel() {
   const setSort = useUIStore((s) => s.setConnectionPanelSort);
   const reorderFolders = useReorderConnectionFolders();
   const reorderConnections = useReorderConnections();
+  const testFailures = useUIStore((s) => s.connectionTestFailures);
 
   const [search, setSearch] = useState("");
+  /** The search box stays while it has focus, so clearing it never takes it away mid-typing. */
+  const [searchFocused, setSearchFocused] = useState(false);
   /** Connections folded while a search runs; a new query unfolds every match again. */
   const [searchFolded, setSearchFolded] = useState<string[]>([]);
   /** Only Connections that are Off or need a key (panel ⋯ menu). */
@@ -262,7 +272,7 @@ export function ConnectionsPanel() {
 
   const query = search.trim().toLowerCase();
   const visible = useMemo(() => {
-    const groups = narrowGroups(grouped.all, query, needsAttention);
+    const groups = narrowGroups(grouped.all, query, needsAttention, testFailures);
     return {
       groups,
       // Models without a Connection and on-device engines have no key to miss.
@@ -273,7 +283,7 @@ export function ConnectionsPanel() {
           ? engines.filter((engine) => engine.name.toLowerCase().includes(query))
           : engines,
     };
-  }, [engines, grouped, needsAttention, query]);
+  }, [engines, grouped, needsAttention, query, testFailures]);
 
   // Group by folder: the user's folders in their order, then the Models in none. A search or the attention filter
   // narrows the rows; an empty folder shows only without them.
@@ -295,7 +305,7 @@ export function ConnectionsPanel() {
         sort,
         accountManualOrder?.ids,
       );
-      const visibleGroups = narrowGroups(groups, query, needsAttention);
+      const visibleGroups = narrowGroups(groups, query, needsAttention, testFailures);
       const visibleStandalone = needsAttention
         ? []
         : rowsWithoutAccount.filter((row) => connectionMatchesSearch(row, query));
@@ -305,7 +315,17 @@ export function ConnectionsPanel() {
         { folder, key: `folder:${folder?.id ?? "none"}`, groups, visibleGroups, rowsWithoutAccount, visibleStandalone },
       ];
     });
-  }, [accountManualOrder?.ids, byFolder, connectionsList, grouped.all, needsAttention, query, sort, sortedFolders]);
+  }, [
+    accountManualOrder?.ids,
+    byFolder,
+    connectionsList,
+    grouped.all,
+    needsAttention,
+    query,
+    sort,
+    sortedFolders,
+    testFailures,
+  ]);
 
   // Provider families are visual only: separate endpoints and keys keep their account actions and rows.
   const providerGroups = useMemo(() => {
@@ -508,6 +528,7 @@ export function ConnectionsPanel() {
 
   const validKey = (key: string | null) => {
     if (!key) return false;
+    if (key === "jobs") return !isLoading && !loadFailed;
     if (key === "other") return grouped.standalone.length > 0;
     // Text to speech stays open while it is on: its page saves the Base URL as it is typed, and a half-typed
     // address can read as a cloud voice for a moment, which takes its row off On this device (#8921).
@@ -524,7 +545,7 @@ export function ConnectionsPanel() {
     },
     [wide],
   );
-  // A button elsewhere (Memories, Defaults) asked for one of this panel's pages. "#Name" after the key scrolls to
+  // A button elsewhere (Memories, Jobs) asked for one of this panel's pages. "#Name" after the key scrolls to
   // that part of the page (data-component="Name"), such as the embedding model further down the built-in model page.
   const requestedPage = useUIStore((s) => s.connectionsPanelPage);
   // The running scroll loop, if any: a newer request or unmounting the panel stops it.
@@ -570,9 +591,9 @@ export function ConnectionsPanel() {
     if (wide) return;
     if (current) backRef.current?.focus({ preventScroll: true });
     else if (returnKeyRef.current) {
-      rootRef.current
-        ?.querySelector<HTMLElement>(`[data-connections-row="${CSS.escape(returnKeyRef.current)}"]`)
-        ?.focus();
+      // The Jobs page opens from the Jobs summary's title row, which keeps its older "defaults" name.
+      const row = returnKeyRef.current === "jobs" ? "defaults" : returnKeyRef.current;
+      rootRef.current?.querySelector<HTMLElement>(`[data-connections-row="${CSS.escape(row)}"]`)?.focus();
       returnKeyRef.current = null;
     }
   }, [current, wide]);
@@ -747,8 +768,14 @@ export function ConnectionsPanel() {
 
   // An engine without its page yet (its state still loading) opens its set-up screen instead.
   const openDevice = (item: DeviceItem) => select(`device:${item}`);
-  const defaultsBox = !isLoading && !loadFailed && (
-    <ConnectionDefaultsBox key="defaults" connectionsList={connectionsList} onOpenDevice={openDevice} />
+  const jobsSummary = !isLoading && !loadFailed && (
+    <ConnectionJobsSummary
+      key="jobs"
+      connectionsList={connectionsList}
+      onOpenJobs={() => select("jobs")}
+      onOpenDevice={openDevice}
+      current={wide && current === "jobs"}
+    />
   );
   // On this device: one card like a Connection's, its engines as rows, a Local Model's jobs as role badges.
   const deviceOpen = !collapsedConnections.includes(DEVICE_FOLD_ID);
@@ -877,6 +904,12 @@ export function ConnectionsPanel() {
     (!!query || needsAttention) &&
     visible.engines.length === 0 &&
     (byFolder ? folderGroups.length === 0 : visible.groups.length === 0 && visible.standalone.length === 0);
+  // The attention filter is offered only while it has something to show, or while it is on.
+  const anyNotReady = grouped.all.some((group) => !accountReady(group.account, testFailures));
+  const attentionCount = byFolder
+    ? folderGroups.reduce((total, group) => total + group.visibleGroups.length, 0)
+    : visible.groups.length;
+  const showSearch = connectionsList.length >= SEARCH_MIN_MODELS || search !== "" || searchFocused;
   const list = (
     <div className="flex flex-col gap-2">
       {loadFailed ? (
@@ -958,11 +991,11 @@ export function ConnectionsPanel() {
               </button>
             </div>
           </section>
-          {defaultsBox}
+          {jobsSummary}
         </>
       ) : (
         <>
-          {defaultsBox}
+          {jobsSummary}
           {deviceGroup}
           <p
             className={nothingShown ? "px-2 py-6 text-center text-xs text-[var(--muted-foreground)]" : "sr-only"}
@@ -972,7 +1005,9 @@ export function ConnectionsPanel() {
               ? query
                 ? t("connections.list.noMatch", { query: search.trim() })
                 : t("connections.list.allReady")
-              : null}
+              : needsAttention && !query
+                ? t("connections.list.attentionCount", { count: attentionCount })
+                : null}
           </p>
           {needsAttention && (
             <p
@@ -983,7 +1018,10 @@ export function ConnectionsPanel() {
               <button
                 type="button"
                 onClick={() => setNeedsAttention(false)}
-                className={cn("underline underline-offset-2 hover:text-[var(--foreground)]", FOCUS)}
+                className={cn(
+                  "rounded underline underline-offset-2 hover:text-[var(--foreground)] max-md:min-h-11",
+                  FOCUS,
+                )}
               >
                 {t("connections.list.showAll")}
               </button>
@@ -1053,7 +1091,9 @@ export function ConnectionsPanel() {
   );
 
   let detail: ReactNode = null;
-  if (current?.startsWith("device:")) {
+  if (current === "jobs") {
+    detail = <ConnectionJobsPage connectionsList={connectionsList} onOpenDevice={openDevice} />;
+  } else if (current?.startsWith("device:")) {
     detail = <DeviceDetail key={current} item={current.slice("device:".length) as DeviceItem} />;
   } else if (current === "other") {
     detail = (
@@ -1066,45 +1106,23 @@ export function ConnectionsPanel() {
     );
   }
 
-  // One row: Search, Add and ⋯ (Import, Export). An empty panel has nothing to search or export yet.
+  // One row: Search, Add and ⋯ (Import, Export, sort, filters). An empty panel has nothing to search or export yet,
+  // and a short list has no Search.
   const header = !isLoading && !noConnections && (
-    <div className="flex gap-2">
-      <SearchInput
-        className="flex-1"
-        value={search}
-        onChange={(value) => {
-          setSearch(value);
-          setSearchFolded([]);
-        }}
-        label={t("connections.list.search")}
-        placeholder={t("connections.list.searchModels", { count: connectionsList.length })}
-      />
-      {wide && (
-        <div className="relative flex min-h-9 items-center">
-          <Select
-            value={sort}
-            onChange={(next) => setSort(next as ConnectionPanelSort)}
-            label={t("ui.panels.connectionspanel.sortConnections")}
-            className="mari-chrome-field mari-chrome-sort-field h-full py-0 ps-2 pe-7 text-xs [&>svg]:hidden"
-            searchable={false}
-            options={SORT_OPTIONS.map(([value, key]) =>
-              value === "custom"
-                ? { value, label: t(key) }
-                : librarySortOption(
-                    t,
-                    { "name-asc": "az", "name-desc": "za", newest: "newest", oldest: "oldest" }[
-                      value
-                    ] as LibrarySortKey,
-                    value,
-                  ),
-            )}
-          />
-          <ArrowUpDown
-            aria-hidden
-            size="0.625rem"
-            className="pointer-events-none absolute right-2 text-muted-foreground"
-          />
-        </div>
+    <div className={cn("flex gap-2", !showSearch && "justify-end")}>
+      {showSearch && (
+        <SearchInput
+          className="flex-1"
+          value={search}
+          onChange={(value) => {
+            setSearch(value);
+            setSearchFolded([]);
+          }}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+          label={t("connections.list.search")}
+          placeholder={t("connections.list.searchModels", { count: connectionsList.length })}
+        />
       )}
       <button
         type="button"
@@ -1127,7 +1145,7 @@ export function ConnectionsPanel() {
         aria-haspopup="menu"
         aria-expanded={!!headerMenu}
       >
-        <MoreHorizontal size="0.875rem" />
+        <MoreHorizontal size="0.875rem" aria-hidden />
       </button>
       {headerMenu && (
         <ContextMenu
@@ -1147,14 +1165,13 @@ export function ConnectionsPanel() {
               disabled: connectionsList.length === 0,
               onSelect: () => void exportConnections(connectionsList),
             },
-            ...(!wide
-              ? SORT_OPTIONS.map(([value, key]) => ({
-                  label: t(key),
-                  icon: <ArrowUpDown size="0.75rem" />,
-                  checked: sort === value,
-                  onSelect: () => setSort(value),
-                }))
-              : []),
+            // "Sort: A–Z": the choices read as sorting, not as more Group by choices, to a screen reader too.
+            ...SORT_OPTIONS.map(([value, key]) => ({
+              label: t("connections.list.sortBy", { option: t(key) }),
+              icon: <ArrowUpDown size="0.75rem" />,
+              checked: sort === value,
+              onSelect: () => setSort(value),
+            })),
             {
               label: t("connections.list.foldAll"),
               icon: <ChevronsDownUp size="0.75rem" />,
@@ -1185,13 +1202,17 @@ export function ConnectionsPanel() {
               checked: byFolder,
               onSelect: () => setGroupBy("folder"),
             },
-            {
-              label: t("connections.list.attentionFilter"),
-              icon: <ListFilter size="0.75rem" />,
-              toggle: true,
-              checked: needsAttention,
-              onSelect: () => setNeedsAttention(!needsAttention),
-            },
+            ...(needsAttention || anyNotReady
+              ? [
+                  {
+                    label: t("connections.list.attentionFilter"),
+                    icon: <ListFilter size="0.75rem" />,
+                    toggle: true,
+                    checked: needsAttention,
+                    onSelect: () => setNeedsAttention(!needsAttention),
+                  },
+                ]
+              : []),
             {
               label: t("connections.list.showCostBadges"),
               icon: <BadgeDollarSign size="0.75rem" />,
@@ -1265,6 +1286,8 @@ export function ConnectionsPanel() {
       ref={rootRef}
       className="mari-connection-scope flex min-h-full flex-col gap-2 p-3 max-md:p-1.5"
       data-connections-panel={wide ? "wide" : "narrow"}
+      // How many Models the list holds once loaded: the search box shows from 8 (tests read it).
+      data-connections-models={isLoading ? undefined : connectionsList.length}
     >
       {body}
       {chooseFolder.dialog}

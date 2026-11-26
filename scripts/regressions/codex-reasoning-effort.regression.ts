@@ -90,6 +90,9 @@ try {
   for (const [label, options] of [
     ["unset", { model: "gpt-5.5" }],
     ["none", { model: "gpt-5.5", reasoningEffort: "none" }],
+    // GPT-6.1 has no Off on the API, where Off sends low; Codex still keeps its own level.
+    ["unset GPT-6.1", { model: "gpt-6.1-sol" }],
+    ["none GPT-6.1", { model: "gpt-6.1-sol", reasoningEffort: "none" }],
     [
       "send switch off",
       { model: "gpt-6.1-sol", reasoningEffort: "high", enabledParameters: { reasoningEffort: false } },
@@ -210,23 +213,27 @@ try {
     });
   };
   const sent = (args: Parameters<typeof runtime>[0]) => runtime(args).providerReasoningEffort;
-  assert.equal(sent({}), "low", "a preset or built-in Maximum keeps Codex's default");
+  assert.equal(sent({}), undefined, "a preset or built-in Maximum keeps Codex's default");
   assert.equal(runtime({}).parameterSources.reasoningEffort, "defaults");
-  assert.equal(sent({ scene: true }), "low", "scene chats keep Codex's default");
+  assert.equal(sent({ scene: true }), undefined, "scene chats keep Codex's default");
   assert.equal(sent({ scene: true, connection: { reasoningEffort: "medium" } }), "max", "then scenes force Maximum");
   assert.equal(sent({ connection: { reasoningEffort: "medium" } }), "medium", "the connection's level is sent");
   assert.equal(sent({ connection: { reasoningEffort: "maximum" } }), "max");
   assert.equal(sent({ model: "gpt-5.5", connection: { reasoningEffort: "maximum" } }), "xhigh");
-  assert.equal(sent({ connection: { reasoningEffort: null } }), "low", "Default on the connection sends nothing");
+  assert.equal(sent({ connection: { reasoningEffort: null } }), undefined, "Default on the connection sends nothing");
   // Default is not a level: turning on custom parameters (which saves Default for Codex) keeps scenes on Codex's default.
-  assert.equal(sent({ scene: true, connection: { reasoningEffort: null } }), "low", "Default keeps scenes on default");
+  assert.equal(
+    sent({ scene: true, connection: { reasoningEffort: null } }),
+    undefined,
+    "Default keeps scenes on default",
+  );
   assert.equal(runtime({ connection: { reasoningEffort: null } }).parameterSources.reasoningEffort, "connection");
   assert.equal(
     sent({ connection: { reasoningEffort: "high" }, chat: { reasoningEffort: "low" } }),
     "low",
     "a chat's level overrides the connection's",
   );
-  assert.equal(sent({ connection: { reasoningEffort: "high" }, chat: { reasoningEffort: null } }), "low");
+  assert.equal(sent({ connection: { reasoningEffort: "high" }, chat: { reasoningEffort: null } }), undefined);
   assert.equal(sent({ chat: { reasoningEffort: "xhigh" } }), "xhigh");
   assert.equal(
     sent({ connection: { reasoningEffort: "high", enabledParameters: { reasoningEffort: false } } }),
@@ -248,6 +255,7 @@ try {
       choice.kind ?? "",
     ]),
     [
+      [null, "default"],
       ["low", ""],
       ["medium", ""],
       ["high", ""],

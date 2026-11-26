@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
-import { openConnectionsPanel } from "./connections-panel.js";
+import { openConnectionsPanel, panelSearch } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -69,13 +69,10 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
       await testInfo.attach(label, { path, contentType: "image/png" });
     };
 
-    // The shortcut lives in the Model's row menu; variant D lists the Model in the panel search.
+    // The shortcut lives in the Model's row menu; variant D lists the Model in the panel search when it shows (from
+    // 8 Models; with fewer the row is already in the list).
     await openConnectionsPanel(page);
-    await page
-      .locator("[data-connections-panel]")
-      .filter({ visible: true })
-      .getByRole("searchbox", { name: "Search models and accounts" })
-      .fill(name);
+    await (await panelSearch(page.locator("[data-connections-panel]").filter({ visible: true })))?.fill(name);
     const actions = page.getByRole("button", { name: `Actions for ${name}`, exact: true });
     await actions.scrollIntoViewIfNeeded();
     await actions.click();

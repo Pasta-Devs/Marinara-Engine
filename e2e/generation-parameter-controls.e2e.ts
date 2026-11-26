@@ -222,3 +222,94 @@ test("game chat inherits connection send switches after editing another value an
       if (accountId && !accountsBefore.has(accountId)) await request.delete(`/api/connection-accounts/${accountId}`);
   }
 });
+
+test("an OpenAI-compatible server shows one Min P field, holding a custom min_p's value, and saves what is typed there", async ({
+  page,
+  request,
+}) => {
+  const definition = { id: "e2e-custom-min-p", name: "Min P", requestKey: "min_p", min: 0, max: 1 };
+  const accountsBefore = new Set(
+    ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>).map((a) => a.id),
+  );
+  const connectionResponse = await request.post("/api/connections", {
+    data: {
+      name: "Custom Min P fixture",
+      provider: "custom",
+      model: "llama-3.3-70b",
+      baseUrl: "http://127.0.0.1:9/v1",
+      apiKey: "synthetic-ui-fixture-key",
+    },
+  });
+  expect(connectionResponse.ok()).toBeTruthy();
+  const connection = await connectionResponse.json();
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "Custom Min P fixture", mode: "conversation", characterIds: [], connectionId: connection.id },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = await chatResponse.json();
+
+  try {
+    // The chat sends its custom min_p, as a chat saved before #9816 could.
+    const metadata = await request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: {
+        conversationSetupComplete: true,
+        chatParameters: { managedCustomParameters: { [definition.id]: { enabled: true, value: 0.35 } } },
+      },
+    });
+    expect(metadata.ok()).toBeTruthy();
+    // Only this page sees the parameter, so specs running beside it keep their own controls.
+    await page.route("**/api/app-settings/custom-generation-parameters", (route) =>
+      route.fulfill({ json: { key: "custom-generation-parameters", value: JSON.stringify([definition]) } }),
+    );
+    await page.route(`**/api/connections/${connection.id}/models`, (route) =>
+      route.fulfill({ json: { models: [{ id: connection.model, name: "Synthetic Llama" }] } }),
+    );
+    await isolateSyncedUISettings(page);
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      rightPanelOpen: false,
+      sidebarOpen: false,
+      chatHelpSeenModes: ["conversation", "roleplay", "game"],
+    });
+    await page.addInitScript(
+      ({ chatId, appVersion }) => {
+        localStorage.setItem("marinara-active-chat-id", chatId);
+        localStorage.setItem("marinara:whats-new:seen-version", appVersion);
+      },
+      { chatId: chat.id, appVersion: version },
+    );
+    await page.goto("/");
+    await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
+    const parameters = page.locator('.mari-chat-settings-drawer [data-chat-settings-section="advanced-parameters"]');
+    await parameters.getByText("Advanced Parameters", { exact: true }).click();
+
+    // One Min P control, the built-in field, showing and editing the custom value the request carries. A second
+    // control would fail these strict locators.
+    const minP = parameters.getByRole("textbox", { name: "Min P", exact: true });
+    await expect(minP).toHaveValue("0.35");
+    await expect(parameters.getByText("Min P", { exact: true })).toBeVisible();
+    await expect(parameters.getByRole("switch", { name: "Send Min P parameter", exact: true })).toBeChecked();
+
+    const savedParameters = async () =>
+      (await (await request.get(`/api/chats/${chat.id}`)).json()).metadata.chatParameters;
+    // Another edit saves only that edit.
+    const temperature = parameters.getByRole("textbox", { name: "Temperature", exact: true });
+    await temperature.fill("0,7");
+    await temperature.press("Enter");
+    await expect
+      .poll(savedParameters)
+      .toEqual({ temperature: 0.7, managedCustomParameters: { [definition.id]: { enabled: true, value: 0.35 } } });
+
+    await minP.fill("0,1");
+    await minP.press("Enter");
+    await expect
+      .poll(savedParameters)
+      .toEqual({ temperature: 0.7, managedCustomParameters: { [definition.id]: { enabled: true, value: 0.1 } } });
+    await expect(minP).toHaveValue("0.1");
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+    await request.delete(`/api/connections/${connection.id}`);
+    if (connection.accountId && !accountsBefore.has(connection.accountId))
+      await request.delete(`/api/connection-accounts/${connection.accountId}`);
+  }
+});

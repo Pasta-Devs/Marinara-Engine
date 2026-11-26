@@ -223,6 +223,19 @@ export type FileNativeStoreController = {
    */
   trimResidentChatUnits: (keep: number) => Promise<void>;
   /**
+   * Reads every row of the given lazy tables a few chats at a time, letting each batch leave memory
+   * before the next loads, so a backup no longer needs the whole library in memory at once. Rows
+   * arrive exactly as an unprojected select returns them. Returns the tables it covered; any other
+   * table (not lazy, already fully resident, or an install with misfiled rows) is the caller's to
+   * read with a plain select. An empty result after rows were visited means the scan could not be
+   * trusted (misfiled rows found while loading, or a write moved a row to another chat): discard
+   * what was visited and read every table with a plain select.
+   */
+  scanLazyTablesByChat: (
+    tables: readonly string[],
+    visit: (rowsByTable: ReadonlyMap<string, Record<string, unknown>[]>) => Promise<void>,
+  ) => Promise<ReadonlySet<string>>;
+  /**
    * Lazy tables that an unscopable query permanently converted to fully resident
    * (#5611) — diagnostics and regression introspection. Empty is the healthy state.
    */
@@ -625,6 +638,13 @@ const LAZY_UNIT_TABLES: ReadonlySet<string> =
  * message, so within one unit the messages shard must land first.
  */
 const LAZY_UNIT_LOAD_ORDER: readonly string[] = [...LAZY_UNIT_TABLES];
+
+/** How long a whole-table lease may sit unused before releaseIdleTableLeases gives it back. */
+const TABLE_LEASE_IDLE_RELEASE_MS = 5 * 60_000;
+/** Chats per batch when a backup reads the lazy tables chat by chat. */
+const LAZY_SCAN_BATCH_UNITS = 16;
+/** Delay before a read that pushed residency past the cap gets its eviction sweep. */
+const RESIDENCY_TRIM_DELAY_MS = 2_000;
 
 /**
  * Whether a table is in the lazy per-chat residency TIER in this process
@@ -2894,6 +2914,14 @@ class FileTableStore {
   private pinnedUnits = new Set<string>([UNASSIGNED_SHARD_KEY]);
   /** Monotonic access clock for LRU eviction (#5592 PR-B). */
   private unitTouchCounter = 0;
+  /** Last time an unbounded query needed a whole lazy table resident (see releaseIdleTableLeases). */
+  private lastUnboundedLeaseUse = 0;
+  /** One pending deferred flush that lets read-only loads and idle leases shrink memory too. */
+  private residencyTrimTimer: ReturnType<typeof setTimeout> | null = null;
+  private residencyTrimDue = 0;
+  /** Running scanLazyTablesByChat calls, and whether a write moved a lazy row to another chat meanwhile. */
+  private activeLazyScans = 0;
+  private lazyScanRowMoved = false;
   private unitLastTouch = new Map<string, number>();
   /**
    * messageIds of swipes currently resolving to the unassigned shard. When
@@ -3904,6 +3932,7 @@ class FileTableStore {
                 // rewrites arbitrary columns) — dirty BOTH the old and new
                 // shard or the old file keeps a stale duplicate (#4708).
                 affectedRows.push(existing, candidate);
+                this.noteLazyRowMove(meta.name, existing, candidate);
                 nextRows[duplicateIndex] = candidate;
               } else {
                 if (!uniqueIndex || !addToUniqueRowIndex(meta, uniqueIndex, row)) {
@@ -3987,6 +4016,7 @@ class FileTableStore {
                 const affectedRows: Row[] = [];
                 for (const index of changedIndexes) {
                   affectedRows.push(target[index]!, nextRows[index]!);
+                  this.noteLazyRowMove(meta.name, target[index]!, nextRows[index]!);
                 }
                 const shardKeys = this.shardKeysForRows(meta.name, affectedRows);
                 // An update that rewrites the shard column moves rows into a
@@ -4119,7 +4149,10 @@ class FileTableStore {
     }
     // Eviction runs only here — the tail of the flush that actually wrote —
     // see maybeEvictUnits for why this is the one safe trigger point.
-    if (!this.lastFlushError) this.maybeEvictUnits();
+    if (!this.lastFlushError) {
+      this.releaseIdleTableLeases();
+      this.maybeEvictUnits();
+    }
     if (throwOnError && this.lastFlushError) throw this.lastFlushError;
   }
 
@@ -4131,6 +4164,10 @@ class FileTableStore {
   }
 
   private async finishClose() {
+    if (this.residencyTrimTimer) {
+      clearTimeout(this.residencyTrimTimer);
+      this.residencyTrimTimer = null;
+    }
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
@@ -4428,6 +4465,74 @@ class FileTableStore {
     };
   }
 
+  async scanLazyTablesByChat(
+    tables: readonly string[],
+    visit: (rowsByTable: ReadonlyMap<string, Row[]>) => Promise<void>,
+  ): Promise<ReadonlySet<string>> {
+    const scanned = new Set(
+      tables.filter((table) => LAZY_UNIT_TABLES.has(table) && !this.fullyResidentTables.has(table)),
+    );
+    if (scanned.size === 0 || this.lazyScanUnsafe()) return new Set();
+    await this.flush(true, true);
+    const units = new Set<string>([...this.loadedUnits, ...this.pinnedUnits]);
+    for (const table of LAZY_UNIT_LOAD_ORDER) {
+      for (const encoded of this.lazyDiscoveredShards.get(table) ?? []) {
+        const key = decodeShardKey(encoded);
+        // A hashed file name (a very long chat id) cannot name its chat: read those tables whole.
+        if (key === null) return new Set();
+        units.add(key);
+      }
+    }
+    const strategies = new Map(
+      [...scanned].map((table) => [table, getFileTableShardStrategy(table as FileBackedTable)] as const),
+    );
+    const ordered = [...units];
+    this.activeLazyScans += 1;
+    if (this.activeLazyScans === 1) this.lazyScanRowMoved = false;
+    try {
+      for (let start = 0; start < ordered.length; start += LAZY_SCAN_BATCH_UNITS) {
+        const batch = new Set(ordered.slice(start, start + LAZY_SCAN_BATCH_UNITS));
+        this.ensureUnitsLoaded(batch);
+        // Loading can uncover misfiled rows (they pin units), and a write between batches can move
+        // a row to another chat. Either way batches could miss or repeat rows: the caller then
+        // discards what it got and reads those tables whole.
+        if (this.lazyScanUnsafe() || this.lazyScanRowMoved) return new Set();
+        const rowsByTable = new Map<string, Row[]>();
+        for (const table of scanned) {
+          // A lease taken by another request mid-scan holds the whole table, so read only this batch.
+          const strategy = strategies.get(table)!;
+          rowsByTable.set(
+            table,
+            (this.tables.get(table) ?? [])
+              .filter((row) => batch.has(this.unitKeyOfRowForEviction(strategy, row)))
+              .map((row) => unpackVectorColumns(table, cloneRow(row))),
+          );
+        }
+        await visit(rowsByTable);
+        await this.trimResidentChatUnits(Number.MAX_SAFE_INTEGER);
+      }
+      return this.lazyScanRowMoved ? new Set() : scanned;
+    } finally {
+      this.activeLazyScans -= 1;
+    }
+  }
+
+  /** Corruption-healing state (misfiled rows, pinned units) that per-chat reading cannot account for. */
+  private lazyScanUnsafe() {
+    if (this.pinnedUnits.size > 1 || this.messageStrayFilesByUnit.size > 0) return true;
+    for (const ids of this.strayResidentIds.values()) if (ids.size > 0) return true;
+    return false;
+  }
+
+  /** Flags a running chat-by-chat scan when a write moves a lazy row from one chat to another. */
+  private noteLazyRowMove(table: string, before: Row, after: Row) {
+    if (this.activeLazyScans === 0 || !LAZY_UNIT_TABLES.has(table)) return;
+    const strategy = getFileTableShardStrategy(table as FileBackedTable);
+    if (this.unitKeyOfRowForEviction(strategy, before) !== this.unitKeyOfRowForEviction(strategy, after)) {
+      this.lazyScanRowMoved = true;
+    }
+  }
+
   getResidentLazyRows(table: string): ReadonlyArray<Row> {
     // Every row of the table currently in memory, whatever unit it belongs to
     // (#5613): the condition language can only address rows by column values,
@@ -4519,6 +4624,7 @@ class FileTableStore {
       const canonical = row.chatId || UNASSIGNED_SHARD_KEY;
       const adoptsOrphans = previous === undefined && this.orphanSwipeMessageIds.delete(row.id);
       if ((previous !== undefined && previous !== canonical) || adoptsOrphans) {
+        if (this.activeLazyScans > 0) this.lazyScanRowMoved = true;
         movedSwipeShards.add(previous ?? UNASSIGNED_SHARD_KEY);
         movedSwipeShards.add(canonical);
       }
@@ -4715,7 +4821,13 @@ class FileTableStore {
    * the table is scanned. Unbounded conditions lease the whole table.
    */
   ensureQueryScopeLoaded(meta: TableMeta, condition: Condition) {
-    if (!LAZY_UNIT_TABLES.has(meta.name) || this.fullyResidentTables.has(meta.name)) return;
+    if (!LAZY_UNIT_TABLES.has(meta.name)) return;
+    if (this.fullyResidentTables.has(meta.name)) {
+      // A whole-table read keeps its lease warm. Scoped reads are not checked here: resolving their
+      // scope can mark orphans, and after a release they simply load their own chat again.
+      if (!condition) this.lastUnboundedLeaseUse = Date.now();
+      return;
+    }
     const scope = this.unitScopeForCondition(meta, condition);
     if (scope === null) {
       this.ensureTableLoaded(meta.name);
@@ -4777,6 +4889,37 @@ class FileTableStore {
         }
       }
     }
+    // Eviction only runs at the tail of a flush, and a read-only sweep (row previews, a chat list
+    // with message glimpses) never flushes, so it could leave every chat it touched resident.
+    const cap = getMaxResidentChatUnits();
+    if (cap > 0 && this.loadedUnits.size > cap) this.scheduleResidencyTrim(RESIDENCY_TRIM_DELAY_MS);
+  }
+
+  /**
+   * Runs one forced flush later, so the flush tail's eviction sweep and idle-lease release also
+   * cover memory that reads (not writes) brought in. The flush itself is the existing safe trigger
+   * point; nothing is evicted from here directly.
+   */
+  private scheduleResidencyTrim(delayMs: number) {
+    if (this.writesClosed || LAZY_UNIT_TABLES.size === 0) return;
+    const due = Date.now() + delayMs;
+    // An earlier request replaces a later one (a lease timer must not hold back an over-cap trim);
+    // the flush tail re-arms the lease check if the lease is still too young to release.
+    if (this.residencyTrimTimer) {
+      if (this.residencyTrimDue <= due) return;
+      clearTimeout(this.residencyTrimTimer);
+    }
+    this.residencyTrimDue = due;
+    // Outside any transaction's async context: a timer inherits it, and a flush that thinks it runs
+    // inside a transaction neither evicts nor releases.
+    this.residencyTrimTimer = this.txContext.exit(() =>
+      setTimeout(() => {
+        this.residencyTrimTimer = null;
+        if (this.writesClosed) return;
+        void this.flush(true).catch(() => {});
+      }, delayMs),
+    );
+    this.residencyTrimTimer.unref?.();
   }
 
   /**
@@ -4803,6 +4946,8 @@ class FileTableStore {
       if (shards.length > 0) this.mergeLoadedShards(meta.name, shards);
     }
     this.fullyResidentTables.add(meta.name);
+    this.lastUnboundedLeaseUse = Date.now();
+    this.scheduleResidencyTrim(TABLE_LEASE_IDLE_RELEASE_MS + 1_000);
     logger.info("[file-storage] Lazy table %s is now fully resident (unbounded access)", meta.name);
   }
 
@@ -5077,6 +5222,57 @@ class FileTableStore {
       if (this.staleShardFiles.get(table)?.has(encoded)) return true;
     }
     return false;
+  }
+
+  /**
+   * Gives back a whole-table lease (a backup, an export, a search across every chat) once nothing
+   * has needed the whole table for TABLE_LEASE_IDLE_RELEASE_MS. A lease used to last until restart,
+   * so one backup kept the entire library in memory for the rest of the session and the next big
+   * allocation ran Node out of heap. Rows of chats that are loaded stay; every other chat goes back
+   * to loading on first touch, exactly as after boot. Runs only from the flush tail (same safety
+   * argument as maybeEvictUnits) and skips a table that still has unsaved marks. Installs with
+   * corruption-healing state (strays, pinned units) keep their leases: those interact with the
+   * read-once file set in ways this release does not reason about.
+   */
+  private releaseIdleTableLeases() {
+    if (LAZY_UNIT_TABLES.size === 0 || this.writesClosed) return;
+    if (this.activeFlush || this.activeTransactionCount > 0 || this.txContext.getStore()) return;
+    if (getMaxResidentChatUnits() === 0) return; // MARINARA_MAX_RESIDENT_CHATS=0: load and keep
+    const leased = LAZY_UNIT_LOAD_ORDER.filter((table) => this.fullyResidentTables.has(table));
+    if (leased.length === 0) return;
+    const idleMs = Date.now() - this.lastUnboundedLeaseUse;
+    if (idleMs < TABLE_LEASE_IDLE_RELEASE_MS) {
+      this.scheduleResidencyTrim(TABLE_LEASE_IDLE_RELEASE_MS - idleMs + 1_000);
+      return;
+    }
+    if (this.pinnedUnits.size > 1 || this.messageStrayFilesByUnit.size > 0) return;
+    const keepUnits = new Set([...this.loadedUnits, ...this.pinnedUnits]);
+    const keepEncodings = new Set([...keepUnits].map((key) => encodeShardKey(key)));
+    let released = 0;
+    for (const table of leased) {
+      if (this.dirtyTables.has(table) || (this.dirtyShards.get(table)?.size ?? 0) > 0) continue;
+      if ((this.staleShardFiles.get(table)?.size ?? 0) > 0) continue;
+      if ((this.strayResidentIds.get(table)?.size ?? 0) > 0) continue;
+      const strategy = getFileTableShardStrategy(table as FileBackedTable);
+      const kept = (this.tables.get(table) ?? []).filter((row) =>
+        keepUnits.has(this.unitKeyOfRowForEviction(strategy, row)),
+      );
+      // Out of the fully-resident set BEFORE rows drop: the shard-deletion gate relies on it.
+      this.fullyResidentTables.delete(table);
+      this.tables.set(table, kept);
+      const read = this.loadedShardEncodings.get(table);
+      if (read) {
+        for (const encoded of [...read]) if (!keepEncodings.has(encoded)) read.delete(encoded);
+      }
+      released += 1;
+    }
+    if (released > 0) {
+      logger.info(
+        "[file-storage] Released %d idle full-table lease(s); %d chat(s) stay in memory",
+        released,
+        this.loadedUnits.size,
+      );
+    }
   }
 
   /**
@@ -6232,6 +6428,7 @@ export async function createFileNativeDB(testHooks?: FileNativeStoreTestHooks): 
     registerTables: (tables) => store.registerTables(tables),
     getResidentChatUnits: () => store.getResidentChatUnits(),
     trimResidentChatUnits: (keep) => store.trimResidentChatUnits(keep),
+    scanLazyTablesByChat: (tables, visit) => store.scanLazyTablesByChat(tables, visit),
     getFullyResidentLazyTables: () => store.getFullyResidentLazyTables(),
     getResidentLazyRows: (table) => store.getResidentLazyRows(table),
     getStorageStats: () => store.getStorageStats(),

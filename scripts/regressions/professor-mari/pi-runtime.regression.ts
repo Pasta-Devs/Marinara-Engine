@@ -1839,18 +1839,27 @@ try {
     assert.match(system, /peek-prompt/u);
     assert.match(system, /named subject/u);
     assert.doesNotMatch(system, /workspace_command_protocol/u);
-    // #8375: the per-turn lines (currentTime, this turn's message id) come after every stable block, so a new chat
-    // or a new turn re-sends only them uncached.
-    const contextAt = system.indexOf("<workspace_context>");
-    assert.ok(contextAt > system.indexOf("</workspace_tools>"), "workspace_context follows the tool rules");
-    assert.ok(
-      contextAt > system.indexOf("</professor_mari_custom_skills>"),
-      "workspace_context follows the skill index",
+    // #8375: the per-turn lines (currentTime, this turn's decisions) are not in the system prompt: they go into the
+    // history at the context depth (default 2: above her last reply and this run's message), so the system prompt and
+    // the history before them stay a cached start from turn to turn, and the user's task still comes last.
+    assert.doesNotMatch(system, /<workspace_context>/u, "the system prompt is the same every turn");
+    const order = requests[0]!.messages.map((message) =>
+      message.role === "system"
+        ? message.content.startsWith("<workspace_context>")
+          ? "CONTEXT"
+          : "system"
+        : message.content,
     );
+    const contextAt = order.indexOf("CONTEXT");
+    assert.deepEqual(order.slice(contextAt - 1, contextAt + 3), [
+      "Earlier question",
+      "CONTEXT",
+      "Earlier answer",
+      "Do the thing.",
+    ]);
     assert.match(
-      system.slice(contextAt),
-      /<\/workspace_context>(?:\n\n<cwd>\n[^\n]*\n<\/cwd>)?$/u,
-      "only pi's own <cwd> line comes after workspace_context",
+      requests[0]!.messages[contextAt]!.content,
+      /^<workspace_context>\nworkspaceRoot: [\s\S]*currentTime: /u,
     );
     const history = requests[0]!.messages.filter((message) => message.role !== "system");
     assert.deepEqual(
@@ -1873,13 +1882,15 @@ try {
     extraInjection = null;
     provider = "custom";
     const textualSystem = requests[0]!.messages.find((message) => message.role === "system")?.content ?? "";
-    assert.match(
-      textualSystem,
-      /<\/text_tool_calls>\n\n<workspace_context>\nworkspaceRoot: /u,
-      "text_tool_calls sits right before the real workspace_context",
-    );
-    assert.ok(textualSystem.includes(quoted), "the quoted tag in the injection is left whole");
+    assert.match(textualSystem, /<\/text_tool_calls>/u, "the text tool block is part of the cached system prompt");
+    assert.doesNotMatch(textualSystem, /<workspace_context>/u);
     assert.equal(textualSystem.split("<text_tool_calls>").length, 2, "one text tool block");
+    const lateSystem = requests[0]!.messages
+      .slice(1)
+      .filter((message) => message.role === "system")
+      .map((message) => message.content);
+    assert.ok(lateSystem.includes(quoted), "the injection, quoted tag and all, goes with this turn's context");
+    assert.ok(lateSystem.some((content) => content.startsWith("<workspace_context>\nworkspaceRoot: ")));
   }
 
   // `ask` ends the turn and saves its card, on both runtimes.
@@ -2209,6 +2220,83 @@ try {
     const classicPictures = withPictures(requests[1]!.messages);
     assert.equal(classicPictures.length, 1, JSON.stringify(requests[1]!.messages.map((message) => message.role)));
     assert.match(classicPictures[0]!.content, /workspace_command_result name="bash"/u);
+
+    // Two looks must stay bounded all the way through NanoGPT wire formatting, even at eight retained pictures.
+    const noise = Buffer.alloc(832 * 1216 * 3);
+    let seed = 19;
+    for (let index = 0; index < noise.length; index++) {
+      seed ^= seed << 13;
+      seed ^= seed >>> 17;
+      seed ^= seed << 5;
+      noise[index] = seed & 255;
+    }
+    const detailed = await sharp(noise, { raw: { width: 832, height: 1216, channels: 3 } })
+      .ensureAlpha()
+      .png()
+      .toBuffer();
+    writeFileSync(join(workspaceDir, "detailed-a.png"), detailed);
+    writeFileSync(join(workspaceDir, "detailed-b.png"), detailed);
+    const { OpenAIProvider } = await import("../../../packages/server/src/services/llm/providers/openai.provider.js");
+    const adapter = new OpenAIProvider("http://127.0.0.1:1/v1", "", 1_000_000, null, null, "nanogpt");
+    for (const kind of ["native sequential", "native together", "textual", "classic"] as const) {
+      provider = kind === "textual" ? "claude_subscription" : "custom";
+      const calls = ["a", "b"].map((suffix) => ({
+        id: `bounded-${suffix}`,
+        name: "bash",
+        args: { command: `mari images look ${Array(4).fill(`detailed-${suffix}.png`).join(" ")}` },
+      }));
+      const scripted =
+        kind === "native together"
+          ? [reply("", calls), reply("Done.")]
+          : kind === "classic"
+            ? [
+                ...calls.map((entry) =>
+                  reply(
+                    JSON.stringify({ say: "", commands: [{ name: entry.name, arguments: entry.args }], stop: false }),
+                  ),
+                ),
+                reply(JSON.stringify({ say: "Done.", commands: [], stop: true })),
+              ]
+            : kind === "textual"
+              ? [...calls.map((entry) => reply(call(entry.name, entry.args))), reply("Done.")]
+              : [...calls.map((entry) => reply("", [entry])), reply("Done.")];
+      const bounded = await start(`bounded looks ${kind}`, scripted, kind === "classic" ? "classic" : "pi");
+      await bounded.done;
+      const final = requests.at(-1)!;
+      assert.equal(final.messages.flatMap((message) => message.images ?? []).length, 8, kind);
+      assert.ok(
+        final.messages
+          .filter((message) => message.role === "tool")
+          .every((message) => !message.content.includes("base64,")),
+      );
+      const originalFetch = globalThis.fetch;
+      let captured = false;
+      globalThis.fetch = async (_url, init) => {
+        captured = true;
+        const bodyText = String(init?.body);
+        const body = JSON.parse(bodyText);
+        const imageParts = body.messages.flatMap((message: { content: unknown }) =>
+          Array.isArray(message.content)
+            ? message.content.filter((part: { type?: string }) => part.type === "image_url")
+            : [],
+        );
+        assert.equal(imageParts.length, 8, "each looked-at image appears exactly once on the wire");
+        assert.ok(
+          imageParts.every((part: { image_url: { url: string } }) =>
+            part.image_url.url.startsWith("data:image/jpeg;base64,"),
+          ),
+        );
+        assert.ok(Buffer.byteLength(bodyText) < 3_000_000, `${kind}: ${Buffer.byteLength(bodyText)} wire bytes`);
+        return Response.json({ choices: [{ message: { content: "Seen." }, finish_reason: "stop" }] });
+      };
+      try {
+        await adapter.chatComplete(final.messages, { model: "deepseek-v4.1-flash", stream: false });
+        assert.equal(captured, true);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    }
+    provider = "custom";
   }
 
   console.log("Professor Mari pi runtime regression passed.");

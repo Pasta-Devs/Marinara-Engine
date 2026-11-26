@@ -1645,7 +1645,13 @@ const capabilityPackageManifestBaseSchema = z
 //        without playing it, so a later speak or speakSequence with the same text, cacheKey, voice, speaker, tone
 //        and audioConnectionId starts at once. Soft seam: an older Engine leaves it undefined, so a package
 //        feature-detects it and declares 1.835 only when it cannot work without it. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 835 } as const);
+// 1.836: the host's `components` gain the shared Popover: a layer anchored to an element that flips, stays inside
+//        the window, and closes on Escape, an outside press and back, topmost layer first. Not a soft seam, as
+//        1.830. No permission.
+// 1.837: how a ruleset sheet shows a skill's or save's rank (`sheet.rankDisplay`: its check value, its tier's
+//        name, dots, Roman numerals or its number). Not a soft seam: an Engine that cannot read it refuses the
+//        whole ruleset file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 837 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

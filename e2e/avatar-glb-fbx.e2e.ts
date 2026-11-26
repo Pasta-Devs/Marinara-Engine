@@ -132,8 +132,8 @@ test("a plain GLB rig imports, maps its bones and faces, and draws, moves and ta
     await expect(panel.locator("[data-glb-fbx-bones]")).toHaveText("GLB model: 22 of 22 body bones matched.", {
       timeout: FIRST_LOAD_TIMEOUT_MS,
     });
-    await expect(panel.getByLabel("Mouth: A", { exact: true })).toHaveValue("viseme_aa");
-    await expect(panel.getByLabel("Blink", { exact: true })).toHaveValue("eyeBlink");
+    await expect(panel.getByLabel("Mouth: A", { exact: true })).toHaveAttribute("data-value", "viseme_aa");
+    await expect(panel.getByLabel("Blink", { exact: true })).toHaveAttribute("data-value", "eyeBlink");
     await expect(setup.getByRole("radio", { name: /GLB or FBX model/u })).toBeChecked();
     await expect(setup.getByText("The preview couldn't load this avatar.")).toHaveCount(0);
     await panel.screenshot({ path: info.outputPath("glb-fbx-setup.png"), animations: "disabled" });

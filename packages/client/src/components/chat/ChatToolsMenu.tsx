@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import { Lock, MoreHorizontal, Unlock } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { WindowBubble } from "../ui/WindowBubble";
 import { usePhoneBubbleBounds } from "../ui/FloatingWindow";
 import {
@@ -123,17 +124,16 @@ export function ChatToolsMenu() {
 
   useEffect(() => setOpen(false), [resetRevision, hasEntries]);
   useEffect(() => {
-    if (!open) return;
-    panelRef.current?.focus({ preventScroll: true });
-    const onOutside = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node) || panelRef.current?.contains(target) || bubbleRef.current?.contains(target))
-        return;
-      close(false);
-    };
-    document.addEventListener("pointerdown", onOutside, true);
-    return () => document.removeEventListener("pointerdown", onOutside, true);
-  }, [close, open]);
+    if (open) panelRef.current?.focus({ preventScroll: true });
+  }, [open]);
+  // Escape, or a press outside, closes it; keyboard focus that was inside goes back to the bubble. The bubble opens and
+  // closes the stack itself, and dragging it moves the open stack along.
+  useDismiss(
+    panelRef,
+    open,
+    () => close(panelRef.current?.contains(panelRef.current.ownerDocument.activeElement) ?? false),
+    { openerRef: bubbleRef, openerInside: true },
+  );
 
   if (!hasEntries) return null;
 
@@ -201,12 +201,6 @@ export function ChatToolsMenu() {
             maxHeight,
             transform: !beside && !placeBelow ? "translateY(-100%)" : undefined,
             zIndex: PHONE_BUBBLE_Z_INDEX + 1,
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== "Escape" || event.defaultPrevented) return;
-            event.preventDefault();
-            event.stopPropagation();
-            close(true);
           }}
         >
           <div

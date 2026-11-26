@@ -52,6 +52,13 @@ import {
 import type { ChatWizardDefaults, ChatWizardMode } from "../lib/chat-wizard-defaults";
 import type { MariFieldReview } from "../lib/mari-editor-fields";
 import {
+  isMariFloatZone,
+  normalizeMariFloatRect,
+  type MariFloatDock,
+  type MariFloatRect,
+  type MariFloatZone,
+} from "../lib/mari-float-layout";
+import {
   readSeasonalPreview,
   seasonalThemeFor,
   withSeasonalYear,
@@ -180,19 +187,6 @@ export type ChatListBackgroundMode = "hover" | "always" | "off";
 export type SummaryPopoverSourceMode = "last" | "range";
 export const DEFAULT_ROLEPLAY_BACKGROUND_URL = "/api/backgrounds/file/Black.jpg";
 const DEFAULT_CONVERSATION_BACKGROUND_IMAGE_OPACITY = 45;
-export const MARI_WINDOW_HEIGHT_MIN_REM = 44;
-export const MARI_WINDOW_HEIGHT_DEFAULT_REM = 48;
-export const MARI_WINDOW_HEIGHT_MAX_REM = 120;
-export const MARI_WINDOW_WIDTH_MIN_REM = 44;
-export const MARI_WINDOW_WIDTH_DEFAULT_REM = 44;
-export const MARI_WINDOW_WIDTH_MAX_REM = 96;
-
-export function normalizeMariWindowHeightRem(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(MARI_WINDOW_HEIGHT_MIN_REM, Math.min(MARI_WINDOW_HEIGHT_MAX_REM, Math.round(value)))
-    : MARI_WINDOW_HEIGHT_DEFAULT_REM;
-}
-
 export const OMNIBAR_WINDOW_WIDTH_MIN_REM = 44;
 export const OMNIBAR_WINDOW_WIDTH_DEFAULT_REM = 44;
 export const OMNIBAR_WINDOW_WIDTH_MAX_REM = 96;
@@ -209,12 +203,6 @@ export function normalizeOmnibarWindowHeightRem(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(OMNIBAR_WINDOW_HEIGHT_MIN_REM, Math.min(OMNIBAR_WINDOW_HEIGHT_MAX_REM, Math.round(value)))
     : null;
-}
-
-export function normalizeMariWindowWidthRem(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(MARI_WINDOW_WIDTH_MIN_REM, Math.min(MARI_WINDOW_WIDTH_MAX_REM, Math.round(value)))
-    : MARI_WINDOW_WIDTH_DEFAULT_REM;
 }
 
 /** Companion panel width. The minimum lets her dock at 1440px with both sidebars open; her tabs still fit. */
@@ -451,6 +439,28 @@ const DEFAULT_SCENE_PROMPT_PREFERENCES: ScenePromptPreferences = {
 
 function normalizeUserActivity(activity: string): string {
   return activity.replace(/\s+/g, " ").trim().slice(0, USER_ACTIVITY_MAX_LENGTH);
+}
+
+/** A model picked in the model chooser: the account it runs on and the model id. */
+/** A recent pick: the account and model id, and the saved Model's row when the pick was one. */
+export type RecentModelPick = { accountId: string; model: string; rowId?: string };
+const RECENT_MODEL_PICK_LIMIT = 8;
+
+/** The picks with `pick` first: one line per account and model, at most eight. Also cleans a saved list. */
+export function addRecentModelPick(picks: readonly unknown[], pick?: RecentModelPick): RecentModelPick[] {
+  const out: RecentModelPick[] = [];
+  const seen = new Set<string>();
+  for (const item of pick ? [pick, ...picks] : picks) {
+    const { accountId, model, rowId } = (item ?? {}) as Partial<RecentModelPick>;
+    if (typeof accountId !== "string" || typeof model !== "string" || !accountId || !model) continue;
+    const row = typeof rowId === "string" && rowId ? rowId : undefined;
+    const key = `${accountId}\n${model}\n${row ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ accountId, model, ...(row ? { rowId: row } : {}) });
+    if (out.length === RECENT_MODEL_PICK_LIMIT) break;
+  }
+  return out;
 }
 
 export function getDefaultAppAccentColor() {
@@ -802,6 +812,8 @@ export interface UIState {
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
   reduceAmbientEffects: boolean;
+  /** Dice rolls show as a short line of text instead of animated dice (Settings → Appearance → App). */
+  diceRollsAsText: boolean;
   /** User restyling of curated interface regions (Settings → Appearance); persisted and synced. */
   uiStyleOverrides: UiStyleOverrides;
   /** The user's saved style presets (a library that "Reset appearance" keeps); persisted and synced. */
@@ -820,10 +832,16 @@ export interface UIState {
   /** Idle time after a dead-end query before the aside calls a model (R23). */
   omnibarAsideDelayMs: number;
   mariEditViewMode: MariEditViewMode;
-  /** Desktop window height, capped to the available viewport. */
-  mariWindowHeightRem: number;
-  /** Desktop window width, in rem. Only Professor Mari's window uses it. */
-  mariWindowWidthRem: number;
+  /** Desktop: Prof. Mari floats as a movable window with no backdrop instead of the centred one (#9818). */
+  mariFloating: boolean;
+  /** Her free floating window, in CSS px; null until first moved or resized. This device only. */
+  mariFloatRect: MariFloatRect | null;
+  /** The snap zone she floats in, if any; it wins over the free rectangle. This device only. */
+  mariFloatZone: MariFloatZone | null;
+  /** A side dock's width in CSS px, once resized there; null is the default. This device only. */
+  mariFloatDockWidth: number | null;
+  /** Where she is docked while her pane shows, so the app shell makes room. Not persisted. */
+  mariFloatDock: MariFloatDock | null;
   /** Desktop: Prof. Mari docks as a companion panel beside an open editor (header toggle). */
   mariCompanionDocked: boolean;
   /** Companion panel width in rem. */
@@ -1309,6 +1327,8 @@ export interface UIState {
   connectionsUpgradeNoteDismissed: boolean;
   /** Ids of Connections folded shut in the Connections panel list; every other Connection shows its Models. */
   connectionsCollapsed: string[];
+  /** Account models picked in the model chooser on this device, newest first, for its Recent list. */
+  recentModelPicks: RecentModelPick[];
   /** Model rows show what a model costs ("Included", "2x", "Free"). */
   showCostBadges: boolean;
   /** The Connections list and quick picker group Models by Connection or by the user's folders. */
@@ -1433,13 +1453,16 @@ export interface UIState {
   setAppAccentRgbMode: (enabled: boolean) => void;
   setCustomCursorEnabled: (enabled: boolean) => void;
   setReduceAmbientEffects: (enabled: boolean) => void;
+  setDiceRollsAsText: (enabled: boolean) => void;
   setMariPanelSortMode: (mode: MariPanelSortMode) => void;
   setOmnibarAsideEnabled: (enabled: boolean) => void;
   setOmnibarAsideDisclosed: (disclosed: boolean) => void;
   setOmnibarAsideDelayMs: (delayMs: number) => void;
   setMariEditViewMode: (mode: MariEditViewMode) => void;
-  setMariWindowHeightRem: (height: number) => void;
-  setMariWindowWidthRem: (width: number) => void;
+  setMariFloating: (floating: boolean) => void;
+  setMariFloatPlace: (rect: MariFloatRect | null, zone: MariFloatZone | null) => void;
+  setMariFloatDockWidth: (width: number | null) => void;
+  setMariFloatDock: (dock: MariFloatDock | null) => void;
   setMariCompanionDocked: (docked: boolean) => void;
   setMariCompanionWidthRem: (width: number) => void;
   setMariCompanionRoot: (root: HTMLElement | null) => void;
@@ -1711,6 +1734,7 @@ export interface UIState {
   dismissLinkApiBanner: () => void;
   dismissConnectionsUpgradeNote: () => void;
   toggleConnectionCollapsed: (id: string) => void;
+  rememberModelPick: (pick: RecentModelPick) => void;
   setShowCostBadges: (v: boolean) => void;
   setConnectionsGroupBy: (v: "connection" | "folder") => void;
   dismissChatSettingsMoveTip: () => void;
@@ -1948,6 +1972,7 @@ export function pickSyncedSettings(state: UIState) {
     appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    diceRollsAsText: state.diceRollsAsText,
     uiStyleOverrides: state.uiStyleOverrides,
     uiStylePresets: state.uiStylePresets,
     chatBackground: state.chatBackground,
@@ -2037,8 +2062,6 @@ export function pickSyncedSettings(state: UIState) {
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
     omnibarAsideDelayMs: state.omnibarAsideDelayMs,
     mariEditViewMode: state.mariEditViewMode,
-    mariWindowHeightRem: normalizeMariWindowHeightRem(state.mariWindowHeightRem),
-    mariWindowWidthRem: normalizeMariWindowWidthRem(state.mariWindowWidthRem),
     mariCompanionDocked: state.mariCompanionDocked,
     mariCompanionWidthRem: normalizeMariCompanionWidthRem(state.mariCompanionWidthRem),
     omnibarWindowWidthRem: normalizeOmnibarWindowWidthRem(state.omnibarWindowWidthRem),
@@ -2220,6 +2243,7 @@ export function pickPersistedUIState(state: UIState) {
     appAccentRgbMode: state.appAccentRgbMode,
     customCursorEnabled: state.customCursorEnabled,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    diceRollsAsText: state.diceRollsAsText,
     uiStyleOverrides: state.uiStyleOverrides,
     uiStylePresets: state.uiStylePresets,
     mariPanelSortMode: state.mariPanelSortMode,
@@ -2227,8 +2251,10 @@ export function pickPersistedUIState(state: UIState) {
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
     omnibarAsideDelayMs: state.omnibarAsideDelayMs,
     mariEditViewMode: state.mariEditViewMode,
-    mariWindowHeightRem: normalizeMariWindowHeightRem(state.mariWindowHeightRem),
-    mariWindowWidthRem: normalizeMariWindowWidthRem(state.mariWindowWidthRem),
+    mariFloating: state.mariFloating,
+    mariFloatRect: state.mariFloatRect,
+    mariFloatZone: state.mariFloatZone,
+    mariFloatDockWidth: state.mariFloatDockWidth,
     mariCompanionDocked: state.mariCompanionDocked,
     mariCompanionWidthRem: state.mariCompanionWidthRem,
     omnibarWindowWidthRem: normalizeOmnibarWindowWidthRem(state.omnibarWindowWidthRem),
@@ -2381,6 +2407,8 @@ export function pickPersistedUIState(state: UIState) {
     linkApiBannerDismissed: state.linkApiBannerDismissed,
     connectionsUpgradeNoteDismissed: state.connectionsUpgradeNoteDismissed,
     connectionsCollapsed: state.connectionsCollapsed,
+    // This device only: pickSyncedSettings leaves it out.
+    recentModelPicks: state.recentModelPicks,
     showCostBadges: state.showCostBadges,
     connectionsGroupBy: state.connectionsGroupBy,
     connectionPanelSort: state.connectionPanelSort,
@@ -2502,6 +2530,7 @@ export const useUIStore = create<UIState>()(
         appAccentRgbMode: false,
         customCursorEnabled: true,
         reduceAmbientEffects: false,
+        diceRollsAsText: false,
         uiStyleOverrides: {},
         uiStylePresets: [],
         uiStylePickMode: false,
@@ -2513,8 +2542,11 @@ export const useUIStore = create<UIState>()(
         omnibarAsideDisclosed: false,
         omnibarAsideDelayMs: OMNIBAR_ASIDE_DELAY_MS,
         mariEditViewMode: "easy",
-        mariWindowHeightRem: MARI_WINDOW_HEIGHT_DEFAULT_REM,
-        mariWindowWidthRem: MARI_WINDOW_WIDTH_DEFAULT_REM,
+        mariFloating: false,
+        mariFloatRect: null,
+        mariFloatZone: null,
+        mariFloatDockWidth: null,
+        mariFloatDock: null,
         mariCompanionDocked: true,
         mariCompanionWidthRem: MARI_COMPANION_WIDTH_DEFAULT_REM,
         mariCompanionRoot: null,
@@ -2752,6 +2784,7 @@ export const useUIStore = create<UIState>()(
         linkApiBannerDismissed: false,
         connectionsUpgradeNoteDismissed: false,
         connectionsCollapsed: [],
+        recentModelPicks: [],
         showCostBadges: true,
         connectionsGroupBy: "connection",
         connectionPanelSort: "name-asc",
@@ -2967,13 +3000,17 @@ export const useUIStore = create<UIState>()(
         setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
         setCustomCursorEnabled: (enabled) => set({ customCursorEnabled: enabled }),
         setReduceAmbientEffects: (enabled) => set({ reduceAmbientEffects: enabled }),
+        setDiceRollsAsText: (enabled) => set({ diceRollsAsText: enabled }),
         setMariPanelSortMode: (mode) => set({ mariPanelSortMode: mode }),
         setOmnibarAsideEnabled: (enabled) => set({ omnibarAsideEnabled: enabled }),
         setOmnibarAsideDisclosed: (disclosed) => set({ omnibarAsideDisclosed: disclosed }),
         setOmnibarAsideDelayMs: (delayMs) => set({ omnibarAsideDelayMs: delayMs }),
         setMariEditViewMode: (mode) => set({ mariEditViewMode: mode }),
-        setMariWindowHeightRem: (height) => set({ mariWindowHeightRem: normalizeMariWindowHeightRem(height) }),
-        setMariWindowWidthRem: (width) => set({ mariWindowWidthRem: normalizeMariWindowWidthRem(width) }),
+        setMariFloating: (floating) => set({ mariFloating: floating }),
+        setMariFloatPlace: (rect, zone) => set({ mariFloatRect: rect, mariFloatZone: zone }),
+        setMariFloatDockWidth: (width) =>
+          set({ mariFloatDockWidth: typeof width === "number" && Number.isFinite(width) ? Math.round(width) : null }),
+        setMariFloatDock: (dock) => set({ mariFloatDock: dock }),
         setMariCompanionDocked: (docked) => set({ mariCompanionDocked: docked }),
         setMariCompanionWidthRem: (width) => set({ mariCompanionWidthRem: normalizeMariCompanionWidthRem(width) }),
         setMariCompanionRoot: (root) => set({ mariCompanionRoot: root }),
@@ -3538,14 +3575,17 @@ export const useUIStore = create<UIState>()(
             appAccentRgbMode: false,
             customCursorEnabled: true,
             reduceAmbientEffects: false,
+            diceRollsAsText: false,
             uiStyleOverrides: {},
             uiStylePreview: null,
             uiStyleSelectedTarget: null,
             uiStylePickMode: false,
             mariPanelSortMode: "az",
             mariEditViewMode: "easy",
-            mariWindowHeightRem: MARI_WINDOW_HEIGHT_DEFAULT_REM,
-            mariWindowWidthRem: MARI_WINDOW_WIDTH_DEFAULT_REM,
+            mariFloating: false,
+            mariFloatRect: null,
+            mariFloatZone: null,
+            mariFloatDockWidth: null,
             omnibarWindowWidthRem: OMNIBAR_WINDOW_WIDTH_DEFAULT_REM,
             omnibarWindowHeightRem: null,
             mariAppearancePackId: "basic",
@@ -3698,6 +3738,8 @@ export const useUIStore = create<UIState>()(
               ? state.connectionsCollapsed.filter((other) => other !== id)
               : [...state.connectionsCollapsed, id],
           })),
+        rememberModelPick: (pick) =>
+          set((state) => ({ recentModelPicks: addRecentModelPick(state.recentModelPicks, pick) })),
         setShowCostBadges: (v) => set({ showCostBadges: v }),
         setConnectionsGroupBy: (v) => set({ connectionsGroupBy: v }),
         setConnectionPanelSort: (sort) =>
@@ -4417,8 +4459,14 @@ export const useUIStore = create<UIState>()(
         return {
           ...currentState,
           ...persisted,
-          mariWindowHeightRem: normalizeMariWindowHeightRem(persisted.mariWindowHeightRem),
-          mariWindowWidthRem: normalizeMariWindowWidthRem(persisted.mariWindowWidthRem),
+          mariFloating: persisted.mariFloating === true,
+          mariFloatRect: normalizeMariFloatRect(persisted.mariFloatRect),
+          mariFloatZone: isMariFloatZone(persisted.mariFloatZone) ? persisted.mariFloatZone : null,
+          mariFloatDockWidth:
+            typeof persisted.mariFloatDockWidth === "number" && Number.isFinite(persisted.mariFloatDockWidth)
+              ? persisted.mariFloatDockWidth
+              : null,
+          mariFloatDock: null,
           mariCompanionDocked: persisted.mariCompanionDocked !== false,
           mariCompanionWidthRem: normalizeMariCompanionWidthRem(persisted.mariCompanionWidthRem),
           omnibarWindowWidthRem: normalizeOmnibarWindowWidthRem(persisted.omnibarWindowWidthRem),
@@ -4429,6 +4477,9 @@ export const useUIStore = create<UIState>()(
             : [],
           recentChatBackgrounds: Array.isArray(persisted.recentChatBackgrounds)
             ? persisted.recentChatBackgrounds.filter((url): url is string => typeof url === "string").slice(0, 4)
+            : [],
+          recentModelPicks: Array.isArray(persisted.recentModelPicks)
+            ? addRecentModelPick(persisted.recentModelPicks)
             : [],
           connectionTestFailures:
             persisted.connectionTestFailures && typeof persisted.connectionTestFailures === "object"

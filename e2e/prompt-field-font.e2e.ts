@@ -72,7 +72,7 @@ test("prompt fields stay monospace by default and follow the app font once one i
     for (const field of presetFields) await expectAppFont(field);
     const expanded = await openExpanded(page, sectionContent);
     await expectAppFont(expanded.locator("textarea"));
-    await expanded.getByRole("button", { name: "Close expanded editor" }).click();
+    await expanded.getByRole("button", { name: "Close Edit: Prompt font section", exact: true }).click();
 
     const characterEditor = await openDetail(page, "character", character.id);
     await expectAppFont(characterEditor.getByPlaceholder("〈START〉 {{user}}: Hello!", { exact: false }));
@@ -82,7 +82,7 @@ test("prompt fields stay monospace by default and follow the app font once one i
     );
     const firstMessageExpanded = await openExpanded(page, firstMessage);
     await expectMonospace(firstMessageExpanded.locator("textarea"));
-    await firstMessageExpanded.getByRole("button", { name: "Close expanded editor" }).click();
+    await firstMessageExpanded.getByRole("button", { name: "Close First Message", exact: true }).click();
   } finally {
     await request.delete(`/api/characters/${character.id}`);
     await request.delete(`/api/prompts/${preset.id}`);

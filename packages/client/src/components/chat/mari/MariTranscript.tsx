@@ -22,6 +22,7 @@ import { ProfessorMariRecovery, continuedThereByContext, toMessageExtra } from "
 import { WorkspaceTimelineItem, getMessageRunError, getMessageRunTime } from "./mari-tool-presentation";
 import { LoadingHistoryState } from "./MariChatStates";
 import { MariWorkTimeline } from "./MariWorkTimeline";
+import { MariImageOpener, type MariReplacedMessage } from "./MariImageLightbox";
 import { MariConnectionGuidance } from "./MariConnectionGuidance";
 
 /** Her transcript: the arrival or empty welcome, earlier turns, the active turn with its live timeline, reviews and errors. */
@@ -63,6 +64,7 @@ type MariTranscriptProps = {
   mariPresentationState: ProfessorMariPresentationState;
   messages: Message[];
   omnibarMode: boolean;
+  onImageReplaced?: (message: MariReplacedMessage) => void;
   openActionResult: (result: MariWorkspaceActionResult) => Promise<void>;
   openReferencedResource: (resource: MariReferencedResource) => void;
   renderArrival: (
@@ -131,6 +133,7 @@ export const MariTranscript = memo(function MariTranscript({
   mariPresentationState,
   messages,
   omnibarMode,
+  onImageReplaced,
   openActionResult,
   openReferencedResource,
   renderArrival,
@@ -161,6 +164,11 @@ export const MariTranscript = memo(function MariTranscript({
   // The fade-in follows the loading skeleton only; a thread drawn at once (a cached reopen) shows as it is.
   const [showedSkeleton, setShowedSkeleton] = useState(loadingHistory);
   if (loadingHistory && !showedSkeleton) setShowedSkeleton(true);
+  // Where the newest turn of the history starts (its user message), so that turn always lays out for real.
+  const previousTurnStart = Math.max(
+    0,
+    transcriptHeadMessages.findLastIndex((message) => message.role === "user"),
+  );
   const runErrorCard = activeRunError
     ? renderRunErrorCard(activeRunError, true)
     : workspaceStatus?.error && !isBusy
@@ -197,9 +205,11 @@ export const MariTranscript = memo(function MariTranscript({
                 <span className="mari-note__detail">{workspaceToolsIssue}</span>
               </MariNote>
             ) : null}
-            {transcriptHeadMessages.map((message) => (
-              // Older turns skip style and layout while off screen (mari.css).
-              <div key={message.id} className="mari-transcript-past-turn">
+            {transcriptHeadMessages.map((message, index) => (
+              // Older turns skip style and layout while off screen (mari.css). The turn just before yours is
+              // laid out for real: it moves here from the active turn as you send, and a placeholder height
+              // there resolved a frame later and threw your question down the screen as her reply began.
+              <div key={message.id} className={index >= previousTurnStart ? undefined : "mari-transcript-past-turn"}>
                 {renderDisplayMessage(message)}
               </div>
             ))}
@@ -252,48 +262,58 @@ export const MariTranscript = memo(function MariTranscript({
                 </div>
               ) : null}
               {workspaceTimelineVisible ? (
-                <MariWorkTimeline
-                  items={workspaceTimeline}
-                  character={focusedCharacter}
-                  lorebook={focusedLorebook}
-                  active={workspaceTimelineActive}
-                  draftChatId={chatId}
-                  restStory={latestTurnRestStory}
-                  pullTarget={!appendedArrival}
-                  runFailed={
-                    Boolean(activeRunError) ||
-                    Boolean(latestMessage && getMessageRunError(latestMessage, { includeDismissed: true }))
-                  }
-                  startedAtMs={
-                    workspaceRunClock?.startedAt ??
-                    (lastUserMessage
-                      ? getMessageRunTime(lastUserMessage, "mariRunStartedAt") ||
-                        Date.parse(lastUserMessage.createdAt) ||
-                        null
-                      : null)
-                  }
-                  endedAtMs={workspaceRunClock?.endedAt ?? null}
-                  characterPreviews={characterPreviewById}
-                  lorebookPreviews={lorebookPreviewById}
-                  actionResults={latestActionResults}
-                  onOpenResource={openReferencedResource}
-                  goal={!workspaceTimelineActive && latestMessage ? renderGoal(latestMessage) : null}
-                  held={typeof latestMessage?.extra === "object" && latestMessage.extra?.mariDeferredMutations === true}
+                <MariImageOpener
+                  chatId={chatId ?? latestMessage?.chatId ?? ""}
+                  messageId={latestMessage?.role === "assistant" ? latestMessage.id : ""}
+                  onImageReplaced={onImageReplaced}
                 >
-                  {!workspaceTimelineActive && latestMessage?.role === "assistant" ? (
-                    <MariWorkTimelineOutcome
-                      content={latestMessage.content ?? ""}
-                      actionResults={latestActionResults}
+                  <div className="group">
+                    <MariWorkTimeline
+                      items={workspaceTimeline}
+                      character={focusedCharacter}
+                      lorebook={focusedLorebook}
+                      active={workspaceTimelineActive}
+                      draftChatId={chatId}
+                      restStory={latestTurnRestStory}
+                      pullTarget={!appendedArrival}
+                      runFailed={
+                        Boolean(activeRunError) ||
+                        Boolean(latestMessage && getMessageRunError(latestMessage, { includeDismissed: true }))
+                      }
+                      startedAtMs={
+                        workspaceRunClock?.startedAt ??
+                        (lastUserMessage
+                          ? getMessageRunTime(lastUserMessage, "mariRunStartedAt") ||
+                            Date.parse(lastUserMessage.createdAt) ||
+                            null
+                          : null)
+                      }
+                      endedAtMs={workspaceRunClock?.endedAt ?? null}
                       characterPreviews={characterPreviewById}
                       lorebookPreviews={lorebookPreviewById}
-                      onOpenActionResult={openActionResult}
-                      onRegenerate={!isBusy ? () => handleRegenerateMessage(latestMessage.id) : undefined}
-                      onDelete={!isBusy ? () => handleDeleteMessage(latestMessage.id) : undefined}
-                      reviews={renderTurnReviews(latestMessage.id)}
-                      nothingChanged={toMessageExtra(latestMessage)?.mariNothingChanged === true}
-                    />
-                  ) : null}
-                </MariWorkTimeline>
+                      actionResults={latestActionResults}
+                      onOpenResource={openReferencedResource}
+                      goal={!workspaceTimelineActive && latestMessage ? renderGoal(latestMessage) : null}
+                      held={
+                        typeof latestMessage?.extra === "object" && latestMessage.extra?.mariDeferredMutations === true
+                      }
+                    >
+                      {!workspaceTimelineActive && latestMessage?.role === "assistant" ? (
+                        <MariWorkTimelineOutcome
+                          content={latestMessage.content ?? ""}
+                          actionResults={latestActionResults}
+                          characterPreviews={characterPreviewById}
+                          lorebookPreviews={lorebookPreviewById}
+                          onOpenActionResult={openActionResult}
+                          onRegenerate={!isBusy ? () => handleRegenerateMessage(latestMessage.id) : undefined}
+                          onDelete={!isBusy ? () => handleDeleteMessage(latestMessage.id) : undefined}
+                          reviews={renderTurnReviews(latestMessage.id)}
+                          nothingChanged={toMessageExtra(latestMessage)?.mariNothingChanged === true}
+                        />
+                      ) : null}
+                    </MariWorkTimeline>
+                  </div>
+                </MariImageOpener>
               ) : null}
               {/* Mari tells her story (stopped, retry, review) under her newest turn; she rests beside her reply.
                                     A failed send is its red line under your message, not also a line of hers.

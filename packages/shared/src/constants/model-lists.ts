@@ -247,12 +247,12 @@ export function supportsXhighReasoningEffort(model: string): boolean {
 }
 
 /**
- * GLM 5.2 and GLM 5.3 accept `reasoning_effort: "max"` on Z.AI's native
+ * GLM 5.2 to GLM 5.4 accept `reasoning_effort: "max"` on Z.AI's native
  * endpoint, so a preset set to Maximum should reach it instead of being
  * lowered to `high` on the way to the provider.
  */
 export function isZaiMaxReasoningEffortModel(model: string): boolean {
-  return /(?:^|\/)glm-5\.[23](?:$|[-:])/u.test(capabilityModelId(model));
+  return /(?:^|\/)glm-5\.[2-4](?:$|[-:])/u.test(capabilityModelId(model));
 }
 
 /**
@@ -288,6 +288,17 @@ export function isOpenAIGpt56Model(model: string): boolean {
 
 export function isOpenAIGpt6AstraModel(model: string): boolean {
   return /^(?:openai\/)?gpt-6-astra(?:$|[-:])/u.test(capabilityModelId(model));
+}
+
+/**
+ * GPT-6.2 and later. On the Responses API they append top-level `instructions` after the input and bill those tokens
+ * uncached even on a cache hit, so reusable instructions belong in the first developer message.
+ * https://developers.openai.com/api/docs/guides/prompt-caching
+ */
+export function isOpenAIGpt62OrLaterModel(model: string): boolean {
+  return /^(?:openai\/)?gpt-(?:6\.(?:[2-9]|[1-9]\d)|(?:[7-9]|[1-9]\d)(?:\.\d+)?)(?:$|[-:])/u.test(
+    capabilityModelId(model),
+  );
 }
 
 export function isOpenAIGpt6Model(model: string): boolean {
@@ -355,6 +366,9 @@ export function resolveProviderReasoningEffort(args: {
   )
     return null;
   const off = !effort || effort === "none";
+  // Codex has no Off: Default (null) or "none" sends nothing, so Codex keeps its own level for the model, even where
+  // the API would turn Off into the lightest level.
+  if (providerLower === "openai_chatgpt" && off) return null;
   // Nearest documented level, with ties going upwards. https://platform.claude.com/docs/en/build-with-claude/effort
   const nearest = (
     levels: Exclude<ProviderReasoningEffort, null>[],
@@ -424,9 +438,9 @@ export function resolveProviderReasoningEffort(args: {
     if (isMistralGlm53Model(model)) return nearest(["low", "high", "max"], "low");
     if (isMistralAdjustableReasoningModel(model)) return off ? null : "high";
   }
-  // https://docs.z.ai/api-reference/llm/chat-completion
+  // https://docs.z.ai/api-reference/llm/chat-completion and, for GLM 5.4, https://docs.z.ai/devpack/latest-model
   if (providerLower === "zai" || providerLower === "nanogpt") {
-    if (/^glm-5\.3(?:$|[-:])/u.test(bare)) return nearest(["low", "high", "max"], "low");
+    if (/^glm-5\.[34](?:$|[-:])/u.test(bare)) return nearest(["low", "high", "max"], "low");
     if (providerLower === "zai" && /^glm-5\.2(?:$|[-:])/u.test(bare)) return nearest(["high", "max"]);
     if (/^glm-(?:5(?:\.1)?|4\.[67])(?:$|[-:])/u.test(bare)) return off ? null : "high";
   }
@@ -1028,6 +1042,10 @@ export const ZAI_MODELS: KnownModel[] = [
   { id: "glm-5.3", name: "glm-5.3", context: 1000000, maxOutput: 128000 },
   { id: "glm-5.3-flash", name: "glm-5.3-flash", context: 1000000, maxOutput: 128000 },
   { id: "glm-5.2", name: "glm-5.2", context: 1000000, maxOutput: 128000 },
+  // GLM Coding Plan only, so it stays below the first three. Switching a connection to Z.AI fills in the
+  // first one and adding a Z.AI account recommends all three, both on the pay-as-you-go address, which
+  // does not serve GLM-5.4.
+  { id: "glm-5.4", name: "glm-5.4", context: 1000000, maxOutput: 128000 },
   { id: "glm-5.1", name: "glm-5.1", context: 200_000, maxOutput: 128_000 },
   { id: "glm-5", name: "glm-5", context: 200000, maxOutput: 128000 },
   { id: "glm-4.7", name: "glm-4.7", context: 200000, maxOutput: 8192 },

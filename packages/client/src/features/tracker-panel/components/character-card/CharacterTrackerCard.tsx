@@ -176,7 +176,7 @@ export function CharacterTrackerCard({
   deleteMode: boolean;
   addMode: boolean;
   onToggleFeatured: () => void;
-  onUploadAvatar: () => void;
+  onUploadAvatar?: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const {
@@ -192,8 +192,12 @@ export function CharacterTrackerCard({
     ([name, value]) => [name, value, trackerEditableText(value)] as const,
   );
   const characterStats = Array.isArray(character.stats) ? character.stats : [];
-  const avatarMedia = characterPicture ?? character.avatarPath ?? null;
-  const compactAvatarUpload = characterPicture ? undefined : onUploadAvatar;
+  const scenePortrait =
+    typeof character.scenePortraitPath === "string" && character.scenePortraitPath.trim()
+      ? character.scenePortraitPath.trim()
+      : null;
+  const avatarMedia = scenePortrait ?? characterPicture ?? character.avatarPath ?? null;
+  const compactAvatarUpload = onUploadAvatar;
   const characterFieldKey = (field: HideableCharacterField) =>
     characterTrackerLockKey(character, characterIndex, field);
   const fieldHidden = (field: HideableCharacterField) =>

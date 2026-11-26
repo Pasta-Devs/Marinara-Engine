@@ -1,4 +1,9 @@
-import { partialInput } from "@marinara-engine/shared";
+import {
+  partialInput,
+  type PackageDocumentationRead,
+  type StampedCapabilityCatalogPackage,
+} from "@marinara-engine/shared";
+import { readMarkdownHeading } from "../professor-mari/documentation-tools.js";
 // ──────────────────────────────────────────────
 // Professor Mari DB service
 // ──────────────────────────────────────────────
@@ -110,6 +115,9 @@ import {
   lorebookDecisionModeSchema,
   parseLorebookDecisionActivation,
   BUILT_IN_AGENT_MANIFESTS,
+  compareCapabilityPackageVersions,
+  type CapabilityPackageVersionNote,
+  type InstalledCapabilityPackage,
   type BuiltInAgentManifest,
   type Lorebook,
   type LorebookEntry,
@@ -125,6 +133,11 @@ import {
   type ReplyCheckupInput,
 } from "@marinara-engine/shared";
 import { guardMariDecisionWrites, MARI_DECISION_STATE_KEY } from "../professor-mari/decision-authoring.js";
+import {
+  lookupOfficialAgentCatalogPackage,
+  type OfficialAgentCatalogLookupResult,
+} from "../professor-mari/official-agent-knowledge.js";
+import { capabilityPackageManager } from "../capability-packages/package-manager.service.js";
 import { computePersonalExtensionHash } from "../extensions/personal-extension-hash.js";
 import { HomeWidgetCatalogConflictError, replaceHomeWidgetCatalog } from "../home-widget-catalog.service.js";
 import { createMariWherePredicate } from "./mari-where-expression.js";
@@ -548,8 +561,10 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
     "fieldLocks",
   ],
   game_checkpoints: ["snapshotData", "spatialSnapshotData"],
-  // chat_images, character_images, assets, and custom_themes
-  // have no JSON columns; their former entries named columns that do not exist.
+  chat_images: ["generation"],
+  character_images: ["generation"],
+  persona_images: ["generation"],
+  // Assets and custom themes have no JSON columns.
   game_engine_state: ["state"],
   regex_scripts: ["trimStrings", "placement", "targetCharacterIds", "targetPromptPresetIds"],
 };
@@ -1281,7 +1296,16 @@ const LOREBOOK_ACTIONS = [
 const HOME_WIDGET_ACTIONS = ["list", "get", "create", "update", "delete"] as const;
 const THEME_ACTIONS = ["list", "active", "get", "create", "update", "setActive"] as const;
 const PERSONAL_EXTENSION_ACTIONS = ["list", "get", "search", "create", "update"] as const;
-const AGENT_ACTIONS = ["list", "get", "runs", "search", "create", "update"] as const;
+const AGENT_ACTIONS = [
+  "list",
+  "get",
+  "runs",
+  "search",
+  "catalog.get",
+  "documentation.get",
+  "create",
+  "update",
+] as const;
 const PRESET_ACTIONS = [
   "list",
   "get",
@@ -2922,6 +2946,208 @@ export function summarizeMergedAgentRow(manifest: BuiltInAgentManifest | undefin
   };
 }
 
+const CATALOG_DETAIL_RELEASE_NOTES_LIMIT = 3;
+const CATALOG_DETAIL_RELEASE_NOTES_TIMEOUT_MS = 1_500;
+
+export interface OfficialCatalogPackageDetailDeps {
+  lookup?: (query: string) => Promise<OfficialAgentCatalogLookupResult>;
+  getInstalled?: () => Promise<readonly InstalledCapabilityPackage[]>;
+  getReleaseNotes?: (packageId: string) => Promise<readonly CapabilityPackageVersionNote[]>;
+  releaseNotesTimeoutMs?: number;
+  getDocumentation?: (
+    packageId: string,
+    entry?: StampedCapabilityCatalogPackage,
+  ) => Promise<PackageDocumentationRead | null>;
+}
+
+function summarizePackageGuide(doc: PackageDocumentationRead | null, heading?: string, maxChars = 8_000) {
+  if (!doc) return { status: "unavailable", topics: [] };
+  let content = doc.content;
+  if (heading && content) {
+    const section = readMarkdownHeading(doc.guideId, content, heading);
+    if (!section) return { status: "unavailable", topics: doc.topics, error: "Heading not found in this guide" };
+    content = section.content;
+  }
+  const limit = Math.max(1_000, Math.min(16_000, Math.trunc(maxChars) || 8_000));
+  return {
+    ...doc,
+    content: content?.slice(0, limit),
+    truncated: Boolean(content && content.length > limit),
+    referenceOnly: true,
+  };
+}
+
+export interface OfficialCatalogPackageDetailResult {
+  ok: boolean;
+  output?: Row;
+  error?: string;
+}
+
+async function resolveWithinBudget<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(
+      () => {
+        if (settled) return;
+        settled = true;
+        resolve(fallback);
+      },
+      Math.max(0, timeoutMs),
+    );
+    void promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
+}
+
+/**
+ * Resolves full official catalog package metadata for `agent.catalog.get`, cross-referencing
+ * installed package status and best-effort release notes within a bounded timeout.
+ */
+export async function buildOfficialCatalogPackageDetail(
+  rawQuery: string,
+  deps?: OfficialCatalogPackageDetailDeps,
+): Promise<OfficialCatalogPackageDetailResult> {
+  const query = rawQuery.trim();
+  if (!query) {
+    return { ok: false, error: 'Provide a catalog package "id" or "name".' };
+  }
+  const lookup = await (deps?.lookup
+    ? deps.lookup(query)
+    : lookupOfficialAgentCatalogPackage(query, { timeoutMs: 2_000 }));
+  if (!lookup.found) {
+    const candidates = lookup.candidates.map((candidate) => ({
+      id: candidate.id,
+      name: candidate.name,
+      section: candidate.section,
+      ...(candidate.modes ? { modes: candidate.modes } : {}),
+      ...(candidate.preview ? { preview: true } : {}),
+    }));
+    return {
+      ok: false,
+      error: lookup.ambiguous
+        ? `Multiple official catalog packages match "${lookup.query}". Retry with an exact id or name.`
+        : `No official catalog package matches "${lookup.query}".`,
+      ...(candidates.length > 0 ? { output: { candidates } } : {}),
+    };
+  }
+
+  const documentationPromise = resolveWithinBudget(
+    deps
+      ? (deps.getDocumentation?.(lookup.entry.id, lookup.package ?? undefined) ?? Promise.resolve(null))
+      : capabilityPackageManager.documentation(lookup.entry.id, "overview", lookup.package ?? undefined),
+    1_500,
+    null as PackageDocumentationRead | null,
+  );
+
+  let installedPackages: readonly InstalledCapabilityPackage[] | null = null;
+  try {
+    installedPackages = await (deps?.getInstalled ? deps.getInstalled() : capabilityPackageManager.installed());
+  } catch {
+    installedPackages = null;
+  }
+
+  const { entry } = lookup;
+  const pkg = lookup.package;
+  const installedKnown = installedPackages !== null;
+  const installedPkg = installedPackages?.find((item) => item.id === entry.id) ?? null;
+  const installed: boolean | null = installedKnown ? Boolean(installedPkg) : null;
+  const updateAvailable: boolean | null = !installedKnown
+    ? null
+    : pkg
+      ? Boolean(installedPkg && compareCapabilityPackageVersions(pkg.manifest.version, installedPkg.version) > 0)
+      : installedPkg
+        ? null
+        : false;
+  const requiresConnection =
+    BUILT_IN_AGENT_MANIFESTS.find((agent) => agent.packageId === entry.id)?.requiresConnection ?? null;
+
+  if (lookup.source === "fallback" || !pkg) {
+    return {
+      ok: true,
+      output: {
+        source: "fallback",
+        id: entry.id,
+        name: entry.name,
+        section: entry.section,
+        ...(entry.modes ? { modes: entry.modes } : {}),
+        summary: entry.summary,
+        preview: Boolean(entry.preview),
+        ...(requiresConnection ? { requiresConnection } : {}),
+        installed,
+        installedVersion: installedPkg?.version ?? null,
+        installedStatus: installedPkg?.status ?? null,
+        updateAvailable,
+        releaseNotes: [],
+        documentation: summarizePackageGuide(await documentationPromise),
+        note: "Live catalog unavailable; showing bundled summary metadata without full manifest permissions or release notes.",
+      },
+    };
+  }
+
+  let rawNotes: readonly CapabilityPackageVersionNote[] = [];
+  try {
+    const timeoutMs = deps?.releaseNotesTimeoutMs ?? CATALOG_DETAIL_RELEASE_NOTES_TIMEOUT_MS;
+    const notesPromise = deps?.getReleaseNotes
+      ? deps.getReleaseNotes(entry.id)
+      : capabilityPackageManager.releaseNotes(entry.id);
+    rawNotes = await resolveWithinBudget(notesPromise, timeoutMs, [] as readonly CapabilityPackageVersionNote[]);
+  } catch {
+    rawNotes = [];
+  }
+
+  const { manifest } = pkg;
+  const capabilityApi =
+    manifest.schemaVersion === 2 ? `${manifest.capabilityApi.major}.${manifest.capabilityApi.minor}` : null;
+  return {
+    ok: true,
+    output: {
+      source: "live",
+      id: manifest.id,
+      name: manifest.name.trim(),
+      version: manifest.version,
+      section: entry.section,
+      tagline: pkg.store?.tagline?.trim() ?? entry.summary,
+      description: manifest.description,
+      kind: [...manifest.kind],
+      category: pkg.category,
+      ...(entry.modes ? { modes: entry.modes } : {}),
+      preview: Boolean(pkg.preview),
+      permissions: [...manifest.permissions],
+      engine: {
+        min: manifest.engine.min,
+        ...(manifest.engine.maxExclusive ? { maxExclusive: manifest.engine.maxExclusive } : {}),
+      },
+      capabilityApi,
+      restartRequired: manifest.restartRequired,
+      ...(requiresConnection ? { requiresConnection } : {}),
+      documentationUrl: pkg.documentationUrl ?? null,
+      documentation: summarizePackageGuide(await documentationPromise),
+      installed,
+      installedVersion: installedPkg?.version ?? null,
+      installedStatus: installedPkg?.status ?? null,
+      updateAvailable,
+      releaseNotes: rawNotes.slice(0, CATALOG_DETAIL_RELEASE_NOTES_LIMIT).map((note) => ({
+        version: note.version,
+        date: note.date,
+        notes: note.notes,
+        highlight: note.highlight,
+      })),
+    },
+  };
+}
+
 function summarizeChatRow(row: Row): Row {
   const charIds = tryParseJsonColumn(row, "characterIds");
   return {
@@ -3618,9 +3844,10 @@ export class MariDbService {
         if (!existing) throw missingRecord("character", id, "character.search (or character.list)");
         const existingDataRaw = tryParseJsonColumn(existing, "data");
         const existingData = isRecord(existingDataRaw) ? existingDataRaw : {};
-        const { onboarding, warnings } = buildOnboardingUpdate(
+        const { onboarding, warnings, counts } = buildOnboardingUpdate(
           existingData,
           args.onboarding ?? args.patch ?? args.data,
+          args.questionOps,
         );
         const extensions = isRecord(existingData.extensions) ? existingData.extensions : {};
         const name = typeof existingData.name === "string" ? existingData.name : "";
@@ -3651,7 +3878,10 @@ export class MariDbService {
           context.command,
           context.sessionId,
         );
-        return withNotices(result, "characters", id, warnings);
+        return {
+          ...withNotices(result, "characters", id, warnings),
+          output: { ...(isRecord(result.output) ? result.output : { message: result.output }), questionCounts: counts },
+        };
       }
       case "movetofolder": {
         return this.withCharacterFolderMutationLock(async () => {
@@ -5809,6 +6039,44 @@ export class MariDbService {
           .slice(0, limit)
           .map(summarizeAgentConfigRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
+      }
+      case "catalog.get": {
+        const query = firstString(args, ["id", "packageId", "name", "query", "agentId", "type"]) ?? "";
+        const detail = await buildOfficialCatalogPackageDetail(query);
+        return {
+          ok: detail.ok,
+          mode: "read",
+          command: context.command,
+          ...(detail.output !== undefined ? { output: detail.output } : {}),
+          ...(detail.error ? { error: detail.error } : {}),
+        };
+      }
+      case "documentation.get": {
+        const query = requiredString(args, ["id", "packageId", "name", "query"], "catalog package id or name");
+        const lookup = await lookupOfficialAgentCatalogPackage(query, { timeoutMs: 2_000 });
+        if (!lookup.found)
+          return {
+            ok: false,
+            mode: "read",
+            command: context.command,
+            error: "No unique official catalog package matches; use its exact id.",
+          };
+        const guide = firstString(args, ["guide", "guideId"]) ?? "overview";
+        const doc = await resolveWithinBudget(
+          capabilityPackageManager.documentation(lookup.entry.id, guide, lookup.package ?? undefined),
+          2_000,
+          null,
+        );
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: summarizePackageGuide(
+            doc,
+            firstString(args, ["heading"]) ?? undefined,
+            firstNumber(args, ["maxChars"]) ?? 8_000,
+          ),
+        };
       }
       case "create": {
         const data = normalizeAgentActionData(
@@ -10211,23 +10479,25 @@ export class MariDbService {
   // #7977: a deleted preset, lorebook, regex or function left its id in a library folder's itemIds. The HTTP routes
   // prune it with removeItemReferences; here the prune joins the plan, so Restore puts it back too.
   private async addLibraryFolderPrunes(changes: PlanChange[]) {
-    const folderScopes: Record<string, string> = {
-      prompt_presets: "presets",
+    // Each folder scope and the table whose ids it holds; saved lorebook sets hold lorebook ids too.
+    const scopeTables: Record<string, string> = {
+      presets: "prompt_presets",
       lorebooks: "lorebooks",
-      regex_scripts: "regex",
-      custom_tools: "functions",
+      "lorebook-sets": "lorebooks",
+      regex: "regex_scripts",
+      functions: "custom_tools",
     };
+    const folderTables = new Set(Object.values(scopeTables));
     const removing = new Map<string, Set<string>>();
     for (const change of changes) {
-      const scope = folderScopes[change.table];
-      if (!scope || change.action !== "delete" || !change.apply) continue;
-      removing.set(scope, (removing.get(scope) ?? new Set()).add(change.id));
+      if (!folderTables.has(change.table) || change.action !== "delete" || !change.apply) continue;
+      removing.set(change.table, (removing.get(change.table) ?? new Set()).add(change.id));
     }
     if (removing.size === 0) return;
     const folderMeta = getMeta("library_folders");
     const timestamp = now();
     for (const folder of await this.rawRows(folderMeta.name)) {
-      const removedIds = removing.get(String(folder.scope));
+      const removedIds = removing.get(scopeTables[String(folder.scope)] ?? "");
       if (!removedIds) continue;
       const parsed = parseRow(folderMeta.name, folder);
       const itemIds = parseJsonArray(parsed.itemIds).map(String);

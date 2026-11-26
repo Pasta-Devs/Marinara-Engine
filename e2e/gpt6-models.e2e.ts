@@ -4,8 +4,15 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
-for (const model of ["gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol", "gpt-6.2-sol", "gpt-6.2-astra"]) {
-  test(`${model} selection and reasoning Off/Maximum persist`, async ({ page, request }, info) => {
+// GPT-6 Astra, 6.1 and 6.2 always reason, so their lightest level is Low and they offer no Off (#9604).
+for (const [model, lightest] of [
+  ["gpt-6-sol", "Off"],
+  ["gpt-6-luna", "Off"],
+  ["gpt-6.1-sol", "Low"],
+  ["gpt-6.2-sol", "Low"],
+  ["gpt-6.2-astra", "Low"],
+] as const) {
+  test(`${model} selection and reasoning ${lightest}/Maximum persist`, async ({ page, request }, info) => {
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
     await seedUIState(page, {
       hasCompletedOnboarding: true,
@@ -42,10 +49,11 @@ for (const model of ["gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol", "gpt-6.2-sol", "g
       await defaults.press("Space");
       await expect(defaults).toBeChecked();
       const reasoning = page.getByText("Reasoning Effort", { exact: true }).locator("../../..");
-      const off = reasoning.getByRole("button", { name: "Off", exact: true });
+      const lowest = reasoning.getByRole("button", { name: lightest, exact: true });
       const maximum = reasoning.getByRole("button", { name: "Max", exact: true });
+      if (lightest === "Low") await expect(reasoning.getByRole("button", { name: "Off", exact: true })).toHaveCount(0);
       for (const [button, effort] of [
-        [off, null],
+        [lowest, lightest === "Off" ? null : "low"],
         [maximum, "maximum"],
       ] as const) {
         await button.click();

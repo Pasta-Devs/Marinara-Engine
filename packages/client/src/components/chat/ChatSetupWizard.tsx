@@ -872,6 +872,20 @@ function ConversationQuickSetup({
   defaultsAction,
 }: WizardWithDefaultsProps) {
   const { t: localizeUi } = useUiTranslation();
+  const finishTimerRef = useRef<number | null>(null);
+  // False once this page closes, so a schedule that finishes generating afterwards never starts the finish.
+  const activeRef = useRef(true);
+  // Set while Start runs (and after it succeeds), so a second click can't start it twice.
+  const startingRef = useRef(false);
+  // The delayed finish after the schedule step belongs to this chat's setup: leaving first cancels it, so it never
+  // closes or acts on the chat that is open by then.
+  useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+      if (finishTimerRef.current !== null) window.clearTimeout(finishTimerRef.current);
+    };
+  }, []);
   const [step, setStep] = useState(0);
   const currentStep = CONVERSATION_STEPS[step]!;
   const isLast = step === CONVERSATION_STEPS.length - 1;
@@ -1225,6 +1239,8 @@ function ConversationQuickSetup({
 
   const handleStartChatting = useCallback(async () => {
     if (metadata.multiplayerSetup !== true && (!hasConnection || !hasCharacters)) return;
+    if (startingRef.current) return;
+    startingRef.current = true;
     const trimmedConversationSystemPrompt = conversationSystemPromptDraft.trim();
     const baseConversationPromptText = baseConversationPrompt.trim();
     const customSystemPrompt =
@@ -1244,17 +1260,23 @@ function ConversationQuickSetup({
       selfieCommandEnabled,
       connections: connectionOptions,
     });
-    await updateMeta.mutateAsync({
-      id: chat.id,
-      autonomousMessages: autonomousEnabled,
-      conversationSchedulesEnabled: generateSchedule,
-      characterCommands: hasConversationCommands && commandsEnabled,
-      conversationCommandToggles: selfieSetup.conversationCommandToggles,
-      conversationSetupComplete: true,
-      chatParameters: customizeParameters ? generationParameters : null,
-      customSystemPrompt,
-      ...(selfieSetup.imageGenConnectionId ? { imageGenConnectionId: selfieSetup.imageGenConnectionId } : {}),
-    });
+    try {
+      await updateMeta.mutateAsync({
+        id: chat.id,
+        autonomousMessages: autonomousEnabled,
+        conversationSchedulesEnabled: generateSchedule,
+        characterCommands: hasConversationCommands && commandsEnabled,
+        conversationCommandToggles: selfieSetup.conversationCommandToggles,
+        conversationSetupComplete: true,
+        chatParameters: customizeParameters ? generationParameters : null,
+        customSystemPrompt,
+        ...(selfieSetup.imageGenConnectionId ? { imageGenConnectionId: selfieSetup.imageGenConnectionId } : {}),
+      });
+    } catch (error) {
+      // Not saved: Start can be tried again.
+      startingRef.current = false;
+      throw error;
+    }
     useChatStore.getState().clearPendingNewChatSetup(chat.id);
     if (autonomousEnabled && generateSchedule && metadata.multiplayerSetup !== true) {
       setScheduleState("generating");
@@ -1272,8 +1294,12 @@ function ConversationQuickSetup({
       } catch {
         // Schedule generation is non-critical — continue anyway
       }
+      if (!activeRef.current) return;
       setScheduleState("done");
-      setTimeout(onFinish, 2000);
+      finishTimerRef.current = window.setTimeout(() => {
+        finishTimerRef.current = null;
+        onFinish();
+      }, 2000);
     } else {
       onFinish();
     }
@@ -2836,6 +2862,8 @@ function RoleplaySetupWizard({
         selectedIds={activeLorebookIds}
         onToggle={toggleLorebook}
         onAdd={addLorebooks}
+        // A saved set fills this chat's lorebooks; changing them here afterwards leaves the set alone.
+        onApplySet={(ids) => updateMeta.mutate({ id: chat.id, activeLorebookIds: ids })}
         triggerClassName={WIZARD_INPUT_CLASS}
       />
     );

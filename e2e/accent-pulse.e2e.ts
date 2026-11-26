@@ -425,9 +425,10 @@ for (const theme of ["dark", "light"] as const) {
         "border-right-color",
         await renderedColor(border),
       );
-      await expect(page.getByRole("tab", { name: "General", exact: true }).locator("span").first()).toHaveCSS(
+      // The shared Tabs (#9455) draw Settings' categories as one segmented bar, edged in the accent.
+      await expect(page.getByRole("tablist", { name: "Settings categories", exact: true })).toHaveCSS(
         "border-top-color",
-        await renderedColor(`color-mix(in oklab, ${border} 55%, transparent)`),
+        await renderedColor(`color-mix(in srgb, ${color} 12%, transparent)`),
       );
       await expect(page.getByRole("button", { name: /^Quick Access/u }).locator("../..")).toHaveCSS(
         "border-top-color",

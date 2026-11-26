@@ -8,6 +8,7 @@ import {
   isGeminiModel,
   isGeminiStrictRequestModel,
   isGeminiThinkingLevelModel,
+  MODEL_LISTS,
   resolveProviderReasoningEffort,
   shouldSuppressUnknownModelParameters,
 } from "../../packages/shared/src/constants/model-lists.js";
@@ -286,6 +287,16 @@ try {
   );
   assert.equal(nanoGptRequestBody?.enable_thinking, true);
 
+  nanoGptRequestBody = null;
+  await collectProviderOutput(provider, {
+    model: "zai-org/glm-5.4",
+    stream: false,
+    reasoningEffort: "none",
+    enabledParameters: { reasoningEffort: true },
+  });
+  assert.equal(nanoGptRequestBody?.reasoning_effort, "low", "NanoGPT GLM 5.4 gets low effort, never a disable");
+  assert.equal(nanoGptRequestBody?.enable_thinking, true);
+
   // A generic custom connection on a LOCAL inference host keeps the
   // pre-existing "none" for GLM 5.3 (its chat template can really disable
   // thinking); the remote-gateway substitution is pinned on the pure helper
@@ -397,17 +408,24 @@ try {
     undefined,
     "openrouter",
   );
-  await provider.chatComplete([{ role: "user", content: "cache Gemini" }], {
+  // Gemini on OpenRouter caches only a marked block, and only the last mark counts: one mark on the system prompt
+  // and no top-level field (https://openrouter.ai/docs/guides/best-practices/prompt-caching#google-gemini).
+  const withSystem = (content: string): ChatMessage[] => [
+    { role: "system", content: "Stable rules" },
+    { role: "user", content },
+  ];
+  const markedSystem = [{ type: "text", text: "Stable rules", cache_control: { type: "ephemeral" } }];
+  await provider.chatComplete(withSystem("cache Gemini"), {
     model: "google/gemini-3-pro-preview",
     stream: false,
     enableCaching: true,
   });
-  await provider.chatComplete([{ role: "user", content: "do not cache" }], {
+  await provider.chatComplete(withSystem("do not cache"), {
     model: "google/gemini-3-pro-preview",
     stream: false,
     enableCaching: false,
   });
-  for await (const _chunk of provider.chat([{ role: "user", content: "cache suppressed stream" }], {
+  for await (const _chunk of provider.chat(withSystem("cache suppressed stream"), {
     model: "google/gemini-3-pro-preview",
     stream: true,
     enableCaching: true,
@@ -415,16 +433,18 @@ try {
   })) {
     // Consume the full SSE response through [DONE].
   }
-  await provider.chatComplete([{ role: "user", content: "cache suppressed complete" }], {
+  await provider.chatComplete(withSystem("cache suppressed complete"), {
     model: "google/gemini-3-pro-preview",
     stream: false,
     enableCaching: true,
     suppressModelParameters: true,
   });
-  assert.deepEqual(openRouterCachingRequestBodies[0]?.cache_control, { type: "ephemeral" });
-  assert.equal("cache_control" in (openRouterCachingRequestBodies[1] ?? {}), false);
-  assert.deepEqual(openRouterCachingRequestBodies[2]?.cache_control, { type: "ephemeral" });
-  assert.deepEqual(openRouterCachingRequestBodies[3]?.cache_control, { type: "ephemeral" });
+  for (const index of [0, 2, 3]) {
+    const body = openRouterCachingRequestBodies[index] as { cache_control?: unknown; messages: ChatMessage[] };
+    assert.equal(body.cache_control, undefined, `request ${index} has no top-level field`);
+    assert.deepEqual(body.messages[0]?.content, markedSystem, `request ${index} marks the system prompt`);
+  }
+  assert.equal(JSON.stringify(openRouterCachingRequestBodies[1]).includes("cache_control"), false);
 } finally {
   await new Promise<void>((resolve, reject) =>
     openRouterCachingServer.close((error) => (error ? reject(error) : resolve())),
@@ -1523,6 +1543,21 @@ try {
     false,
     "GLM 5.3 (non-Flash) must keep OpenRouter's mandatory reasoning default (#5765)",
   );
+
+  openRouterRequestBody = null;
+  await collectProviderOutput(provider, {
+    model: "z-ai/glm-5.4",
+    stream: false,
+    reasoningEffort: "none",
+    enabledParameters: { reasoningEffort: true },
+  });
+  const mandatoryGlm54OpenRouterBody = openRouterRequestBody as Record<string, unknown>;
+  assert.ok(mandatoryGlm54OpenRouterBody);
+  assert.equal(
+    "reasoning" in mandatoryGlm54OpenRouterBody,
+    false,
+    "GLM 5.4 must keep OpenRouter's mandatory reasoning default",
+  );
 } finally {
   await new Promise<void>((resolve, reject) => openRouterServer.close((error) => (error ? reject(error) : resolve())));
 }
@@ -1705,6 +1740,50 @@ assert.deepEqual(
   { thinking: { type: "enabled" } },
   "no configured effort leaves Z.AI's own default (max) in place",
 );
+
+// GLM 5.4 (#9700) gets the GLM 5.3 rules: Z.AI's Coding Plan turns a thinking disable into low effort and an unknown
+// effort such as "none" into max, so Off sends low and every level maps onto low, high or max.
+// https://docs.z.ai/devpack/latest-model
+assert.equal(findKnownModel("zai", "glm-5.4")?.context, 1_000_000);
+assert.equal(findKnownModel("zai", "glm-5.4")?.maxOutput, 128_000);
+// GLM-5.4 is on the Coding Plan only. Switching a connection to Z.AI fills in the first listed model and adding a
+// Z.AI account recommends the first three, both on the pay-as-you-go address, so none of them may be GLM-5.4.
+assert.ok(
+  !MODEL_LISTS.zai.slice(0, 3).some((model) => model.id === "glm-5.4"),
+  "Z.AI's filled-in and recommended models leave out the Coding-Plan-only GLM-5.4",
+);
+for (const model of ["glm-5.4", "z-ai/glm-5.4", "zai-org/glm-5.4", "glm-5.4:thinking"]) {
+  assert.equal(isGlm53MandatoryReasoningModel(model), true, model);
+}
+assert.equal(isGlm53MandatoryReasoningModel("glm-5.40"), false);
+for (const [stored, expected] of [
+  [null, "low"],
+  ["low", "low"],
+  ["medium", "high"],
+  ["high", "high"],
+  ["xhigh", "max"],
+  ["maximum", "max"],
+] as const) {
+  const reasoningEffort = resolveProviderReasoningEffort({
+    provider: "zai",
+    model: "glm-5.4",
+    reasoningEffort: stored,
+  });
+  assert.equal(reasoningEffort, expected, `Z.AI GLM 5.4 ${stored} resolves to ${expected}`);
+  const body: Record<string, unknown> = {};
+  applyGlmThinkingParameters(body, {
+    model: "glm-5.4",
+    baseUrl: "https://api.z.ai/api/coding/paas/v4",
+    providerKind: "zai",
+    reasoningEffort,
+  });
+  assert.deepEqual(body, { thinking: { type: "enabled" }, reasoning_effort: expected }, `Z.AI GLM 5.4 ${stored}`);
+}
+assert.equal(
+  resolveProviderReasoningEffort({ provider: "nanogpt", model: "zai-org/glm-5.4", reasoningEffort: null }),
+  "low",
+);
+assert.equal(glm53CustomGatewayReasoningEffort("glm-5.4", "https://gateway.example.com/v1", "none"), "low");
 
 // An empty reply says what the provider reported (#5963).
 assert.equal(
@@ -2275,6 +2354,12 @@ const nanoGPTImageServer = createServer(async (request, response) => {
   if (request.url === "/result.png") {
     response.writeHead(200, { "content-type": "image/png" });
     response.end(Buffer.from(onePixelPng, "base64"));
+    return;
+  }
+  // The NanoGPT model list, read before the first request; this fixture has none.
+  if (request.url?.startsWith("/v1/image-models")) {
+    response.writeHead(404);
+    response.end();
     return;
   }
 

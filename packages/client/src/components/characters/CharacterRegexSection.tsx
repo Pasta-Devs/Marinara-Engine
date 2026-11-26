@@ -22,6 +22,7 @@ import { downloadJsonFile } from "../../lib/download-json";
 import { getFolderImportEntries, isPatternSafe, type RegexApplyMode } from "@marinara-engine/shared";
 import { ApiError } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
+import { regexImportSkipReason } from "../panels/PresetsPanel";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -97,6 +98,7 @@ function serializeRegexScript(script: RegexScriptRow) {
     findRegex: script.findRegex,
     replaceString: script.replaceString,
     trimStrings: parseStringArray(script.trimStrings),
+    trimScope: script.trimScope === "match" ? ("match" as const) : ("result" as const),
     placement: parseStringArray(script.placement),
     flags: script.flags,
     promptOnly: parseBooleanValue(script.promptOnly, false),
@@ -160,13 +162,23 @@ function normalizeRegexImportEntry(entry: unknown, fallbackOrder: number) {
     .filter(
       (placementValue): placementValue is string => placementValue === "ai_output" || placementValue === "user_input",
     );
+  // A SillyTavern script that runs only on slash commands, World Info or reasoning has nothing to run on here.
+  if (rawPlacement.length > 0 && mappedPlacement.length === 0) return null;
 
+  // SillyTavern trims only the matched text; Marinara's own exports say which rule they use.
+  const trimScope =
+    entry.trimScope === "match" || entry.trimScope === "result"
+      ? entry.trimScope
+      : looksLikeSillyTavernRegex(entry) || !("promptOnly" in entry || "applyMode" in entry)
+        ? "match"
+        : "result";
   return {
     name,
     enabled: parseBooleanValue(entry.enabled, entry.disabled === undefined ? true : !parseBooleanValue(entry.disabled)),
     findRegex,
     replaceString: typeof entry.replaceString === "string" ? entry.replaceString : "",
     trimStrings: parseStringArray(entry.trimStrings),
+    trimScope,
     placement: mappedPlacement.length > 0 ? mappedPlacement : ["ai_output"],
     flags,
     promptOnly: readRegexApplyMode(entry) === "prompt",
@@ -282,7 +294,13 @@ export function CharacterRegexSection({
           const unsupportedPlacements = getUnsupportedStRegexPlacements(entry);
           const normalized = normalizeRegexImportEntry(entry, orderBase + index);
           if (!normalized) {
-            failed.push(`Entry ${index + 1}: missing name or find pattern.`);
+            const skipReason = regexImportSkipReason(entry);
+            failed.push(
+              localizeUi("ui.regex.importEntryRejected", {
+                number: index + 1,
+                reason: skipReason ?? localizeUi("ui.regex.importEntryMissingFields"),
+              }),
+            );
             continue;
           }
           try {

@@ -20,6 +20,7 @@ import {
   toMessageExtra,
   retryOf,
 } from "./mari-chat-helpers";
+import type { WorkspaceTimelineItem } from "./mari-tool-presentation";
 
 /** Actions on one message in her transcript: delete, edit, regenerate, edit and resend, remove an attachment. */
 type MariMessageActionsInput = {
@@ -67,6 +68,8 @@ type MariMessageActionsInput = {
   setConnectionMenuOpen: Dispatch<SetStateAction<boolean>>;
   setMessages: Dispatch<SetStateAction<Message[]>>;
   setSending: Dispatch<SetStateAction<boolean>>;
+  setWorkspaceTimeline: Dispatch<SetStateAction<WorkspaceTimelineItem[]>>;
+  workspaceRunIdRef: RefObject<number>;
 };
 
 export function useMariMessageActions({
@@ -86,6 +89,8 @@ export function useMariMessageActions({
   setConnectionMenuOpen,
   setMessages,
   setSending,
+  setWorkspaceTimeline,
+  workspaceRunIdRef,
 }: MariMessageActionsInput) {
   const { t: localizeUi } = useTranslation();
   const handleDeleteMessage = useCallback(
@@ -98,11 +103,17 @@ export function useMariMessageActions({
         tone: "destructive",
       });
       if (!confirmed || messageMutationBusyRef.current) return;
+      const latest = messagesRef.current.at(-1);
+      const deletingTimelineOwner = latest?.id === messageId && latest.role === "assistant";
+      const deleteRunId = workspaceRunIdRef.current;
       messageLoadAbortRef.current?.abort();
       // Optimistic update from local state
       setMessages((current) => current.filter((m) => m.id !== messageId));
       try {
         await api.delete(`/chats/${chatId}/messages/${messageId}?trash=false`);
+        if (deletingTimelineOwner && activeChatIdRef.current === chatId && workspaceRunIdRef.current === deleteRunId) {
+          setWorkspaceTimeline([]);
+        }
       } catch (error) {
         console.error("[Professor Mari] Failed to delete message", error);
         await loadMessages(chatId).catch(() => undefined);
@@ -111,7 +122,19 @@ export function useMariMessageActions({
         });
       }
     },
-    [chatId, isBusy, loadMessages, localizeUi, messageLoadAbortRef, messageMutationBusyRef, setMessages],
+    [
+      activeChatIdRef,
+      chatId,
+      isBusy,
+      loadMessages,
+      localizeUi,
+      messageLoadAbortRef,
+      messageMutationBusyRef,
+      messagesRef,
+      setMessages,
+      setWorkspaceTimeline,
+      workspaceRunIdRef,
+    ],
   );
 
   const handleEditMessage = useCallback(

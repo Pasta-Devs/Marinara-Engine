@@ -5,18 +5,19 @@ import { randomUUID } from "node:crypto";
 import { existsSync, lstatSync, readlinkSync, realpathSync } from "node:fs";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
 import type { FastifyInstance } from "fastify";
-import type {
+import {
   BaseLLMProvider,
-  ChatCompletionResult,
-  ChatMessage,
-  ChatOptions,
-  LLMToolDefinition,
-  LLMUsage,
+  type ChatCompletionResult,
+  type ChatMessage,
+  type ChatOptions,
+  type LLMToolDefinition,
+  type LLMUsage,
 } from "../llm/base-provider.js";
 import { resolveStoredChatOptions } from "../generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
 import { parseTextualToolCalls, textualCallMarkerIndex } from "../llm/textual-tool-call-parser.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
+import { RateLimitAwareProvider } from "../llm/rate-limit-aware-provider.js";
 import { GeminiNoContentError } from "../llm/providers/google.provider.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
@@ -64,6 +65,7 @@ import { withConnectionFallbackProvider } from "../llm/connection-fallback-provi
 import { tryParseJsonRecord } from "../../lib/json-repair.js";
 import {
   formatCapabilityAgentGroundingLines,
+  getOfficialAgentCatalogKnowledge,
   PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
 } from "./official-agent-knowledge.js";
 import {
@@ -85,6 +87,9 @@ import {
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
   MARI_RUNTIME_SETTINGS_KEY,
   MARI_SKILL_GATE_SETTINGS_KEY,
+  MARI_CONTEXT_DEPTH_SETTINGS_KEY,
+  DEFAULT_MARI_CONTEXT_DEPTH,
+  normalizeMariContextDepth,
   DEFAULT_MARI_RUNTIME,
   isMariRuntime,
   type MariRuntime,
@@ -398,6 +403,20 @@ export const MAX_VERIFICATION_REPAIR_ROUNDS = 2;
 export const MAX_MIDRUN_CLAIM_REPAIR_ROUNDS = 2;
 export const MAX_REPEATED_COMMAND_FAILURES = 3;
 const MAX_HISTORY_MESSAGES = 40;
+// Past MAX_HISTORY_MESSAGES the window's first row moves in steps of this many, not one turn at a time, so the
+// history a provider has cached stays the start of the next request for many turns.
+const HISTORY_WINDOW_STEP = 20;
+
+/**
+ * The stored rows Mari is sent: at most MAX_HISTORY_MESSAGES, starting on a step boundary so the first row stays put
+ * for HISTORY_WINDOW_STEP / 2 turns, and on a user row so the history never opens with an answer to a cut question.
+ */
+export function mariHistoryWindow<T extends { role: string }>(rows: readonly T[]): T[] {
+  if (rows.length <= MAX_HISTORY_MESSAGES) return [...rows];
+  let start = Math.ceil((rows.length - MAX_HISTORY_MESSAGES) / HISTORY_WINDOW_STEP) * HISTORY_WINDOW_STEP;
+  while (start < rows.length - 1 && rows[start]!.role !== "user") start += 1;
+  return rows.slice(start);
+}
 export const MAX_PARALLEL_READONLY_COMMANDS = 4;
 const RECENT_WORKSPACE_CONTINUITY_LIMIT = 4;
 export const COMMAND_OUTPUT_LIMIT = 32_000;
@@ -484,6 +503,9 @@ const MIN_AFFORDABLE_OUTPUT_TOKENS = 1_024;
 /** Each call retries at most this many times on a credit or context-window rejection. */
 const MAX_LIMIT_RETRIES = 2;
 const learnedRunLimits = new WeakMap<AbortSignal, { maxTokens?: number; maxContext?: number }>();
+// Runs on a local server (the sidecar, llama.cpp, Ollama, LM Studio, vLLM): their chat templates commonly accept one
+// system message, at index 0. Keyed by the run's abort signal, like learnedRunLimits.
+const singleSystemMessageRuns = new WeakSet<AbortSignal>();
 
 /** The output budget a run's requests use now: the run-start one, lowered by any limit learned from a rejection. */
 function runMaxOutputTokens(signal: AbortSignal | undefined, maxTokens: number | undefined) {
@@ -593,6 +615,8 @@ export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
   "agent.get",
   "agent.search",
   "agent.runs",
+  "agent.catalog.get",
+  "agent.documentation.get",
   "agent.create",
   "agent.update",
   "preset.list",
@@ -879,6 +903,11 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           description:
             "Partial update fields only. Omitted fields remain unchanged. For character/persona cards, never put requested backstory or appearance content into description: description is the brief identity overview, personality is behavioral traits and mannerisms, backstory is history, and appearance is physical features/clothing.",
         },
+        questionOps: {
+          type: "object",
+          description:
+            "For character.onboarding.update, prefer this over resending a list. variables and cardVariables each accept add (question objects), update (partial question objects matched by id first, else variableName), remove (ids or variableNames), and after (existing question id or variableName to insert the add batch after). Add appends by default. Omitted fields stay. Sent options replace that question's options. Requires a stored block. Send either the whole list or questionOps for a given list. Read builtin-onboarding.",
+        },
         onboarding: {
           type: "object",
           description:
@@ -1004,7 +1033,8 @@ const MARI_SEASON_FLAVORS = new Map<string, string>([
   ],
 ]);
 
-export const MARI_SYSTEM_PROMPT = `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
+export function buildMariSystemPrompt(agentCatalogBlock: string = PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE): string {
+  return `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
 
 Voice:
 Use Professor Mari's existing character voice as your source of truth:
@@ -1016,7 +1046,7 @@ ENFP 4w7, Choleric-Sanguine, Chaotic Neutral, Taurus. Mari's speech is typically
 
 Your voice belongs in the visible reply. \`reason\`, \`authorization\`, and approval, review, or diff text stay literal: they say exactly what will happen and why, so the user can trust every approval.
 
-${PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE}
+${agentCatalogBlock}
 
 Workspace defaults:
 - Marinara's first-party agents and larger optional features are downloaded from **Agents → Agent Organizer**. Fresh installs start without them; maps, Conversation calls, and Conversation games are packages too. Tell users to install the desired package, enable it for the chat, and restart Marinara Engine when the catalog prompts them. Existing pre-package installs are migrated automatically without losing settings or history.
@@ -1069,6 +1099,9 @@ Workspace files:
 For user-facing questions about Marinara features, configuration, installation, or troubleshooting, use \`docs_search\` and then \`docs_read\` before broad workspace searches. Cite the documentation path and heading in the answer. Use built-in or CLI help when exact command syntax matters. Inspect source only when canonical documentation is missing or ambiguous, or when the user explicitly asks about internals; if source inspection was required, say that the answer used an implementation-level source.
 Unreleased features: some features in the source are unfinished and switched off for everyone behind a server flag, such as Overworld games in Game Mode (setting kits, generated worlds, the overworld map, towns and dungeon maps), whose setup card says they are not ready yet. Overworld games are not the World Maps agent, which is released. When the source or the UI shows a feature is locked or switched off, say it is not available yet. Separately, never present \`.env\`, a server flag or an environment variable as the way to turn on a feature the user documentation does not describe.
 Use other workspace files to understand Marinara internals, answer source-code questions, or find content that is not available through documentation, CLI, or app-data commands. Do not inspect source files instead of live app data when the user asks about saved characters, chats, agents, tools, presets, lorebooks, or other app content.`;
+}
+
+export const MARI_SYSTEM_PROMPT = buildMariSystemPrompt();
 
 /**
  * Mari's working rules for the workspace tools (app_data reference, authoring guides, memories). Shared by both runtimes;
@@ -1441,6 +1474,9 @@ export function compactMutationResult(
     // validation rides up here for the same reason: the message tells her to read validation.notices, and a long
     // preview used to cut them off when they sat after the summary.
     validation: result.validation,
+    ...(isRecord(result.output) && result.output.questionCounts
+      ? { questionCounts: result.output.questionCounts }
+      : {}),
     // app_data passes dropCommand: its command string is "app_data <action> <whole input JSON>", a third copy of
     // what the call already carried. A `mari` CLI command line is the call itself, so it stays.
     ...(options.dropCommand
@@ -1645,13 +1681,63 @@ function connectionSummary(connection: WorkspaceConnection | null): MariWorkspac
   };
 }
 
+function isLocalWorkspaceConnection(connection: WorkspaceConnection): boolean {
+  return (
+    isLocalSidecarConnection(connection) ||
+    bool(connection.treatAsLocalEndpoint) ||
+    isLocalInferenceBaseUrl(connection.baseUrl ?? "")
+  );
+}
+
+/** Joins every system message into one at index 0: local chat templates commonly accept only that. */
+export function joinSystemMessages(messages: ChatMessage[]): ChatMessage[] {
+  const system = messages.filter((message) => message.role === "system");
+  if (system.length <= 1 && (system.length === 0 || messages[0]?.role === "system")) return messages;
+  return [
+    { role: "system", content: system.map((message) => message.content).join("\n\n") },
+    ...messages.filter((message) => message.role !== "system"),
+  ];
+}
+
+/** A local fallback behind a remote Model gets the one-system-message form the remote request does not use. */
+class SingleSystemMessageProvider extends BaseLLMProvider {
+  constructor(private readonly provider: BaseLLMProvider) {
+    // This facade delegates all I/O; keep connection credentials confined to the wrapped provider.
+    super("", "", provider.maxContextValue ?? undefined, null, provider.maxTokensOverrideValue);
+  }
+
+  async *chat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
+    return yield* this.provider.chat(joinSystemMessages(messages), options);
+  }
+
+  override chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
+    return this.provider.chatComplete(joinSystemMessages(messages), options);
+  }
+
+  override embed(texts: string[], model: string, signal?: AbortSignal): Promise<number[][]> {
+    return this.provider.embed(texts, model, signal);
+  }
+}
+
+/**
+ * wrapProvider for a remote primary with a local fallback: only the fallback gets one system message. The fallback
+ * provider sees the primary's unwrapped leg (it drops the primary's own rate-limit layer), so both count as primary.
+ */
+export function localFallbackWrapper(primary: BaseLLMProvider): (provider: BaseLLMProvider) => BaseLLMProvider {
+  const primaryLeg = primary instanceof RateLimitAwareProvider ? primary.provider : primary;
+  return (provider) =>
+    provider === primary || provider === primaryLeg ? provider : new SingleSystemMessageProvider(provider);
+}
+
 function createProviderForConnection(connection: WorkspaceConnection): BaseLLMProvider {
   if (isLocalSidecarConnection(connection)) return getLocalSidecarProvider();
   const primary = createBaseProviderForConnection(connection);
   const fallback = connection.jobFallback;
   if (!fallback) return primary;
+  const joinForFallback = isLocalWorkspaceConnection(fallback) && !isLocalWorkspaceConnection(connection);
   return withConnectionFallbackProvider({
     primary,
+    ...(joinForFallback ? { wrapProvider: localFallbackWrapper(primary) } : {}),
     primaryConnectionId: connection.id,
     primaryConnectionName: connection.name,
     fallbackConnection: fallback,
@@ -1842,6 +1928,8 @@ function parseTextualWorkspaceCommandCalls(content: string): WorkspaceCommandCal
 const INTERNAL_NAME_WORDS: Record<string, string> = {
   "chat.diagnose": "the chat checkup",
   "agent.list": "your installed agents",
+  "agent.catalog.get": "the agent catalog",
+  "agent.documentation.get": "the agent user guide",
   "chat.updatemessage": "a reply repair",
   docs_search: "the docs",
   docs_read: "the docs",
@@ -2747,6 +2835,30 @@ export async function readStoredMariRuntime(storage: {
   }
 }
 
+/** Where her per-turn context goes (newest conversation messages after it); the default for junk and absence. */
+export async function readStoredMariContextDepth(storage: {
+  get(key: string): Promise<string | null>;
+}): Promise<number> {
+  try {
+    return normalizeMariContextDepth(await storage.get(MARI_CONTEXT_DEPTH_SETTINGS_KEY));
+  } catch {
+    return DEFAULT_MARI_CONTEXT_DEPTH;
+  }
+}
+
+/**
+ * Put this turn's context blocks into the prompt so that `depth` of the newest conversation messages come after them
+ * (0 = after the newest). Above the user's message and her last reply (depth 2), the task stays the last thing she
+ * reads, so attached chats and @ links read as reference rather than a scene to continue, and everything before the
+ * blocks is the same as last turn, so a provider's prefix cache reuses it.
+ */
+export function insertMariTurnContext(messages: ChatMessage[], blocks: ChatMessage[], depth: number): void {
+  if (blocks.length === 0) return;
+  const history = messages.flatMap((message, index) => (message.contextKind === "history" ? [index] : []));
+  const at = depth <= 0 || history.length === 0 ? messages.length : history[Math.max(0, history.length - depth)]!;
+  messages.splice(at, 0, ...blocks);
+}
+
 /** The "read the handbook first" gate, on unless the user stored "false"; tolerates junk and absence. */
 export async function readStoredMariSkillGate(storage: { get(key: string): Promise<string | null> }): Promise<boolean> {
   try {
@@ -3143,7 +3255,21 @@ export function bashIsLoneMariRead(command: string): boolean {
   return MARI_STORE_READ.test(normalized);
 }
 
+function isOfficialCatalogRead(call: WorkspaceCommandCall): boolean {
+  if (call.name !== "app_data" || typeof call.arguments.action !== "string") return false;
+  const normalized = call.arguments.action
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]+/gu, "");
+  return ["agent.catalog.get", "agents.catalog.get", "agent.documentation.get", "agents.documentation.get"].includes(
+    normalized,
+  );
+}
+
 function isStateReadCommand(call: WorkspaceCommandCall): boolean {
+  // Catalog metadata lookup reads the official catalog (not user store/config state), so it stays
+  // read-only in Plan mode without satisfying mutation read-back verification or recap evidence.
+  if (isOfficialCatalogRead(call)) return false;
   if (isReadOnlyWorkspaceCommand(call)) return true;
   const command = call.arguments.command;
   return call.name === "bash" && typeof command === "string" && bashIsLoneMariRead(command);
@@ -5226,7 +5352,7 @@ export class ProfessorMariWorkspaceService {
   }> {
     const chatStorage = createChatsStorage(this.app.db);
     const allMessages = await chatStorage.listMessages(chatId);
-    const history = allMessages.slice(-MAX_HISTORY_MESSAGES);
+    const history = mariHistoryWindow(allMessages);
     // #5725 Manual mode: arm silent command frames only when Mari's last
     // persisted turn was a deferral and the user answered it with Accept. The
     // deferral is a flag on the message's extra - persisted content is only
@@ -5300,8 +5426,9 @@ export class ProfessorMariWorkspaceService {
       ...(MARI_SEASON_FLAVORS.get(seasonalPackId ?? "") ? [MARI_SEASON_FLAVORS.get(seasonalPackId ?? "")!] : []),
       `</workspace_context>`,
     ].join("\n");
+    const { block: agentCatalogBlock } = await getOfficialAgentCatalogKnowledge({ signal, timeoutMs: 2_000 });
     const messages: ChatMessage[] = [
-      { role: "system", content: MARI_SYSTEM_PROMPT, contextKind: "prompt" },
+      { role: "system", content: buildMariSystemPrompt(agentCatalogBlock), contextKind: "prompt" },
       {
         role: "system",
         content:
@@ -5346,9 +5473,6 @@ export class ProfessorMariWorkspaceService {
         contextKind: "prompt",
       });
     }
-    // #8375: last of the prompt blocks. It carries currentTime and this turn's message id, so anything after it
-    // is re-sent uncached on every turn and every new chat; everything before it stays a stable cached prefix.
-    messages.push({ role: "system", content: workspaceInfo, contextKind: "prompt" });
 
     // Same captioning as chats: the Model's own switch, else Automatic with the Image reading default.
     let imageCaptioning: ImageCaptioningRuntime | null = null;
@@ -5395,20 +5519,31 @@ export class ProfessorMariWorkspaceService {
     }
     // A Retry after a partial reply: her words stay in the history, and your message goes last again, as a turn must end.
     if (messages.at(-1)?.role === "assistant" && latestUserEntry) messages.push({ ...latestUserEntry });
+    // #8375: it carries currentTime and this turn's decisions, so it changes every turn. It goes into the history
+    // with the other per-turn blocks, at the user's context depth (2: above her last reply and the user's message):
+    // the system prompt and the history before it stay the same from one turn to the next, and a provider's prefix
+    // cache reuses both.
+    const turnContext: ChatMessage[] = [];
+    turnContext.push({ role: "system", content: workspaceInfo, contextKind: "injection" });
     // #5073: user-attached reference context (chat-history slices). contextKind:'injection' so the
     // trimmer preserves it (unlike 'history'), keeping it readable regardless of message age; the
     // renderer self-bounds its total size. Placed before continuity so the latest turn stays closest.
     if (attachedContextPrompt) {
-      messages.push({ role: "system", content: attachedContextPrompt, contextKind: "injection" });
+      turnContext.push({ role: "system", content: attachedContextPrompt, contextKind: "injection" });
     }
     if (handoffContextPrompt) {
-      messages.push({ role: "system", content: handoffContextPrompt, contextKind: "injection" });
+      turnContext.push({ role: "system", content: handoffContextPrompt, contextKind: "injection" });
     }
     // The composer's @ links: this turn's payloads and a ledger of earlier ones, after the handoff, before continuity.
     if (linkedReferencesPrompt) {
-      messages.push({ role: "system", content: linkedReferencesPrompt, contextKind: "injection" });
+      turnContext.push({ role: "system", content: linkedReferencesPrompt, contextKind: "injection" });
     }
-    if (continuityPrompt) messages.push({ role: "system", content: continuityPrompt, contextKind: "injection" });
+    if (continuityPrompt) turnContext.push({ role: "system", content: continuityPrompt, contextKind: "injection" });
+    insertMariTurnContext(
+      messages,
+      turnContext,
+      await readStoredMariContextDepth(createAppSettingsStorage(this.app.db)),
+    );
     logger.debug(
       "Professor Mari prompt: %d messages, %d prompt chars, %d history chars, %d injection chars, %d tools",
       messages.length,
@@ -5610,6 +5745,7 @@ export class ProfessorMariWorkspaceService {
     const defaultParameters = parseJsonObject(connection.defaultParameters);
     const customParameters = isRecord(defaultParameters?.customParameters) ? defaultParameters.customParameters : {};
     const enabledParameters = normalizeGenerationParameterSendMap(defaultParameters?.enabledParameters);
+    if (isLocalWorkspaceConnection(connection)) singleSystemMessageRuns.add(signal);
     // LOCAL custom providers are included (#5721): a reasoning-capable model
     // on a local OpenAI-compatible server otherwise does its substantive work
     // - plans, questions for the user - inside hidden reasoning, and the
@@ -5669,15 +5805,25 @@ export class ProfessorMariWorkspaceService {
     debugLog?: (message: string, ...values: unknown[]) => void,
     onFrame?: (chunk: string) => void,
   ): Promise<ChatCompletionResult> {
-    // Local chat templates commonly accept a single system message at index 0.
-    // Keep trusted context in that role, including context added after history,
-    // on every command round without modifying the stored conversation.
-    const systemMessages = messages.filter((message) => message.role === "system");
+    // The system messages before the history go as one. The per-turn ones after it (workspace context, continuity,
+    // @ links) stay where they are, so the system prompt and the history before them are the same from one turn to
+    // the next and a provider's prefix cache reuses both. Local chat templates commonly accept a single system
+    // message at index 0, so there every system message joins that one, without modifying the stored conversation.
+    const singleSystem = baseOptions.signal ? singleSystemMessageRuns.has(baseOptions.signal) : false;
+    // Per-turn blocks are injections: at a depth beyond the history they come before the first message, and still
+    // stay out of the joined system prompt.
+    const firstTurn = messages.findIndex((message) => message.role !== "system" || message.contextKind === "injection");
+    const leading = singleSystem
+      ? messages.filter((message) => message.role === "system")
+      : messages.slice(0, firstTurn < 0 ? messages.length : firstTurn);
+    const rest = singleSystem
+      ? messages.filter((message) => message.role !== "system")
+      : messages.slice(leading.length);
     messages = [
-      ...(systemMessages.length
-        ? [{ role: "system" as const, content: systemMessages.map((message) => message.content).join("\n\n") }]
+      ...(leading.length
+        ? [{ role: "system" as const, content: leading.map((message) => message.content).join("\n\n") }]
         : []),
-      ...messages.filter((message) => message.role !== "system"),
+      ...rest,
     ];
     // Limits learned from earlier provider rejections in this run. Keyed by the
     // run's abort signal, which every caller passes through unchanged (the pi

@@ -12,21 +12,7 @@ import {
   type RegexScriptRow,
 } from "../../hooks/use-regex-scripts";
 import { usePresets } from "../../hooks/use-presets";
-import {
-  Save,
-  Check,
-  AlertCircle,
-  X,
-  Trash2,
-  Info,
-  Regex,
-  Play,
-  Plus,
-  Minus,
-  Users,
-  FileText,
-  Upload,
-} from "lucide-react";
+import { Check, AlertCircle, X, Trash2, Info, Regex, Play, Plus, Minus, Users, FileText, Upload } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { ApiError } from "../../lib/api-client";
@@ -36,7 +22,8 @@ import { CharacterSelect } from "../characters/CharacterSelect";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
-  applyRegexReplacement,
+  applyRegexScriptReplacement,
+  type RegexTrimScope,
   formatTextQuotes,
   isPatternSafe,
   resolveRegexPatternLiteralMacros,
@@ -46,8 +33,7 @@ import {
   type RegexApplyMode,
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { SurfaceBackButton } from "../ui/SurfaceBackButton";
-import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
+import { EditorHeader, EditorHeaderAction, EditorSaveButton } from "../ui/EditorHeader";
 
 // ═══════════════════════════════════════════════
 //  Placement metadata
@@ -242,6 +228,7 @@ export function RegexScriptEditor() {
   const [localFindRegex, setLocalFindRegex] = useState("");
   const [localReplaceString, setLocalReplaceString] = useState("");
   const [localTrimStrings, setLocalTrimStrings] = useState<string[]>([]);
+  const [localTrimScope, setLocalTrimScope] = useState<RegexTrimScope>("result");
   const [localPlacement, setLocalPlacement] = useState<RegexPlacement[]>(["ai_output"]);
   const [localFlags, setLocalFlags] = useState("gi");
   const [localApplyMode, setLocalApplyMode] = useState<RegexApplyMode>("display");
@@ -286,6 +273,7 @@ export function RegexScriptEditor() {
       } catch {
         setLocalTrimStrings([]);
       }
+      setLocalTrimScope(dbRow.trimScope === "match" ? "match" : "result");
       try {
         setLocalPlacement(JSON.parse(dbRow.placement));
       } catch {
@@ -310,6 +298,7 @@ export function RegexScriptEditor() {
       setLocalFindRegex("");
       setLocalReplaceString("");
       setLocalTrimStrings([]);
+      setLocalTrimScope("result");
       setLocalPlacement(["ai_output"]);
       setLocalFlags("gi");
       setLocalApplyMode("display");
@@ -367,17 +356,31 @@ export function RegexScriptEditor() {
       const findRegex = resolveRegexPatternLiteralMacros(localFindRegex, resolveTestMacros);
       if (!findRegex) return testInput;
       const re = new RegExp(findRegex, localFlags);
-      let result = applyRegexReplacement(testInput, re, localReplaceString, resolveTestMacros);
-      // Apply trim strings
-      for (const trim of localTrimStrings) {
-        const resolvedTrim = resolveTestMacros(trim);
-        if (resolvedTrim) result = result.split(resolvedTrim).join("");
-      }
+      const result = applyRegexScriptReplacement(testInput, re, localReplaceString, {
+        trimStrings: localTrimStrings,
+        trimScope: localTrimScope,
+        resolve: resolveTestMacros,
+      });
       return formatTextQuotes(result, quoteFormat);
     } catch {
       return testInput;
     }
-  }, [testInput, localFindRegex, localReplaceString, localFlags, localTrimStrings, quoteFormat, regexError]);
+  }, [
+    testInput,
+    localFindRegex,
+    localReplaceString,
+    localFlags,
+    localTrimStrings,
+    localTrimScope,
+    quoteFormat,
+    regexError,
+  ]);
+
+  const trimScopeHint = localizeUi(
+    localTrimScope === "match"
+      ? "ui.agents.regexscripteditor.trimFromMatchHint"
+      : "ui.agents.regexscripteditor.trimFromResultHint",
+  );
 
   const handleClose = useCallback(() => {
     if (dirty) {
@@ -413,6 +416,7 @@ export function RegexScriptEditor() {
       findRegex: localFindRegex,
       replaceString: localReplaceString,
       trimStrings: localTrimStrings,
+      trimScope: localTrimScope,
       placement: localPlacement,
       flags: localFlags,
       promptOnly: localApplyMode === "prompt",
@@ -453,6 +457,7 @@ export function RegexScriptEditor() {
     localFindRegex,
     localReplaceString,
     localTrimStrings,
+    localTrimScope,
     localPlacement,
     localFlags,
     localApplyMode,
@@ -513,6 +518,7 @@ export function RegexScriptEditor() {
         findRegex: localFindRegex,
         replaceString: localReplaceString,
         trimStrings: localTrimStrings,
+        trimScope: localTrimScope,
         placement: localPlacement,
         flags: localFlags,
         promptOnly: localApplyMode === "prompt",
@@ -551,84 +557,76 @@ export function RegexScriptEditor() {
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="mari-editor-header">
-        <SurfaceBackButton onClick={handleClose} />
-        <div className="mari-editor-icon-tile">
-          <Regex size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
-        </div>
-        <input
-          value={localName}
-          onChange={(e) => {
-            setLocalName(e.target.value);
-            markDirty();
-          }}
-          className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
-          placeholder={localizeUi("ui.agents.regexscripteditor.scriptName")}
-        />
-        <div className="mari-editor-actions flex max-md:order-2 max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
-          {saveError && (
-            <span className="mari-editor-status mr-2 text-red-400">
-              <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.agenteditor.saveFailed")}
-            </span>
-          )}
-          {savedFlash && !dirty && (
-            <span className="mari-editor-status mr-2 text-emerald-400">
-              <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
-            </span>
-          )}
-          {dirty && !saveError && (
-            <span className="mari-editor-status mr-2 text-amber-400">
-              {localizeUi("ui.agents.agenteditor.unsaved")}
-            </span>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={
-              isPending ||
-              !!blockingRegexError ||
-              !!characterScopeError ||
-              !!promptPresetScopeError ||
-              !!depthRangeError
-            }
-            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
-            title={localizeUi("ui.agents.regexscripteditor.saveRegexScript")}
-            aria-label={localizeUi("ui.agents.regexscripteditor.saveRegexScript")}
-          >
-            <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
-          </button>
-          <SettingsSwitch
-            ariaLabel={localEnabled ? "Disable regex script" : "Enable regex script"}
-            title={
-              localEnabled ? localizeUi("ui.noodle.noodlehome.enabled") : localizeUi("ui.agents.agenteditor.disabled")
-            }
-            checked={localEnabled}
-            onChange={(checked) => {
-              setLocalEnabled(checked);
+      <EditorHeader
+        onBack={handleClose}
+        icon={<Regex size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />}
+        title={
+          <input
+            value={localName}
+            onChange={(e) => {
+              setLocalName(e.target.value);
               markDirty();
             }}
-            className="mari-editor-action inline-flex p-1.5 hover:bg-[var(--accent)]"
+            className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
+            placeholder={localizeUi("ui.agents.regexscripteditor.scriptName")}
           />
-          <button
-            onClick={handleExport}
-            className="mari-editor-action inline-flex"
-            title={localizeUi("ui.agents.regexscripteditor.exportRegexScript")}
-            aria-label={localizeUi("ui.agents.regexscripteditor.exportRegexScript")}
-          >
-            <Upload size="0.9375rem" />
-          </button>
-          {dbRow && (
-            <button
-              onClick={handleDelete}
-              className="mari-editor-action inline-flex"
-              title={localizeUi("ui.agents.regexscripteditor.deleteRegexScript")}
-              aria-label={localizeUi("ui.agents.regexscripteditor.deleteRegexScript")}
-            >
-              <Trash2 size="0.9375rem" />
-            </button>
-          )}
-        </div>
-        <SurfaceCloseButton dividerClassName="max-md:hidden" />
-      </div>
+        }
+        actions={
+          <>
+            <SettingsSwitch
+              ariaLabel={localEnabled ? "Disable regex script" : "Enable regex script"}
+              title={
+                localEnabled ? localizeUi("ui.noodle.noodlehome.enabled") : localizeUi("ui.agents.agenteditor.disabled")
+              }
+              checked={localEnabled}
+              onChange={(checked) => {
+                setLocalEnabled(checked);
+                markDirty();
+              }}
+              className="mari-editor-action inline-flex p-1.5 max-md:mr-auto hover:bg-[var(--accent)]"
+            />
+            {saveError && (
+              <span className="mari-editor-status mr-2 text-red-400">
+                <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.agenteditor.saveFailed")}
+              </span>
+            )}
+            {savedFlash && !dirty && (
+              <span className="mari-editor-status mr-2 text-emerald-400">
+                <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
+              </span>
+            )}
+            {dirty && !saveError && (
+              <span className="mari-editor-status mr-2 text-amber-400">
+                {localizeUi("ui.agents.agenteditor.unsaved")}
+              </span>
+            )}
+            <EditorSaveButton
+              label={localizeUi("ui.noodle.noodlehome.save")}
+              ariaLabel={localizeUi("ui.agents.regexscripteditor.saveRegexScript")}
+              onClick={handleSave}
+              disabled={
+                isPending ||
+                !!blockingRegexError ||
+                !!characterScopeError ||
+                !!promptPresetScopeError ||
+                !!depthRangeError
+              }
+            />
+            <EditorHeaderAction
+              icon={<Upload size="0.9375rem" />}
+              label={localizeUi("ui.agents.regexscripteditor.exportRegexScript")}
+              onClick={handleExport}
+            />
+            {dbRow && (
+              <EditorHeaderAction
+                icon={<Trash2 size="0.9375rem" />}
+                label={localizeUi("ui.agents.regexscripteditor.deleteRegexScript")}
+                onClick={handleDelete}
+              />
+            )}
+          </>
+        }
+      />
 
       {/* Unsaved warning */}
       {showUnsavedWarning && (
@@ -886,9 +884,25 @@ export function RegexScriptEditor() {
           <FieldGroup
             label={localizeUi("ui.agents.regexscripteditor.trimStrings")}
             icon={<Minus size="0.875rem" className={REGEX_FIELD_ICON_CLASS} />}
-            help={localizeUi("ui.agents.regexscripteditor.additionalStringsToRemoveFromTheResultAfterThe")}
+            help={trimScopeHint}
           >
             <div className="flex flex-col gap-1.5">
+              {localTrimStrings.length > 0 ? (
+                <label className="flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.agents.regexscripteditor.trimFrom")}
+                  <select
+                    value={localTrimScope}
+                    onChange={(e) => {
+                      setLocalTrimScope(e.target.value === "match" ? "match" : "result");
+                      markDirty();
+                    }}
+                    className="rounded-lg bg-[var(--secondary)] px-2 py-1 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  >
+                    <option value="match">{localizeUi("ui.agents.regexscripteditor.trimFromMatch")}</option>
+                    <option value="result">{localizeUi("ui.agents.regexscripteditor.trimFromResult")}</option>
+                  </select>
+                </label>
+              ) : null}
               {localTrimStrings.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <input

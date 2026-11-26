@@ -49,7 +49,7 @@ function parseDimensions(option: string): { ratio: number; area: number } | null
 }
 
 /** Closest declared shape by ratio, then by size; options like "auto" are ignored. */
-function closestShape(options: unknown[], width: number, height: number): string | null {
+export function closestShape(options: unknown[], width: number, height: number): string | null {
   let best: { option: string; ratioGap: number; areaGap: number } | null = null;
   for (const option of options) {
     if (typeof option !== "string") continue;

@@ -140,6 +140,8 @@ export function useUpdateLibraryFolder(scope: LibraryFolderScope) {
       collapsed?: boolean;
       paused?: boolean;
       itemIds?: string[];
+      addItemIds?: string[];
+      removeItemIds?: string[];
     }) => {
       return api.patch<LibraryFolder>(`/library-folders/${scope}/${id}`, data);
     },

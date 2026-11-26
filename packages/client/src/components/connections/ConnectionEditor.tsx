@@ -116,6 +116,7 @@ import {
   hasPlanUsageWindows,
   supportsSubscriptionUsageWidget,
   IMAGE_DEFAULTS_STORAGE_KEY,
+  novelAiRecommendedSettings,
   VIDEO_DEFAULTS_STORAGE_KEY,
   COMFYUI_SAMPLER_OPTIONS,
   COMFYUI_SCHEDULER_OPTIONS,
@@ -1082,7 +1083,8 @@ export function ConnectionEditor({
       maxRequestsPerMinute: localMaxRequestsPerMinute,
       enableCaching: localEnableCaching,
       anthropicExtendedCacheTtl:
-        (localProvider === "anthropic" && localEnableCaching) || localProvider === "claude_subscription"
+        ((localProvider === "anthropic" || localProvider === "openrouter") && localEnableCaching) ||
+        localProvider === "claude_subscription"
           ? localAnthropicExtendedCacheTtl
           : false,
       cachingAtDepth: localCachingAtDepth,
@@ -1427,7 +1429,8 @@ export function ConnectionEditor({
       defaultParameters,
       enableCaching: localEnableCaching,
       anthropicExtendedCacheTtl:
-        (localProvider === "anthropic" && localEnableCaching) || localProvider === "claude_subscription"
+        ((localProvider === "anthropic" || localProvider === "openrouter") && localEnableCaching) ||
+        localProvider === "claude_subscription"
           ? localAnthropicExtendedCacheTtl
           : false,
       cachingAtDepth: localCachingAtDepth,
@@ -4051,7 +4054,7 @@ export function ConnectionEditor({
             </FieldGroup>
           )}
 
-          {/* ── Prompt Caching (Anthropic + compatible OpenRouter models) ── */}
+          {/* ── Prompt Caching (Anthropic, and Claude, Gemini and Qwen on OpenRouter) ── */}
           {(localProvider === "anthropic" || localProvider === "openrouter") && (
             <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptCaching")}>
               <SettingsSwitch
@@ -4070,7 +4073,7 @@ export function ConnectionEditor({
                       "ui.connections.connectioneditor.onOpenrouterAddsCacheControlForModelsThatSupportExplicitCaching",
                     )}
               </p>
-              {localProvider === "anthropic" && localEnableCaching && (
+              {localEnableCaching && (
                 <div className="mt-2 space-y-2">
                   <SettingsSwitch
                     label={localizeUi("ui.connections.connectioneditor.extendedTokenCaching1Hour")}
@@ -4673,11 +4676,16 @@ function ImageGenerationDefaultsPanel({
                 </>
               ) : (
                 <>
+                  {/* Left empty, each sends NovelAI's own default for the connection's model. */}
                   <NumberSetting
                     label={localizeUi("ui.connections.imagegenerationdefaultspanel.steps")}
                     value={novelai.steps}
                     min={1}
                     max={150}
+                    placeholder={localizeUi("ui.connections.imagegenerationdefaultspanel.novelaiAutomaticValue", {
+                      value: novelAiRecommendedSettings(model).steps,
+                    })}
+                    onClear={() => updateNovelAi({ steps: null })}
                     onCommit={(steps) => updateNovelAi({ steps })}
                   />
                   <NumberSetting
@@ -4686,6 +4694,10 @@ function ImageGenerationDefaultsPanel({
                     min={0}
                     max={30}
                     integer={false}
+                    placeholder={localizeUi("ui.connections.imagegenerationdefaultspanel.novelaiAutomaticValue", {
+                      value: novelAiRecommendedSettings(model).promptGuidance,
+                    })}
+                    onClear={() => updateNovelAi({ promptGuidance: null })}
                     onCommit={(promptGuidance) => updateNovelAi({ promptGuidance })}
                   />
                   <NumberSetting
@@ -5434,25 +5446,36 @@ function NumberSetting({
   min,
   max,
   integer = true,
+  placeholder,
+  onClear,
   onCommit,
 }: {
   label: string;
-  value: number;
+  /** Null shows the field empty, with `placeholder`. */
+  value: number | null;
   min: number;
   max: number;
   integer?: boolean;
+  placeholder?: string;
+  /** Given, an emptied field is committed as unset rather than reset. */
+  onClear?: () => void;
   onCommit: (value: number) => void;
 }) {
-  const [draft, setDraft] = useState(String(value));
+  const shown = value === null ? "" : String(value);
+  const [draft, setDraft] = useState(shown);
 
   useEffect(() => {
-    setDraft(String(value));
-  }, [value]);
+    setDraft(shown);
+  }, [shown]);
 
   const commit = () => {
+    if (onClear && !draft.trim()) {
+      onClear();
+      return;
+    }
     const parsed = Number(draft);
     if (!Number.isFinite(parsed)) {
-      setDraft(String(value));
+      setDraft(shown);
       return;
     }
     const clamped = Math.min(max, Math.max(min, integer ? Math.trunc(parsed) : parsed));
@@ -5469,6 +5492,7 @@ function NumberSetting({
         min={min}
         max={max}
         step={integer ? 1 : 0.05}
+        placeholder={placeholder}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commit}
         onKeyDown={(event) => {

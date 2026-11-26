@@ -33,11 +33,14 @@ type Seeded = { chatId: string; groupId: string; characterIds: string[]; folderN
 async function seed(page: Page, request: APIRequestContext): Promise<Seeded> {
   // Unique per run: a run that times out cannot clean up, and its folder must not clash with the next run's.
   const folderName = `Play as folder 7093 ${test.info().project.name} ${test.info().title.slice(0, 8)} ${Date.now()}`;
-  await page.route(`**${avatarPath}`, (route) =>
-    route.fulfill({
-      contentType: "image/svg+xml",
-      body: '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1800"><rect width="1200" height="1800" fill="#526679"/><circle cx="600" cy="500" r="300" fill="#e2b78b"/></svg>',
-    }),
+  // Pickers ask for a small copy (`?w=320`, #9259), so match the path with any query.
+  await page.route(
+    (url) => url.pathname === avatarPath,
+    (route) =>
+      route.fulfill({
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1800"><rect width="1200" height="1800" fill="#526679"/><circle cx="600" cy="500" r="300" fill="#e2b78b"/></svg>',
+      }),
   );
   await page.route("**/api/app-settings/ui", (route) =>
     route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
@@ -116,7 +119,7 @@ async function openFolder(page: Page, folderName: string) {
 /** Every portrait stays inside its round slot, so it cannot grow past its row. */
 async function expectAvatarsInSlots(picker: Locator, count: number) {
   const pickerBox = (await picker.boundingBox())!;
-  const portraits = picker.locator(`img[src$="${avatarPath}"]`);
+  const portraits = picker.locator(`img[src*="${avatarPath}"]`);
   await expect(portraits).toHaveCount(count);
   for (const portrait of await portraits.all()) {
     await expect.poll(() => portrait.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1200);
@@ -233,8 +236,8 @@ test("Chat Settings keeps Play as a character folders usable", async ({ page, re
     await expectAvatarsInSlots(picker, 2);
     await expectReachable([
       picker.getByPlaceholder("Search personas and characters", { exact: true }),
-      // A floating window on desktop, a bottom sheet titled like the window on a phone.
-      picker.getByRole("button", { name: /^Close( Personas)?$/ }),
+      // The picker is a popover without Close on desktop; a phone's bottom sheet has one.
+      ...(info.project.name.includes("mobile") ? [picker.getByRole("button", { name: /^Close( Personas)?$/ })] : []),
       playAs,
       folder,
       ...rows,

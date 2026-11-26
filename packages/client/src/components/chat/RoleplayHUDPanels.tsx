@@ -965,12 +965,20 @@ export function CharactersPanel({
       reader.onload = async () => {
         const dataUrl = reader.result as string;
         try {
+          const hasScenePortrait =
+            typeof char.scenePortraitPath === "string" && char.scenePortraitPath.trim().length > 0;
           const res = await api.post<{ avatarPath: string }>(`/avatars/npc/${chatId}`, {
             name: char.name,
             avatar: dataUrl,
+            ...(hasScenePortrait ? { scenePortrait: true } : {}),
           });
           const next = [...characters];
-          next[idx] = { ...char, avatarPath: res.avatarPath };
+          if (hasScenePortrait) {
+            const { portraitFocusX: _x, portraitFocusY: _y, portraitZoom: _z, ...rest } = char;
+            next[idx] = { ...rest, scenePortraitPath: res.avatarPath };
+          } else {
+            next[idx] = { ...char, avatarPath: res.avatarPath };
+          }
           onUpdate(next);
         } catch {
           // silently fail
@@ -1090,11 +1098,13 @@ export function CharactersPanel({
           const showOutfit = !hiddenFor(characterTrackerLockKey(char, idx, "outfit"));
           const showThoughts = !hiddenFor(characterTrackerLockKey(char, idx, "thoughts"));
           const hasVisibleDefaultFields = showMood || showAppearance || showOutfit || showThoughts;
+          const avatarSrc =
+            (typeof char.scenePortraitPath === "string" && char.scenePortraitPath.trim()) || char.avatarPath;
           return (
             <div key={char.characterId ?? idx} className="rounded-lg bg-[var(--muted)]/20 p-2 space-y-1">
               <div className="group/field flex items-center gap-1.5">
                 {/* Avatar circle or emoji fallback */}
-                {char.avatarPath ? (
+                {avatarSrc ? (
                   <button
                     onClick={() => {
                       setUploadIdx(idx);
@@ -1103,7 +1113,7 @@ export function CharactersPanel({
                     className="shrink-0 overflow-hidden rounded-full ring-1 ring-[var(--border)] transition-all hover:ring-[var(--foreground)]/30"
                     title={localizeUi("ui.panels.personaspanel.changeAvatar")}
                   >
-                    <img src={char.avatarPath} alt={char.name} className="w-8 h-8 object-cover" />
+                    <img src={avatarSrc} alt={char.name} className="w-8 h-8 object-cover" />
                   </button>
                 ) : (
                   <button

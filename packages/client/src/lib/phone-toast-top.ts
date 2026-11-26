@@ -91,10 +91,10 @@ export function watchPhoneToastTop(host: HTMLElement): () => void {
     [...observedHeaders].some(
       (header) => header.matches("[data-phone-toast-header]") && header.parentElement?.contains(node),
     );
-  // Measuring reads styles and layout. Done in the mutation delivery, it forced a full restyle and
-  // layout in the middle of every render while a toast showed (a lasting "update ready" toast made
-  // opening Chat settings measure the page twice). One measure per frame, run before that frame
-  // paints, keeps the toast clear of new controls just the same.
+  // Measuring reads styles and layout. Done in the mutation delivery for every class or style change on
+  // or around a header, it forced a full restyle and layout in the middle of every render while a toast
+  // showed (a lasting "update ready" toast made opening Chat settings measure the page twice). Those
+  // changes get one measure per frame, run before that frame paints.
   let refreshFrame = 0;
   const refreshHeadersBeforePaint = () => {
     if (refreshFrame) return;
@@ -104,19 +104,24 @@ export function watchPhoneToastTop(host: HTMLElement): () => void {
     });
   };
   const layoutObserver = new MutationObserver((records) => {
-    // Streaming messages and toast animations cannot move these headers.
-    if (
-      records.some(
-        (record) =>
-          !host.contains(record.target) &&
-          (insideCustomPanel(record.target) ||
-            (record.type === "attributes"
-              ? containsHeader(record.target)
-              : [...record.addedNodes, ...record.removedNodes].some(containsHeader))),
-      )
-    ) {
-      refreshHeadersBeforePaint();
+    let aroundHeader = false;
+    for (const record of records) {
+      // Streaming messages and toast animations cannot move these headers.
+      if (host.contains(record.target)) continue;
+      // A header that comes or goes, or a change inside a custom panel (its body moves its header), is
+      // measured in this delivery. Until a frame callback measures it, the toast sits over the new
+      // controls: a tap or hit test before then lands on the toast, and a change made in another frame
+      // callback paints it there for a frame.
+      if (
+        insideCustomPanel(record.target) ||
+        (record.type === "childList" && [...record.addedNodes, ...record.removedNodes].some(containsHeader))
+      ) {
+        refreshHeaders();
+        return;
+      }
+      if (record.type === "attributes" && containsHeader(record.target)) aroundHeader = true;
     }
+    if (aroundHeader) refreshHeadersBeforePaint();
   });
   const stopWatching = () => {
     watching = false;

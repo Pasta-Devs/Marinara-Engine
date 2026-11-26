@@ -19,7 +19,10 @@ import {
   scopeLorebookScanResultToCharacterContext,
 } from "../../../packages/server/src/services/lorebook/index.js";
 import { scanForActivatedEntries } from "../../../packages/server/src/services/lorebook/keyword-scanner.js";
-import { processActivatedEntries } from "../../../packages/server/src/services/lorebook/prompt-injector.js";
+import {
+  applyTokenBudget,
+  processActivatedEntries,
+} from "../../../packages/server/src/services/lorebook/prompt-injector.js";
 import { executeToolCalls } from "../../../packages/server/src/services/tools/tool-executor.js";
 import type { LLMToolCall } from "../../../packages/server/src/services/llm/base-provider.js";
 import { type RegressionCase, runNamedCases } from "../fixtures/named-cases.js";
@@ -209,6 +212,47 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "lorebook token budget keeps picture-only entries and pairs duplicate ids with their own pictures",
+    run() {
+      const image = (caption: string) => ({ id: caption, path: `${caption}.png`, caption });
+      const activated = [
+        { entry: { id: "map", name: "Map", position: 0, order: 0, content: "", images: [image("map")] } },
+        { entry: { id: "dup", name: "First", position: 0, order: 1, content: "First text", images: [image("first")] } },
+        {
+          entry: {
+            id: "dup",
+            name: "Second",
+            position: 0,
+            order: 2,
+            content: "Second text",
+            images: [image("second")],
+          },
+        },
+        { entry: { id: "blank", name: "Blank", position: 0, order: 3, content: "  " } },
+      ] as any;
+
+      const budgeted = applyTokenBudget(activated, 10_000);
+      assert.deepEqual(
+        budgeted.map(({ entry }) => [entry.name, entry.images?.map((img: { caption: string }) => img.caption)]),
+        [
+          ["Map", ["map"]],
+          ["First", ["first"]],
+          ["Second", ["second"]],
+        ],
+      );
+
+      // Too small for any picture: text stays, the picture-only entry has nothing left and is dropped.
+      const textOnly = applyTokenBudget(activated, 50);
+      assert.deepEqual(
+        textOnly.map(({ entry }) => [entry.name, entry.images?.length ?? 0]),
+        [
+          ["First", 0],
+          ["Second", 0],
+        ],
+      );
+    },
+  },
+  {
     name: "lorebook Outlets collect only named position-7 entries and resolve case-sensitively",
     run() {
       const activated = [
@@ -316,6 +360,27 @@ const cases: RegressionCase[] = [
               generationTriggerFilterMode: "any",
               generationTriggerFilters: [],
             } as any,
+            {
+              // Agents only read lorebook text, so a picture-only entry must not reach them empty.
+              id: "entry-picture-only",
+              lorebookId: "book-override",
+              name: "Picture Entry",
+              content: "",
+              images: [{ path: "map.png", caption: "map" }],
+              enabled: true,
+              constant: true,
+              keys: [],
+              secondaryKeys: [],
+              order: 1,
+              probability: 100,
+              activationConditions: [],
+              characterFilterMode: "any",
+              characterFilterIds: [],
+              characterTagFilterMode: "any",
+              characterTagFilters: [],
+              generationTriggerFilterMode: "any",
+              generationTriggerFilters: [],
+            } as any,
           ];
         },
         listLorebooks: async () => {
@@ -331,7 +396,10 @@ const cases: RegressionCase[] = [
       const first = await resolveTriggeredEntries(messages);
       const second = await resolveTriggeredEntries(messages);
 
-      assert.equal(first["custom:override-reader"]?.[0]?.id, "entry-override");
+      assert.deepEqual(
+        first["custom:override-reader"]?.map((entry) => entry.id),
+        ["entry-override"],
+      );
       assert.equal(second["custom:override-reader"]?.[0]?.id, "entry-override");
       assert.equal(lorebookListCalls, 1);
       assert.equal(entryListCalls, 1);

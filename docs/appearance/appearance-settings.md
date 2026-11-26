@@ -63,6 +63,7 @@ If your device asks for reduced motion, both animations are skipped.
 
 - **Custom Mouse Pointer** (on by default) uses Marinara's accent-colored cursor. Turn it off for your system cursor, or to let a custom theme control it.
 - **Reduce Ambient Animations & Effects** stops decorative animation, ambient particles, rotating previews and gradual text reveal. Marinara also does this when your device asks for reduced motion.
+- **Show Dice Rolls as Text** (off by default) shows each dice roll as a short line of text with the dice, their results and the total, instead of animated dice. Rolls still happen, and the model and the game still get their results. It applies in every chat mode, including the dice inside skill checks.
 - **Desktop sidebar width** sets the width of the sidebar on a computer, from 280 to 480 px. **Chats** and the panels, such as **Characters** and **Settings**, all open in this one sidebar. **Reset width** sets it back to 320 px. You can also drag the sidebar's inner edge. Phones and tablets keep their full-screen panels.
 - **Desktop sidebar side** docks the sidebar on the **Right** (the default) or the **Left** of the window. With **Left**, the top bar mirrors: **Chats** and the panel buttons move to the left, and **Home** moves to the right. This works on a computer only. Phones and tablets keep their layout.
 

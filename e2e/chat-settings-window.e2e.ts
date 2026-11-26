@@ -384,9 +384,16 @@ test.describe("Chat Settings window on desktop", () => {
       await openSettingsWindow(page);
       expectSameBox(await box(settings), keyResized, "remembered after reload");
 
-      // A resize cue shows in the corner while the pointer is over the window, and fades away after.
-      const grip = settings.locator(".mari-window__resize-grip");
-      await expect(grip).toHaveCount(1);
+      // Every corner has a resize cue since #9837. The bottom-right one shows while the pointer is over the
+      // window, and fades away after.
+      await expect
+        .poll(() =>
+          settings
+            .locator(".mari-window__resize-grip")
+            .evaluateAll((grips) => grips.map((grip) => (grip as HTMLElement).dataset.corner).sort()),
+        )
+        .toEqual(["ne", "nw", "se", "sw"]);
+      const grip = settings.locator('.mari-window__resize-grip[data-corner="se"]');
       await page.mouse.move(1, 450);
       await settings.evaluate((element) => (element as HTMLElement).blur());
       await expect(grip).toHaveCSS("opacity", "0");
@@ -1211,15 +1218,16 @@ test("sidebars keep saved buttons separately reachable and restore their positio
     };
     await expectReachable();
     const topbar = page.locator('[data-component="TopBar"]');
+    // Settings and Chats open in the one sidebar (#9492): Chats replaces Settings there.
+    const sidebar = page.locator('[data-component="SidebarSlot"]');
     await topbar.getByTitle("Settings", { exact: true }).click();
-    await expect(page.locator('[data-component="RightPanelDesktopSlot"]')).toHaveAttribute("aria-hidden", "false");
-    await expect
-      .poll(async () => (await box(page.locator('[data-component="RightPanelDesktopSlot"]'))).width)
-      .toBe(320);
+    await expect(sidebar).toHaveAttribute("aria-hidden", "false");
+    await expect(page.locator('[data-component="RightPanelDesktop"]')).toHaveAttribute("aria-hidden", "false");
+    await expect.poll(async () => (await box(sidebar)).width).toBe(320);
     await expectReachable();
     await topbar.getByTitle("Chats", { exact: true }).click();
-    await expect(page.locator('[data-component="ChatSidebarSlot"]')).toHaveAttribute("aria-hidden", "false");
-    await expect.poll(async () => (await box(page.locator('[data-component="ChatSidebarSlot"]'))).width).toBe(320);
+    await expect(page.locator('[data-component="ChatSidebarPanel"]')).toHaveAttribute("aria-hidden", "false");
+    await expect.poll(async () => (await box(sidebar)).width).toBe(320);
     await expectReachable();
     await expect.poll(() => readSavedLayout(request, chat.id)).toEqual(layout);
     const locked = page.locator(`.mari-window-bubble[data-window="${ids[0]}"]`);
@@ -1234,7 +1242,9 @@ test("sidebars keep saved buttons separately reachable and restore their positio
     await expectReachable();
     await topbar.getByTitle("Settings", { exact: true }).click();
     await expectReachable();
-    await topbar.getByTitle("Chats", { exact: true }).click();
+    // Settings is shown, so its button closes the sidebar.
+    await topbar.getByTitle("Settings", { exact: true }).click();
+    await expect(sidebar).toHaveAttribute("aria-hidden", "true");
     await expect.poll(readPositions).toEqual(initial);
     // Opening/closing a drawer may add its legacy window.bubble fallback; the saved places stay intact.
     await expect.poll(() => readSavedLayout(request, chat.id)).toMatchObject(layout);
@@ -1269,9 +1279,7 @@ test("sidebars keep the default Settings button clear of a saved button", async 
     await expect(saved).toBeVisible();
     const before = await box(saved);
     await page.locator('[data-component="TopBar"]').getByTitle("Settings", { exact: true }).click();
-    await expect
-      .poll(async () => (await box(page.locator('[data-component="RightPanelDesktopSlot"]'))).width)
-      .toBe(320);
+    await expect.poll(async () => (await box(page.locator('[data-component="SidebarSlot"]'))).width).toBe(320);
     await expect
       .poll(() =>
         page.locator(".mari-window-bubble").evaluateAll((elements) =>

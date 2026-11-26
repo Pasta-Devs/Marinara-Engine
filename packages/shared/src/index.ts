@@ -84,6 +84,7 @@ export * from "./schemas/theme.schema.js";
 export * from "./schemas/app-settings.schema.js";
 export * from "./schemas/impersonate-prompt-templates.schema.js";
 export * from "./schemas/feature-settings.schema.js";
+export * from "./schemas/push-notifications.schema.js";
 export * from "./schemas/conversation-call.schema.js";
 export * from "./schemas/noodle.schema.js";
 export * from "./schemas/avatar-crop.schema.js";
@@ -174,6 +175,7 @@ export * from "./constants/settings-registry.js";
 // Feature registries
 export * from "./features/agents/agent-manifest.types.js";
 export * from "./features/agents/storyboard-agent-settings.js";
+export * from "./features/agents/tracker-portrait-rewrite-settings.js";
 export * from "./features/agents/writer-reference-settings.js";
 export {
   BUILT_IN_AGENT_MANIFESTS,
@@ -340,8 +342,11 @@ export * from "./utils/message-marks.js";
 export * from "./utils/game-tag-parser.js";
 export * from "./utils/game-widget-update.js";
 export * from "./utils/gallery-tags.js";
+export * from "./utils/chat-image-variants.js";
 export * from "./utils/gallery-descriptions.js";
 export * from "./utils/location-backgrounds.js";
 
 export * from "./utils/zod-input.js";
+export * from "./utils/image-edit.js";
 export * from "./schemas/sprite-catalog.js";
+export * from "./schemas/package-documentation.schema.js";

@@ -12,7 +12,7 @@ import {
 } from "../../lib/command-center";
 import { isShortcutsHelpKey, shortcutKeyTypesText, takesLetterKeys } from "../../lib/keyboard-shortcuts";
 import { captureMariFieldDraft } from "../../hooks/use-mari-editor-fields";
-import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
+import { isModalOverlayOpen } from "../../lib/layer-stack";
 import { parseOmnibarScope } from "../../lib/omnibar-scope";
 import {
   consumeProfessorMariOpenRequest,
@@ -150,7 +150,7 @@ export function GlobalOmnibar() {
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       const ui = useUIStore.getState();
-      if (event.defaultPrevented || event.isComposing) return;
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
       if (isOmnibarShortcut(event)) {
         // L8: ⌘K opens on top of any dialog or the game setup wizard. While the
         // omnibar is open, a dialog opened above it (a confirm from Mari, say)

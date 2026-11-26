@@ -160,12 +160,12 @@ function setAgentFailureError(failures: AgentFailure[], force = false) {
 function showAgentFailuresError(failures: AgentFailure[], onRetry?: () => void, code?: unknown) {
   const hasIllustratorFailure = failures.some((failure) => failure.agentType === "illustrator");
   setAgentFailureError(failures);
-  // A missing image Model fails again on retry, so the toast opens the Connections sidebar, whose Jobs box sets Images.
+  // A missing image Model fails again on retry, so the toast opens the Connections Jobs page, where Images is set.
   const action =
     code === "image_connection_missing"
       ? {
           label: translate("connections.defaults.setUp"),
-          onClick: () => useUIStore.getState().openRightPanel("connections"),
+          onClick: () => useUIStore.getState().openConnectionsPanelPage("jobs"),
         }
       : hasIllustratorFailure && onRetry
         ? { label: "Try again", onClick: () => onRetry() }
@@ -676,7 +676,7 @@ function createGenerationSubmissionId(): string {
 }
 import { useChatStore } from "../stores/chat.store";
 import { useAgentStore } from "../stores/agent.store";
-import { agentResultMatchesVisibleSwipe } from "../lib/agent-result-ownership";
+import { agentResultMatchesVisibleSwipe, shouldQueueAgentWriteApproval } from "../lib/agent-result-ownership";
 import { isDiceRollResult } from "../lib/dice-roll-result";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameStateStore } from "../stores/game-state.store";
@@ -4095,7 +4095,14 @@ export function useGenerate() {
                     result.resultType,
                   )
                 : null;
-              if (writeApproval && shouldApplyVisibleResult) {
+              if (
+                writeApproval &&
+                shouldQueueAgentWriteApproval({
+                  isActiveChat: isActiveChat(),
+                  ownsVisibleSwipe,
+                  backfill: options?.customLorebookBackfill === true || options?.lorebookKeeperBackfill === true,
+                })
+              ) {
                 enqueuePendingAgentWriteApproval(createPendingAgentWriteApproval(writeApproval));
                 useUIStore.getState().openModal("agent-write-approval");
               }

@@ -38,6 +38,8 @@ Below it, an info panel can show the service and model, an estimated token count
 
 The rest is the prompt in collapsible sections, each with its own rough token estimate. Chat messages are grouped under **Chat History**. For an exact saved request, the service may have merged several chat turns into one block, so expand each block to see all the text. Click a section header to open or close it.
 
+Some text is added at a depth in the chat: the **Author's Note** and World Info entries set to **@Depth**. With **Post-processing messages** set to **Apply** (the default), the model gets this text inside the nearby user message, so it shows in a **You** message. Peek marks it there with its own heading, such as **Author's Note · sent inside your message** or **World Info @depth 4 · sent inside your message**. With **Don't apply**, it is sent as its own **System** message instead.
+
 An **Exact Text Model Request** is the request as sent for that reply. It was saved before anything that ran after the reply, such as an automatic summary or hiding messages, so it can hold messages the next reply will not get. Click **Show current context** to build the prompt from the chat as it is now, without sending it. Click **Show sent request** to go back.
 
 ### Copy the prompt

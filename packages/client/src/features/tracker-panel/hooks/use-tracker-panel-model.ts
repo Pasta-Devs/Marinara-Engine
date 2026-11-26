@@ -12,6 +12,7 @@ import type { TrackerDataPanelSection } from "../../../stores/ui.store";
 import { TRACKER_FEATURED_CHARACTER_META_KEY, TRACKER_SECTION_AGENT_TYPES } from "../lib/tracker-panel.constants";
 import { normalizeMaybeJsonStringArray, normalizeStringArray, parseRecord } from "../lib/tracker-metadata";
 import { resolveSpriteExpressionState } from "../../../lib/sprite-expression-state";
+import { isSpriteLookupCharacterId } from "../lib/sprite-expressions";
 import { useTrackerSpriteLookup } from "./use-tracker-sprite-lookup";
 
 interface UseTrackerPanelModelOptions {
@@ -71,7 +72,14 @@ export function useTrackerPanelModel({
   const { data: agentConfigs } = useAgentConfigs(characterTrackerLookupEnabled);
   const { data: activePersonaData } = usePersona(personaDataLookupEnabled ? chatPersonaId : null);
   const previewValues = useTrackerCardColorPreviews();
-  const { characterSpriteLookup, resolveSpriteCharacterId } = useTrackerSpriteLookup({
+  const {
+    characterSpriteLookup,
+    pendingLookupIds,
+    failedLookupIds,
+    hasPendingCharacterLookups,
+    hasFailedCharacterLookups,
+    resolveSpriteCharacterId,
+  } = useTrackerSpriteLookup({
     enabled: characterTrackerLookupEnabled,
     chatCharacterIds,
     presentCharacters,
@@ -112,6 +120,30 @@ export function useTrackerPanelModel({
       : activePersonaData;
   }, [activePersonaData, previewValues]);
   const expressionSpritesEnabled = trackerPanelUseExpressionSprites && expressionAgentEnabled;
+  const resolveCardCharacterStatus = useCallback(
+    (
+      character: PresentCharacter,
+    ): { status: "card"; characterId: string } | { status: "npc" | "pending" | "error" } => {
+      const rawId = typeof character.characterId === "string" ? character.characterId.trim() : "";
+      if (rawId && characterSpriteLookup.knownIds.has(rawId)) return { status: "card", characterId: rawId };
+      if (!isSpriteLookupCharacterId(rawId) || rawId.includes(":cast:")) return { status: "npc" };
+      if (rawId && pendingLookupIds.has(rawId)) return { status: "pending" };
+      if (rawId && failedLookupIds.has(rawId)) return { status: "error" };
+      const matched = resolveSpriteCharacterId(character);
+      if (matched && characterSpriteLookup.knownIds.has(matched)) return { status: "card", characterId: matched };
+      if (hasPendingCharacterLookups) return { status: "pending" };
+      if (hasFailedCharacterLookups) return { status: "error" };
+      return { status: "npc" };
+    },
+    [
+      characterSpriteLookup.knownIds,
+      failedLookupIds,
+      hasFailedCharacterLookups,
+      hasPendingCharacterLookups,
+      pendingLookupIds,
+      resolveSpriteCharacterId,
+    ],
+  );
 
   return {
     activePersona,
@@ -123,6 +155,7 @@ export function useTrackerPanelModel({
     expressionSpritesEnabled,
     featuredCharacterCardKeys,
     orderedTrackerSections,
+    resolveCardCharacterStatus,
     resolveSpriteCharacterId,
     spriteExpressions,
   };

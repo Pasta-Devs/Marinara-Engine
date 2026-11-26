@@ -3,6 +3,8 @@ import { Puzzle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   ROLEPLAY_COMMAND_KEYS,
+  ROLEPLAY_COMMAND_NOTICE_DISPLAY_MODES,
+  getRoleplayCommandNoticeDisplay,
   isRoleplayCommandEnabled,
   roleplayCommandsEnabled,
   type Chat,
@@ -30,6 +32,7 @@ export function RoleplayCommandsSettings({
   const update = useUpdateChatMetadata({ serialize: true });
   const metadata = chat.metadata;
   const enabled = roleplayCommandsEnabled(metadata);
+  const noticeDisplay = getRoleplayCommandNoticeDisplay(metadata);
   const individual = characters.length > 1 && metadata.groupChatMode === "individual";
   const privateAvailable = characters.length === 1 || individual;
   const hasNarrator = characters.some((character) => character.id === metadata.roleplayCommandNarratorId);
@@ -58,6 +61,41 @@ export function RoleplayCommandsSettings({
         />
         {enabled && (
           <>
+            <div className="space-y-1.5">
+              <span
+                id={`${chat.id}:command-notice-display-label`}
+                className="block text-xs font-medium text-[var(--muted-foreground)]"
+              >
+                {t("roleplay.commands.noticeDisplay.label")}
+              </span>
+              <div
+                role="group"
+                aria-labelledby={`${chat.id}:command-notice-display-label`}
+                className="flex rounded-lg ring-1 ring-[var(--border)]"
+              >
+                {ROLEPLAY_COMMAND_NOTICE_DISPLAY_MODES.map((mode, index, modes) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => update.mutate({ id: chat.id, roleplayCommandNoticeDisplay: mode })}
+                    aria-pressed={noticeDisplay === mode}
+                    className={cn(
+                      "min-h-11 flex-1 px-3 py-2 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-[var(--primary)]",
+                      index === 0 && "rounded-l-lg",
+                      index === modes.length - 1 && "rounded-r-lg",
+                      noticeDisplay === mode
+                        ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    {t(`roleplay.commands.noticeDisplay.${mode}`)}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                {t(`roleplay.commands.noticeDisplay.${noticeDisplay}Hint`)}
+              </p>
+            </div>
             <div className="grid gap-2 @lg:grid-cols-2">
               {ROLEPLAY_COMMAND_KEYS.map((key) => {
                 const available =

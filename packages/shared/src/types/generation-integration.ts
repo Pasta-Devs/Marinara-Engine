@@ -94,9 +94,9 @@ export interface ChatOptions {
   toolChoice?: "auto" | "required";
   /** Enable provider-native prompt caching when supported */
   enableCaching?: boolean;
-  /** Anthropic and Claude Subscription: request a 1-hour prompt-cache TTL. */
+  /** Anthropic, Claude Subscription and Claude on OpenRouter: request a 1-hour prompt-cache TTL. */
   anthropicExtendedCacheTtl?: boolean;
-  /** Anthropic cache breakpoint depth from the newest message. 0 = newest message. */
+  /** Anthropic (and Claude or Qwen on OpenRouter) cache breakpoint depth from the newest message. 0 = newest message. */
   cachingAtDepth?: number;
   /** Callback for streaming thinking/reasoning content */
   onThinking?: (chunk: string) => void;
@@ -265,7 +265,9 @@ export type ConnectionAdmissionMode =
   | { kind: "none" };
 
 /** Native NovelAI image edit action sent to `/ai/generate-image`. */
-export type NovelAiEditMode = "img2img" | "infill";
+export type ImageEditMode = "img2img" | "infill";
+/** @deprecated Use ImageEditMode for provider-independent editing. */
+export type NovelAiEditMode = ImageEditMode;
 
 /** A looping GIF's timing. The Engine clamps it to 2..12 frames of 20..2000 ms (see resolveOpenAIGifAnimation). */
 export interface ImageAnimation {
@@ -280,6 +282,8 @@ export interface ImageGenRequest {
   negativePrompt?: string;
   width?: number;
   height?: number;
+  /** The caller chose width and height on purpose, so NovelAI's "Choose resolution from character count" keeps them. */
+  keepRequestedSize?: boolean;
   model?: string;
   /** For endpoint-based image services (e.g. RunPod): the endpoint/instance ID. */
   imageEndpointId?: string;
@@ -295,16 +299,21 @@ export interface ImageGenRequest {
   referenceImage?: string;
   /** Optional array of base64-encoded reference images (avatars). Providers that support multiple refs use all; others use the first. */
   referenceImages?: string[];
+  /**
+   * NovelAI V5 Precise Reference: false lets the prompt dress the referenced characters ("Prefer same outfit" off),
+   * for callers whose prompt names the outfit. Default true keeps the reference's outfit, as V4.5 does.
+   */
+  preferReferenceOutfit?: boolean;
   /** The reference image already is the requested canvas (an in-place edit such as a blink picture), so
    *  providers must keep its framing rather than compose a new picture around it. */
   referenceIsCanvas?: boolean;
-  /** Native NovelAI img2img / inpainting mode (`action: "img2img" | "infill"`). */
-  editMode?: NovelAiEditMode;
-  /** Base64 or data-URL source canvas for native NovelAI `img2img` / `infill` edits. */
+  /** Explicit canvas edit. Supported operations depend on the selected image connection. */
+  editMode?: ImageEditMode;
+  /** Base64 or data-URL source canvas for img2img / inpainting edits. */
   sourceImage?: string;
-  /** Base64 or data-URL binary mask (white = redraw, black = keep) for native NovelAI `infill`. */
+  /** Base64 or data-URL binary mask (white = redraw, black = keep) for inpainting. */
   maskImage?: string;
-  /** Denoising strength for native NovelAI `img2img` (`0.01..0.99`) or `infill` (`0.01..1`). */
+  /** Denoising strength; each provider validates its supported range. */
   strength?: number;
   /** Extra noise injected before denoising in native NovelAI `img2img` (`0..0.99`). */
   noise?: number;

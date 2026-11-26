@@ -1076,10 +1076,10 @@ const loadedUnitsOf = (db: Awaited<ReturnType<typeof createFileNativeDB>>) => db
   // The wiring that turns detection into the 8 is observed functionally
   // through the exported test seam - not just source-pinned.
   assert.equal(platformDefaultMaxResidentChatUnits(true), 8);
-  assert.equal(platformDefaultMaxResidentChatUnits(false), 0);
+  assert.equal(platformDefaultMaxResidentChatUnits(false), 32, "desktop keeps at most 32 chats in memory");
 
   // getMaxResidentChatUnits, platform-aware so this block is honest wherever
-  // it runs: on an ordinary dev box or CI the platform default is 0; on a
+  // it runs: on an ordinary dev box or CI the platform default is 32; on a
   // real Steam Deck (or Termux) it is 8, and the assertions then observe the
   // constrained default through the full production path. The floor of 2 and
   // the explicit-0 opt-out are platform-independent.
@@ -1130,6 +1130,116 @@ const loadedUnitsOf = (db: Awaited<ReturnType<typeof createFileNativeDB>>) => db
     /return platformDefaultMaxResidentChatUnits\(\);/u,
     "an invalid value falls back to the platform default, never to a bare 0",
   );
+}
+
+// ── Memory: whole-table leases are given back, reads trim, backups scan chat by chat ──
+// A lease used to last until restart: one backup or one cross-chat search kept the entire library
+// in memory, and big profiles then ran Node out of heap. The lease is released once nothing has
+// needed the whole table for five minutes; chats still loaded keep their rows, everything else
+// reloads on touch from disk.
+
+{
+  const dir = tempStorageDir();
+  process.env.MARINARA_MAX_RESIDENT_CHATS = "4";
+  for (const chat of ["lease-a", "lease-b", "lease-c"]) {
+    writeShard(dir, "chats", chat, [chatRow(chat)]);
+    writeShard(dir, "messages", chat, [messageRow(`m-${chat}`, chat, `content of ${chat}`)]);
+  }
+  const db = await createFileNativeDB();
+  const realNow = Date.now;
+  try {
+    await db.select().from(messages).where(eq(messages.chatId, "lease-a"));
+    assert.equal((await db.select().from(messages)).length, 3, "an unbounded read leases the whole table");
+    assert.equal(db._fileStore.getFullyResidentLazyTables().has("messages"), true);
+    await db._fileStore.flush();
+    assert.equal(db._fileStore.getFullyResidentLazyTables().has("messages"), true, "a fresh lease is kept");
+    Date.now = () => realNow() + 6 * 60_000;
+    await db._fileStore.flush();
+    assert.equal(db._fileStore.getFullyResidentLazyTables().has("messages"), false, "an idle lease is released");
+    assert.deepEqual(
+      db._fileStore.getResidentLazyRows("messages").map((row) => row.chatId),
+      ["lease-a"],
+      "only chats that are loaded keep their rows after the release",
+    );
+    const reloaded = await db.select().from(messages).where(eq(messages.chatId, "lease-c"));
+    assert.deepEqual(
+      reloaded.map((row) => row.content),
+      ["content of lease-c"],
+      "a released chat reloads from disk on its next touch",
+    );
+    assert.equal((await db.select().from(messages)).length, 3, "a later unbounded read sees every row again");
+  } finally {
+    Date.now = realNow;
+    delete process.env.MARINARA_MAX_RESIDENT_CHATS;
+    await db._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+{
+  const dir = tempStorageDir();
+  process.env.MARINARA_MAX_RESIDENT_CHATS = "2";
+  const chatIds = Array.from({ length: 40 }, (_, index) => `scan-${String(index).padStart(2, "0")}`);
+  for (const chat of chatIds) {
+    writeShard(dir, "chats", chat, [chatRow(chat)]);
+    writeShard(dir, "messages", chat, [messageRow(`m-${chat}`, chat, chat)]);
+    writeShard(dir, "message_swipes", chat, [swipeRow(`s-${chat}`, `m-${chat}`, chat)]);
+  }
+  const db = await createFileNativeDB();
+  try {
+    // A read-only sweep never flushes, so the store schedules its own trim.
+    for (const chat of chatIds.slice(0, 6)) await db.select().from(messages).where(eq(messages.chatId, chat));
+    assert.ok(loadedUnitsOf(db).size > 3, "the sweep loaded its chats");
+    const deadline = Date.now() + 10_000;
+    while (loadedUnitsOf(db).size > 3 && Date.now() < deadline) await new Promise((done) => setTimeout(done, 100));
+    assert.ok(loadedUnitsOf(db).size <= 3, "reads past the cap are trimmed without any write");
+
+    let maxResident = 0;
+    const seen = new Map<string, string[]>();
+    const scanned = await db._fileStore.scanLazyTablesByChat(["messages", "message_swipes", "chats"], async (batch) => {
+      maxResident = Math.max(maxResident, loadedUnitsOf(db).size);
+      for (const [table, rows] of batch)
+        seen.set(table, [...(seen.get(table) ?? []), ...rows.map((row) => String(row.id))]);
+    });
+    assert.deepEqual([...scanned].sort(), ["message_swipes", "messages"], "only lazy tables are scanned");
+    assert.deepEqual(seen.get("messages")?.sort(), chatIds.map((chat) => `m-${chat}`).sort(), "every message once");
+    assert.deepEqual(seen.get("message_swipes")?.sort(), chatIds.map((chat) => `s-${chat}`).sort(), "every swipe once");
+    assert.ok(maxResident <= 20, `the scan holds one batch of chats at a time (saw ${maxResident})`);
+    assert.equal(db._fileStore.getFullyResidentLazyTables().size, 0, "the scan leases nothing");
+
+    // A write that moves a row to another chat mid-scan could make batches miss or repeat it.
+    let moved = false;
+    const interrupted = await db._fileStore.scanLazyTablesByChat(["messages"], async () => {
+      if (moved) return;
+      moved = true;
+      await db
+        .update(messages)
+        .set({ chatId: chatIds[39] })
+        .where(eq(messages.id, `m-${chatIds[0]}`));
+    });
+    assert.equal(interrupted.size, 0, "a row moved between chats mid-scan sends the caller to the whole-table read");
+  } finally {
+    delete process.env.MARINARA_MAX_RESIDENT_CHATS;
+    await db._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+{
+  // A chat id too long for a readable file name is stored under a hashed name that cannot name its
+  // chat, so the scan must not claim the table: the caller reads it whole instead of skipping rows.
+  const dir = tempStorageDir();
+  const longChat = "a".repeat(121);
+  writeShard(dir, "chats", longChat, [chatRow(longChat)]);
+  writeShard(dir, "messages", longChat, [messageRow("m-long", longChat, "long")]);
+  const db = await createFileNativeDB();
+  try {
+    const scanned = await db._fileStore.scanLazyTablesByChat(["messages"], async () => {});
+    assert.equal(scanned.size, 0, "a hashed shard name falls back to the whole-table read");
+  } finally {
+    await db._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 console.log("Lazy chat-unit regressions passed.");

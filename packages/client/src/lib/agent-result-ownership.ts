@@ -17,3 +17,16 @@ export function agentResultMatchesVisibleSwipe(
     messages.find((message) => message.id === ownership.messageId) ?? unlistedReplies?.get(ownership.messageId);
   return !!target && (target.activeSwipeIndex ?? 0) === ownership.swipeIndex;
 }
+
+/**
+ * Whether a retried agent's write proposal joins the approval queue. A backfill works on replies far above
+ * the loaded page, so its target is never on screen; requiring the visible swipe there dropped every
+ * proposal, and the server keeps the write pending until it is approved (#9695).
+ */
+export function shouldQueueAgentWriteApproval(args: {
+  isActiveChat: boolean;
+  ownsVisibleSwipe: boolean;
+  backfill: boolean;
+}): boolean {
+  return args.isActiveChat && (args.ownsVisibleSwipe || args.backfill);
+}

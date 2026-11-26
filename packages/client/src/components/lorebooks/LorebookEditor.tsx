@@ -55,7 +55,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import {
-  Save,
+  Upload,
   BookOpen,
   FileText,
   Plus,
@@ -130,8 +130,7 @@ import { AvatarCropWidget } from "../ui/AvatarCropWidget";
 import { AvatarReplaceActions } from "../ui/AvatarReplaceActions";
 import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
 import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
-import { SurfaceBackButton } from "../ui/SurfaceBackButton";
-import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
+import { EditorHeader, EditorHeaderAction, EditorSaveButton } from "../ui/EditorHeader";
 import { Select } from "../ui/Select";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { Spinner } from "../ui/Spinner";
@@ -499,18 +498,25 @@ export function LorebookEditor() {
   }, [entries]);
   useEffect(() => {
     if (!scrollToEntryId) return;
-    // Two frames: the list scrolls and mounts the row, then the row snaps to the top.
-    const frame = requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        if (snapToEntryRef.current)
-          contentRef.current
-            ?.querySelector<HTMLElement>(`[data-lorebook-entry-row-id="${CSS.escape(scrollToEntryId)}"]`)
-            ?.scrollIntoView({ block: "start" });
-        setScrollToEntryId(null);
-      }),
-    );
+    // The list scrolls to the row and mounts it, which can take a few frames, then the row snaps to the top.
+    // scrollToElement keeps the row anchored while the windowed rows around it measure; otherwise the Entries tab
+    // the editor opened on keeps the anchor and pulls the view back to its top on every resize.
+    let frame = 0;
+    let frames = 0;
+    const snap = () => {
+      const row = contentRef.current?.querySelector<HTMLElement>(
+        `[data-lorebook-entry-row-id="${CSS.escape(scrollToEntryId)}"]`,
+      );
+      if (!row && ++frames < 60) {
+        frame = requestAnimationFrame(snap);
+        return;
+      }
+      if (snapToEntryRef.current && row) scrollToElement(row, false);
+      setScrollToEntryId(null);
+    };
+    frame = requestAnimationFrame(snap);
     return () => cancelAnimationFrame(frame);
-  }, [scrollToEntryId, contentRef]);
+  }, [scrollToEntryId, contentRef, scrollToElement]);
   const [entrySort, setEntrySort] = useState<EntrySortKey>("order");
   // Keyword-test panel state. The panel is collapsed by default so it doesn't
   // crowd the editor for users who don't need it. We debounce the text input
@@ -2110,6 +2116,7 @@ export function LorebookEditor() {
                 dragSourceContainer === folder.id && draggingEntryIdx !== null ? draggingEntryIdx : undefined
               }
               scrollToIndex={revealIndexIn(folderEntries)}
+              scrollAlign="start"
               renderRow={(eIdx) => {
                 const entry = folderEntries[eIdx]!;
                 const isDropTarget = dropTargetContainer === folder.id && draggingEntryIdx !== null;
@@ -2316,98 +2323,63 @@ export function LorebookEditor() {
           />
 
           {/* Header */}
-          <div className="mari-editor-header mari-editor-header--with-nav">
-            <div className="mari-editor-header-main">
-              <SurfaceBackButton
-                onClick={handleClose}
-                disabled={saving}
-                iconSize="1rem"
-                className="mari-editor-action inline-flex disabled:opacity-50"
+          <EditorHeader
+            onBack={handleClose}
+            busy={saving}
+            icon={
+              lorebook.imagePath ? (
+                <img
+                  src={lorebook.imagePath}
+                  alt=""
+                  className="pointer-events-none h-full w-full object-cover"
+                  style={getAvatarCropStyle(formImageCrop)}
+                />
+              ) : (
+                <BookOpen size="1.125rem" />
+              )
+            }
+            iconClassName="relative"
+            title={<h2 className="mari-editor-title truncate">{lorebook.name}</h2>}
+            meta={
+              <>
+                {entries.length} {localizeUi("ui.lorebooks.lorebookeditor.entries")} {lorebook.category}
+              </>
+            }
+            nav={
+              <EditorTabNavigation
+                tabs={TABS}
+                activeId={activeTab}
+                onChange={scrollToSection}
+                getBadge={(tabId) => (tabId === "entries" ? entries.length : null)}
               />
-              <div className="mari-editor-icon-tile relative">
-                {lorebook.imagePath ? (
-                  <img
-                    src={lorebook.imagePath}
-                    alt=""
-                    className="pointer-events-none h-full w-full object-cover"
-                    style={getAvatarCropStyle(formImageCrop)}
-                  />
-                ) : (
-                  <BookOpen size="1.125rem" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="mari-editor-title truncate">{lorebook.name}</h2>
-                <p className="mari-editor-meta">
-                  {entries.length} {localizeUi("ui.lorebooks.lorebookeditor.entries")} {lorebook.category}
-                </p>
-              </div>
-            </div>
-
-            <EditorTabNavigation
-              tabs={TABS}
-              activeId={activeTab}
-              onChange={scrollToSection}
-              getBadge={(tabId) => (tabId === "entries" ? entries.length : null)}
-            />
-
-            <div className="mari-editor-actions flex">
-              <button
-                onClick={handleSaveLorebook}
-                disabled={!lorebookDirty || saving}
-                className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
-                aria-label={
-                  saving ? localizeUi("chat.settings.inlineEditor.saving") : localizeUi("ui.noodle.noodlehome.save")
-                }
-                title={
-                  saving ? localizeUi("chat.settings.inlineEditor.saving") : localizeUi("ui.noodle.noodlehome.save")
-                }
-              >
-                <Save size="0.8125rem" />
-                <span className="mari-editor-save-label">
-                  {saving ? localizeUi("chat.settings.inlineEditor.saving") : localizeUi("ui.noodle.noodlehome.save")}
-                </span>
-              </button>
-              <button
-                onClick={() => setTextImportOpen(true)}
-                className="mari-editor-action inline-flex"
-                title={t("lorebook.textImport.open")}
-                aria-label={t("lorebook.textImport.open")}
-              >
-                <FileUp size="0.875rem" />
-              </button>
-              <button
-                onClick={() => setExportDialogOpen(true)}
-                className="mari-editor-action inline-flex"
-                title={localizeUi("ui.lorebooks.lorebookeditor.exportLorebook_8e0ea30")}
-              >
-                <svg
-                  width="0.875rem"
-                  height="0.875rem"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M10 13V3m0 0l-4 4m4-4l4 4"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <rect x="3" y="15" width="14" height="2" rx="1" fill="currentColor" />
-                </svg>
-              </button>
-              <button
-                onClick={handleDelete}
-                className="mari-editor-action inline-flex"
-                title={localizeUi("ui.lorebooks.lorebookeditor.deleteLorebook")}
-              >
-                <Trash2 size="0.875rem" />
-              </button>
-            </div>
-            <SurfaceCloseButton disabled={saving} dividerClassName="" />
-          </div>
+            }
+            actions={
+              <>
+                <EditorSaveButton
+                  label={
+                    saving ? localizeUi("chat.settings.inlineEditor.saving") : localizeUi("ui.noodle.noodlehome.save")
+                  }
+                  onClick={handleSaveLorebook}
+                  disabled={!lorebookDirty || saving}
+                />
+                <EditorHeaderAction
+                  icon={<FileUp size="0.9375rem" />}
+                  label={t("lorebook.textImport.open")}
+                  onClick={() => setTextImportOpen(true)}
+                />
+                <EditorHeaderAction
+                  icon={<Upload size="0.9375rem" />}
+                  label={localizeUi("ui.lorebooks.lorebookeditor.exportLorebook_8e0ea30")}
+                  onClick={() => setExportDialogOpen(true)}
+                />
+                <EditorHeaderAction
+                  icon={<Trash2 size="0.9375rem" />}
+                  label={localizeUi("ui.lorebooks.lorebookeditor.deleteLorebook")}
+                  onClick={handleDelete}
+                />
+              </>
+            }
+          />
 
           {/* Body */}
           <div className="mari-editor-body relative">
@@ -3424,6 +3396,7 @@ export function LorebookEditor() {
                               dragSourceContainer === null && draggingEntryIdx !== null ? draggingEntryIdx : undefined
                             }
                             scrollToIndex={revealIndexIn(entriesByContainer.get(null) ?? [])}
+                            scrollAlign="start"
                             renderRow={(idx) => {
                               const rootList = entriesByContainer.get(null) ?? [];
                               const entry = rootList[idx]!;
@@ -3513,6 +3486,7 @@ export function LorebookEditor() {
                           estimateSize={ENTRY_ROW_ESTIMATE}
                           gap={6}
                           scrollToIndex={revealIndexIn(filteredEntries)}
+                          scrollAlign="start"
                           renderRow={(i) => {
                             const entry = filteredEntries[i]!;
                             return (

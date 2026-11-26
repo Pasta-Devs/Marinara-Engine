@@ -11,7 +11,19 @@ Her window opens. You can also reach her from any screen: type in Search and pic
 
 Type your message in plain language and press <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line. If you turn off **Enter sends to Professor Mari** in her settings, <kbd>Enter</kbd> adds a new line and <kbd>Ctrl</kbd>+<kbd>Enter</kbd> or the Send button sends. The toggle is saved per device, so you can turn it off on your phone and keep it on at your computer. Your first message unlocks the **Hello World** achievement.
 
-All her settings are under **Settings → General → Search and Professor Mari settings → Open**, or the gear in Search. On a computer, the **Height** and **Width** sliders under **Professor Mari window** resize her window. On a phone, her window fills the screen.
+All her settings are under **Settings → General → Search and Professor Mari settings → Open**, or the gear in Search. On a phone, her window fills the screen.
+
+### Float her beside your work (computer)
+
+Her window opens in the middle of the screen, over a dimmed app. To keep using the app while she is open, click **Float Prof. Mari** in her header (the picture-in-picture button). The button shows when the app window is at least 1024 pixels wide.
+
+- A floating Mari has no dimmed background, and clicking elsewhere does not close her, so you can copy text from a field into her chat.
+- Drag her header to move her. Drag an edge or a corner to resize her.
+- Drop her at the left or right edge of the screen to dock her there, like a sidebar: the app makes room for her. Drag her inner edge to change how wide she is. Drop her at the top edge to fill the screen below the top bar. An outline shows where she will land. Drag her away from the edge to get her old size back.
+- Next to an editor, dropping her at the left edge docks her as the editor companion. Pull her header firmly to tear her back out into a floating window.
+- She reopens floating, where you left her.
+- Press <kbd>Esc</kbd> inside her window, or click **X**, to close her. Click **Dock Prof. Mari back** (the same button) to return to the centred window.
+- Opening Search (<kbd>Ctrl</kbd>+<kbd>J</kbd> inside her, or **Back to Search**) shows the usual centred Search. Going back to her puts her where she floated.
 
 ## Make a character with Mari
 
@@ -36,7 +48,7 @@ She reads an item before she edits it, and she asks when your request is vague.
 - Write a character's [interactive onboarding](../characters/interactive-onboarding.md), and fill a [ruleset sheet](../characters/colors-and-stats.md#ruleset-sheets) for an installed Game Mode ruleset. She is refused, with a reason, when a value does not fit the ruleset.
 - Create or edit a theme, an agent, a prompt preset or a Personal Extension draft. A draft stays off until you read its code and approve it in **Settings → Addons**.
 - Edit one section of a preset in place, instead of replacing the whole preset.
-- Compare the downloadable agents and tell you which fit your goal. She sends you to **Agents → Agent Organizer** to install them. See [Downloadable Agents Reference](../agents/built-in-agents.md).
+- Compare the downloadable agents and tell you which fit your goal. In Workspace mode, she can read an agent's overview and request its topic guides when available. Ask about a specific task, such as setting up an avatar. She sends you to **Agents → Agent Organizer** to install agents. See [Downloadable Agents Reference](../agents/built-in-agents.md).
 - Make or assign images such as avatars, sprites and backgrounds. You need an image generation account first. She does not create one. Click an image she made to open it full size, read the prompt behind it, download it, or edit the prompt and regenerate it. The new image replaces the old one in her reply.
 - Look up public Fandom wiki pages when you research a character or world.
 
@@ -252,6 +264,8 @@ These parts are for people who edit Marinara's own files or want to tune how she
 Under **Runtime** you can choose **Pi (experimental)**, the default, or **Classic**. Pi is a mode where she thinks more before she acts and works through longer tasks. If your account cannot run Pi, she uses Classic. The change applies from her next answer, and Undo works the same in both. If she behaves oddly on Pi, switch to Classic.
 
 **Read the handbook before the first write**, also under **Runtime**, is on by default. Her first change to an area with a built-in skill is turned back until she has read that skill. This helps smaller models. Only you can switch it off.
+
+**Turn context placement**, below **Runtime**, sets where she reads each turn's context: the current time, attached chats, @ links and her notes from earlier turns. The default, **Above the last 2 messages**, puts it above her last reply and your message, so your request comes after it and she is less likely to carry on a story she was shown. **At the end, after your message** has her read it last. Each step further back means a little less of the chat is reused from your provider's prompt cache. Her instructions always come first and do not move.
 
 ### What she can reach on your computer
 

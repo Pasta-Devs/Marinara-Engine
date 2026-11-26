@@ -6,13 +6,14 @@ import { mkdir, readFile, readdir, unlink } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import {
   inferImageSource,
+  imageEditValidationError,
   isNativeNovelAiUrl,
   isOpenAIGptImageModel,
-  resolveImageBackend,
   type ImageGenerationDefaultsProfile,
   type ImagePromptKind,
   type ImageStyleProfileSettings,
   type NovelAiEditMode,
+  type SceneIllustrationCharacterPrompt,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
@@ -35,10 +36,20 @@ import {
 import {
   NovelAiEditInputError,
   generateImage,
+  detectNovelAiSubjectCount,
   readNovelAiPngSeed,
+  resolveNovelAiRequestSize,
   type ImageGenResult,
 } from "../image/image-generation.js";
+import {
+  NOVELAI_V5_MAX_CHARACTER_PROMPTS,
+  buildMariCharacterPromptRules,
+  resolveNovelAiCharacterPromptLimit,
+  sanitizeCharacterPrompts,
+  supportsNovelAiCharacterPrompts,
+} from "../image/character-prompts.js";
 import { getSharp } from "../image/sharp-runtime.js";
+import { prepareMariLookPreview } from "../image/mari-look-preview.js";
 import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
@@ -133,6 +144,8 @@ export type MariImageAsset = {
   sourceImage?: string | null;
   nativeEditMode?: "img2img" | "infill";
   seed?: number;
+  /** Per-character prompts she sent with --character-prompts. Absent when there were none. */
+  characterPrompts?: SceneIllustrationCharacterPrompt[];
   createdAt: string;
 };
 
@@ -576,9 +589,9 @@ function capabilityForConnection(conn: ImageConnection): ImageCapability {
         );
       break;
     case "novelai":
-      canEdit = /^nai-diffusion-4-5(?:-(?:curated|full))?$/i.test(model.trim());
+      canEdit = /^nai-diffusion-(?:4-5|5)(?:-(?:curated|full))?$/i.test(model.trim());
       editMode = canEdit ? "reference" : "none";
-      if (!canEdit) notes.push("NovelAI precise reference images require a V4.5 model in Marinara.");
+      if (!canEdit) notes.push("NovelAI precise reference images require a V4.5 or V5 model in Marinara.");
       break;
     case "xai":
       notes.push("The current xAI adapter rejects reference images, so edits are not available through this path yet.");
@@ -615,6 +628,111 @@ function publicConnection(conn: ImageConnection) {
     imageService: conn.imageService || null,
     imageEndpointId: conn.imageEndpointId || null,
     capabilities: capability,
+    ...(nativeCaptionLimit(conn) > 0
+      ? { characterPrompts: { native: true, maxEntries: nativeCaptionLimit(conn) } }
+      : {}),
+  };
+}
+
+// How many native NovelAI character prompts the connection takes: 0 when it has none (they are then added to the
+// prompt by generateImage, as for the Illustrator).
+function nativeCaptionLimit(conn: ImageConnection) {
+  return resolveImageSource(conn) === "novelai" && supportsNovelAiCharacterPrompts(conn)
+    ? resolveNovelAiCharacterPromptLimit(conn.model || "")
+    : 0;
+}
+
+/**
+ * Her --character-prompts: a JSON array of { name, prompt, negativePrompt?, position? }, the Illustrator's
+ * characterPrompts. Names come from the entries themselves, since she has no scene character list.
+ */
+function parseCharacterPromptsFlag(flags: Map<string, string | boolean>, conn: ImageConnection) {
+  const raw = flagString(flags, "character-prompts");
+  if (raw === undefined || !raw.trim()) return { entries: [] as SceneIllustrationCharacterPrompt[], dropped: 0 };
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      `--character-prompts takes a JSON array: [{"name":"…","prompt":"…","negativePrompt":"…","position":{"x":0.3,"y":0.5}}]. It did not parse: ${clip(raw, 120)}`,
+    );
+  }
+  const list = value && typeof value === "object" && !Array.isArray(value) ? (value as Json).characterPrompts : value;
+  if (!Array.isArray(list)) throw new Error("--character-prompts takes a JSON array of character prompts.");
+  return sanitizeMariCharacterPrompts(list, conn);
+}
+
+// The Illustrator's sanitizer, with names taken from the entries (Mari has no scene character list) and the
+// connection's caption limit: no blank names or prompts, no repeated names, at most the limit.
+function sanitizeMariCharacterPrompts(list: unknown[], conn: ImageConnection) {
+  const names = [
+    ...new Set(
+      list
+        .map((entry) => (entry && typeof entry === "object" ? (entry as Json).name : undefined))
+        .filter((name): name is string => typeof name === "string" && !!name.trim())
+        .map((name) => name.trim()),
+    ),
+  ];
+  const limit = nativeCaptionLimit(conn) || NOVELAI_V5_MAX_CHARACTER_PROMPTS;
+  const entries = sanitizeCharacterPrompts(list, names, limit);
+  return { entries, dropped: list.length - entries.length };
+}
+
+// The size NovelAI will really use. Without --width/--height its "Choose resolution from character count" setting
+// picks one from the prompt's subject count (1girl, 2girls, ...); with them, her size is kept.
+function sentImageSize(
+  conn: ImageConnection,
+  styled: { prompt: string; imageDefaults: ImageGenerationDefaultsProfile | null | undefined },
+  size: { width: number; height: number; chosen: boolean },
+): { width: number; height: number; note?: string } {
+  if (size.chosen || resolveImageSource(conn) !== "novelai" || !isNativeNovelAiUrl(conn.baseUrl || "")) return size;
+  const request = {
+    prompt: styled.prompt,
+    width: size.width,
+    height: size.height,
+    model: conn.model || undefined,
+    imageDefaults: styled.imageDefaults,
+  };
+  const actual = resolveNovelAiRequestSize(request);
+  const kept = resolveNovelAiRequestSize({ ...request, keepRequestedSize: true });
+  if (actual.width === kept.width && actual.height === kept.height) return kept;
+  return {
+    ...actual,
+    note: `The connection's "Choose resolution from character count" picked ${actual.width}x${actual.height} from the prompt's subject count. Pass --width and --height to choose the size yourself; they are always kept.`,
+  };
+}
+
+// What happened to her character prompts, and the rules when the connection takes them and she sent none for a
+// picture with two or more people in it.
+function characterPromptReport(args: {
+  conn: ImageConnection;
+  prompt: string;
+  entries: SceneIllustrationCharacterPrompt[];
+  dropped: number;
+  rules: "always" | "when-missing";
+}) {
+  const limit = nativeCaptionLimit(args.conn);
+  const subjects = detectNovelAiSubjectCount(args.prompt) ?? 0;
+  const showRules = limit > 0 && (args.rules === "always" || (args.entries.length === 0 && subjects >= 2));
+  if (args.entries.length === 0 && !showRules && args.dropped === 0) return undefined;
+  return {
+    ...(args.entries.length > 0
+      ? {
+          sentAs:
+            limit > 0
+              ? "native NovelAI character prompts"
+              : "added to the end of the prompt, since this image model has no character prompts",
+          count: args.entries.length,
+          entries: args.entries,
+        }
+      : {}),
+    ...(args.dropped > 0
+      ? {
+          dropped: args.dropped,
+          droppedNote: `${args.dropped} entr${args.dropped === 1 ? "y was" : "ies were"} dropped: a missing name or prompt, a repeated name, or past the limit of ${limit || NOVELAI_V5_MAX_CHARACTER_PROMPTS}.`,
+        }
+      : {}),
+    ...(showRules ? { maxEntries: limit, rules: buildMariCharacterPromptRules(limit) } : {}),
   };
 }
 
@@ -833,6 +951,7 @@ async function savePreviewAsset(args: {
   capability: ImageCapability;
   sourceImage?: string | null;
   nativeEditMode?: "img2img" | "infill";
+  characterPrompts?: SceneIllustrationCharacterPrompt[];
 }) {
   // Read first, so a refused manifest leaves no unlisted image behind.
   const assets = await readManifest();
@@ -871,6 +990,7 @@ async function savePreviewAsset(args: {
     sourceImage: args.sourceImage ?? null,
     ...(args.nativeEditMode ? { nativeEditMode: args.nativeEditMode } : {}),
     ...(args.result.seed !== undefined ? { seed: args.result.seed } : {}),
+    ...(args.characterPrompts?.length ? { characterPrompts: args.characterPrompts } : {}),
     createdAt: now(),
   };
   await writeManifest([asset, ...assets].slice(0, 200));
@@ -1072,6 +1192,12 @@ export class MariImagesService {
     return rows.filter((row) => row.provider === "image_generation");
   }
 
+  private async connectionThatMade(result: ImageGenResult, connection: ImageConnection): Promise<ImageConnection> {
+    const id = result.effectiveConnection?.connectionId;
+    if (!id || id === connection.id) return connection;
+    return (await this.imageConnections()).find((conn) => conn.id === id) ?? connection;
+  }
+
   private async getConnection(selector: string | undefined, requireEdit: boolean): Promise<ImageConnection> {
     const connections = await this.imageConnections();
     if (connections.length === 0)
@@ -1117,14 +1243,32 @@ export class MariImagesService {
     if (selector?.trim()) {
       const selected = rows.find((conn) => conn.id === selector || conn.name.toLowerCase() === selector.toLowerCase());
       if (!selected) throw new Error(`Image generation connection not found: ${selector}`);
-      return { ok: true, mode: "read", command: context.command, output: publicConnection(selected) };
+      const limit = nativeCaptionLimit(selected);
+      return {
+        ok: true,
+        mode: "read",
+        command: context.command,
+        output: {
+          ...publicConnection(selected),
+          ...(limit > 0 ? { characterPromptRules: buildMariCharacterPromptRules(limit) } : {}),
+        },
+      };
     }
     const connections = rows.map(publicConnection);
+    // One copy of the rules, with the largest cap; each connection shows its own maxEntries.
+    const captionLimit = Math.max(0, ...rows.map(nativeCaptionLimit));
     return {
       ok: true,
       mode: "read",
       command: context.command,
       output: {
+        ...(captionLimit > 0
+          ? {
+              characterPromptRules: buildMariCharacterPromptRules(captionLimit),
+              characterPromptNote:
+                "These rules apply to connections with characterPrompts.native; stay within that connection's maxEntries.",
+            }
+          : {}),
         count: connections.length,
         editCapableCount: connections.filter((conn) => (conn.capabilities as ImageCapability).canEdit).length,
         connections: onlyEdit
@@ -1204,6 +1348,8 @@ export class MariImagesService {
     });
     const size = this.resolveSize(flags, kind, imageSettings);
     const source = operation === "edit" ? await this.resolveSourceImage(flags, target, context, true) : null;
+    const captions = parseCharacterPromptsFlag(flags, connection);
+    const sent = sentImageSize(connection, styled, size);
 
     return {
       ok: true,
@@ -1222,10 +1368,17 @@ export class MariImagesService {
         connection: publicConnection(connection),
         capability,
         kind,
-        width: size.width,
-        height: size.height,
+        width: sent.width,
+        height: sent.height,
+        ...(sent.note ? { sizeNote: sent.note } : {}),
         prompt: styled.prompt,
         negativePrompt: styled.negativePrompt,
+        characterPrompts: characterPromptReport({
+          conn: connection,
+          prompt: styled.prompt,
+          ...captions,
+          rules: "always",
+        }),
         style: styled.style,
       },
     };
@@ -1259,6 +1412,7 @@ export class MariImagesService {
       imageDefaults: resolveConnectionImageDefaults(connection),
     });
     const imageDefaults = styled.imageDefaults;
+    const captions = parseCharacterPromptsFlag(flags, connection);
 
     const imgModel = connection.model || "";
     const imgBaseUrl = connection.baseUrl || "https://image.pollinations.ai";
@@ -1275,7 +1429,9 @@ export class MariImagesService {
       model: imgModel || undefined,
       width: size.width,
       height: size.height,
+      keepRequestedSize: size.chosen,
       referenceImage: sourceImage?.base64,
+      ...(captions.entries.length > 0 ? { characterPrompts: captions.entries } : {}),
       imageEndpointId: connection.imageEndpointId || undefined,
       comfyWorkflow: connection.comfyuiWorkflow || undefined,
       imageDefaults,
@@ -1295,6 +1451,20 @@ export class MariImagesService {
       connection,
       capability,
       sourceImage: sourceImage?.label ?? null,
+      characterPrompts: captions.entries,
+    });
+    // A fallback connection may have made the picture: report the size and captions for that one.
+    const made = await this.connectionThatMade(result, connection);
+    const sent = sentImageSize(
+      made,
+      made === connection ? styled : { ...styled, imageDefaults: fallback?.imageDefaults ?? styled.imageDefaults },
+      size,
+    );
+    const characterPrompts = characterPromptReport({
+      conn: made,
+      prompt: styled.prompt,
+      ...captions,
+      rules: "when-missing",
     });
 
     return {
@@ -1308,6 +1478,8 @@ export class MariImagesService {
           "Image created as a preview asset. It is not assigned anywhere yet. Use mari images assign after the user approves it.",
         asset,
         style: styled.style,
+        ...(sent.note ? { sizeNote: sent.note } : {}),
+        ...(characterPrompts ? { characterPrompts } : {}),
         show: `![${kind}](${asset.url})`,
         targetSuggestion: target,
       },
@@ -1323,6 +1495,8 @@ export class MariImagesService {
     input: {
       prompt: string;
       negativePrompt?: string;
+      /** Left out keeps the saved ones; an empty list clears them. */
+      characterPrompts?: SceneIllustrationCharacterPrompt[];
       connectionId?: string;
       editMode?: NovelAiEditMode;
       maskImage?: string;
@@ -1338,6 +1512,7 @@ export class MariImagesService {
       throw new MariImageValidationError("A mask image is only valid for inpainting edits.");
     }
     const isLegacyReferenceEdit = previous.operation === "edit" && !previous.nativeEditMode;
+    const requestedCharacterPrompts = input.characterPrompts ?? previous.characterPrompts ?? [];
 
     if (!input.editMode && !input.reuseSeed) {
       const flags = new Map<string, string | boolean>([
@@ -1351,6 +1526,8 @@ export class MariImagesService {
       ]);
       if (previous.width) flags.set("width", String(previous.width));
       if (previous.height) flags.set("height", String(previous.height));
+      if (requestedCharacterPrompts.length > 0)
+        flags.set("character-prompts", JSON.stringify(requestedCharacterPrompts));
       if (isLegacyReferenceEdit) {
         const source = mariSourceReference(previous.sourceImage);
         if (!source) throw new Error("This image was edited from a picture that can't be read again.");
@@ -1373,25 +1550,16 @@ export class MariImagesService {
       !input.editMode && isLegacyReferenceEdit,
     );
     const capability = capabilityForConnection(connection);
+    const { entries: characterPrompts } = sanitizeMariCharacterPrompts(requestedCharacterPrompts, connection);
     const imgModel = connection.model || "";
     const imgBaseUrl = connection.baseUrl || "https://image.pollinations.ai";
     const imgSource = connection.imageGenerationSource || imgModel;
     const imgServiceHint = connection.imageService || imgSource;
-    const isNativeNovelAi =
-      resolveImageBackend(imgSource, imgBaseUrl, imgServiceHint, imgModel) === "novelai" &&
-      isNativeNovelAiUrl(imgBaseUrl);
-
-    if (input.editMode) {
-      if (!isNativeNovelAi) {
-        throw new MariImageValidationError("Image-to-image and inpainting edits require a native NovelAI connection.");
-      }
-      if (input.editMode === "infill" && !input.maskImage?.trim()) {
-        throw new MariImageValidationError("Inpainting requires a painted mask.");
-      }
-    }
-    if (input.reuseSeed && !isNativeNovelAi) {
-      throw new MariImageValidationError("Reusing the original seed requires a native NovelAI connection.");
-    }
+    const editError = imageEditValidationError(
+      { source: imgSource, baseUrl: imgBaseUrl, serviceHint: imgServiceHint, model: imgModel },
+      input,
+    );
+    if (editError) throw new MariImageValidationError(editError);
 
     let previewBuffer: Buffer | null = null;
     if (input.editMode || (input.reuseSeed && previous.seed === undefined)) {
@@ -1449,6 +1617,8 @@ export class MariImagesService {
         model: imgModel || undefined,
         width: size.width,
         height: size.height,
+        keepRequestedSize: size.chosen,
+        ...(characterPrompts.length > 0 ? { characterPrompts } : {}),
         ...(input.editMode
           ? {
               editMode: input.editMode,
@@ -1498,6 +1668,7 @@ export class MariImagesService {
           ? (previous.sourceImage ?? null)
           : null,
       nativeEditMode: input.editMode,
+      characterPrompts,
     });
     return { previous, asset };
   }
@@ -1525,6 +1696,8 @@ export class MariImagesService {
     return {
       width: flagNumber(flags, "width", fallback.width) ?? fallback.width,
       height: flagNumber(flags, "height", fallback.height) ?? fallback.height,
+      // She asked for this size, so NovelAI's "Choose resolution from character count" leaves it alone.
+      chosen: flagNumber(flags, "width") !== undefined || flagNumber(flags, "height") !== undefined,
     };
   }
 
@@ -2189,22 +2362,14 @@ export class MariImagesService {
     const images: string[] = [];
     const looked = [];
     for (const { ref, image } of sources) {
-      const pipeline = sharp(image.buffer).rotate();
-      const meta = await pipeline.metadata();
-      const resized = pipeline.resize({ width: longSide, height: longSide, fit: "inside", withoutEnlargement: true });
-      // A transparent sprite keeps its alpha as PNG; JPEG would turn it black.
-      const { data, info } = await (meta.hasAlpha ? resized.png() : resized.jpeg({ quality: 85 })).toBuffer({
-        resolveWithObject: true,
-      });
-      const mimeType = meta.hasAlpha ? "image/png" : "image/jpeg";
-      images.push(`data:${mimeType};base64,${data.toString("base64")}`);
+      const { data, ...preview } = await prepareMariLookPreview(sharp, image.buffer, longSide);
+      images.push(`data:image/jpeg;base64,${data.toString("base64")}`);
       looked.push({
         image: images.length,
         ref: ref.startsWith("data:") || ref.length > 200 ? image.label : ref,
         label: image.asset ? `asset:${image.asset.id}` : image.label,
         ...(image.asset ? { kind: image.asset.kind, prompt: clip(image.asset.prompt, 300) } : {}),
-        original: meta.width && meta.height ? `${meta.width}x${meta.height}` : null,
-        sent: `${info.width}x${info.height}`,
+        ...preview,
       });
     }
     return {
@@ -2213,7 +2378,7 @@ export class MariImagesService {
       command: context.command,
       output: {
         looked,
-        note: "The pictures are attached to your next message, in this order. Describe only what you see in them.",
+        note: "The pictures are attached to your next message, in this order, as JPEG previews. A checkerboard represents transparency, not painted image content; transparency.partial reports partially transparent source pixels. sizeLimited means quality or dimensions were reduced to fit the preview byte limit. Original assets are unchanged. Describe only what you see in the previews.",
       },
       images,
     };
@@ -2226,7 +2391,8 @@ export class MariImagesService {
       "Styles: styles (short list), styles <id|name> (one profile in full, with its per-image tags)",
       "Look at images: look <asset-id|app-url|file> [up to 4] [--detail low|high], or look --target <target> for its current image (alias: view). You see the pictures in your next message.",
       "HITL preview: preview --operation generate|edit --prompt <text> [--negative <text>] [--kind <kind>] [--target <target>] [--source <asset|url|file>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
-      "Create preview asset: generate --prompt <text> [--negative <text>] [--kind illustration|avatar|portrait|selfie|background|sprite] [--target <target>] [--width <n>] [--height <n>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
+      "Create preview asset: generate --prompt <text> [--negative <text>] [--kind illustration|avatar|portrait|selfie|background|sprite] [--target <target>] [--width <n>] [--height <n>] [--character-prompts <json>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
+      'Character prompts (NovelAI V4+): --character-prompts \'[{"name":"…","prompt":"girl, …","negativePrompt":"…","position":{"x":0.3,"y":0.5}}]\' gives each visible character their own prompt. mari images connections shows which connections take them, with the rules. Other image models get them added to the end of the prompt.',
       "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>] [--style [default|<id|name>] | --no-style]",
       "Style: without --style the prompt and negative go out as written (--no-style says so explicitly). --style or --style default applies the default style profile; --style <id|name> a chosen one, including its per-image tags for --kind. Results show a style block: what was added, removed or moved.",
       "Show a result: put the result's show line, ![alt](asset.url), in your reply.",

@@ -38,6 +38,8 @@ import {
 } from "../../../packages/server/src/services/generation/tracker-agent-context.js";
 import {
   buildCommittedTrackerContextBlock,
+  buildCommittedTrackerSections,
+  injectCommittedTrackerContext,
   MAX_WORLD_CUSTOM_FIELDS_IN_COMMITTED_CONTEXT,
 } from "../../../packages/server/src/services/generation/committed-tracker-context.js";
 import {
@@ -1092,6 +1094,37 @@ const cases: RegressionCase[] = [
       assert.doesNotMatch(promptBlock ?? "", /Duplicate mood/);
       assert.match(promptBlock ?? "", /Field 62: 62/);
       assert.doesNotMatch(promptBlock ?? "", /Field 63: 63/);
+
+      // #9658: agents read each tracker's Markdown section without the narrator's note; preset sections keep it.
+      const markdownTrackers = {
+        chatEnableAgents: true,
+        activeAgentIds: ["world-state", "character-tracker"],
+        latestGameState: { location: "The lab", presentCharacters: [{ name: "Mira", mood: "Calm" }] },
+        wrapFormat: "markdown" as const,
+      };
+      const presetSections: Record<string, string> = {};
+      injectCommittedTrackerContext({
+        ...markdownTrackers,
+        messages: [],
+        chatMetadata: {},
+        placeSection: (agentType, content) => {
+          presetSections[agentType] = content;
+          return true;
+        },
+        dedupeLastMessageWrappers: () => {},
+        findTrackerContextInsertIndex: () => 0,
+      });
+      for (const [agentType, agentSection] of Object.entries(buildCommittedTrackerSections(markdownTrackers))) {
+        assert.equal(
+          presetSections[agentType],
+          agentSection.replace(
+            "# Context\n",
+            "# Context\n*(Established state as of the last message. Do not re-describe — advance from here.)*\n",
+          ),
+        );
+        assert.match(agentSection, /^# Context\n## (World|Present Characters)\n/);
+      }
+      assert.equal(Object.keys(presetSections).length, 2);
 
       for (const wrapFormat of ["xml", "markdown", "none"] as const) {
         const inventoryPromptBlock = buildCommittedTrackerContextBlock({

@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Importer: SillyTavern Chat (JSONL)
 // ──────────────────────────────────────────────
+import { createHash } from "node:crypto";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
@@ -13,6 +14,8 @@ import {
   compileChatSummaryEntries,
   SPATIAL_CONTEXT_LIMITS,
   type ChatMode,
+  type GroupChatMode,
+  type GroupResponseOrder,
   readWorldSnapshot,
   gameWorldFromSnapshot,
   WORLD_GENERATOR_VERSION,
@@ -29,6 +32,7 @@ import {
   type TimestampOverrides,
 } from "./import-timestamps.js";
 import { isRecord } from "../../utils/large-json.js";
+import { createCharactersStorage } from "../storage/characters.storage.js";
 
 interface STChatHeader {
   user_name?: string;
@@ -83,8 +87,20 @@ export interface ImportSTChatOptions {
   characterId?: string | null;
   /** Multi-character override; takes precedence over characterId when provided */
   characterIds?: string[];
-  /** Override mode (defaults to roleplay) */
+  /** Force the mode (an import into an existing chat keeps that chat's). Beats the file's own mode. */
   mode?: ChatMode;
+  /**
+   * The mode the person picked for a file that doesn't say its own (a SillyTavern log). A Marinara export
+   * keeps its mode, and a game can't come from a plain log, so "game" is ignored. Defaults to roleplay.
+   */
+  modeFallback?: ChatMode;
+  /**
+   * SillyTavern group: its activation_strategy (0 natural, 1 list, 2 manual, 3 pooled). Every member answers
+   * as its own message there, which is Individual mode here, with the closest speaking order.
+   */
+  stGroupActivationStrategy?: number | null;
+  /** The group mode to keep instead (an import into a chat that already has one). */
+  groupChatMode?: GroupChatMode;
   /** Explicitly set the chat name instead of deriving from header */
   chatName?: string;
   /** Optional imported branch/file label for branch UIs */
@@ -93,8 +109,16 @@ export interface ImportSTChatOptions {
   speakerMap?: Record<string, string>;
   /** Group ID to associate this chat with (for grouping branches) */
   groupId?: string | null;
-  /** Persona to attach to the imported chat */
+  /**
+   * Persona to attach to the imported chat. Left out (undefined), the persona whose name matches the
+   * SillyTavern user name is attached; null attaches none.
+   */
   personaId?: string | null;
+  /**
+   * Personas to match the SillyTavern user against, by personaLookupKey(name) and by "avatar:<file>" for
+   * SillyTavern's persona lock. A bulk import builds this once; left out, the personas are read here.
+   */
+  personaLookup?: Map<string, string>;
   /** Character card to use as the user identity */
   personaCharacterId?: string | null;
   /** Connection to attach to the imported chat */
@@ -107,6 +131,9 @@ export interface ImportSTChatOptions {
   sourceFingerprint?: string;
 }
 
+const EARLIEST_TRANSCRIPT_MS = Date.parse("2000-01-01T00:00:00.000Z");
+const TRANSCRIPT_FUTURE_SLACK_MS = 24 * 60 * 60 * 1000;
+
 function normalizeTranscriptTimestamps(
   inputs: ParsedSTChatMessageInput[],
   fallbackStart?: TimestampOverrides | null,
@@ -115,16 +142,21 @@ function normalizeTranscriptTimestamps(
   // Marinara sorts messages by createdAt, so make the imported transcript
   // strictly monotonic while preserving the source file's line order.
   const fallback = normalizeTimestampOverrides(fallbackStart);
-  const firstParsedIndex = inputs.findIndex((input) => input.parsedCreatedAt);
-  const firstParsedMs =
-    firstParsedIndex >= 0 ? Date.parse(inputs[firstParsedIndex]!.parsedCreatedAt as string) : Number.NaN;
-  const fallbackMs = Date.parse(fallback?.createdAt ?? fallback?.updatedAt ?? "");
   const nowMs = Date.now();
+  // A date in the future (or before chat apps existed) is a broken clock or a misread field. One such message would
+  // push every later one, and the chat's own date, into the future, so it counts as having no date.
+  const plausibleMs = (value: string | null | undefined) => {
+    const ms = value ? Date.parse(value) : Number.NaN;
+    return ms >= EARLIEST_TRANSCRIPT_MS && ms <= nowMs + TRANSCRIPT_FUTURE_SLACK_MS ? ms : Number.NaN;
+  };
+  const firstParsedIndex = inputs.findIndex((input) => Number.isFinite(plausibleMs(input.parsedCreatedAt)));
+  const firstParsedMs = firstParsedIndex >= 0 ? plausibleMs(inputs[firstParsedIndex]!.parsedCreatedAt) : Number.NaN;
+  const fallbackMs = plausibleMs(fallback?.createdAt ?? fallback?.updatedAt);
 
   let lastMs: number | null = null;
 
   return inputs.map((input, index) => {
-    const parsedMs = input.parsedCreatedAt ? Date.parse(input.parsedCreatedAt) : Number.NaN;
+    const parsedMs = plausibleMs(input.parsedCreatedAt);
     let candidateMs: number;
 
     if (Number.isFinite(parsedMs)) {
@@ -166,6 +198,16 @@ function normalizeImportedRole(value: unknown): ParsedSTChatMessageInput["role"]
   }
 }
 
+/**
+ * SillyTavern's group activation strategy as a speaking order: natural and pooled pick who fits (smart),
+ * list goes in turn, manual waits for you. A conversation has no manual order, so it goes in turn.
+ */
+function stGroupResponseOrder(strategy: number | null | undefined, mode: ChatMode): GroupResponseOrder {
+  if (strategy === 1) return "sequential";
+  if (strategy === 2) return mode === "conversation" ? "sequential" : "manual";
+  return "smart";
+}
+
 function normalizeImportedMode(value: unknown): ChatMode | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
@@ -181,6 +223,100 @@ function normalizeImportedMode(value: unknown): ChatMode | null {
 
 function normalizeSpeakerKey(value: unknown): string {
   return typeof value === "string" ? normalizeTextForMatch(value.replace(/\.(png|json)$/i, "")) : "";
+}
+
+/**
+ * A SillyTavern chat file's own fingerprint, kept in the imported chat's metadata (importFingerprint).
+ * Every chat import stores it, so the folder import's "Skip what's already here" knows a file that came in
+ * one at a time (Settings, the chat list, a chat's branches) as well as one from an earlier folder run.
+ */
+export function stChatFileFingerprint(content: string) {
+  return createHash("sha256").update(content.replace(/\r\n/g, "\n")).digest("hex");
+}
+
+/** The chat name a SillyTavern chat file gives: its file name without .jsonl, underscores as spaces. */
+export function stChatNameFromFileName(fileName: string | null | undefined) {
+  return (
+    (fileName ?? "")
+      .replace(/\.jsonl$/i, "")
+      .replace(/_/g, " ")
+      .trim() || undefined
+  );
+}
+
+/** How a persona's name is matched: case, spacing and accents ignored. */
+export function personaLookupKey(name: unknown): string {
+  return typeof name === "string" ? normalizeTextForMatch(name) : "";
+}
+
+/** Personas by name (the most recently updated wins a shared name), for matching SillyTavern users. */
+export async function buildPersonaLookup(db: DB): Promise<Map<string, string>> {
+  const lookup = new Map<string, string>();
+  // listPersonas is newest first.
+  for (const persona of await createCharactersStorage(db).listPersonas()) {
+    const key = personaLookupKey(persona.name);
+    if (key && !lookup.has(key)) lookup.set(key, persona.id);
+  }
+  return lookup;
+}
+
+/** Something from the SillyTavern file that came in differently or not at all. */
+export type STChatImportNote =
+  | { kind: "authorsNote" }
+  | { kind: "authorsNoteOff" }
+  | { kind: "authorsNotePlacement" }
+  | { kind: "persona"; name: string }
+  | { kind: "personaMissing"; name: string }
+  | { kind: "hiddenMessages"; count: number }
+  | { kind: "groupIndividual" };
+
+// SillyTavern's extension prompt positions: 0 after the story string, 1 in the chat at a depth, 2 before it.
+const ST_NOTE_IN_CHAT = 1;
+
+/**
+ * SillyTavern's Author's Note lives in `chat_metadata.note_*`. Marinara injects it as a system message at a
+ * depth, which is SillyTavern's default ("In-chat @ depth 4", every message, system role). Anything else is kept
+ * in metadata.sillyTavernAuthorsNote and reported, and a note SillyTavern had turned off (frequency 0) stays off.
+ */
+function readSillyTavernAuthorsNote(meta: Record<string, unknown>) {
+  const prompt = typeof meta.note_prompt === "string" ? meta.note_prompt : "";
+  if (!prompt.trim()) return null;
+  const whole = (value: unknown, fallback: number) => {
+    const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+    return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : fallback;
+  };
+  const depth = whole(meta.note_depth, 4);
+  const interval = whole(meta.note_interval, 1);
+  const position = whole(meta.note_position, ST_NOTE_IN_CHAT);
+  const role = whole(meta.note_role, 0);
+  const off = interval === 0;
+  const placementDiffers = !off && (interval !== 1 || position !== ST_NOTE_IN_CHAT || role !== 0);
+  const metadata: Record<string, unknown> = off ? {} : { authorNotes: prompt, authorNotesDepth: depth };
+  if (off || placementDiffers) {
+    metadata.sillyTavernAuthorsNote = { prompt, depth, interval, position, role };
+  }
+  const note: STChatImportNote = off
+    ? { kind: "authorsNoteOff" }
+    : placementDiffers
+      ? { kind: "authorsNotePlacement" }
+      : { kind: "authorsNote" };
+  return { metadata, note };
+}
+
+/** The SillyTavern user's name: the header's, else the first user message's. */
+function sillyTavernUserName(header: STChatHeader, lines: string[]): string | null {
+  // SillyTavern 1.16+ writes "unused" in the header; the user's name then lives on their messages.
+  const headerName = typeof header.user_name === "string" ? header.user_name.trim() : "";
+  if (headerName && headerName.toLowerCase() !== "unused") return headerName;
+  for (let index = 1; index < lines.length; index++) {
+    try {
+      const message = JSON.parse(lines[index]!) as STChatMessage;
+      if (message.is_user && typeof message.name === "string" && message.name.trim()) return message.name.trim();
+    } catch {
+      // skip malformed lines
+    }
+  }
+  return null;
 }
 
 const INTERNAL_EXTRA_KEYS = new Set([
@@ -296,6 +432,28 @@ function sanitizeImportedMarinaraMetadata(
  * Format: Line 0 = header JSON, lines 1+ = message JSON per line.
  */
 export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportSTChatOptions) {
+  // The chat is made first and filled in after. If filling it in fails, the half-made chat goes again (with what
+  // hangs off it, such as a game world snapshot), so a failed file leaves nothing behind and a re-run makes no
+  // duplicate.
+  const created: { chatId?: string } = {};
+  try {
+    return await importSTChatInto(jsonlContent, db, opts, created);
+  } catch (err) {
+    if (created.chatId) {
+      await createChatsStorage(db)
+        .remove(created.chatId)
+        .catch((cleanupErr) => logger.warn(cleanupErr, "Could not remove the half-imported chat %s", created.chatId));
+    }
+    throw err;
+  }
+}
+
+async function importSTChatInto(
+  jsonlContent: string,
+  db: DB,
+  opts: ImportSTChatOptions | undefined,
+  created: { chatId?: string },
+) {
   const storage = createChatsStorage(db);
   const lines = jsonlContent.split("\n").filter((l) => l.trim());
 
@@ -319,11 +477,44 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
       : typeof marinaraMetadata.branchName === "string"
         ? marinaraMetadata.branchName
         : null);
+  // The file's own mode wins over the person's pick; a plain SillyTavern log can't hold a game.
   const importedMode =
     opts?.mode ??
     normalizeImportedMode(headerMetadata.mode) ??
     normalizeImportedMode(marinaraMetadata.mode) ??
+    (opts?.modeFallback === "game" ? null : opts?.modeFallback) ??
     "roleplay";
+
+  const importNotes: STChatImportNote[] = [];
+  // Marinara's own exports carry their note in marinara_metadata, which wins below.
+  const authorsNote = readSillyTavernAuthorsNote(headerMetadata);
+  if (authorsNote && marinaraMetadata.authorNotes === undefined) importNotes.push(authorsNote.note);
+  const sillyTavernMetadata = authorsNote && marinaraMetadata.authorNotes === undefined ? authorsNote.metadata : {};
+
+  // The persona SillyTavern spoke as: its persona lock (an avatar file), else the user's name.
+  let personaId = opts?.personaId;
+  const stUserName = sillyTavernUserName(header, lines);
+  if (personaId === undefined && !opts?.personaCharacterId && Object.keys(marinaraMetadata).length === 0) {
+    const lookup = opts?.personaLookup ?? (await buildPersonaLookup(db));
+    const lockedAvatar = typeof headerMetadata.persona === "string" ? headerMetadata.persona : null;
+    personaId =
+      (lockedAvatar ? lookup.get(`avatar:${lockedAvatar}`) : undefined) ??
+      (stUserName ? lookup.get(personaLookupKey(stUserName)) : undefined) ??
+      null;
+    if (stUserName && personaLookupKey(stUserName) !== personaLookupKey("User")) {
+      // Name the persona the chat is linked to; the avatar lock can point at another name than the header's.
+      const linked = personaId
+        ? await createCharactersStorage(db)
+            .getPersona(personaId)
+            .catch(() => null)
+        : null;
+      importNotes.push(
+        personaId
+          ? { kind: "persona", name: (linked as { name?: string } | null)?.name || stUserName }
+          : { kind: "personaMissing", name: stUserName },
+      );
+    }
+  }
 
   // Build characterIds array. Caller-supplied list wins so an import-into-group
   // can fully inherit the existing chat's roster instead of being limited to a
@@ -351,17 +542,26 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     if (key && !normalizedSpeakerMap.has(key)) normalizedSpeakerMap.set(key, characterId);
   }
 
+  let hiddenMessages = 0;
   for (let i = 1; i < lines.length; i++) {
     try {
       const stMsg = JSON.parse(lines[i]!) as STChatMessage;
 
-      const role =
+      const exportedRole =
         normalizeImportedRole(stMsg.role) ??
         normalizeImportedRole(stMsg.extra?.marinara_role) ??
-        normalizeImportedRole(stMsg.extra?.type) ??
-        (stMsg.is_user ? "user" : stMsg.is_system ? "system" : "assistant");
+        normalizeImportedRole(stMsg.extra?.type);
+      // SillyTavern marks a message hidden from the AI with is_system; it is still the user's or the
+      // character's message. Marinara's own exports write the role, and is_system there means a system message.
+      const hiddenInSillyTavern = !exportedRole && stMsg.is_system === true;
+      const role =
+        exportedRole ?? (stMsg.is_user ? "user" : stMsg.is_system && !hiddenInSillyTavern ? "system" : "assistant");
       const rawContent = typeof stMsg.mes === "string" ? stMsg.mes : "";
       const messageExtra = normalizeImportedExtra(stMsg.extra);
+      if (hiddenInSillyTavern) {
+        messageExtra.hiddenFromAI = true;
+        hiddenMessages += 1;
+      }
       const exportedThinking =
         normalizeImportedThinking(stMsg.thinking) ??
         normalizeImportedThinking(stMsg.reasoning) ??
@@ -383,7 +583,11 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
         const swipeExtra =
           index === activeSwipeIndex
             ? { ...(storedSwipe?.extra ?? {}), ...(storedMessageExtra ?? {}) }
-            : (storedSwipe?.extra ?? {});
+            : {
+                ...(storedSwipe?.extra ?? {}),
+                // Hidden in SillyTavern means the whole message, whichever swipe is showing.
+                ...(hiddenInSillyTavern ? { hiddenFromAI: true } : {}),
+              };
         return {
           index,
           content: swipeContent,
@@ -432,6 +636,20 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     }
   }
 
+  if (hiddenMessages > 0) importNotes.push({ kind: "hiddenMessages", count: hiddenMessages });
+
+  // A SillyTavern group: every member answered as its own message, which is Individual mode here.
+  const stGroupMode =
+    opts?.speakerMap && Object.keys(marinaraMetadata).length === 0
+      ? {
+          groupChatMode: opts.groupChatMode ?? ("individual" as const),
+          ...(opts.groupChatMode
+            ? {}
+            : { groupResponseOrder: stGroupResponseOrder(opts.stGroupActivationStrategy, importedMode) }),
+        }
+      : null;
+  if (stGroupMode && !opts?.groupChatMode) importNotes.push({ kind: "groupIndividual" });
+
   const msgInputs = normalizeTranscriptTimestamps(parsedMsgInputs, opts?.timestampOverrides).map(
     ({ parsedCreatedAt, sourceMessageId: _sourceMessageId, ...input }) => {
       messageTimestamps.push(input.createdAt);
@@ -452,7 +670,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
       mode: importedMode,
       characterIds,
       groupId: opts?.groupId ?? null,
-      personaId: opts?.personaId ?? null,
+      personaId: personaId ?? null,
       personaCharacterId: opts?.personaCharacterId ?? null,
       promptPresetId: opts?.promptPresetId ?? null,
       connectionId: opts?.connectionId ?? null,
@@ -461,9 +679,16 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   );
 
   if (!chat) return { error: "Failed to create chat" };
+  created.chatId = chat.id;
 
   // Preserve an imported branch/file label separately from the main thread/chat name.
-  if (Object.keys(marinaraMetadata).length > 0 || importedBranchName || opts?.sourceFingerprint) {
+  if (
+    Object.keys(marinaraMetadata).length > 0 ||
+    Object.keys(sillyTavernMetadata).length > 0 ||
+    stGroupMode ||
+    opts?.groupChatMode ||
+    importedBranchName
+  ) {
     const existingMetadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const importedMetadata = sanitizeImportedMarinaraMetadata(
       marinaraMetadata,
@@ -502,15 +727,23 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
       chat.id,
       {
         ...existingMetadata,
+        ...sillyTavernMetadata,
+        ...(stGroupMode ?? {}),
         ...importedMetadata,
+        // A mode picked at import time wins over what the file carried.
+        ...(opts?.groupChatMode ? { groupChatMode: opts.groupChatMode } : {}),
         ...(importedBranchName ? { branchName: importedBranchName } : {}),
-        ...(opts?.sourceFingerprint ? { importFingerprint: opts.sourceFingerprint } : {}),
       },
       { touchUpdatedAt: false },
     );
   }
 
   const importedMessageIds = await storage.createMessagesBatch(chat.id, msgInputs, chatTimestamps);
+  // Remember the file only once its messages are saved: a chat left half-made by a failed import must not make
+  // "Skip what's already here" pass over the file on the next try.
+  if (opts?.sourceFingerprint) {
+    await storage.patchMetadata(chat.id, { importFingerprint: opts.sourceFingerprint }, { touchUpdatedAt: false });
+  }
   const sourceIdCounts = new Map<string, number>();
   for (const message of parsedMsgInputs)
     if (message.sourceMessageId) {
@@ -624,9 +857,11 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   return {
     success: true,
     chatId: chat.id,
+    mode: importedMode,
     characterName,
     userName,
     messagesImported: msgInputs.length,
+    importNotes,
   };
 }
 

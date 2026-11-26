@@ -137,9 +137,9 @@ test("UX sweep: achievement highlights stay inside the widget with padding", asy
 });
 
 for (const spec of [
-  // 11 since the Onboarding section (#7308).
-  { kind: "Character", path: "/api/characters", sections: 11, last: "Advanced", lastId: "advanced" },
-  { kind: "Persona", path: "/api/characters/personas", sections: 8, last: "Stats", lastId: "stats" },
+  // Onboarding added a section (#7308); one Images section replaced Sprites and Gallery (#9193).
+  { kind: "Character", path: "/api/characters", sections: 10, last: "Advanced", lastId: "advanced" },
+  { kind: "Persona", path: "/api/characters/personas", sections: 7, last: "Stats", lastId: "stats" },
   { kind: "Lorebook", path: "/api/lorebooks", sections: 2, last: "Entries", lastId: "entries" },
   { kind: "Preset", path: "/api/prompts", sections: 5, last: "Regex", lastId: "regex" },
 ]) {
@@ -160,7 +160,8 @@ for (const spec of [
       const editor = page.locator(".mari-editor-shell");
       const title =
         spec.kind === "Lorebook"
-          ? editor.locator('[data-editor-section="overview"] input').first()
+          ? // The cover image's file input comes first in Overview (#9275).
+            editor.locator('[data-editor-section="overview"] [data-mari-field="name"] input')
           : editor.locator(".mari-editor-title-input");
       await expect(title).toHaveValue(name);
       await expect(editor.locator("[data-editor-section]")).toHaveCount(spec.sections);
@@ -504,15 +505,31 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
       if (!new URL(route.request().url()).searchParams.has("sort")) return route.continue();
       const response = await route.fetch();
       const data = await response.json();
-      await route.fulfill({
-        response,
-        json: { ...data, items: data.items.filter((card: { id: string }) => card.id !== selectedId), hasMore: true },
-      });
+      const items = data.items.filter((card: { id: string }) => card.id !== selectedId);
+      // The next page starts at offset + items.length: count the hidden card, or that page repeats a card and the
+      // library shows it twice.
+      const offset = data.offset + data.items.length - items.length;
+      await route.fulfill({ response, json: { ...data, items, offset, hasMore: true } });
     });
     await widget.locator(`[data-card-library-card="${selectedId}"]`).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
+    // How far an opened card's top is from the bottom of the sticky header (the library's first child). Where the whole
+    // library scrolls (phones), the card lands right at the header's bottom unless the library is at its end; where it
+    // does not (desktop), the card only must not be under the header.
+    const cardOffHeader = (id: string) =>
+      library.evaluate((root, cardId) => {
+        const header = root.firstElementChild;
+        const card = root.querySelector(`[data-card-library-card="${CSS.escape(cardId)}"]`);
+        // A row the list has not mounted yet keeps the poll going.
+        if (!header || !card) return Number.POSITIVE_INFINITY;
+        const gap = card.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
+        const rootScrolls = getComputedStyle(root).overflowY !== "hidden";
+        const atEnd = root.scrollTop >= root.scrollHeight - root.clientHeight - 1;
+        return rootScrolls && !atEnd ? Math.abs(gap) : Math.max(-gap, 0);
+      }, id);
     await expect(library).toBeVisible();
     await expect(library.locator(`[data-card-library-card="${selectedId}"]`)).toBeInViewport();
+    await expect.poll(() => cardOffHeader(selectedId)).toBeLessThanOrEqual(1);
     await expect
       .poll(() =>
         page.evaluate(async () => {
@@ -532,11 +549,14 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
         return useUIStore.getState().characterLibraryInitialId;
       });
       const nextId = await library.locator("[data-card-library-card]").evaluateAll((cards, current) => {
+        // A card behind the sticky header is out of sight too.
+        const header = cards[0]!.closest('[data-component="CharacterLibraryView"]')!.firstElementChild!;
+        const top = header.getBoundingClientRect().bottom;
         const offscreen = cards.find((card) => {
           const bounds = card.getBoundingClientRect();
           return (
             card.getAttribute("data-card-library-card") !== current &&
-            (bounds.bottom < 0 || bounds.top >= window.innerHeight)
+            (bounds.bottom <= top || bounds.top >= window.innerHeight)
           );
         });
         return offscreen?.getAttribute("data-card-library-card");
@@ -547,6 +567,7 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
         useUIStore.getState().openCharacterLibrary(id!);
       }, nextId);
       await expect(library.locator(`[data-card-library-card="${nextId}"]`)).toBeInViewport();
+      await expect.poll(() => cardOffHeader(nextId!)).toBeLessThanOrEqual(1);
     }
     await page.setViewportSize(viewport);
     await page.evaluate(async () => {
@@ -673,10 +694,13 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
         return;
       }
       const section = drawer.locator(`[data-chat-settings-section="${mode}-background"]`);
-      const agents = drawer.locator(`[data-chat-settings-section="${mode}-agents"]`);
-      expect(Number(await section.evaluate((el) => getComputedStyle(el).order))).toBeGreaterThan(
-        Number(await agents.evaluate((el) => getComputedStyle(el).order)),
-      );
+      await expect(section).toBeVisible();
+      // Sections show in code order since #9355 dropped their CSS order: Background comes after Agents.
+      const sectionOrder = await drawer
+        .locator("[data-chat-settings-section]")
+        .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-chat-settings-section")));
+      expect(sectionOrder.indexOf(`${mode}-agents`)).toBeGreaterThanOrEqual(0);
+      expect(sectionOrder.indexOf(`${mode}-background`)).toBeGreaterThan(sectionOrder.indexOf(`${mode}-agents`));
       // The shared drawer (f502a1ffd) keeps the help tip beside its toggle; 76d1e52c3 gave Background the wallpaper icon.
       const headerRow = section.locator(":scope > .mari-drawer__header");
       const header = headerRow.locator("[data-drawer-toggle]");

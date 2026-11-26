@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { closeChatSettings, openChatSettings, openChatTool } from "./chat-settings-tools.js";
+import { closeChatSettings, drawerToggle, openChatSettings, openChatTool } from "./chat-settings-tools.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -354,25 +354,19 @@ async function exerciseColorControls(page: Page, preset: Preset, theme: "dark" |
   await expectGradientWidgets(page, settings, page.locator("[data-chat-settings-button]"));
   await expectButtonRing(page, page.locator("[data-chat-settings-button]"), preset);
   // A custom foreground/background pair must remain paired on native fields in either app theme.
-  const profile = settings.getByRole("combobox", { name: "Profile", exact: true });
-  await expect(profile).toHaveCSS(
+  // Profile is a picker button since #9246. Lorebook Token Budget is a native field with no text color of its own.
+  const lorebooks = settings.locator('[data-drawer="lorebooks"]');
+  if ((await drawerToggle(lorebooks).getAttribute("aria-expanded")) !== "true") await drawerToggle(lorebooks).click();
+  const field = lorebooks.locator('input[inputmode="numeric"]');
+  await expect(field).toHaveCSS(
     "background-image",
     await resolvedStyle(page, "background-image", GRADIENT_COLORS.background),
   );
-  await expect(profile).toHaveCSS("-webkit-text-fill-color", await resolvedStyle(page, "color", "#6c5ce7"));
-  await expect(profile).toHaveCSS("color", await resolvedStyle(page, "color", "#6c5ce7"));
+  await expect(field).toHaveCSS("-webkit-text-fill-color", await resolvedStyle(page, "color", "#6c5ce7"));
+  await expect(field).toHaveCSS("color", await resolvedStyle(page, "color", "#6c5ce7"));
   await expect(settings.locator(".mari-window__title-row > svg")).toHaveCSS(
     "color",
     await resolvedStyle(page, "color", "#ff6b6b"),
-  );
-  await expect(profile.locator("option:not(:checked)").first()).toHaveCSS(
-    "background-color",
-    await resolvedStyle(page, "background-color", "#667eea"),
-  );
-  const selectedOption = profile.locator("option:checked");
-  await expect(selectedOption).toHaveCSS(
-    "-webkit-text-fill-color",
-    await selectedOption.evaluate((element) => getComputedStyle(element).color),
   );
   expect(
     await settings
@@ -530,8 +524,10 @@ async function exerciseWindow(page: Page, desktop: boolean) {
 async function expectCompactFramedWidgets(page: Page, preset: "dottore" | "mari", theme: string) {
   const settings = await openChatSettings(page);
   const header = settings.locator(".mari-window__header");
-  const grip = settings.locator(".mari-window__resize-grip");
-  if (await grip.count()) {
+  // Every corner has a cue since #9837; the bottom-right one shows while the pointer is in the window.
+  const grip = settings.locator('.mari-window__resize-grip[data-corner="se"]');
+  if (await settings.locator(".mari-window__resize-grip").count()) {
+    await expect(grip).toHaveCount(1);
     await page.mouse.move(1, 1);
     await expect(grip).toHaveCSS(
       "color",
@@ -1025,6 +1021,7 @@ for (const [preset, theme] of [
         frame: await surfaceAppearance(swipeFrame),
         arrow: await surfaceAppearance(swipeArrow),
         font: await swipeInput.evaluate((node) => getComputedStyle(node).fontFamily),
+        edge: await swipeFrame.evaluate((node) => getComputedStyle(node).borderTopColor),
       };
       const send = page.locator(".mari-chat-send-btn").first();
       const sendFill = await send.evaluate((node) => getComputedStyle(node).backgroundColor);
@@ -1072,6 +1069,10 @@ for (const [preset, theme] of [
         else expect(shaped.radius).not.toBe(old.radius);
       }
       if (preset === "dottore") {
+        // The cut-corner layer draws the capsule's edge, which stays as unseen as its own border.
+        await expect
+          .poll(() => swipeFrame.evaluate((node) => getComputedStyle(node, "::after").borderTopColor))
+          .toBe(originalSwipe.edge);
         expect(await send.evaluate((node) => getComputedStyle(node, "::after").backgroundColor)).toBe(sendFill);
         const frame = (element: Locator) =>
           element.evaluate((node) => getComputedStyle(node, "::before").backgroundColor);
@@ -1145,9 +1146,7 @@ for (const [preset, theme] of [
         .locator('[data-component="RightPanel"]')
         .getByRole("button", { name: "Close panel", exact: true })
         .click();
-      await expect(
-        page.locator('[data-component="RightPanelDesktopSlot"], [data-component="RightPanelMobile"]'),
-      ).toBeHidden();
+      await expect(page.locator('[data-component="SidebarSlot"], [data-component="RightPanelMobile"]')).toBeHidden();
       for (const chat of fixture.chats) {
         await showStyleScope(page, chat);
         if (chat.view === "visual-novel" || (chat.mode === "game" && info.project.name === "desktop-chromium")) {
@@ -1218,7 +1217,11 @@ for (const [preset, theme] of [
             const pager = page.locator(`[data-chat-mode="${chat.mode}"] .mari-message-swipes`).first();
             await expect(pager.locator("input")).toHaveCSS("font-family", /serif/);
             await expect(pager.locator("input")).toHaveCSS("-webkit-text-fill-color", "rgb(108, 92, 231)");
-            await expect(pager.locator(":scope > span.tabular-nums")).toHaveCSS("background-image", textGradient);
+            // The total sits inside the number capsule since #9304.
+            await expect(pager.locator(".mari-swipe-input > label.tabular-nums")).toHaveCSS(
+              "background-image",
+              textGradient,
+            );
             for (const control of [pager.locator(".mari-swipe-input"), pager.getByRole("button").first()]) {
               const painted = await surfaceAppearance(control);
               expect(painted.clip).toContain("polygon");
@@ -1301,9 +1304,7 @@ test("movable button pixel size is independent, stays reachable and restores the
   };
   const closeAppearance = async () => {
     await page.getByRole("button", { name: "Close panel", exact: true }).click();
-    await expect(
-      page.locator('[data-component="RightPanelDesktopSlot"], [data-component="RightPanelMobile"]'),
-    ).toBeHidden();
+    await expect(page.locator('[data-component="SidebarSlot"], [data-component="RightPanelMobile"]')).toBeHidden();
   };
   const assertReachable = async () => {
     await expect

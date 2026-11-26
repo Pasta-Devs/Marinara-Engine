@@ -13,12 +13,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { isNativeNovelAiConnection, type ChatImageGenerationRecord } from "@marinara-engine/shared";
+import { resolveImageEditCapabilities, type ChatImageGenerationRecord } from "@marinara-engine/shared";
 import { useConnections } from "../../hooks/use-connections";
 import type { ChatImage, RegenerateChatImageInput } from "../../hooks/use-gallery";
 import {
   useRegenerateChatImage,
   useReviseChatImagePrompt,
+  useChatImageEditConnection,
   type ImagePromptDraft,
 } from "../../hooks/use-regenerate-chat-image";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
@@ -73,6 +74,7 @@ interface ImageRegeneratePanelProps {
   onBusyChange: (busy: boolean) => void;
   onRegenerated: (image: ChatImage) => void;
   className?: string;
+  disabled?: boolean;
 }
 
 // Same field as InlineChatCardEditor: the chat chrome input tokens follow every theme and chat style,
@@ -385,10 +387,12 @@ export function ImageRegeneratePanel({
   onBusyChange,
   onRegenerated,
   className,
+  disabled = false,
 }: ImageRegeneratePanelProps) {
   const { t } = useUiTranslation();
   const debugMode = useUIStore((s) => s.debugMode);
   const { data: connectionRows } = useConnections();
+  const { data: inheritedConnection } = useChatImageEditConnection(image.chatId, image.id, !regenerator);
   const chatRegenerate = useRegenerateChatImage(image.chatId);
   const chatRevise = useReviseChatImagePrompt(image.chatId);
   const regenerate =
@@ -419,7 +423,7 @@ export function ImageRegeneratePanel({
   const [infillStrength, setInfillStrength] = useState(1);
   const [phase, setPhase] = useState<"revising" | "generating" | null>(null);
   const [error, setError] = useState("");
-  const busy = phase !== null;
+  const busy = phase !== null || disabled;
   const promptMissing = !draft.prompt.trim();
   const hasGuidance = Boolean(guidance.trim());
   const references = record?.references;
@@ -440,7 +444,7 @@ export function ImageRegeneratePanel({
     if (next.connectionId) setConnectionId(next.connectionId);
   }, [imageSyncKey]);
 
-  const { isNativeNovelAi, effectiveConnectionId, hasSelectedConnection } = useMemo(() => {
+  const { capabilities, effectiveConnectionId, hasSelectedConnection } = useMemo(() => {
     const rows = (connectionRows ?? []).filter(
       (row): row is Record<string, unknown> & { id: string; provider: string } =>
         !!row &&
@@ -455,32 +459,41 @@ export function ImageRegeneratePanel({
     const eligibleFallbackRows = rows.filter((row) => !isConnectionFlagTrue(row.profileImportReviewRequired));
     const effective =
       chosen ??
-      eligibleFallbackRows.find((row) => isConnectionFlagTrue(row.defaultForAgents)) ??
-      (eligibleFallbackRows.length === 1 ? eligibleFallbackRows[0] : undefined);
+      (regenerator
+        ? (eligibleFallbackRows.find((row) => isConnectionFlagTrue(row.defaultForAgents)) ??
+          (eligibleFallbackRows.length === 1 ? eligibleFallbackRows[0] : undefined))
+        : rows.find((row) => row.id === inheritedConnection?.connectionId));
     return {
-      isNativeNovelAi: isNativeNovelAiConnection(effective),
+      capabilities: resolveImageEditCapabilities({
+        source: String(effective?.imageGenerationSource || effective?.model || ""),
+        baseUrl: String(effective?.baseUrl || ""),
+        serviceHint: String(effective?.imageService || effective?.imageGenerationSource || effective?.model || ""),
+        model: String(effective?.model || ""),
+      }),
       effectiveConnectionId: typeof effective?.id === "string" ? effective.id : "",
       hasSelectedConnection: Boolean(connectionId && rows.some((row) => row.id === connectionId)),
     };
-  }, [connectionId, connectionRows, record?.connectionId]);
+  }, [connectionId, connectionRows, record?.connectionId, regenerator, inheritedConnection?.connectionId]);
 
-  const effectiveMode = isNativeNovelAi ? mode : "regenerate";
-  const effectiveReuseSeed = isNativeNovelAi ? reuseSeed : false;
-  const hasMask = effectiveMode === "edit" && Boolean(maskDataUrl);
-  const isMaskDrawing = effectiveMode === "edit" && Boolean(maskControls?.isDrawing);
+  const canEdit = capabilities.img2img;
+  const effectiveMode = canEdit ? mode : "regenerate";
+  const effectiveReuseSeed = capabilities.reuseSeed ? reuseSeed : false;
+  const hasMask = capabilities.inpainting && effectiveMode === "edit" && Boolean(maskDataUrl);
+  const isMaskDrawing = capabilities.inpainting && effectiveMode === "edit" && Boolean(maskControls?.isDrawing);
   const activeStrength = hasMask ? infillStrength : img2imgStrength;
-  const showCollapsedMaskBar = collapsed && isNativeNovelAi && effectiveMode === "edit" && Boolean(maskControls);
+  const showCollapsedMaskBar =
+    collapsed && capabilities.inpainting && effectiveMode === "edit" && Boolean(maskControls);
 
   useEffect(() => {
     titleRef.current?.focus();
   }, []);
 
   useEffect(() => {
-    onEditSurfaceChange?.(effectiveMode === "edit");
+    onEditSurfaceChange?.(capabilities.inpainting && effectiveMode === "edit");
     return () => {
       onEditSurfaceChange?.(false);
     };
-  }, [effectiveMode, onEditSurfaceChange]);
+  }, [capabilities.inpainting, effectiveMode, onEditSurfaceChange]);
 
   const updateCharacter = (index: number, update: (entry: CharacterPrompt) => CharacterPrompt) =>
     setDraft((current) => ({
@@ -528,7 +541,7 @@ export function ImageRegeneratePanel({
           ? {
               editMode: (hasMask ? "infill" : "img2img") as "img2img" | "infill",
               strength: activeStrength,
-              ...(hasMask ? { maskImage: maskDataUrl! } : { noise: img2imgNoise }),
+              ...(hasMask ? { maskImage: maskDataUrl! } : capabilities.noise ? { noise: img2imgNoise } : {}),
             }
           : {};
       const regenerated = await regenerate({
@@ -582,15 +595,21 @@ export function ImageRegeneratePanel({
         className={cn(
           "shrink-0",
           !collapsed &&
-            isNativeNovelAi &&
+            canEdit &&
             "max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:border-b max-sm:border-[var(--border)] max-sm:px-2.5 max-sm:py-1",
         )}
       >
         <div
+          data-image-viewer-navigation
+          onPointerDown={(event) => {
+            if (!(event.target instanceof Element) || event.target.closest("input, select")) return;
+            const button = event.target.closest<HTMLElement>("button");
+            (button ?? titleRef.current)?.focus({ preventScroll: true });
+          }}
           className={cn(
             "flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
             !collapsed && "border-b border-[var(--border)]",
-            !collapsed && isNativeNovelAi && "max-sm:contents",
+            !collapsed && canEdit && "max-sm:contents",
           )}
         >
           <h2
@@ -600,7 +619,7 @@ export function ImageRegeneratePanel({
             className={cn(
               "min-w-0 shrink-0 truncate text-base font-semibold focus:outline-none",
               showCollapsedMaskBar && "max-md:sr-only",
-              !collapsed && isNativeNovelAi && "max-sm:sr-only",
+              !collapsed && canEdit && "max-sm:sr-only",
             )}
           >
             {t("ui.chat.chatimagelightbox.regenerateImage")}
@@ -609,7 +628,7 @@ export function ImageRegeneratePanel({
             className={cn(
               "flex shrink-0 items-center gap-1.5",
               showCollapsedMaskBar && "min-w-0 flex-1 justify-between md:justify-end md:gap-2",
-              !collapsed && isNativeNovelAi && "max-sm:contents",
+              !collapsed && canEdit && "max-sm:contents",
             )}
           >
             {showCollapsedMaskBar && maskControls && (
@@ -621,9 +640,7 @@ export function ImageRegeneratePanel({
                 <MaskModeBadge hasMask={hasMask} compact className="py-1 max-sm:hidden" />
               </>
             )}
-            <div
-              className={cn("flex shrink-0 items-center gap-1", !collapsed && isNativeNovelAi && "max-sm:order-last")}
-            >
+            <div className={cn("flex shrink-0 items-center gap-1", !collapsed && canEdit && "max-sm:order-last")}>
               {collapsed && phase && <Spinner size="sm" aria-hidden="true" />}
               <button
                 type="button"
@@ -645,7 +662,7 @@ export function ImageRegeneratePanel({
             </div>
           </div>
         </div>
-        {!collapsed && isNativeNovelAi && (
+        {!collapsed && canEdit && (
           <div
             role="group"
             aria-label={t("ui.chat.imageregeneratepanel.modeTablist")}
@@ -686,9 +703,9 @@ export function ImageRegeneratePanel({
       </div>
       <div className={cn("flex min-h-0 flex-1 flex-col", collapsed && "hidden")}>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3">
-          {isNativeNovelAi && effectiveMode === "edit" && (
+          {canEdit && effectiveMode === "edit" && (
             <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--marinara-chat-chrome-input-bg)]/60 p-3">
-              {maskControls && (
+              {capabilities.inpainting && maskControls && (
                 <div className="space-y-2 border-b border-[var(--border)] pb-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.maskTools")}</span>
@@ -724,7 +741,7 @@ export function ImageRegeneratePanel({
                     id={strengthFieldId}
                     type="range"
                     min={0.01}
-                    max={hasMask ? 1 : 0.99}
+                    max={hasMask || !capabilities.noise ? 1 : 0.99}
                     step={0.01}
                     value={activeStrength}
                     disabled={busy}
@@ -736,7 +753,7 @@ export function ImageRegeneratePanel({
                     className="min-h-11 w-full cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
                   />
                 </div>
-                {!hasMask && (
+                {!hasMask && capabilities.noise && (
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
@@ -770,7 +787,11 @@ export function ImageRegeneratePanel({
               </div>
               <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
                 {t(
-                  hasMask ? "ui.chat.imageregeneratepanel.inpaintingHint" : "ui.chat.imageregeneratepanel.img2imgHint",
+                  hasMask
+                    ? "ui.chat.imageregeneratepanel.inpaintingHint"
+                    : capabilities.inpainting
+                      ? "ui.chat.imageregeneratepanel.img2imgHint"
+                      : "ui.chat.imageregeneratepanel.img2imgOnlyHint",
                 )}
               </p>
             </div>
@@ -846,12 +867,13 @@ export function ImageRegeneratePanel({
               value={connectionId || null}
               onChange={(nextId) => setConnectionId(nextId ?? "")}
               defaultLabel={regenerator?.defaultConnectionLabel ?? t("ui.chat.imageregeneratepanel.chatConnection")}
+              inherits={regenerator ? undefined : { connectionId: inheritedConnection?.connectionId ?? null }}
               disabled={busy}
               className="min-h-11"
             />
           </div>
 
-          {isNativeNovelAi && (
+          {capabilities.reuseSeed && (
             <label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]">
               <Checkbox
                 checked={effectiveReuseSeed}

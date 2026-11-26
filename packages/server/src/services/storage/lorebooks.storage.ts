@@ -12,6 +12,7 @@ import {
   lorebookPersonaLinks,
 } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
+import { defaultNewLorebookExcludeFromVectorization } from "../features/feature-settings.js";
 import {
   DEFAULT_LOREBOOK_WRITER_ORDER,
   compareTokenEstimates,
@@ -45,7 +46,7 @@ import {
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
 import { toPaginatedList } from "../../utils/list-pagination.js";
 import { createChatsStorage } from "./chats.storage.js";
-import { createLibraryFoldersStorage } from "./library-folders.storage.js";
+import { createLibraryFoldersStorage, LOREBOOK_ITEM_SCOPES } from "./library-folders.storage.js";
 import { parseSourceMessageRefs } from "./lorebook-provenance.js";
 import { createCharactersStorage } from "./characters.storage.js";
 
@@ -641,7 +642,9 @@ export function createLorebooksStorage(db: DB) {
           entryLimit: normalizeLorebookEntryLimit(input.entryLimit),
           recursiveScanning: String(input.recursiveScanning ?? false),
           maxRecursionDepth: input.maxRecursionDepth ?? 3,
-          excludeFromVectorization: String(input.excludeFromVectorization ?? true),
+          excludeFromVectorization: String(
+            input.excludeFromVectorization ?? defaultNewLorebookExcludeFromVectorization(),
+          ),
           vectorQueryDepth: normalizeLorebookVectorQueryDepth(input.vectorQueryDepth),
           vectorIncludeAssistant: String(input.vectorIncludeAssistant ?? false),
           vectorScoreThreshold: normalizeLorebookVectorScoreThreshold(input.vectorScoreThreshold),
@@ -765,7 +768,7 @@ export function createLorebooksStorage(db: DB) {
         await tx.delete(lorebookCharacterLinks).where(eq(lorebookCharacterLinks.lorebookId, id));
         await tx.delete(lorebookPersonaLinks).where(eq(lorebookPersonaLinks.lorebookId, id));
         await tx.delete(lorebooks).where(eq(lorebooks.id, id));
-        await createLibraryFoldersStorage(tx).removeItemReferences("lorebooks", [id]);
+        await createLibraryFoldersStorage(tx).removeItemReferences(LOREBOOK_ITEM_SCOPES, [id]);
         return entries.map((entry) => entry.id);
       }, id);
     },

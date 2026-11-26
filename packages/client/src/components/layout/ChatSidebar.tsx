@@ -98,6 +98,7 @@ import { sortPanelFolders } from "../../lib/panel-sort";
 import { getCurrentGameGroupRepresentative } from "../../lib/game-session-resolution";
 import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
+import { describeChatImportNotes, type STChatImportNote } from "../../lib/st-import-report";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -307,7 +308,7 @@ export function ChatSidebar() {
   const setPendingNewChatMode = useChatStore((s) => s.setPendingNewChatMode);
 
   // Folder hooks
-  const { data: folders } = useChatFolders();
+  const { data: folders, isPending: foldersPending } = useChatFolders();
   const createFolderMut = useCreateFolder();
   const updateFolderMut = useUpdateFolder();
   // Stable across renders, unlike the mutation object itself — safe as an effect dep.
@@ -709,7 +710,8 @@ export function ChatSidebar() {
     //    re-runs after the query delivers the expanded state.
     if (!s.folderSynced) {
       if (!chat.folderId) {
-        s.folderSynced = true;
+        // The folders sit above the unfiled chats: scrolled before they arrive, the row ends up below the view.
+        if (!foldersPending) s.folderSynced = true;
       } else if (folders) {
         const folder = folders.find((f) => f.id === chat.folderId);
         if (folder?.collapsed) {
@@ -740,7 +742,7 @@ export function ChatSidebar() {
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [activeChatId, chats, folders, mutateFolder]);
+  }, [activeChatId, chats, folders, foldersPending, mutateFolder]);
 
   const handleNewChat = useCallback(
     (mode: ChatMode) => {
@@ -814,12 +816,14 @@ export function ChatSidebar() {
       try {
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("mode", activeTab);
+        // No mode: the server uses the file's own type, else Roleplay, and the list switches to that tab.
         const data = await api.upload<{
           success?: boolean;
           chatId?: string;
+          mode?: "conversation" | "roleplay" | "game";
           error?: string;
           messagesImported?: number;
+          importNotes?: STChatImportNote[];
         }>("/import/st-chat", formData);
         if (data.success === false || data.error) {
           toast.error(
@@ -830,10 +834,15 @@ export function ChatSidebar() {
           return;
         }
 
+        // What came along (Author's Note, persona) and what didn't, so nothing is lost silently.
+        const notes = describeChatImportNotes(data.importNotes, localizeUi);
         toast.success(
           localizeUi("ui.layout.chatsidebar.importedValue1Messages", { value1: data.messagesImported ?? 0 }),
+          notes.length > 0 ? { description: notes.join(" "), duration: 8000 } : undefined,
         );
         await refetchChats();
+        // Show the tab the chat landed in, so it is in the list.
+        if (data.mode) setActiveTab(data.mode);
         if (data.chatId) setActiveChatId(data.chatId);
       } catch (error) {
         toast.error(
@@ -845,7 +854,7 @@ export function ChatSidebar() {
         setIsImportingChat(false);
       }
     },
-    [activeTab, refetchChats, setActiveChatId, localizeUi],
+    [refetchChats, setActiveChatId, localizeUi],
   );
 
   const activeModeConfig = MODE_CONFIG[activeTab] ?? MODE_CONFIG.conversation;
@@ -1915,6 +1924,8 @@ export function ChatSidebar() {
             gap={2}
             pinnedIndex={unfiledChats.findIndex((entry) => entry.chat.id === draggedChatId)}
             scrollToIndex={(() => {
+              // Waits for the folders above: arriving after this scroll, they push the open chat below the view.
+              if (foldersPending) return undefined;
               const i = unfiledChats.findIndex(
                 (entry) =>
                   entry.chat.id === activeChatId || (activeGroupId != null && entry.chat.groupId === activeGroupId),

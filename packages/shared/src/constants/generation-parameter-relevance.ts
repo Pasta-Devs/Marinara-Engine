@@ -44,6 +44,7 @@ export type GenerationParameterKey =
   | "maxTokens"
   | "topP"
   | "topK"
+  | "minP"
   | "frequencyPenalty"
   | "presencePenalty"
   | "reasoningEffort"
@@ -109,6 +110,7 @@ const ALL: GenerationParameterKey[] = [
   "maxTokens",
   "topP",
   "topK",
+  "minP",
   "frequencyPenalty",
   "presencePenalty",
   "reasoningEffort",
@@ -397,7 +399,6 @@ export function relevantGenerationParameters(context: GenerationParameterContext
   }
 
   if (caps?.samplingRejected) hide("temperature", "topP", "topK");
-  if (caps?.refusedParameters?.length) hide(...caps.refusedParameters);
   if (caps?.effortLevels && caps.effortLevels.length === 0) hide("reasoningEffort");
   if (caps?.verbosity && !caps.verbosity.supported) hide("verbosity");
   if (caps?.supportedParameters && caps.supportedParameters.length > 0) {
@@ -406,6 +407,10 @@ export function relevantGenerationParameters(context: GenerationParameterContext
       if (!listed.has(key)) hide(key);
     }
   }
+  // Min P is sent only by the built-in model and OpenAI-compatible custom servers, where they send Top K. Anthropic and
+  // Google send Top K but not Min P. A refusal hides only the setting it names, so it comes after.
+  if (hidden.has("topK") || (provider !== "custom" && provider !== "local_sidecar")) hide("minP");
+  if (caps?.refusedParameters?.length) hide(...caps.refusedParameters);
 
   return new Set(ALL.filter((key) => !hidden.has(key)));
 }

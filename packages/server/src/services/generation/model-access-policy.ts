@@ -5,6 +5,7 @@ import {
   type ContextFitSummary,
 } from "@marinara-engine/shared";
 import {
+  estimateMessagesTokens,
   fitMessagesToContext,
   type ChatMessage,
   type ChatOptions,
@@ -111,5 +112,19 @@ export function fitMessagesForModelAccess(args: {
     messages: fit.messages,
     maxTokensForSend: fit.maxTokens ?? args.maxTokens,
     contextFit: summarizeContextFit(args.messages, fit),
+  };
+}
+
+/**
+ * Count history left out before the fit (Memory Recall removes what it makes room for), so the reply's checkup still
+ * says how many older messages were not sent and how large the prompt was.
+ */
+export function withHistoryLeftOutEarlier(summary: ContextFitSummary, leftOut: ChatMessage[]): ContextFitSummary {
+  if (leftOut.length === 0) return summary;
+  return {
+    ...summary,
+    trimmed: true,
+    droppedHistory: summary.droppedHistory + leftOut.length,
+    tokensBefore: summary.tokensBefore + estimateMessagesTokens(leftOut),
   };
 }

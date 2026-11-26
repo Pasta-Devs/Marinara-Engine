@@ -4,7 +4,7 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { ChatImageGenerationRecord } from "@marinara-engine/shared";
+import type { ChatImageGenerationRecord, SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
 import { api } from "../../../lib/api-client";
 import { MessageImageOpenContext } from "../../../lib/remote-image-placeholder";
 import { chatKeys } from "../../../hooks/use-chats";
@@ -31,6 +31,8 @@ export interface MariImageAsset {
   source?: string;
   model: string;
   seed?: number;
+  /** Per-character prompts she sent on a NovelAI connection. */
+  characterPrompts?: SceneIllustrationCharacterPrompt[];
   createdAt: string;
 }
 
@@ -66,7 +68,7 @@ export function mariAssetToChatImage(asset: MariImageAsset): ChatImage {
     prompt: asset.prompt,
     connectionId: asset.connectionId || null,
     negativePrompt: asset.negativePrompt ?? "",
-    characterPrompts: [],
+    characterPrompts: asset.characterPrompts ?? [],
     references: { characterIds: [], personaId: null, personaSource: null, locationImageId: null },
     ...(asset.seed !== undefined ? { seed: asset.seed } : {}),
   };
@@ -139,6 +141,7 @@ function MariImageLightbox({
         imageId,
         prompt,
         negativePrompt,
+        characterPrompts,
         connectionId,
         messageId: replyId,
         editMode,
@@ -153,6 +156,7 @@ function MariImageLightbox({
           {
             prompt,
             negativePrompt,
+            ...(characterPrompts ? { characterPrompts } : {}),
             connectionId,
             debugMode,
             chatId,
@@ -213,12 +217,20 @@ export function MariImageOpener({
   onImageReplaced?: (message: MariReplacedMessage) => void;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState<{ src: string; alt: string } | null>(null);
+  const [open, setOpen] = useState<{ src: string; alt: string; messageId: string } | null>(null);
+  // If opened while a live reply was still streaming (messageId === ""), latch the reply's ID once it arrives
+  // and keep it fixed for the rest of this lightbox session.
+  if (open && !open.messageId && messageId) {
+    setOpen({ ...open, messageId });
+  }
   const triggerRef = useRef<HTMLElement | null>(null);
-  const onOpen = useCallback(({ trigger, ...image }: { src: string; alt: string; trigger: HTMLElement }) => {
-    triggerRef.current = trigger;
-    setOpen(image);
-  }, []);
+  const onOpen = useCallback(
+    ({ trigger, ...image }: { src: string; alt: string; trigger: HTMLElement }) => {
+      triggerRef.current = trigger;
+      setOpen({ ...image, messageId });
+    },
+    [messageId],
+  );
   // Back to the picture that opened it: with focus left on the page, her window takes the next Escape as "go back".
   const onClose = useCallback(() => {
     setOpen(null);
@@ -234,7 +246,7 @@ export function MariImageOpener({
           src={open.src}
           alt={open.alt}
           chatId={chatId}
-          messageId={messageId}
+          messageId={open.messageId}
           onImageReplaced={onImageReplaced}
           onClose={onClose}
         />

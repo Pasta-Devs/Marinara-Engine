@@ -155,7 +155,10 @@ for (const mode of ["conversation", "roleplay"] as const) {
       expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(mobile ? 300 : 240);
       expect(saveBox.y).toBeGreaterThanOrEqual(menuBox.y);
       expect(saveBox.y + saveBox.height).toBeLessThanOrEqual(menuBox.y + menuBox.height);
-      await saveNote.click();
+      // With the keyboard up a phone taps the button in one gesture. A mouse press blurs the note first, the app then
+      // closes the keyboard and the menu grows back, so the button has moved before the mouse is released.
+      if (mobile) await saveNote.tap();
+      else await saveNote.click();
       if (mobile) {
         await page.evaluate(() => {
           for (const key of ["height", "offsetTop", "pageTop"]) Reflect.deleteProperty(window.visualViewport!, key);

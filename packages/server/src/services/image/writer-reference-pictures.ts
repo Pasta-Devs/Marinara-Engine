@@ -10,6 +10,7 @@ import {
   DEFAULT_WRITER_REFERENCE_INSTRUCTION,
   modelReadsImages,
   readWriterReferenceSettings,
+  resolveImageBackend,
   resolveReferencePictureTarget,
   routeReferencePictures,
 } from "@marinara-engine/shared";
@@ -166,6 +167,31 @@ type AvatarConnection = Parameters<typeof avatarImageService>[0];
 /** What the routing reads from an image connection; the API key is not needed, so a keyless row will do. */
 export type ImageConnectionLike = Pick<AvatarConnection, "model" | "baseUrl" | "imageService" | "comfyuiWorkflow">;
 
+/** Empty fields read as unset, so a connection row will do. */
+type ImageConnectionFields = Partial<Record<keyof ImageConnectionLike, string | null>>;
+
+/** Whether the image connection sends reference pictures to its model at all. */
+function imageConnectionTakesReferences(imageConnection: ImageConnectionFields): boolean {
+  return imageConnectionTakesReferencePicture(avatarImageService(imageConnection as AvatarConnection));
+}
+
+/** Services that use only the first reference picture, as the start of image to image (Draw Things is automatic1111). */
+const START_PICTURE_BACKENDS = new Set(["arli", "stability", "automatic1111"]);
+
+/**
+ * Whether lorebook entry pictures go to the image connection (#9698): only one that takes them as references. A
+ * service in START_PICTURE_BACKENDS would draw over the entry's picture instead.
+ */
+export function imageConnectionTakesEntryPictures(imageConnection: ImageConnectionFields): boolean {
+  const connection = avatarImageService(imageConnection as AvatarConnection);
+  return (
+    imageConnectionTakesReferencePicture(connection) &&
+    !START_PICTURE_BACKENDS.has(
+      resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model),
+    )
+  );
+}
+
 /**
  * The writer's pictures for one Illustrator run, or null with a log line saying why not. Shared by the chat
  * pipeline, `[illustrate:]`, the retry route and the Gallery's illustrate button, so they all route alike.
@@ -208,9 +234,7 @@ async function collectWriterReferencePicturesOrThrow(
       : args.agentSettings?.useAvatarReferences === true;
   if (!avatarReferencesOn) return null;
   const target = resolveReferencePictureTarget(args.chatMeta.illustratorReferencePictureTarget, args.agentSettings);
-  const takesReferences = imageConnectionTakesReferencePicture(
-    avatarImageService(args.imageConnection as AvatarConnection),
-  );
+  const takesReferences = imageConnectionTakesReferences(args.imageConnection);
   if (!routeReferencePictures(target, takesReferences).toWriter) {
     if (target === "auto")
       logger.info("[writer-references] Skipped: the image connection takes reference pictures itself");
@@ -272,8 +296,5 @@ export function imageModelGetsReferencePictures(
   imageConnection: ImageConnectionLike,
 ): boolean {
   const target = resolveReferencePictureTarget(chatMeta.illustratorReferencePictureTarget, agentSettings);
-  return routeReferencePictures(
-    target,
-    imageConnectionTakesReferencePicture(avatarImageService(imageConnection as AvatarConnection)),
-  ).toImageModel;
+  return routeReferencePictures(target, imageConnectionTakesReferences(imageConnection)).toImageModel;
 }

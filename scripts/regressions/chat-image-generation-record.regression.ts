@@ -29,6 +29,12 @@ const { buildChatImageGenerationRecord, parseChatImageGenerationRecord } =
   await import("../../packages/shared/src/utils/chat-image-generation.js");
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { galleryRoutes } = await import("../../packages/server/src/routes/gallery.routes.js");
+const { backupRoutes } = await import("../../packages/server/src/routes/backup.routes.js");
+const { resolveEntityImageGeneration } = await import("../../packages/server/src/routes/entity-image-edit.routes.js");
+const { createCharacterGalleryStorage } =
+  await import("../../packages/server/src/services/storage/character-gallery.storage.js");
+const { createPersonaGalleryStorage } =
+  await import("../../packages/server/src/services/storage/persona-gallery.storage.js");
 const { readRecordedReferenceImages } =
   await import("../../packages/server/src/services/image/illustrator-references.js");
 const { createAgentsStorage } = await import("../../packages/server/src/services/storage/agents.storage.js");
@@ -43,6 +49,10 @@ const { characterDataSchema } = await import("../../packages/shared/dist/index.j
 
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const imagePrompts: string[] = [];
+// Pictures sent with each edit request, as raw base64.
+const editPictures: string[][] = [];
+// Start pictures sent with each SD Web UI request.
+const sdInitImages: string[][] = [];
 const promptModelRequests: Array<{
   model?: string;
   messages?: Array<{ role: string; content: string }>;
@@ -65,14 +75,26 @@ const provider = createServer(async (request, response) => {
     );
     return;
   }
+  if (request.url?.includes("/sdapi/v1/")) {
+    sdInitImages.push(body.init_images ?? []);
+    response.end(JSON.stringify({ images: [png] }));
+    return;
+  }
   imagePrompts.push(String(body.prompt));
+  if (request.url?.endsWith("/images/edits")) {
+    editPictures.push((body.images ?? [body.image]).map((image: { url: string }) => image.url.split(",")[1]));
+  }
   response.end(JSON.stringify({ data: [{ b64_json: png }] }));
 });
 
 const db = await getDB();
 const app = Fastify();
 app.decorate("db", db);
+await app.register(requireServer("@fastify/multipart"));
 await app.register(galleryRoutes, { prefix: "/api/gallery" });
+await app.register(backupRoutes, { prefix: "/api/backup" });
+const { charactersRoutes } = await import("../../packages/server/src/routes/characters.routes.js");
+await app.register(charactersRoutes, { prefix: "/api/characters" });
 
 try {
   // Builder trims, drops unusable character prompts and duplicate ids.
@@ -279,6 +301,27 @@ try {
     }),
   });
   assert.ok(illustration?.id);
+  const inheritedCanvas = await createConnectionsStorage(db).create({
+    name: "Chat canvas inheritance fixture",
+    provider: "image_generation",
+    imageService: "drawthings",
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    model: "fixture",
+  });
+  assert.ok(inheritedCanvas?.id);
+  await chats.updateMetadata(chat.id, { illustratorImageConnectionId: inheritedCanvas.id });
+  const editConnectionUrl = (imageId: string) => `/api/gallery/${chat.id}/images/${imageId}/edit-connection`;
+  const inheritedEditConnection = await app.inject({ method: "GET", url: editConnectionUrl(legacy!.id) });
+  assert.equal(inheritedEditConnection.statusCode, 200, inheritedEditConnection.body);
+  assert.deepEqual(inheritedEditConnection.json(), { connectionId: inheritedCanvas.id });
+  const recordedEditConnection = await app.inject({ method: "GET", url: editConnectionUrl(illustration.id) });
+  assert.deepEqual(recordedEditConnection.json(), { connectionId: connection.id });
+  const missingEditConnection = await app.inject({ method: "GET", url: editConnectionUrl("missing-image") });
+  assert.equal(missingEditConnection.statusCode, 404);
+  await chats.updateMetadata(chat.id, { illustratorImageConnectionId: null });
+  const defaultEditConnection = await app.inject({ method: "GET", url: editConnectionUrl(legacy!.id) });
+  assert.deepEqual(defaultEditConnection.json(), { connectionId: connection.id });
+
   const message = await chats.createMessage({
     chatId: chat.id,
     role: "assistant",
@@ -834,8 +877,7 @@ try {
     "a gallery-only image replaces nothing",
   );
 
-  // A swap that fails partway is rolled back: the first message gets its old image back and the
-  // unused new row is removed, so a retry starts clean.
+  // Selection and all reference swaps roll back together if the transaction fails at commit.
   const sharedImage = await gallery.create({
     chatId: chat.id,
     filePath: `${chat.id}/shared.png`,
@@ -858,12 +900,16 @@ try {
   } as never);
   assert.ok(firstShared?.id && secondShared?.id);
   const galleryCountBefore = (await gallery.listByChatId(chat.id)).length;
+  const galleryBeforeFailure = structuredClone(await gallery.listByChatId(chat.id));
+  const swipesBeforeFailure = structuredClone(await chats.listSwipesByMessageIds([firstShared.id, secondShared.id]));
   const realTransaction = db.transaction.bind(db);
   let transactionCalls = 0;
   db.transaction = ((fn: Parameters<typeof realTransaction>[0]) => {
     transactionCalls += 1;
-    if (transactionCalls === 2) return Promise.reject(new Error("simulated storage failure"));
-    return realTransaction(fn);
+    return realTransaction(async (tx) => {
+      await fn(tx);
+      throw new Error("simulated storage failure after reference updates");
+    });
   }) as typeof db.transaction;
   let failedSwap;
   try {
@@ -876,20 +922,21 @@ try {
     db.transaction = realTransaction as typeof db.transaction;
   }
   assert.equal(failedSwap.statusCode, 502, failedSwap.body);
-  assert.equal(transactionCalls, 3, "first swap applied, second failed, first undone");
+  assert.equal(transactionCalls, 1, "one transaction owns selection and all reference updates");
   for (const id of [firstShared.id, secondShared.id]) {
     const extra = (await chats.getMessage(id))?.extra;
     const attachments = (typeof extra === "string" ? JSON.parse(extra) : extra).attachments;
     assert.equal(attachments[0].galleryId, sharedImage.id, "every message is back on the original image");
   }
   assert.equal((await gallery.listByChatId(chat.id)).length, galleryCountBefore, "the unused new row is removed");
+  assert.deepEqual(await gallery.listByChatId(chat.id), galleryBeforeFailure);
+  assert.deepEqual(await chats.listSwipesByMessageIds([firstShared.id, secondShared.id]), swipesBeforeFailure);
 
-  // If the undo itself fails, the first message still points at the new image, so it is kept.
+  // A transaction rejected before it starts also leaves every original intact.
   transactionCalls = 0;
-  db.transaction = ((fn: Parameters<typeof realTransaction>[0]) => {
+  db.transaction = ((_fn: Parameters<typeof realTransaction>[0]) => {
     transactionCalls += 1;
-    if (transactionCalls >= 2) return Promise.reject(new Error("simulated storage failure"));
-    return realTransaction(fn);
+    return Promise.reject(new Error("simulated storage failure before transaction"));
   }) as typeof db.transaction;
   let failedUndo;
   try {
@@ -905,8 +952,8 @@ try {
   const strandedExtra = (await chats.getMessage(firstShared.id))?.extra;
   const strandedId = (typeof strandedExtra === "string" ? JSON.parse(strandedExtra) : strandedExtra).attachments[0]
     .galleryId;
-  assert.notEqual(strandedId, sharedImage.id, "the failed undo left the first message on the new image");
-  assert.ok(await gallery.getById(strandedId, chat.id), "so the new image row is kept, not deleted");
+  assert.equal(strandedId, sharedImage.id, "a failed transaction never leaves a stranded reference");
+  assert.equal((await gallery.listByChatId(chat.id)).length, galleryCountBefore);
 
   // Rejections: a picked connection that is gone, an unknown image, an empty prompt.
   const missingConnection = await app.inject({
@@ -935,6 +982,104 @@ try {
     expectedRewrite.characterPrompts[0],
     { name: "Rolim", prompt: "chancellor" },
   ]);
+
+  // #9698: lorebook entry pictures are recorded and sent again, after the character's.
+  const { saveLorebookImage } = await import("../../packages/server/src/services/lorebook/lorebook-images.js");
+  const coat = await saveLorebookImage(Buffer.from(png, "base64"));
+  assert.deepEqual(
+    parseChatImageGenerationRecord(
+      JSON.stringify(buildChatImageGenerationRecord({ lorebookImagePaths: [coat.path, coat.path, " "] })),
+    )?.references.lorebookImagePaths,
+    [coat.path],
+  );
+  const xai = await connections.create({
+    name: "xAI regenerate fixture",
+    provider: "image_generation",
+    baseUrl: `http://127.0.0.1:${address.port}/v1`,
+    model: "grok-imagine-image",
+    imageService: "xai",
+    imageGenerationSource: "xai",
+    apiKey: "fixture",
+  });
+  assert.ok(xai?.id);
+  const coatWearer = await createCharactersStorage(db).create(
+    characterDataSchema.parse({ name: "Arceana" }),
+    "/api/avatars/file/arceana.png",
+  );
+  assert.ok(coatWearer?.id);
+  const withEntryPicture = await gallery.create({
+    chatId: chat.id,
+    filePath: `${chat.id}/entry-picture.png`,
+    prompt: "a red coat",
+    generation: buildChatImageGenerationRecord({
+      connectionId: xai.id,
+      referenceCharacterIds: [coatWearer.id],
+      lorebookImagePaths: [coat.path],
+    }),
+  });
+  assert.ok(withEntryPicture?.id);
+  editPictures.length = 0;
+  const entryRegenerated = await app.inject({
+    method: "POST",
+    url: `/api/gallery/${chat.id}/images/${withEntryPicture.id}/regenerate`,
+    payload: { prompt: "a red coat" },
+  });
+  assert.equal(entryRegenerated.statusCode, 200, entryRegenerated.body);
+  assert.equal(editPictures.length, 1, "the recorded pictures make it an edit request");
+  assert.equal(editPictures[0]!.length, 2, "the character's picture, then the entry's");
+  assert.deepEqual(
+    parseChatImageGenerationRecord(entryRegenerated.json().image.generation)?.references.lorebookImagePaths,
+    [coat.path],
+    "the new image records them too",
+  );
+  // A service that starts from the first picture is sent no entry pictures, so the new record names none either.
+  const sdWebUi = await connections.create({
+    name: "SD Web UI regenerate fixture",
+    provider: "image_generation",
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    model: "fixture",
+    imageService: "automatic1111",
+    imageGenerationSource: "automatic1111",
+    apiKey: "",
+  });
+  assert.ok(sdWebUi?.id);
+  const startPictureRecord = buildChatImageGenerationRecord({
+    connectionId: sdWebUi.id,
+    lorebookImagePaths: [coat.path],
+  });
+  const startPictureImage = await gallery.create({
+    chatId: chat.id,
+    filePath: `${chat.id}/entry-picture-sd.png`,
+    prompt: "a red coat",
+    generation: startPictureRecord,
+  });
+  const startPictureEntityImage = await createCharacterGalleryStorage(db).create({
+    characterId: coatWearer.id,
+    filePath: `${chat.id}/entry-picture-sd.png`,
+    prompt: "a red coat",
+    generation: startPictureRecord,
+  });
+  assert.ok(startPictureImage?.id && startPictureEntityImage?.id);
+  sdInitImages.length = 0;
+  const startPictureRegenerated = await app.inject({
+    method: "POST",
+    url: `/api/gallery/${chat.id}/images/${startPictureImage.id}/regenerate`,
+    payload: { prompt: "a red coat" },
+  });
+  assert.equal(startPictureRegenerated.statusCode, 200, startPictureRegenerated.body);
+  const startPictureEntityRegenerated = await app.inject({
+    method: "POST",
+    url: `/api/characters/${coatWearer.id}/gallery/${startPictureEntityImage.id}/regenerate`,
+    payload: { prompt: "a red coat" },
+  });
+  assert.equal(startPictureEntityRegenerated.statusCode, 200, startPictureEntityRegenerated.body);
+  assert.deepEqual(sdInitImages, [[], []], "SD Web UI is sent no reference picture");
+  for (const generation of [
+    startPictureRegenerated.json().image.generation,
+    startPictureEntityRegenerated.json().generation,
+  ]) {
+    assert.equal(parseChatImageGenerationRecord(generation)?.references.lorebookImagePaths, undefined);
+  }
 
   // ── Native NovelAI img2img, infill, seed reuse & validations ──
   const sharp = await getSharp();
@@ -1098,6 +1243,19 @@ try {
   });
 
   try {
+    await createAppSettingsStorage(db).set("ui", JSON.stringify({ autoSaveGeneratedImagesToGalleries: true }));
+    const editMembershipOwner = await createCharactersStorage(db).create(
+      characterDataSchema.parse({ name: "Edit membership owner" }),
+    );
+    assert.ok(editMembershipOwner);
+    const editMemberships = (
+      await import("../../packages/server/src/services/storage/character-gallery.storage.js")
+    ).createCharacterGalleryStorage(db);
+    await editMemberships.create({
+      characterId: editMembershipOwner.id,
+      sourceChatImageId: naiImage.id,
+      filePath: naiImage.filePath,
+    });
     // 1) img2img with reuseSeed on V4.5 uses record.seed, omits director refs even with real character refs, persists new seed.
     const img2imgResp = await app.inject({
       method: "POST",
@@ -1141,6 +1299,17 @@ try {
       },
     });
     assert.equal(infillResp.statusCode, 200, infillResp.body);
+    const savedEditMemberships = await editMemberships.listByCharacterId(editMembershipOwner.id);
+    assert.equal(
+      savedEditMemberships.length,
+      3,
+      "img2img then infill retains gallery membership after references are cleared",
+    );
+    assert.equal(
+      savedEditMemberships.find((row) => row.sourceChatImageId === infillResp.json().image.id)?.filePath,
+      infillResp.json().image.filePath,
+    );
+
     assert.equal(novelAiRequests[1]?.action, "infill");
     assert.equal(novelAiRequests[1]?.model, "nai-diffusion-5-full-inpainting");
     const naiParams2 = novelAiRequests[1]?.parameters as Record<string, unknown>;
@@ -1174,12 +1343,699 @@ try {
     });
     assert.equal(pngSeedResp.statusCode, 200, pngSeedResp.body);
     assert.equal((novelAiRequests[2]?.parameters as Record<string, unknown>).seed, infillSavedRecord?.seed);
+
+    const nativeEntityOwner = await createCharactersStorage(db).create(
+      characterDataSchema.parse({ name: "Native edit owner" }),
+    );
+    assert.ok(nativeEntityOwner);
+    const nativeEntityGallery = createCharacterGalleryStorage(db);
+    const nativeEntitySource = await nativeEntityGallery.create({
+      characterId: nativeEntityOwner.id,
+      filePath: infillSavedRow.filePath,
+      prompt: "native source",
+      width: 1024,
+      height: 1024,
+      generation: buildChatImageGenerationRecord({ prompt: "native source", connectionId: novelAi.id, seed: 987 }),
+    });
+    assert.ok(nativeEntitySource);
+    const nativeEntityUrl = `/api/characters/${nativeEntityOwner.id}/gallery/${nativeEntitySource.id}/regenerate`;
+    const nativeEdit = await app.inject({
+      method: "POST",
+      url: nativeEntityUrl,
+      payload: { prompt: "native edit", editMode: "img2img", strength: 0.5, reuseSeed: true },
+    });
+    assert.equal(nativeEdit.statusCode, 200, nativeEdit.body);
+    assert.equal(novelAiRequests[3]?.action, "img2img");
+    assert.equal((novelAiRequests[3]?.parameters as Record<string, unknown>).seed, 987);
+    assert.equal(parseChatImageGenerationRecord(nativeEdit.json().generation)?.seed, 987);
+    const nativeInfill = await app.inject({
+      method: "POST",
+      url: nativeEntityUrl,
+      payload: {
+        prompt: "native inpaint",
+        editMode: "infill",
+        maskImage: `data:image/png;base64,${naiMask.toString("base64")}`,
+        strength: 0.9,
+      },
+    });
+    assert.equal(nativeInfill.statusCode, 200, nativeInfill.body);
+    assert.equal(novelAiRequests[4]?.action, "infill");
+    assert.equal((await nativeEntityGallery.listByCharacterId(nativeEntityOwner.id)).length, 3);
+    assert.equal((await nativeEntityGallery.getById(nativeEntitySource.id))?.prompt, "native source");
+    // Every gallery edit route admits the same provider capabilities before loading its source canvas.
+    const canvasChat = await chats.create({ name: "Canvas edit providers", mode: "roleplay" });
+    assert.ok(canvasChat);
+    const canvasImage = await gallery.create({
+      chatId: canvasChat.id,
+      filePath: infillSavedRow.filePath,
+      prompt: "Canvas source",
+      generation: buildChatImageGenerationRecord({ prompt: "Canvas source" }),
+    });
+    assert.ok(canvasImage);
+    for (const service of ["automatic1111", "drawthings"]) {
+      const canvasConnection = await createConnectionsStorage(db).create({
+        name: service,
+        provider: "image_generation",
+        model: "fixture",
+        imageService: service,
+        imageGenerationSource: service,
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        apiKey: "fixture",
+      });
+      assert.ok(canvasConnection);
+      for (const url of [nativeEntityUrl, `/api/gallery/${canvasChat.id}/images/${canvasImage.id}/regenerate`]) {
+        const result = await app.inject({
+          method: "POST",
+          url,
+          payload: {
+            prompt: "A blue shirt",
+            editMode: "img2img",
+            strength: 0.42,
+            connectionId: canvasConnection.id,
+          },
+        });
+        assert.equal(result.statusCode, 200, `${service}, ${url}: ${result.body}`);
+        const row = result.json().image ?? result.json();
+        const saved = parseChatImageGenerationRecord(row.generation);
+        assert.equal(saved?.connectionId, canvasConnection.id);
+        const masked = await app.inject({
+          method: "POST",
+          url,
+          payload: {
+            prompt: "A blue shirt",
+            editMode: "infill",
+            maskImage: naiMask.toString("base64"),
+            connectionId: canvasConnection.id,
+          },
+        });
+        assert.equal(masked.statusCode, service === "drawthings" ? 400 : 200, masked.body);
+      }
+    }
   } finally {
     fetchMock.mock.restore();
     dnsMock.mock.restore();
   }
 
-  console.log("chat-image-generation-record: ok (record, storage round trip, regenerate route)");
+  // Entity galleries reuse the editor without replacing originals, active avatars, or chat attachments.
+  const entityCharacters = createCharactersStorage(db);
+  const entityCharacter = await entityCharacters.create(characterDataSchema.parse({ name: "Edit owner" }));
+  const entityPersona = await entityCharacters.createPersona("Edit persona", "A gallery owner");
+  assert.ok(entityCharacter && entityPersona);
+  const characterImages = createCharacterGalleryStorage(db);
+  const personaImages = createPersonaGalleryStorage(db);
+  const entityRecord = buildChatImageGenerationRecord({
+    prompt: "original scene",
+    negativePrompt: "bad hands",
+    connectionId: connection.id,
+    seed: 101,
+  });
+  const entitySource = await characterImages.create({
+    characterId: entityCharacter.id,
+    filePath: withRecord!.filePath,
+    prompt: "display scene",
+    generation: entityRecord,
+    customKind: "sticker",
+    customName: "wave",
+  });
+  assert.ok(entitySource);
+  const entityUrl = `/api/characters/${entityCharacter.id}/gallery/${entitySource.id}/regenerate`;
+  const wrongOwner = await app.inject({
+    method: "POST",
+    url: entityUrl.replace(entityCharacter.id, entityPersona.id),
+    payload: { prompt: "unrelated" },
+  });
+  assert.equal(wrongOwner.statusCode, 404);
+  const nonNativeEdit = await app.inject({
+    method: "POST",
+    url: entityUrl,
+    payload: { prompt: "edit scene", editMode: "img2img" },
+  });
+  assert.equal(nonNativeEdit.statusCode, 400);
+  const nonNativeSeed = await app.inject({
+    method: "POST",
+    url: entityUrl,
+    payload: { prompt: "edit scene", reuseSeed: true },
+  });
+  assert.equal(nonNativeSeed.statusCode, 400);
+  const strayEntityMask = await app.inject({
+    method: "POST",
+    url: entityUrl,
+    payload: { prompt: "edit scene", maskImage: png },
+  });
+  assert.equal(strayEntityMask.statusCode, 400);
+  const entityResponse = await app.inject({ method: "POST", url: entityUrl, payload: { prompt: "new entity scene" } });
+  assert.equal(entityResponse.statusCode, 200, entityResponse.body);
+  const editedEntity = entityResponse.json();
+  assert.notEqual(editedEntity.id, entitySource.id);
+  assert.equal(editedEntity.customName, null);
+  assert.equal((await characterImages.getById(entitySource.id))?.customName, "wave");
+  assert.equal(parseChatImageGenerationRecord(editedEntity.generation)?.negativePrompt, "bad hands");
+  assert.equal(parseChatImageGenerationRecord(editedEntity.generation)?.prompt, "new entity scene");
+  assert.equal((await characterImages.getById(entitySource.id))?.prompt, "display scene");
+  assert.equal((await entityCharacters.getById(entityCharacter.id))?.avatarPath, null);
+  assert.equal((await characterImages.listByCharacterId(entityCharacter.id)).length, 2);
+  const personaSource = await personaImages.create({
+    personaId: entityPersona.id,
+    filePath: editedEntity.filePath,
+    prompt: "persona original",
+    generation: entityRecord,
+  });
+  assert.ok(personaSource);
+  const personaResponse = await app.inject({
+    method: "POST",
+    url: `/api/characters/personas/${entityPersona.id}/gallery/${personaSource.id}/regenerate`,
+    payload: { prompt: "persona edited" },
+  });
+  assert.equal(personaResponse.statusCode, 200, personaResponse.body);
+  assert.equal((await personaImages.listByPersonaId(entityPersona.id)).length, 2);
+  assert.equal((await entityCharacters.getPersona(entityPersona.id))?.avatarPath, null);
+  const personaApplied = await app.inject({
+    method: "POST",
+    url: `/api/characters/personas/${entityPersona.id}/gallery/${personaSource.id}/avatar`,
+  });
+  assert.equal(personaApplied.statusCode, 200, personaApplied.body);
+  const appliedPersona = await entityCharacters.getPersona(entityPersona.id);
+  assert.ok(appliedPersona?.avatarPath?.includes(`.gallery64.${Buffer.from(personaSource.id).toString("base64url")}.`));
+  const reopenedAvatar = await app.inject({
+    method: "POST",
+    url: `/api/characters/personas/${entityPersona.id}/avatar/edit-source`,
+  });
+  assert.equal(reopenedAvatar.statusCode, 200, reopenedAvatar.body);
+  assert.equal(
+    reopenedAvatar.json().id,
+    personaSource.id,
+    "reopening an applied gallery avatar reuses its source and generation settings",
+  );
+  assert.deepEqual(parseChatImageGenerationRecord(reopenedAvatar.json().generation), entityRecord);
+  assert.equal(
+    (await personaImages.listByPersonaId(entityPersona.id)).length,
+    2,
+    "reopening the same avatar does not add duplicate gallery rows",
+  );
+  const legacyEntity = await characterImages.create({
+    characterId: entityCharacter.id,
+    filePath: withRecord!.filePath,
+    sourceChatImageId: withRecord!.id,
+    prompt: "legacy",
+  });
+  assert.ok(legacyEntity);
+  assert.deepEqual(parseChatImageGenerationRecord(await resolveEntityImageGeneration(db, legacyEntity)), record);
+  assert.deepEqual(
+    parseChatImageGenerationRecord(await resolveEntityImageGeneration(db, editedEntity)),
+    parseChatImageGenerationRecord(editedEntity.generation),
+  );
+  assert.equal(await resolveEntityImageGeneration(db, { sourceChatImageId: "removed-source" }), null);
+  assert.equal(
+    parseChatImageGenerationRecord(await resolveEntityImageGeneration(db, editedEntity))?.negativePrompt,
+    "bad hands",
+  );
+
+  // Opening the current avatar for editing saves only a gallery source. It never applies an edit.
+  const avatarDirectory = join(fixtureDir, "avatars");
+  mkdirSync(avatarDirectory, { recursive: true });
+  const avatarBytes = await sharp({ create: { width: 64, height: 64, channels: 4, background: "#bb4488" } })
+    .png()
+    .toBuffer();
+  writeFileSync(join(avatarDirectory, "edit-source.png"), avatarBytes);
+  const largeGeneration = buildChatImageGenerationRecord({
+    prompt: "\u754c".repeat(190_000),
+    negativePrompt: "\u8a9e".repeat(190_000),
+    seed: 23,
+  });
+  const multipartBoundary = "metadata-regression-boundary";
+  const multipartPayload = Buffer.concat([
+    Buffer.from(
+      `--${multipartBoundary}\r\nContent-Disposition: form-data; name="generation"\r\n\r\n${JSON.stringify(largeGeneration)}\r\n--${multipartBoundary}\r\nContent-Disposition: form-data; name="file"; filename="large.png"\r\nContent-Type: image/png\r\n\r\n`,
+    ),
+    avatarBytes,
+    Buffer.from(`\r\n--${multipartBoundary}--\r\n`),
+  ]);
+  for (const path of [`${entityCharacter.id}`, `personas/${entityPersona.id}`]) {
+    const uploaded = await app.inject({
+      method: "POST",
+      url: `/api/characters/${path}/gallery/upload`,
+      headers: { "content-type": `multipart/form-data; boundary=${multipartBoundary}` },
+      payload: multipartPayload,
+    });
+    assert.equal(uploaded.statusCode, 200, uploaded.body);
+    assert.deepEqual(parseChatImageGenerationRecord(uploaded.json().generation), largeGeneration);
+  }
+
+  const avatarOwner = await entityCharacters.createPersona("Avatar owner", "", "/api/avatars/file/edit-source.png");
+  assert.ok(avatarOwner);
+  const bootstrap = await app.inject({
+    method: "POST",
+    url: `/api/characters/personas/${avatarOwner.id}/avatar/edit-source`,
+  });
+  assert.equal(bootstrap.statusCode, 200, bootstrap.body);
+  const bootstrapImage = bootstrap.json();
+  assert.equal(bootstrapImage.width, 64);
+  assert.deepEqual(readFileSync(join(fixtureDir, "gallery", bootstrapImage.filePath)), avatarBytes);
+  assert.equal((await entityCharacters.getPersona(avatarOwner.id))?.avatarPath, "/api/avatars/file/edit-source.png");
+  const repeatBootstraps = await Promise.all(
+    [1, 2].map(() =>
+      app.inject({
+        method: "POST",
+        url: `/api/characters/personas/${avatarOwner.id}/avatar/edit-source`,
+      }),
+    ),
+  );
+  for (const repeated of repeatBootstraps) {
+    assert.equal(repeated.statusCode, 200, repeated.body);
+    assert.equal(repeated.json().id, bootstrapImage.id, "opening an unchanged avatar reuses its saved source");
+  }
+  assert.equal((await personaImages.listByPersonaId(avatarOwner.id)).length, 1);
+  const otherAvatarOwner = await entityCharacters.createPersona(
+    "Other avatar owner",
+    "",
+    "/api/avatars/file/edit-source.png",
+  );
+  assert.ok(otherAvatarOwner);
+  const concurrentFirstOpens = await Promise.all(
+    [1, 2].map(() =>
+      app.inject({
+        method: "POST",
+        url: `/api/characters/personas/${otherAvatarOwner.id}/avatar/edit-source`,
+      }),
+    ),
+  );
+  for (const opened of concurrentFirstOpens) assert.equal(opened.statusCode, 200, opened.body);
+  assert.equal(
+    concurrentFirstOpens[0]!.json().id,
+    concurrentFirstOpens[1]!.json().id,
+    "concurrent first opens save one source",
+  );
+  assert.notEqual(concurrentFirstOpens[0]!.json().id, bootstrapImage.id, "another owner gets its own source row");
+  assert.equal((await personaImages.listByPersonaId(otherAvatarOwner.id)).length, 1);
+  const changedAvatarBytes = await sharp({ create: { width: 64, height: 64, channels: 4, background: "#1188bb" } })
+    .png()
+    .toBuffer();
+  writeFileSync(join(avatarDirectory, "edit-source.png"), changedAvatarBytes);
+  const changedBootstrap = await app.inject({
+    method: "POST",
+    url: `/api/characters/personas/${avatarOwner.id}/avatar/edit-source`,
+  });
+  assert.equal(changedBootstrap.statusCode, 200, changedBootstrap.body);
+  assert.notEqual(changedBootstrap.json().id, bootstrapImage.id, "changed pixels get a separate source");
+  assert.deepEqual(readFileSync(join(fixtureDir, "gallery", changedBootstrap.json().filePath)), changedAvatarBytes);
+  assert.deepEqual(
+    readFileSync(join(fixtureDir, "gallery", bootstrapImage.filePath)),
+    avatarBytes,
+    "the previous source remains unchanged",
+  );
+  assert.equal((await personaImages.listByPersonaId(avatarOwner.id)).length, 2);
+
+  const noAvatar = await app.inject({
+    method: "POST",
+    url: `/api/characters/${entityCharacter.id}/avatar/edit-source`,
+  });
+  assert.equal(noAvatar.statusCode, 400);
+
+  // Version stacks retain originals and select from the whole group when an older version is edited.
+  const { groupChatImageVariants } = await import("../../packages/shared/src/utils/chat-image-variants.js");
+  await createAppSettingsStorage(db).set("ui", JSON.stringify({ autoSaveGeneratedImagesToGalleries: true }));
+  const versionSource = await gallery.create({
+    chatId: chat.id,
+    filePath: `${chat.id}/version-original.png`,
+    prompt: "original version",
+    generation: buildChatImageGenerationRecord({
+      prompt: "original version",
+      connectionId: connection.id,
+      negativePrompt: "original negative",
+    }),
+  });
+  assert.ok(versionSource);
+  writeFileSync(join(fixtureDir, "gallery", versionSource.filePath), naiCanvas);
+  await characterImages.create({
+    characterId: entityCharacter.id,
+    sourceChatImageId: versionSource.id,
+    filePath: versionSource.filePath,
+    generation: parseChatImageGenerationRecord(versionSource.generation),
+  });
+  await personaImages.create({
+    personaId: entityPersona.id,
+    sourceChatImageId: versionSource.id,
+    filePath: versionSource.filePath,
+    generation: parseChatImageGenerationRecord(versionSource.generation),
+  });
+  const regenerateVersion = (prompt: string) =>
+    app.inject({
+      method: "POST",
+      url: `/api/gallery/${chat.id}/images/${versionSource.id}/regenerate`,
+      payload: { prompt, connectionId: connection.id },
+    });
+  const versionMessage = await chats.createMessage({
+    chatId: chat.id,
+    role: "assistant",
+    content: "Versions",
+    extra: { attachments: [{ type: "image", galleryId: versionSource.id, url: "original", caption: "keep caption" }] },
+  } as never);
+  const v2Response = await regenerateVersion("second version");
+  assert.equal(v2Response.statusCode, 200, v2Response.body);
+  const v2 = v2Response.json().image;
+  const v3Response = await regenerateVersion("edit original after second version");
+  assert.equal(v3Response.statusCode, 200, v3Response.body);
+  const v3 = v3Response.json().image;
+  const versionStack = groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+    stack.versions.some((row) => row.id === versionSource.id),
+  )!;
+  assert.equal(versionStack.versions.length, 3);
+  assert.equal(versionStack.selected.id, v3.id);
+  const attachmentIds = async () => JSON.parse((await chats.getMessage(versionMessage!.id))!.extra).attachments;
+  assert.equal((await attachmentIds())[0].galleryId, v3.id, "editing an older version selects its result in chat");
+  assert.equal((await attachmentIds())[0].caption, "keep caption");
+  // Empty generation references still inherit actual gallery membership, using the same files.
+  const sourceIds = new Set([versionSource.id, v2.id, v3.id]);
+  const entityStackRows = (rows: Awaited<ReturnType<typeof characterImages.listByCharacterId>>) =>
+    rows.filter((row) => sourceIds.has(row.sourceChatImageId ?? ""));
+  const characterVersions = entityStackRows(await characterImages.listByCharacterId(entityCharacter.id));
+  const personaVersions = (await personaImages.listByPersonaId(entityPersona.id)).filter((row) =>
+    sourceIds.has(row.sourceChatImageId ?? ""),
+  );
+  assert.equal(characterVersions.length, 3, "regenerations inherit character membership without avatar reference IDs");
+  assert.equal(personaVersions.length, 3, "persona memberships inherit independently");
+  assert.equal(new Set(characterVersions.map((row) => row.variantGroupId)).size, 1);
+  for (const row of [...characterVersions, ...personaVersions]) {
+    const source = await gallery.getById(row.sourceChatImageId!, chat.id);
+    assert.equal(row.filePath, source!.filePath, "gallery memberships must reference the existing bytes");
+    assert.equal(row.generation, source!.generation, "each version owns its generation record");
+  }
+  const originalCharacterVersion = characterVersions.find((row) => row.sourceChatImageId === versionSource.id)!;
+  const secondCharacterVersion = characterVersions.find((row) => row.sourceChatImageId === v2.id)!;
+  const selectedEntity = await app.inject({
+    method: "POST",
+    url: `/api/characters/${entityCharacter.id}/gallery/${secondCharacterVersion.id}/select`,
+  });
+  assert.equal(selectedEntity.statusCode, 200, selectedEntity.body);
+  const selectedCharacterRows = (await characterImages.listByCharacterId(entityCharacter.id)).filter(
+    (row) => row.variantGroupId === secondCharacterVersion.variantGroupId,
+  );
+  assert.equal(selectedCharacterRows.filter((row) => row.variantSelected === 1).length, 1);
+  assert.equal(selectedCharacterRows.find((row) => row.variantSelected === 1)?.id, secondCharacterVersion.id);
+  assert.equal((await attachmentIds())[0].galleryId, v3.id, "entity selection cannot change chat selection");
+  assert.equal(
+    (await personaImages.getById(personaVersions.find((row) => row.variantSelected === 1)!.id))!.variantSelected,
+    1,
+  );
+  assert.equal((await characterImages.getById(originalCharacterVersion.id))!.variantSelected, 0);
+  const wrongOwnerSelect = await app.inject({
+    method: "POST",
+    url: `/api/characters/${entityPersona.id}/gallery/${secondCharacterVersion.id}/select`,
+  });
+  assert.equal(wrongOwnerSelect.statusCode, 404);
+
+  // A pre-fix gallery with only the original recovers once from explicit source links.
+  const recoveryOwner = await entityCharacters.create(characterDataSchema.parse({ name: "Recovery owner" }));
+  assert.ok(recoveryOwner);
+  const recoverySource = await characterImages.create({
+    characterId: recoveryOwner.id,
+    sourceChatImageId: versionSource.id,
+    filePath: versionSource.filePath,
+  });
+  const recoveryPath = `/api/characters/${recoveryOwner.id}/gallery`;
+  await createAppSettingsStorage(db).set("ui", JSON.stringify({ autoSaveGeneratedImagesToGalleries: false }));
+  assert.ok(recoverySource);
+  const { characterImages: characterImagesTable } = await import("../../packages/server/src/db/schema/gallery.js");
+  const { eq } = await import("../../packages/server/src/db/file-query.js");
+  await db
+    .update(characterImagesTable)
+    .set({ variantHistoryRecovered: null })
+    .where(eq(characterImagesTable.id, recoverySource.id));
+  const earlySelection = await app.inject({
+    method: "POST",
+    url: `${recoveryPath}/${recoverySource.id}/select`,
+  });
+  assert.equal(earlySelection.statusCode, 200, earlySelection.body);
+  assert.ok(earlySelection.json().variantGroupId, "selection establishes identity before recovery");
+  assert.equal(earlySelection.json().variantHistoryRecovered, 0);
+  const { appendEntityImageVersion } =
+    await import("../../packages/server/src/services/image/entity-image-variants.js");
+  const earlyEdit = await appendEntityImageVersion(db, "character", recoveryOwner.id, recoverySource.id, (tx) =>
+    createCharacterGalleryStorage(tx).create({
+      characterId: recoveryOwner.id,
+      filePath: recoverySource.filePath,
+      prompt: "Owner-local edit before chat history recovery",
+    }),
+  );
+  assert.equal(earlyEdit.variantHistoryRecovered, 0, "editing does not complete chat history recovery");
+  assert.equal(
+    (await app.inject({ method: "GET", url: recoveryPath })).json().length,
+    2,
+    "recovery honors autosave off",
+  );
+  await createAppSettingsStorage(db).set("ui", JSON.stringify({ autoSaveGeneratedImagesToGalleries: true }));
+  const recovered = await app.inject({ method: "GET", url: recoveryPath });
+  assert.equal(recovered.statusCode, 200, recovered.body);
+  const recoveredRows = recovered.json();
+  assert.equal(recoveredRows.length, 4);
+  assert.equal(recoveredRows.find((row: { variantSelected: number }) => row.variantSelected === 1)?.id, earlyEdit.id);
+  assert.ok(recoveredRows.every((row: { variantHistoryRecovered: number }) => row.variantHistoryRecovered === 1));
+  assert.ok(recoveredRows.every((row: { variantGroupId: string }) => row.variantGroupId));
+  assert.equal((await app.inject({ method: "GET", url: recoveryPath })).json().length, 4, "repair is idempotent");
+  const removedRecovered = recoveredRows.find((row: { sourceChatImageId: string }) => row.sourceChatImageId === v2.id);
+  assert.equal((await app.inject({ method: "DELETE", url: `${recoveryPath}/${removedRecovered.id}` })).statusCode, 200);
+  assert.equal(
+    (await app.inject({ method: "GET", url: recoveryPath })).json().length,
+    3,
+    "repair never resurrects a deleted entity version",
+  );
+  assert.ok(
+    readFileSync(join(fixtureDir, "gallery", v2.filePath)).length,
+    "deleting one membership retains shared bytes",
+  );
+
+  // A stack reconciled by a pre-marker build must not refill deleted history.
+  const completedOwner = await entityCharacters.create(
+    characterDataSchema.parse({ name: "Pre-marker completed owner" }),
+  );
+  assert.ok(completedOwner);
+  const completedSource = await characterImages.create({
+    characterId: completedOwner.id,
+    sourceChatImageId: versionSource.id,
+    filePath: versionSource.filePath,
+    variantGroupId: "pre-marker-completed-stack",
+    variantSelected: 1,
+  });
+  assert.ok(completedSource);
+  await db
+    .update(characterImagesTable)
+    .set({ variantHistoryRecovered: null })
+    .where(eq(characterImagesTable.id, completedSource.id));
+  const completedPath = `/api/characters/${completedOwner.id}/gallery`;
+  assert.equal(
+    (await app.inject({ method: "GET", url: completedPath })).json().length,
+    1,
+    "pre-marker groups retain deletions",
+  );
+  const completedSelection = await app.inject({ method: "POST", url: `${completedPath}/${completedSource.id}/select` });
+  assert.equal(completedSelection.statusCode, 200, completedSelection.body);
+  assert.equal(completedSelection.json().variantHistoryRecovered, 1, "selection preserves pre-marker completion");
+
+  const nativeCard = await app.inject({ method: "GET", url: `/api/characters/${entityCharacter.id}/export` });
+  assert.equal(nativeCard.statusCode, 200, nativeCard.body);
+  const cardPayload = nativeCard.json();
+  const serializedCard = JSON.stringify(cardPayload);
+  assert.ok(serializedCard.includes(secondCharacterVersion.variantGroupId!));
+  const { importMarinara } = await import("../../packages/server/src/services/import/marinara.importer.js");
+  const importedCard = await importMarinara(cardPayload, db);
+  assert.ok(importedCard.success && importedCard.id, importedCard.error);
+  const importedVersions = await characterImages.listByCharacterId(importedCard.id);
+  const importedStack = importedVersions.filter((row) => row.variantGroupId === secondCharacterVersion.variantGroupId);
+  assert.equal(importedStack.length, 3, "native card import retains all versions without the source chat");
+  assert.equal(importedStack.find((row) => row.variantSelected === 1)?.prompt, secondCharacterVersion.prompt);
+
+  const choose = await app.inject({ method: "POST", url: `/api/gallery/${chat.id}/images/${versionSource.id}/select` });
+  assert.equal(choose.statusCode, 200, choose.body);
+  assert.equal((await attachmentIds())[0].galleryId, versionSource.id);
+  assert.equal(parseChatImageGenerationRecord(choose.json().image.generation)?.negativePrompt, "original negative");
+  assert.equal(
+    parseChatImageGenerationRecord((await gallery.getById(v2.id, chat.id))!.generation)?.prompt,
+    "second version",
+  );
+  const otherVersionChat = await chats.create({ name: "Other version owner", mode: "roleplay", characterIds: [] });
+  const wrongVersionOwner = await app.inject({
+    method: "POST",
+    url: `/api/gallery/${otherVersionChat!.id}/images/${v2.id}/select`,
+  });
+  assert.equal(wrongVersionOwner.statusCode, 404, wrongVersionOwner.body);
+  const { copyChatImageVersionsForBranch, selectChatImageVersion, deleteChatImageVersions } =
+    await import("../../packages/server/src/services/image/chat-image-variants.js");
+  const branchExtra = {
+    attachments: [{ type: "image", galleryId: versionSource.id, url: "source URL", prompt: "stale prompt" }],
+  };
+  await selectChatImageVersion(db, chat.id, v3.id);
+  await copyChatImageVersionsForBranch(db, chat.id, otherVersionChat!.id, [branchExtra]);
+  const branchRows = await gallery.listByChatId(otherVersionChat!.id);
+  assert.equal(branchRows.length, 3, "a copied attachment brings the entire stack");
+  assert.notEqual(branchExtra.attachments[0]!.galleryId, versionSource.id);
+  assert.equal(groupChatImageVariants(branchRows)[0]!.selected.id, branchExtra.attachments[0]!.galleryId);
+  assert.equal(branchExtra.attachments[0]!.prompt, versionSource.prompt);
+  const branchV2 = branchRows.find((row) => row.filePath === v2.filePath)!;
+  assert.ok(branchV2);
+  await selectChatImageVersion(db, otherVersionChat!.id, branchV2.id);
+  assert.equal(
+    groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+      stack.versions.some((row) => row.id === versionSource.id),
+    )!.selected.id,
+    v3.id,
+    "branch selection cannot change its source chat",
+  );
+  await deleteChatImageVersions(db, otherVersionChat!.id, branchV2.id, "stack");
+  assert.ok(await gallery.getById(v2.id, chat.id), "deleting the branch stack retains source metadata");
+  assert.ok(
+    readFileSync(join(fixtureDir, "gallery", v2.filePath)).length,
+    "deleting a branch cannot unlink the source file",
+  );
+  await selectChatImageVersion(db, chat.id, versionSource.id);
+  const staleDelete = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${versionSource.id}/versions?scope=others`,
+    payload: { versionIds: [versionSource.id, v2.id] },
+  });
+  assert.equal(staleDelete.statusCode, 409, staleDelete.body);
+  assert.ok(await gallery.getById(v3.id, chat.id), "a stale confirmation cannot remove a newly added version");
+  const beforeDeleteFailure = structuredClone(await gallery.listByChatId(chat.id));
+  const beforeDeleteAttachments = await attachmentIds();
+  let deletedRows = 0;
+  const { chatImages } = await import("../../packages/server/src/db/schema/index.js");
+  db.transaction = ((fn: Parameters<typeof realTransaction>[0]) =>
+    realTransaction(async (tx) => {
+      const originalDelete = tx.delete;
+      tx.delete = ((table: Parameters<typeof tx.delete>[0]) => {
+        if (table === chatImages && ++deletedRows === 2) throw new Error("simulated second version removal failure");
+        return originalDelete.call(tx, table);
+      }) as typeof tx.delete;
+      try {
+        return await fn(tx);
+      } finally {
+        tx.delete = originalDelete;
+      }
+    })) as typeof db.transaction;
+  try {
+    const failedDelete = await app.inject({
+      method: "DELETE",
+      url: `/api/gallery/${chat.id}/images/${versionSource.id}/versions?scope=others`,
+      payload: { versionIds: [versionSource.id, v2.id, v3.id] },
+    });
+    assert.equal(failedDelete.statusCode, 500, failedDelete.body);
+  } finally {
+    db.transaction = realTransaction as typeof db.transaction;
+  }
+  assert.deepEqual(
+    await gallery.listByChatId(chat.id),
+    beforeDeleteFailure,
+    "a multi-version delete cannot partially commit",
+  );
+  assert.deepEqual(await attachmentIds(), beforeDeleteAttachments);
+  assert.ok(readFileSync(join(fixtureDir, "gallery", v2.filePath)).length);
+  assert.ok(readFileSync(join(fixtureDir, "gallery", v3.filePath)).length);
+  const { sanitizeProfileTableRows } = await import("../../packages/server/src/routes/backup.routes.js");
+  const exportedVersions = JSON.parse(
+    JSON.stringify(sanitizeProfileTableRows("chat_images", await gallery.listByChatId(chat.id))),
+  );
+  assert.equal(
+    groupChatImageVariants(exportedVersions).find((stack) => stack.versions.some((row) => row.id === versionSource.id))!
+      .selected.id,
+    versionSource.id,
+    "profile row export keeps grouping and selection",
+  );
+  const profileResponse = await app.inject({ method: "GET", url: "/api/backup/export-profile" });
+  assert.equal(profileResponse.statusCode, 200, profileResponse.body);
+  const exportedProfile = profileResponse.json();
+  const zipProfileResponse = await app.inject({ method: "GET", url: "/api/backup/export-profile?format=zip" });
+  assert.equal(zipProfileResponse.statusCode, 200, zipProfileResponse.body);
+  const removedOriginal = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${versionSource.id}/versions?scope=version`,
+  });
+  assert.equal(removedOriginal.statusCode, 200, removedOriginal.body);
+  assert.equal(removedOriginal.json().selectedImageId, v3.id);
+  assert.equal((await attachmentIds())[0].galleryId, v3.id);
+  assert.ok(await gallery.getById(v2.id, chat.id));
+  const removeOthers = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${v2.id}/versions?scope=others`,
+    payload: { versionIds: [v2.id, v3.id] },
+  });
+  assert.equal(removeOthers.statusCode, 200, removeOthers.body);
+  assert.equal((await attachmentIds())[0].galleryId, v2.id);
+  assert.equal(await gallery.getById(v3.id, chat.id), null);
+  const removeStack = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${v2.id}/versions?scope=stack`,
+    payload: { versionIds: [v2.id] },
+  });
+  assert.equal(removeStack.statusCode, 200, removeStack.body);
+  assert.deepEqual(await attachmentIds(), []);
+  const importedProfile = await app.inject({
+    method: "POST",
+    url: "/api/backup/import-profile",
+    payload: exportedProfile,
+  });
+  assert.equal(importedProfile.statusCode, 200, importedProfile.body);
+  const restoredStack = groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+    stack.versions.some((row) => row.id === versionSource.id),
+  );
+  assert.equal(restoredStack?.versions.length, 3, "native profile export/import restores every version");
+  assert.equal(
+    restoredStack?.selected.id,
+    versionSource.id,
+    "native profile export/import restores the saved selection",
+  );
+  assert.equal(restoredStack?.versions.find((row) => row.id === v2.id)?.generation, v2.generation);
+  assert.deepEqual(readFileSync(join(fixtureDir, "gallery", versionSource.filePath)), naiCanvas);
+  await deleteChatImageVersions(db, chat.id, versionSource.id, "stack");
+  const boundary = "chat-image-version-profile";
+  const zipImport = await app.inject({
+    method: "POST",
+    url: "/api/backup/import-profile",
+    headers: { "content-type": `multipart/form-data; boundary=${boundary}` },
+    payload: Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="profile.zip"\r\nContent-Type: application/zip\r\n\r\n`,
+      ),
+      zipProfileResponse.rawPayload,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]),
+  });
+  assert.equal(zipImport.statusCode, 200, zipImport.body);
+  const zipStack = groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+    stack.versions.some((row) => row.id === versionSource.id),
+  );
+  assert.equal(zipStack?.versions.length, 3, "native profile ZIP restores every version");
+  assert.equal(zipStack?.selected.id, versionSource.id);
+  assert.equal(zipStack?.versions.find((row) => row.id === v2.id)?.generation, v2.generation);
+  assert.deepEqual(readFileSync(join(fixtureDir, "gallery", versionSource.filePath)), naiCanvas);
+  const legacyGroups = groupChatImageVariants([
+    { id: "one", chatId: "a", createdAt: "1" },
+    { id: "two", chatId: "a", createdAt: "2" },
+    { id: "other", chatId: "b", createdAt: "3", variantGroupId: "one" },
+  ]);
+  assert.equal(legacyGroups.length, 3, "legacy pictures and other owners never merge by accident");
+
+  const persistedEntityVersions = entityStackRows(await characterImages.listByCharacterId(entityCharacter.id));
+  assert.equal(persistedEntityVersions.length, 3, "profile JSON and ZIP restore entity memberships");
+  assert.equal(
+    persistedEntityVersions.find((row) => row.variantSelected === 1)?.sourceChatImageId,
+    v2.id,
+    "profile restore retains independent entity selection",
+  );
+  const beforeReopen = groupChatImageVariants(await gallery.listByChatId(chat.id));
+  await closeDB();
+  const reopened = await getDB();
+  assert.deepEqual(
+    groupChatImageVariants(await createGalleryStorage(reopened).listByChatId(chat.id)),
+    beforeReopen,
+    "version metadata and saved requests survive an actual store close and reopen",
+  );
+  assert.deepEqual(
+    entityStackRows(await createCharacterGalleryStorage(reopened).listByCharacterId(entityCharacter.id)),
+    persistedEntityVersions,
+    "entity stack metadata and canonical file references survive store reopen",
+  );
+  console.log(
+    "chat-image-generation-record: ok (record, storage round trip, regenerate route, version selection and deletion)",
+  );
 } finally {
   await app.close();
   provider.closeAllConnections();

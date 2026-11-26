@@ -222,13 +222,14 @@ for (const theme of ["light", "dark"] as const) {
           recent: "Recent",
           custom: kind === "chat" ? "Custom" : "Manual order",
         };
-        // The Connections panel sorts from its More actions menu unless it is two columns wide (#8456).
+        // The Connections panel sorts from its More actions menu unless it is two columns wide (#8456). The choices
+        // read "Sort: A–Z" (#9760).
         const connectionSortLabels: Record<string, RegExp> = {
-          "name-asc": /^A.Z$/u,
-          "name-desc": /^Z.A$/u,
-          newest: /^Newest$/u,
-          oldest: /^Oldest$/u,
-          custom: /^Custom$/u,
+          "name-asc": /^Sort: A.Z$/u,
+          "name-desc": /^Sort: Z.A$/u,
+          newest: /^Sort: Newest$/u,
+          oldest: /^Sort: Oldest$/u,
+          custom: /^Sort: Custom$/u,
         };
         const connectionSortItem = (value: string) =>
           page.getByRole("menuitemradio", { name: connectionSortLabels[value] });

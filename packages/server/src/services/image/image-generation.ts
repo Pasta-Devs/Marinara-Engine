@@ -21,10 +21,11 @@ import {
   DEFAULT_AUTOMATIC1111_DEFAULTS,
   DEFAULT_COMFYUI_DEFAULTS,
   DEFAULT_NOVELAI_DEFAULTS,
+  novelAiRecommendedSettings,
   mergeNegativePrompt,
   mergePromptPrefix,
   imageConnectionMakesAnimatedGif,
-  isNativeNovelAiUrl,
+  imageEditValidationError,
   isOpenAIGptImageModel,
   isOpenAIGptImage2Model,
   isOpenAIGptImage25Model,
@@ -85,6 +86,7 @@ import {
   assertSpicyApiModelId,
   buildSpicyApiImageInput,
   buildSpicyApiUrl,
+  closestShape,
   fitsSpicyApiInlineLimit,
   parseSpicyApiTask,
   readSpicyApiMessage,
@@ -173,6 +175,7 @@ const REFERENCE_PICTURE_SUPPORT: Readonly<Record<string, boolean | ((target: Ref
   openai: openAITakesReference,
   codex_chatgpt: true,
   arli: true,
+  // NanoGPT's model list decides per request; generateNanoGPT refuses an edit for a model with no picture input.
   nanogpt: true,
   openrouter: true,
   pollinations: false,
@@ -322,15 +325,13 @@ export async function generateImage(
 ): Promise<ImageGenResult> {
   const resolvedSource = resolveImageBackend(source, baseUrl, serviceHint, request.model);
   const normalizedBaseUrl = normalizeImageUrl(baseUrl);
-  const isNativeNovelAiTarget = resolvedSource === "novelai" && isNativeNovelAiUrl(normalizedBaseUrl);
-  if (request.editMode && !isNativeNovelAiTarget) {
-    throw new NovelAiEditInputError(NOVELAI_EDIT_NATIVE_ONLY_MESSAGE);
-  }
-  if (request.maskImage && request.editMode !== "infill") {
-    throw new NovelAiEditInputError("A mask image is only valid for inpainting edits.");
-  }
-  if (request.seedOverride !== undefined && !isNativeNovelAiTarget) {
-    throw new NovelAiEditInputError("Reusing the original seed requires a native NovelAI connection.");
+  const editError = imageEditValidationError(
+    { source, baseUrl: normalizedBaseUrl, serviceHint, model: request.model },
+    request,
+  );
+  if (editError) throw new NovelAiEditInputError(editError);
+  if (request.editMode && !request.sourceImage?.trim()) {
+    throw new NovelAiEditInputError("Image edit requires a source image.");
   }
   if (request.animation) {
     // Refused before any queue slot or paid call. An empty reference list or field is no picture.
@@ -477,14 +478,10 @@ export async function generateImage(
       throw new ToAPIsSubmittedTaskError(error);
     }
     if (!fallback || request.signal?.aborted || isConnectionAdmissionFailure(error)) throw error;
-    if (
-      (request.editMode || request.seedOverride !== undefined) &&
-      (resolveImageBackend(fallback.source, fallback.baseUrl, fallback.serviceHint, fallback.model) !== "novelai" ||
-        !isNativeNovelAiUrl(fallback.baseUrl))
-    ) {
+    if ((request.editMode || request.seedOverride !== undefined) && imageEditValidationError(fallback, request)) {
       logger.warn(
         error,
-        "[illustrator-fallback] Primary NovelAI %s failed; skipped non-NovelAI fallback connection %s",
+        "[illustrator-fallback] Primary %s failed; skipped incompatible fallback connection %s",
         request.editMode ? "edit" : "seed-reuse generation",
         fallback.connectionId,
       );
@@ -1658,10 +1655,6 @@ function xAIReferenceImages(request: ImageGenRequest): string[] {
   return openAIReferenceImages(request).slice(0, 3);
 }
 
-function nanoGPTReferenceImages(request: ImageGenRequest): string[] {
-  return openAIReferenceImages(request).slice(0, NANOGPT_REFERENCE_IMAGE_LIMIT);
-}
-
 function serializeNanoGPTImageRequest(
   body: Record<string, unknown>,
   references: string[],
@@ -2071,28 +2064,138 @@ async function generateAtlasCloudImage(
   return downloadImageUrl(outputUrl, request.privateImageResultOrigin, request.signal);
 }
 
-function nanoGPTNanoBanana21AspectRatio(width: number, height: number): string {
-  // NanoGPT's nano-banana-2.1 supports these ratios, not arbitrary pixel sizes.
-  const ratios = [
-    ["1:1", 1],
-    ["2:3", 2 / 3],
-    ["3:2", 3 / 2],
-    ["3:4", 3 / 4],
-    ["4:3", 4 / 3],
-    ["4:5", 4 / 5],
-    ["5:4", 5 / 4],
-    ["9:16", 9 / 16],
-    ["16:9", 16 / 9],
-    ["21:9", 21 / 9],
-    ["1:4", 1 / 4],
-    ["4:1", 4],
-    ["1:8", 1 / 8],
-    ["8:1", 8],
-  ] as const;
-  const ratio = width / height;
-  return ratios.reduce((best, candidate) =>
-    Math.abs(candidate[1] - ratio) < Math.abs(best[1] - ratio) ? candidate : best,
-  )[0];
+/** What NanoGPT's image model list says one model takes. */
+interface NanoGPTImageModel {
+  /** Named sizes such as `1k` or `1.5k`, for a model that takes those instead of pixel sizes. */
+  tiers: string[];
+  aspectRatios: string[];
+  maxInputImages: number;
+  /** Set only when the list says it; most models don't. */
+  negativePrompt?: boolean;
+}
+
+// #8022's contract, used when the list can't be read.
+const NANOGPT_NANO_BANANA_21: NanoGPTImageModel = {
+  tiers: ["1k", "2k"],
+  aspectRatios: ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9", "1:4", "4:1", "1:8", "8:1"],
+  maxInputImages: NANOGPT_REFERENCE_IMAGE_LIMIT,
+};
+const NANOGPT_MODEL_LIST_TTL_MS = 6 * 60 * 60_000;
+const NANOGPT_MODEL_LIST_RETRY_MS = 5 * 60_000;
+const NANOGPT_MODEL_LIST_TIMEOUT_MS = 15_000;
+const nanoGPTModelLists = new Map<
+  string,
+  { expires: number; models: Promise<Map<string, NanoGPTImageModel> | null> }
+>();
+/** Endpoint and model pairs that answered that they take no negative prompt. */
+const nanoGPTModelsWithoutNegativePrompt = new Set<string>();
+
+function readNanoGPTImageModel(entry: Record<string, unknown>): NanoGPTImageModel {
+  const params = isRecord(entry.supported_parameters) ? entry.supported_parameters : {};
+  const strings = (value: unknown) =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  const resolutions = strings(params.resolutions);
+  // A model that lists pixel sizes keeps getting the requested WxH, which NanoGPT accepts beyond the list.
+  // ponytail: only named `Nk` sizes are read. Models that list presets or ratios as sizes (`square_hd`, `16:9`)
+  // still get WxH; read those here when one of them is reported failing.
+  const pixelSize = (value: string) => /^\d+\s*[x*]\s*\d+$/i.test(value);
+  const namedSize = (value: string) => /^\d+(?:\.\d+)?k$/i.test(value);
+  // A list that mixes ratios or presets in with named sizes (Seedream 5) and has no aspect_ratio has no way to say
+  // the shape beside a named size, so such a model keeps WxH too rather than coming back square.
+  const shapeInSizes = resolutions.some((value) => !pixelSize(value) && !namedSize(value));
+  const tiers =
+    resolutions.some(pixelSize) || (shapeInSizes && !strings(params.aspect_ratio).length)
+      ? []
+      : resolutions.filter(namedSize);
+  const takesImages =
+    (isRecord(entry.capabilities) && entry.capabilities.image_to_image === true) ||
+    (isRecord(entry.architecture) && strings(entry.architecture.input_modalities).includes("image"));
+  const maxInputImages =
+    typeof params.max_input_images === "number"
+      ? Math.max(0, Math.floor(params.max_input_images))
+      : takesImages
+        ? NANOGPT_REFERENCE_IMAGE_LIMIT
+        : 0;
+  return {
+    tiers,
+    aspectRatios: strings(params.aspect_ratio),
+    maxInputImages,
+    ...(typeof params.negative_prompt === "boolean" ? { negativePrompt: params.negative_prompt } : {}),
+  };
+}
+
+async function fetchNanoGPTImageModels(
+  listUrl: string,
+  apiKey: string,
+  request: ImageGenRequest,
+): Promise<Map<string, NanoGPTImageModel> | null> {
+  try {
+    const resp = await imageFetch(
+      listUrl,
+      { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(NANOGPT_MODEL_LIST_TIMEOUT_MS) },
+      { allowLocal: request.allowLocalUrls },
+    );
+    if (!resp.ok) throw new Error(`status ${resp.status}`);
+    const json = (await resp.json()) as unknown;
+    const data = isRecord(json) ? json.data : undefined;
+    if (!Array.isArray(data)) throw new Error("no model list in the response");
+    const models = new Map<string, NanoGPTImageModel>();
+    for (const item of data) {
+      if (isRecord(item) && typeof item.id === "string") {
+        models.set(item.id.trim().toLowerCase(), readNanoGPTImageModel(item));
+      }
+    }
+    return models;
+  } catch (err) {
+    logger.warn(err, "[image-gen/nanogpt] Could not read the image model list; sending requests unchanged");
+    return null;
+  }
+}
+
+/**
+ * NanoGPT documents `GET /v1/image-models?detailed=true` as the place to read each model's sizes and picture
+ * inputs, and asks clients to cache it. A list that can't be read leaves requests as they were.
+ */
+function nanoGPTImageModels(
+  imagesUrl: string,
+  apiKey: string,
+  request: ImageGenRequest,
+): Promise<Map<string, NanoGPTImageModel> | null> {
+  const listUrl = new URL(imagesUrl);
+  if (!listUrl.pathname.endsWith("/images/generations")) return Promise.resolve(null);
+  listUrl.pathname = listUrl.pathname.replace(/\/images\/generations$/, "/image-models");
+  listUrl.search = "?detailed=true";
+  const key = listUrl.toString();
+  const cached = nanoGPTModelLists.get(key);
+  if (cached && cached.expires > Date.now()) return cached.models;
+  const entry = {
+    expires: Date.now() + NANOGPT_MODEL_LIST_TTL_MS,
+    models: fetchNanoGPTImageModels(key, apiKey, request),
+  };
+  nanoGPTModelLists.set(key, entry);
+  void entry.models.then((models) => {
+    if (!models) entry.expires = Date.now() + NANOGPT_MODEL_LIST_RETRY_MS;
+  });
+  return entry.models;
+}
+
+/** Waits for a promise other requests share, until this request is cancelled; the promise keeps running for them. */
+function untilAborted<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () =>
+      reject(signal.reason instanceof Error ? signal.reason : new Error("Image generation aborted"));
+    if (signal.aborted) return onAbort();
+    signal.addEventListener("abort", onAbort, { once: true });
+    void promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
+
+/** The smallest named size that covers the longer side (`1k` is 1024 pixels), else the largest. */
+function nanoGPTSizeTier(tiers: string[], width: number, height: number): string {
+  const longest = Math.max(width, height);
+  const sorted = [...tiers].sort((a, b) => parseFloat(a) - parseFloat(b));
+  return sorted.find((tier) => parseFloat(tier) * 1024 >= longest) ?? sorted[sorted.length - 1]!;
 }
 
 async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
@@ -2101,13 +2204,17 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
   const height = request.height ?? 1024;
   const model = request.model?.trim().toLowerCase() ?? "";
   const isNanoBanana = model.includes("nano-banana");
-  const isNanoBanana21 = model === "nano-banana-2.1";
-  const size = isNanoBanana21
-    ? Math.max(width, height) > 1024
-      ? "2k"
-      : "1k"
-    : isOpenAIGptImageModel(request.model)
-      ? openAIImageSize(request)
+  // Anima takes `1k`/`1.5k` and Chroma takes no pictures (#9560): each model gets what the list says it takes.
+  const listed = model
+    ? (await untilAborted(nanoGPTImageModels(url, apiKey, request), request.signal))?.get(model)
+    : undefined;
+  const accepts = listed ?? (model === "nano-banana-2.1" ? NANOGPT_NANO_BANANA_21 : undefined);
+  const isGptImage = isOpenAIGptImageModel(request.model);
+  const tiers = isGptImage ? [] : (accepts?.tiers ?? []);
+  const size = isGptImage
+    ? openAIImageSize(request)
+    : tiers.length
+      ? nanoGPTSizeTier(tiers, width, height)
       : isNanoBanana && height > width
         ? "768x1344"
         : `${width}x${height}`;
@@ -2117,22 +2224,64 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
     size,
     response_format: "url",
   };
-  if (isNanoBanana21) body.aspect_ratio = nanoGPTNanoBanana21AspectRatio(width, height);
+  // A named size alone comes back square, so the shape goes in aspect_ratio.
+  const aspectRatio = tiers.length ? closestShape(accepts?.aspectRatios ?? [], width, height) : null;
+  if (aspectRatio) body.aspect_ratio = aspectRatio;
   if (request.model) body.model = request.model;
+  const withoutNegativeKey = `${url}\n${model}`;
   if (request.negativePrompt) body.negative_prompt = request.negativePrompt;
 
-  const references = nanoGPTReferenceImages(request);
+  const allReferences = openAIReferenceImages(request);
+  const referenceLimit = Math.min(NANOGPT_REFERENCE_IMAGE_LIMIT, accepts?.maxInputImages ?? Infinity);
+  // An edit the model can't take a picture for would be billed as a new picture.
+  if (request.referenceIsCanvas && allReferences.length && !referenceLimit) {
+    throw new Error(IMAGE_EDIT_UNSUPPORTED_MESSAGE);
+  }
+  const references = allReferences.slice(0, referenceLimit);
+  if (references.length < Math.min(allReferences.length, NANOGPT_REFERENCE_IMAGE_LIMIT)) {
+    logger.warn(
+      "[image-gen/nanogpt] %s takes %d reference image(s); sending %d of %d",
+      request.model,
+      referenceLimit,
+      references.length,
+      allReferences.length,
+    );
+  }
   if (request.model?.toLowerCase().includes("flux-kontext")) {
     body.kontext_max_mode = true;
   }
-  const requestBody = serializeNanoGPTImageRequest(body, references, request.imageDefaults?.customParameters);
-  logDebugOverride(
-    request.debugMode === true,
-    "[debug/image/nanogpt] final request payload:\n%s",
-    imagePayloadForLog(requestBody),
-  );
+  let sentNegativePrompt = false;
+  const send = () => {
+    const customParameters = { ...request.imageDefaults?.customParameters };
+    // A model that refuses a negative prompt gets none, not even from the connection's custom parameters.
+    if (accepts?.negativePrompt === false || nanoGPTModelsWithoutNegativePrompt.has(withoutNegativeKey)) {
+      delete body.negative_prompt;
+      delete customParameters.negative_prompt;
+    }
+    sentNegativePrompt = "negative_prompt" in body || "negative_prompt" in customParameters;
+    const requestBody = serializeNanoGPTImageRequest(body, references, customParameters);
+    logDebugOverride(
+      request.debugMode === true,
+      "[debug/image/nanogpt] final request payload:\n%s",
+      imagePayloadForLog(requestBody),
+    );
+    return fetchImageWithSizeFallback(url, apiKey, requestBody, request);
+  };
 
-  const resp = await fetchImageWithSizeFallback(url, apiKey, requestBody, request);
+  let resp = await send();
+  // The list doesn't say which models refuse a negative prompt (Chroma, Qwen Image 3 Uncensored), and
+  // NanoGPT rejects the whole request for one, so drop it, retry once and remember the model.
+  if (resp.status === 400 && sentNegativePrompt) {
+    const errText = await resp
+      .clone()
+      .text()
+      .catch(() => "");
+    if (/negative_prompt/i.test(errText) && /not support|unsupported/i.test(errText)) {
+      nanoGPTModelsWithoutNegativePrompt.add(withoutNegativeKey);
+      logger.warn("[image-gen/nanogpt] %s takes no negative prompt; retrying without it", request.model);
+      resp = await send();
+    }
+  }
 
   if (!resp.ok) {
     const errText = await resp.text().catch(() => "Unknown error");
@@ -2646,6 +2795,19 @@ const NOVELAI_DIRECTOR_REFERENCE_SIZES = [
   { width: 1536, height: 1024 },
   { width: 1472, height: 1472 },
 ] as const;
+/**
+ * V5's reference buckets, as NovelAI's own client lists them: about one megapixel each, for every height from 1024 to
+ * 4096 px in 64 px steps with the widest 64 px multiple under 1024×1024 pixels, and the same turned on its side.
+ */
+const NOVELAI_V5_REFERENCE_BUCKETS = Array.from({ length: 49 }, (_, index) => 1024 + index * 64).flatMap((height) => {
+  const width = Math.floor((1024 * 1024) / height / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE;
+  return width === height
+    ? [{ width, height }]
+    : [
+        { width, height },
+        { width: height, height: width },
+      ];
+});
 const NOVELAI_REFERENCE_CACHE_HMAC_KEY = randomBytes(32);
 
 function clampNovelAiDimension(value: number): number {
@@ -2705,7 +2867,8 @@ export function resolveNovelAiSize(
   prompt = request.prompt,
   defaults: NovelAiDefaults = resolveNovelAiDefaults(request),
 ): { width: number; height: number } {
-  if (defaults.dynamicResolutionBySubjectCount) {
+  // A caller that chose the size on purpose (Professor Mari's --width/--height) keeps it.
+  if (defaults.dynamicResolutionBySubjectCount && !request.keepRequestedSize) {
     const subjectCount = detectNovelAiSubjectCount(prompt);
     if (subjectCount === 1) return { width: 832, height: 1216 };
     if (subjectCount === 2) return { width: 1024, height: 1024 };
@@ -2794,8 +2957,9 @@ export function withNovelAiBackgroundDataset(
   return rest ? `${NOVELAI_BACKGROUND_DATASET_TAG}, ${rest}` : NOVELAI_BACKGROUND_DATASET_TAG;
 }
 
+/** Precise Reference ships on V4.5 and, since 2026-11-24, on V5. */
 function isNovelAiPreciseReferenceModel(model: string): boolean {
-  return /^nai-diffusion-(?:4-5)(?:-(?:curated|full))?(?:-inpainting)?$/i.test(model.trim());
+  return /^nai-diffusion-(?:4-5|5)(?:-(?:curated|full))?(?:-inpainting)?$/i.test(model.trim());
 }
 
 /** Normalize the edit source canvas and optional 8x8 binary infill mask to matching PNG dimensions. */
@@ -2803,18 +2967,27 @@ export async function prepareNovelAiEditInputs(
   sourceImage: string,
   maskImage?: string,
 ): Promise<{ width: number; height: number; imageBase64: string; maskBase64?: string }> {
+  return prepareImageEditInputs(sourceImage, maskImage, "novelai");
+}
+
+/** Share decoding, safety limits and binary masks; preserve each backend's canvas and mask granularity. */
+async function prepareImageEditInputs(
+  sourceImage: string,
+  maskImage: string | undefined,
+  backend: "novelai" | "automatic1111" | "drawthings",
+): Promise<{ width: number; height: number; imageBase64: string; maskBase64?: string }> {
   let sourceBuffer: Buffer;
   try {
     sourceBuffer = Buffer.from(decodeReferenceImage(sourceImage).base64, "base64");
   } catch (err) {
     const detail = err instanceof Error ? ` ${err.message}` : "";
-    throw new NovelAiEditInputError(`NovelAI edit source image could not be decoded.${detail}`);
+    throw new NovelAiEditInputError(`Edit source image could not be decoded.${detail}`);
   }
 
   const sharpFn = await tryLoadSharp();
   if (!sharpFn) {
     throw new Error(
-      "NovelAI image editing requires server image preprocessing, but the optional sharp dependency is unavailable.",
+      "Image editing requires server image preprocessing, but the optional sharp dependency is unavailable.",
     );
   }
 
@@ -2823,13 +2996,29 @@ export async function prepareNovelAiEditInputs(
     metadata = await sharpFn(sourceBuffer, { limitInputPixels: NOVELAI_REFERENCE_MAX_INPUT_PIXELS }).metadata();
   } catch (err) {
     const detail = err instanceof Error ? ` ${err.message}` : "";
-    throw new NovelAiEditInputError(`NovelAI edit source image could not be read.${detail}`);
+    throw new NovelAiEditInputError(`Edit source image could not be read.${detail}`);
   }
   if (!metadata.width || !metadata.height) {
-    throw new NovelAiEditInputError("NovelAI edit source image dimensions could not be read.");
+    throw new NovelAiEditInputError("Edit source image dimensions could not be read.");
   }
 
-  const size = clampNovelAiCanvasSize(metadata.width, metadata.height);
+  const canvasStep = backend === "drawthings" ? 64 : 8;
+  const canvasMin = backend === "drawthings" ? 128 : 64;
+  const canvasMax = backend === "drawthings" ? 8192 : Infinity;
+  const canvasScale = Math.min(1, canvasMax / Math.max(metadata.width, metadata.height));
+  const size =
+    backend === "novelai"
+      ? clampNovelAiCanvasSize(metadata.width, metadata.height)
+      : {
+          width: Math.min(
+            canvasMax,
+            Math.max(canvasMin, Math.round((metadata.width * canvasScale) / canvasStep) * canvasStep),
+          ),
+          height: Math.min(
+            canvasMax,
+            Math.max(canvasMin, Math.round((metadata.height * canvasScale) / canvasStep) * canvasStep),
+          ),
+        };
   let preparedSource: Buffer;
   try {
     preparedSource = await sharpFn(sourceBuffer, {
@@ -2859,8 +3048,9 @@ export async function prepareNovelAiEditInputs(
     throw new NovelAiEditInputError(`Inpainting mask could not be decoded.${detail}`);
   }
 
-  const gridW = Math.max(1, Math.floor(size.width / 8));
-  const gridH = Math.max(1, Math.floor(size.height / 8));
+  const blockSize = backend === "novelai" ? 8 : 1;
+  const gridW = Math.max(1, Math.floor(size.width / blockSize));
+  const gridH = Math.max(1, Math.floor(size.height / blockSize));
   let fullMask: { data: Buffer; info: { channels: number } };
   try {
     fullMask = await sharpFn(maskBuffer, { limitInputPixels: NOVELAI_REFERENCE_MAX_INPUT_PIXELS })
@@ -2881,11 +3071,11 @@ export async function prepareNovelAiEditInputs(
   for (let gy = 0; gy < gridH; gy++) {
     for (let gx = 0; gx < gridW; gx++) {
       let paintedBlock = false;
-      const baseY = gy * 8;
-      const baseX = gx * 8;
-      for (let dy = 0; dy < 8 && !paintedBlock; dy++) {
+      const baseY = gy * blockSize;
+      const baseX = gx * blockSize;
+      for (let dy = 0; dy < blockSize && !paintedBlock; dy++) {
         const rowOffset = (baseY + dy) * size.width;
-        for (let dx = 0; dx < 8; dx++) {
+        for (let dx = 0; dx < blockSize; dx++) {
           const luma = fullMask.data[(rowOffset + baseX + dx) * channels] ?? 0;
           if (luma > 155) {
             paintedBlock = true;
@@ -2947,7 +3137,22 @@ function selectNovelAiDirectorReferenceSize(width: number, height: number): { wi
   }, NOVELAI_DIRECTOR_REFERENCE_SIZES[0]);
 }
 
-async function prepareNovelAiDirectorReferenceImages(referenceImages: string[]): Promise<string[]> {
+/** The V5 bucket nearest the picture's aspect ratio, compared as NovelAI's client does (by log ratio). */
+function selectNovelAiV5ReferenceBucket(width: number, height: number): { width: number; height: number } {
+  const ratio = Math.log(width / height);
+  return NOVELAI_V5_REFERENCE_BUCKETS.reduce((best, candidate) =>
+    Math.abs(ratio - Math.log(candidate.width / candidate.height)) <
+    Math.abs(ratio - Math.log(best.width / best.height))
+      ? candidate
+      : best,
+  );
+}
+
+/**
+ * Fit each reference to what the model reads: V4.5 pads it onto black at one of its three sizes; V5 fills its nearest
+ * bucket, cropping the overflow from the centre and keeping any transparency, as NovelAI's client does.
+ */
+async function prepareNovelAiDirectorReferenceImages(referenceImages: string[], v5 = false): Promise<string[]> {
   if (referenceImages.length === 0) return [];
 
   const sharpFn = await tryLoadSharp();
@@ -2965,12 +3170,15 @@ async function prepareNovelAiDirectorReferenceImages(referenceImages: string[]):
         if (!metadata.width || !metadata.height) {
           throw new Error("image dimensions could not be read");
         }
-        const size = selectNovelAiDirectorReferenceSize(metadata.width, metadata.height);
+        const size = v5
+          ? selectNovelAiV5ReferenceBucket(metadata.width, metadata.height)
+          : selectNovelAiDirectorReferenceSize(metadata.width, metadata.height);
         const resized = await sharpFn(buffer, { limitInputPixels: NOVELAI_REFERENCE_MAX_INPUT_PIXELS })
-          .resize(size.width, size.height, {
-            fit: "contain",
-            background: { r: 0, g: 0, b: 0, alpha: 1 },
-          })
+          .resize(
+            size.width,
+            size.height,
+            v5 ? { fit: "cover", position: "centre" } : { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 1 } },
+          )
           .png()
           .toBuffer();
         return resized.toString("base64");
@@ -3252,16 +3460,15 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
       ? [styleReferenceImage, ...characterReferenceImages]
       : characterReferenceImages;
     if (referenceImages.length > 0 && !isNovelAiPreciseReferenceModel(baseModel)) {
-      // NovelAI only ships Precise Reference on V4.5; V5 support is still pending upstream.
-      // Render without the references rather than failing the whole illustration.
+      // Older models have no Precise Reference: render without the references rather than fail the illustration.
       logger.warn(
-        "[novelai] Dropping %d reference image(s): precise reference requires a V4.5 model, got %s",
+        "[novelai] Dropping %d reference image(s): precise reference requires a V4.5 or V5 model, got %s",
         referenceImages.length,
         baseModel,
       );
       referenceImages = [];
     }
-    directorReferenceImages = await prepareNovelAiDirectorReferenceImages(referenceImages);
+    directorReferenceImages = await prepareNovelAiDirectorReferenceImages(referenceImages, isV5);
   }
 
   const characterPromptPayload = buildNovelAiV4CharacterPromptPayload(request.characterPrompts, baseModel);
@@ -3269,6 +3476,8 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
     ? { width: editInputs.width, height: editInputs.height }
     : resolveNovelAiRequestSize(request, defaults);
 
+  // A connection that leaves Steps or Prompt guidance unset sends NovelAI's own default for the model.
+  const recommended = novelAiRecommendedSettings(baseModel);
   const parameters: Record<string, unknown> = {
     width: size.width,
     height: size.height,
@@ -3276,12 +3485,17 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
     ucPreset: defaults.undesiredContentPreset,
     negative_prompt: negativePrompt,
     seed,
-    scale: defaults.promptGuidance,
-    steps: defaults.steps,
+    scale: defaults.promptGuidance ?? recommended.promptGuidance,
+    steps: defaults.steps ?? recommended.steps,
     sampler: defaults.sampler,
   };
   if (defaults.noiseSchedule) {
     parameters.noise_schedule = defaults.noiseSchedule;
+  }
+  // As NovelAI's client sends them for Euler Ancestral on a scheduled noise (not "native"): its corrected sampling.
+  if (defaults.sampler === "k_euler_ancestral" && defaults.noiseSchedule && defaults.noiseSchedule !== "native") {
+    parameters.deliberate_euler_ancestral_bug = false;
+    parameters.prefer_brownian = true;
   }
   if (isV4) {
     parameters.cfg_rescale = defaults.promptGuidanceRescale;
@@ -3308,16 +3522,22 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
   if (directorReferenceImages.length > 0) {
     const styleReferenceOffset = styleReferenceImage ? 1 : 0;
     parameters.director_reference_images = directorReferenceImages;
+    // V5's Character & Style comes with "Prefer same outfit" on ("character&style") or off ("…_anyoutfit").
+    const characterReference =
+      isV5 && request.preferReferenceOutfit === false ? "character&style_anyoutfit" : "character&style";
     parameters.director_reference_descriptions = directorReferenceImages.map((_, index) => ({
-      caption: { base_caption: index < styleReferenceOffset ? "style" : "character&style", char_captions: [] },
+      caption: { base_caption: index < styleReferenceOffset ? "style" : characterReference, char_captions: [] },
       legacy_uc: false,
     }));
     parameters.director_reference_information_extracted = directorReferenceImages.map(() => 1);
     parameters.director_reference_strength_values = directorReferenceImages.map((_, index) =>
       index < styleReferenceOffset ? defaults.styleReferenceStrength : 1,
     );
+    // V5 has no Fidelity: NovelAI's client sends it as 1, a secondary strength of 0.
     parameters.director_reference_secondary_strength_values = directorReferenceImages.map((_, index) =>
-      index < styleReferenceOffset ? resolveNovelAiStyleReferenceSecondaryStrength(defaults.styleReferenceFidelity) : 0,
+      index < styleReferenceOffset && !isV5
+        ? resolveNovelAiStyleReferenceSecondaryStrength(defaults.styleReferenceFidelity)
+        : 0,
     );
   }
   if (editMode === "img2img" && editInputs) {
@@ -4917,15 +5137,22 @@ async function generateAutomatic1111(
   const base = baseUrl.replace(/\/+$/, "");
   const isDrawThings = serviceHint?.trim().toLowerCase() === "drawthings";
   const defaults = resolveAutomatic1111Defaults(request);
-  const useImg2Img = !!(request.referenceImage || request.referenceImages?.length);
+  const editInputs = request.editMode
+    ? await prepareImageEditInputs(
+        request.sourceImage!,
+        request.maskImage,
+        isDrawThings ? "drawthings" : "automatic1111",
+      )
+    : null;
+  const useImg2Img = !!(editInputs || request.referenceImage || request.referenceImages?.length);
 
   const body: Record<string, unknown> = {
     prompt: mergePromptPrefix(defaults.promptPrefix, request.prompt),
     negative_prompt: mergeNegativePrompt(defaults.negativePromptPrefix, request.negativePrompt),
-    width: request.width ?? 512,
-    height: request.height ?? 768,
+    width: editInputs?.width ?? request.width ?? 512,
+    height: editInputs?.height ?? request.height ?? 768,
     steps: defaults.steps,
-    seed: resolveSeed(request.imageDefaults),
+    seed: readValidSeedNumber(request.seedOverride) ?? resolveSeed(request.imageDefaults),
     sampler_name: defaults.sampler || DEFAULT_AUTOMATIC1111_DEFAULTS.sampler,
   };
 
@@ -4963,18 +5190,35 @@ async function generateAutomatic1111(
   }
 
   if (useImg2Img) {
-    const rawInit = decodeReferenceImage((request.referenceImage ?? request.referenceImages?.[0]) as string).base64;
+    const rawInit =
+      editInputs?.imageBase64 ??
+      decodeReferenceImage((request.referenceImage ?? request.referenceImages?.[0]) as string).base64;
     // Draw Things rejects img2img if init_images dimensions don't match the requested
     // width/height exactly. A1111/Forge auto-resize internally; Draw Things does not.
     const initImage = isDrawThings
       ? await resizeBase64ToExactSize(rawInit, body.width as number, body.height as number)
       : rawInit;
     body.init_images = [initImage];
-    body.denoising_strength = defaults.denoisingStrength;
+    body.denoising_strength = editInputs ? (request.strength ?? 0.7) : defaults.denoisingStrength;
+    if (editInputs?.maskBase64) {
+      body.mask = editInputs.maskBase64;
+      body.inpainting_mask_invert = 0;
+      body.inpaint_full_res = false;
+      body.mask_blur = 0;
+    }
   }
 
   const endpoint = useImg2Img ? `${base}/sdapi/v1/img2img` : `${base}/sdapi/v1/txt2img`;
   const label = isDrawThings ? "Draw Things" : "AUTOMATIC1111";
+  logDebugOverride(
+    request.debugMode === true,
+    "[debug/image/automatic1111] final request payload:\n%s",
+    imagePayloadForLog({
+      ...body,
+      ...(body.init_images ? { init_images: "[source image]" } : {}),
+      ...(body.mask ? { mask: "[mask image]" } : {}),
+    }),
+  );
 
   const resp = await localImageBackendFetch(
     endpoint,
@@ -4999,5 +5243,10 @@ async function generateAutomatic1111(
     throw new Error(`No image data in ${label} response${hint}`);
   }
 
-  return { base64: b64, mimeType: "image/png", ext: "png" };
+  return {
+    base64: b64,
+    mimeType: "image/png",
+    ext: "png",
+    ...(editInputs ? { width: editInputs.width, height: editInputs.height } : {}),
+  };
 }

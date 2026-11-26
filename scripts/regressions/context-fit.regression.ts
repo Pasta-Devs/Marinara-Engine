@@ -5,7 +5,7 @@
 // anyway and send only the trailing instruction, which reaches the model as a request with no
 // content to work from — and no error anywhere.
 import assert from "node:assert/strict";
-import { fitMessagesToContext } from "../../packages/server/src/services/llm/base-provider.js";
+import { estimateMessagesTokens, fitMessagesToContext } from "../../packages/server/src/services/llm/base-provider.js";
 import type { ChatMessage } from "../../packages/server/src/services/llm/base-provider.js";
 
 const filler = (approximateTokens: number) => "word ".repeat(approximateTokens);
@@ -71,5 +71,35 @@ assert.equal(floored.requestedMaxTokens, 1000, "the floor must still report what
 const unbounded = fitMessagesToContext(singleShotPrompt, { maxTokens: 32768 });
 assert.equal(unbounded.trimmed, false);
 assert.equal(unbounded.messages.length, 3);
+
+// A long chat far over its window keeps exactly the newest messages that fit, and fitting it stays quick. The fit
+// used to recount the whole prompt after every message it dropped: over a minute for this chat. Memory Recall runs
+// the same fit to learn which messages a request will send.
+const longChat: ChatMessage[] = [
+  { role: "system", content: filler(2000) },
+  ...Array.from({ length: 2000 }, (_, index): ChatMessage => ({
+    role: index % 2 ? "assistant" : "user",
+    content: `M${index} ${filler(250)}`,
+    contextKind: "history",
+  })),
+];
+const fitStartedAt = performance.now();
+const longFit = fitMessagesToContext(longChat, { maxContext: 128_000, maxTokens: 1024 });
+const fitMs = performance.now() - fitStartedAt;
+const keptHistory = longFit.messages.filter((message) => message.contextKind === "history");
+assert.ok(keptHistory.length > 0 && keptHistory.length < 2000);
+assert.deepEqual(
+  keptHistory.map((message) => message.content),
+  longChat.slice(-keptHistory.length).map((message) => message.content),
+  "the newest messages stay, in order",
+);
+assert.equal(longFit.estimatedTokensAfter, estimateMessagesTokens(longFit.messages), "the running total is exact");
+assert.ok(longFit.estimatedTokensAfter <= longFit.inputBudget!);
+assert.ok(
+  longFit.estimatedTokensAfter + estimateMessagesTokens([longChat[longChat.length - keptHistory.length - 1]!]) >
+    longFit.inputBudget!,
+  "the next older message would not have fit",
+);
+assert.ok(fitMs < 10_000, `fitting a long chat took ${Math.round(fitMs)} ms`);
 
 process.stdout.write("Context fit regression passed.\n");

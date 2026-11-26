@@ -1,20 +1,29 @@
 // ──────────────────────────────────────────────
 // Importer: SillyTavern Bulk Import (folder scan)
 // ──────────────────────────────────────────────
-import { readdir, readFile, stat, copyFile, mkdir } from "fs/promises";
-import { join, extname, basename, relative } from "path";
+import { readdir, readFile, lstat, stat, copyFile, mkdir, open, unlink } from "fs/promises";
+import { join, extname, basename, relative, resolve, sep } from "path";
 import { existsSync, readdirSync } from "fs";
 import { createHash, randomUUID } from "crypto";
 import { inflateSync } from "node:zlib";
 import type { DB } from "../../db/connection.js";
 import {
+  convertStRegexScripts,
   getExistingCharacterTagKeys,
   importSTCharacter,
   type STCharacterTagImportMode,
 } from "./st-character.importer.js";
-import { importSTChat } from "./st-chat.importer.js";
-import { importSTPreset } from "./st-prompt.importer.js";
+import {
+  buildPersonaLookup,
+  importSTChat,
+  personaLookupKey,
+  stChatFileFingerprint,
+  stChatNameFromFileName,
+  type STChatImportNote,
+} from "./st-chat.importer.js";
+import { importSTPreset, type STPresetLeftOut, type STPresetWorldInfo } from "./st-prompt.importer.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
+import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { characters as charactersTable, chats as chatsTable } from "../../db/schema/index.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
@@ -179,6 +188,12 @@ function isPlaceholderChatName(value: unknown) {
   return !name || name === "unused" || name === "new chat";
 }
 
+/** A folder chat's name: the file's, unless the file name is a placeholder ("New Chat", "unused"). */
+function folderChatName(fileName: string, characterName: string) {
+  const name = stChatNameFromFileName(fileName);
+  return name && !isPlaceholderChatName(name) ? name : characterName;
+}
+
 function isConfidentBuiltinPreset(filePath: string) {
   const name = basename(filePath, extname(filePath)).trim().toLowerCase();
   return new Set([
@@ -200,17 +215,39 @@ interface STBulkScanItemBase {
   modifiedAt: string | null;
 }
 
+/** A global regex script's identity in settings.json: its name and pattern, not its place in the list. */
+function regexScriptFingerprint(name: unknown, findRegex: unknown) {
+  return createHash("sha1")
+    .update(`${typeof name === "string" ? name : ""}\u0000${typeof findRegex === "string" ? findRegex : ""}`)
+    .digest("hex")
+    .slice(0, 12);
+}
+
 export interface STBulkScanResult {
   success: boolean;
   error?: string;
   dataDir?: string;
   characters: Array<STBulkScanItemBase & { format: string }>;
   chats: Array<STBulkScanItemBase & { characterName: string; folderName: string; chatName: string }>;
-  groupChats: Array<STBulkScanItemBase & { groupName: string; members: string[] }>;
-  presets: Array<STBulkScanItemBase & { isBuiltin?: boolean }>;
+  groupChats: Array<STBulkScanItemBase & { groupName: string; members: string[]; activationStrategy?: number | null }>;
+  /** samplersOnly: a Text Completion preset ("TextGen Settings"), which holds samplers and no prompts. */
+  presets: Array<STBulkScanItemBase & { isBuiltin?: boolean; samplersOnly?: boolean }>;
   lorebooks: STBulkScanItemBase[];
   backgrounds: STBulkScanItemBase[];
   personas: Array<STBulkScanItemBase & { description: string }>;
+  /** Global regex scripts from settings.json (extension_settings.regex); index is the script's place there. */
+  regexScripts?: Array<STBulkScanItemBase & { index: number; fingerprint?: string }>;
+  /** What the folder holds that Marinara has no matching feature for, counted so the import can say so. */
+  notBroughtOver?: STNotBroughtOver;
+  /** Folders of things that have no feature here which couldn't be read, so they are missing from the counts. */
+  unreadableFolders?: string[];
+}
+
+export interface STNotBroughtOver {
+  quickReplies: number;
+  instruct: number;
+  context: number;
+  systemPrompts: number;
 }
 
 export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> {
@@ -306,8 +343,8 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
     const jsonlFiles = await listFilesRecursive(chatsDir, ".jsonl");
     for (const f of jsonlFiles) {
       try {
-        const content = await readFile(f, "utf-8");
-        const firstLine = content.split("\n")[0];
+        // Only the header line is needed here; a long chat is not read whole just to list it.
+        const firstLine = await readFirstLine(chatsDir, f);
         if (firstLine) {
           const header = JSON.parse(firstLine);
           const fileBaseName = basename(f, ".jsonl");
@@ -333,6 +370,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   // 3. Presets — JSON files in TextGen Settings/ and OpenAI Settings/
   for (const folder of ["TextGen Settings", "OpenAI Settings", "textgen settings", "openai settings"]) {
     const presetDir = join(dataDir, folder);
+    const samplersOnly = folder.toLowerCase() === "textgen settings";
     const files = await listFiles(presetDir, ".json");
     for (const f of files) {
       try {
@@ -345,6 +383,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
           name: String(name),
           modifiedAt: parseTrustedTimestamp(fileInfo.mtime),
           ...(isConfidentBuiltinPreset(f) ? { isBuiltin: true } : {}),
+          ...(samplersOnly ? { samplersOnly: true } : {}),
         });
       } catch {
         // skip
@@ -401,7 +440,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   if (existsSync(groupsDir)) {
     // SillyTavern stores group chats as flat `<chatId>.jsonl` files and
     // associates them through each group's `chats` array.
-    const groupMetaMap = new Map<string, { name: string; members: string[] }>();
+    const groupMetaMap = new Map<string, { name: string; members: string[]; activationStrategy: number | null }>();
     const groupFiles = await listFiles(groupsDir, ".json");
     for (const f of groupFiles) {
       try {
@@ -414,7 +453,9 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
               .filter((member: unknown): member is string => typeof member === "string")
               .map((member: string) => member.replace(/\.(png|json)$/i, ""))
           : [];
-        const metadata = { name: String(gName), members };
+        // 0 natural, 1 list, 2 manual, 3 pooled: who answers next in SillyTavern.
+        const activationStrategy = typeof raw.activation_strategy === "number" ? raw.activation_strategy : null;
+        const metadata = { name: String(gName), members, activationStrategy };
         const chatIds = new Set<unknown>([gId, raw.chat_id, ...(Array.isArray(raw.chats) ? raw.chats : [])]);
         for (const chatId of chatIds) {
           if ((typeof chatId === "string" || typeof chatId === "number") && String(chatId).trim()) {
@@ -440,6 +481,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
             name: meta.name,
             groupName: meta.name,
             members: meta.members,
+            activationStrategy: meta.activationStrategy,
             modifiedAt: null,
           });
           continue;
@@ -459,6 +501,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
             name: meta.name,
             groupName: meta.name,
             members: meta.members,
+            activationStrategy: meta.activationStrategy,
             modifiedAt: parseTrustedTimestamp(fileInfo.mtime),
           });
         }
@@ -471,12 +514,31 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   // and descriptions in power_user.persona_descriptions within settings.json
   let stPersonaNames: Record<string, string> = {};
   let stPersonaDescs: Record<string, { description?: string } | string> = {};
+  const regexScripts: NonNullable<STBulkScanResult["regexScripts"]> = [];
   const settingsPath = join(dataDir, "settings.json");
   if (existsSync(settingsPath)) {
     try {
       const settings = JSON.parse(await readFile(settingsPath, "utf-8"));
       stPersonaNames = settings?.power_user?.personas ?? {};
       stPersonaDescs = settings?.power_user?.persona_descriptions ?? {};
+      // 8. Global regex scripts (SillyTavern's Regex extension, "Global scripts").
+      const globalRegex = readSettingsRegexScripts(settings);
+      const modifiedAt = parseTrustedTimestamp((await stat(settingsPath)).mtime);
+      for (const [index, script] of globalRegex.entries()) {
+        if (!script || typeof script !== "object") continue;
+        const name = (script as Record<string, unknown>).scriptName;
+        const findRegex = (script as Record<string, unknown>).findRegex;
+        // The id names the script, not only its place, so a pick still means the same script if the list moved.
+        const fingerprint = regexScriptFingerprint(name, findRegex);
+        regexScripts.push({
+          id: makeScanItemId("regexScripts", dataDir, `${settingsPath}#${index}:${fingerprint}`),
+          path: settingsPath,
+          name: typeof name === "string" && name.trim() ? name.trim() : `Regex ${index + 1}`,
+          index,
+          fingerprint,
+          modifiedAt,
+        });
+      }
     } catch {
       // skip – import avatars with filename-based names
     }
@@ -511,7 +573,50 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
     break;
   }
 
-  return { success: true, dataDir, characters, chats, groupChats, presets, lorebooks, backgrounds, personas };
+  // 9. What has no matching feature here: counted, so the import can name it instead of staying quiet.
+  const unreadableFolders: string[] = [];
+  const countJson = async (...folders: string[]) => {
+    const root = resolve(dataDir);
+    for (const folder of folders) {
+      // Stays inside the SillyTavern data folder (the names are fixed; the check keeps it that way).
+      const dir = resolve(root, folder);
+      if (!dir.startsWith(root + sep) || !existsSync(dir)) continue;
+      // Only counted for the report: a folder that can't be read must not stop the import of what can.
+      try {
+        return (await listFiles(dir, ".json")).length;
+      } catch {
+        unreadableFolders.push(folder);
+        return 0;
+      }
+    }
+    return 0;
+  };
+  const notBroughtOver: STNotBroughtOver = {
+    quickReplies: await countJson("QuickReplies", "quickreplies"),
+    instruct: await countJson("instruct", "Instruct"),
+    context: await countJson("context", "Context"),
+    systemPrompts: await countJson("sysprompt", "Sysprompt"),
+  };
+
+  return {
+    success: true,
+    dataDir,
+    characters,
+    chats,
+    groupChats,
+    presets,
+    lorebooks,
+    backgrounds,
+    personas,
+    regexScripts,
+    notBroughtOver,
+    ...(unreadableFolders.length > 0 ? { unreadableFolders } : {}),
+  };
+}
+
+function readSettingsRegexScripts(settings: unknown): unknown[] {
+  const extensionSettings = (settings as { extension_settings?: { regex?: unknown } } | null)?.extension_settings;
+  return Array.isArray(extensionSettings?.regex) ? extensionSettings.regex : [];
 }
 
 // ─── Bulk Import ───
@@ -526,6 +631,8 @@ export interface STBulkImportOptions {
   lorebooks: STBulkImportSelection;
   backgrounds: STBulkImportSelection;
   personas: STBulkImportSelection;
+  /** Global regex scripts from settings.json. */
+  regexScripts?: STBulkImportSelection;
   characterTagImportMode?: STCharacterTagImportMode;
   regexScriptScope?: "character" | "global";
   /**
@@ -546,11 +653,72 @@ export interface STBulkImportResult {
     lorebooks: number;
     backgrounds: number;
     personas: number;
+    regexScripts?: number;
   };
   /** Left out because this Engine already had them (skipAlreadyImported). */
-  skipped?: { characters: number; chats: number; groupChats: number };
+  skipped?: { characters: number; chats: number; groupChats: number; personas?: number };
+  /** What came along beyond the counts, and what could not. */
+  report?: STBulkImportReport;
   errors: string[];
 }
+
+export interface STBulkImportReport {
+  /** Chats whose Author's Note came in as is. */
+  authorsNotes: number;
+  /** Chats whose Author's Note came in but SillyTavern placed it differently (frequency, position or role). */
+  authorsNotesPlacement: number;
+  /** Chats whose Author's Note SillyTavern had turned off; kept in metadata, still off. */
+  authorsNotesOff: number;
+  /** Chats linked to a persona by the SillyTavern user's name or persona lock. */
+  personasLinked: number;
+  /** SillyTavern user names with no persona of that name here (up to 20). */
+  missingPersonas: string[];
+  /** Messages SillyTavern hid from the AI; they stay hidden. */
+  hiddenMessages: number;
+  /** Group chats set to Individual mode, as SillyTavern's groups answer. */
+  groupChatsIndividual: number;
+  /** Lorebook entries placed around SillyTavern's Author's Note, now at depth 4. */
+  lorebookEntriesMovedFromAuthorsNote: number;
+  /** Lorebook entries placed around SillyTavern's example messages, now after the character definitions. */
+  lorebookEntriesMovedFromExamples: number;
+  /** Regex scripts that run only on slash commands, World Info or reasoning, which have no regex here. */
+  regexSkipped: number;
+  /** Text Completion presets imported (samplers only). */
+  samplersOnlyPresets: number;
+  /** In the folder, with no matching feature here. */
+  notBroughtOver: STNotBroughtOver;
+  /** Presets that brought sampler settings along. */
+  presetsWithSettings: number;
+  /** Preset settings with no place in a Marinara preset. */
+  presetSettingsLeftOut: STPresetLeftOut[];
+  /** SillyTavern personas left out because a persona of that name is already here (chats link to it). Up to 20. */
+  personasAlreadyHere: string[];
+  /** Presets per World Info layout (before/after kept apart, one combined spot, or turned off). */
+  presetWorldInfo: Partial<Record<STPresetWorldInfo, number>>;
+}
+
+function emptyBulkImportReport(): STBulkImportReport {
+  return {
+    authorsNotes: 0,
+    authorsNotesPlacement: 0,
+    authorsNotesOff: 0,
+    personasLinked: 0,
+    missingPersonas: [],
+    hiddenMessages: 0,
+    groupChatsIndividual: 0,
+    lorebookEntriesMovedFromAuthorsNote: 0,
+    lorebookEntriesMovedFromExamples: 0,
+    regexSkipped: 0,
+    samplersOnlyPresets: 0,
+    notBroughtOver: { quickReplies: 0, instruct: 0, context: 0, systemPrompts: 0 },
+    presetsWithSettings: 0,
+    presetSettingsLeftOut: [],
+    presetWorldInfo: {},
+    personasAlreadyHere: [],
+  };
+}
+
+const MAX_REPORTED_MISSING_PERSONAS = 20;
 
 /** Progress event emitted during bulk import */
 export interface ImportProgress {
@@ -588,11 +756,6 @@ function characterImportSignature(data: unknown): string | null {
     .digest("hex");
 }
 
-/** A chat file's own fingerprint, kept in the imported chat's metadata. */
-function chatFileFingerprint(content: string) {
-  return createHash("sha256").update(content.replace(/\r\n/g, "\n")).digest("hex");
-}
-
 /**
  * Chats imported before fingerprints existed: the same file gives the same chat name, file label
  * and file time, which no two different files share in practice.
@@ -623,7 +786,12 @@ async function existingImportSignatures(db: DB) {
     } catch {
       // no metadata: legacy signature with no label
     }
-    if (typeof metadata.importFingerprint === "string") chats.add(`fp:${metadata.importFingerprint}`);
+    // A chat that remembers its file matches only that file; name and time matching is for chats from older
+    // versions, which kept no fingerprint (two different files can share a label and a time).
+    if (typeof metadata.importFingerprint === "string") {
+      chats.add(`fp:${metadata.importFingerprint}`);
+      continue;
+    }
     const createdAt = parseTrustedTimestamp(row.createdAt);
     const branch = typeof metadata.branchName === "string" ? metadata.branchName : null;
     const legacy = legacyChatSignature(row.name, branch, createdAt);
@@ -633,6 +801,65 @@ async function existingImportSignatures(db: DB) {
     if (legacyNoBranch) chats.add(`legacy:${legacyNoBranch}`);
   }
   return { characters, chats };
+}
+
+/** The longest chat header line read while scanning (a header holds the chat's metadata, never its messages). */
+const MAX_CHAT_HEADER_BYTES = 8 * 1024 * 1024;
+/**
+ * The largest chat file imported. A chat is read whole to import it, and one far past this would take the server
+ * down with it (Node's heap and string limits) instead of failing on its own.
+ */
+export const MAX_ST_CHAT_FILE_BYTES = 256 * 1024 * 1024;
+
+/**
+ * The first line of a text file inside `root`, read in chunks; "" when the file is empty, its first line is too long,
+ * the path leads outside `root`, or the file is a link (it could point anywhere; folder links are never walked into).
+ */
+async function readFirstLine(root: string, path: string): Promise<string> {
+  const base = resolve(root);
+  const file = resolve(path);
+  if (!file.startsWith(base + sep)) return "";
+  if ((await lstat(file)).isSymbolicLink()) return "";
+  const handle = await open(file, "r");
+  try {
+    const chunks: Buffer[] = [];
+    let total = 0;
+    const chunk = Buffer.alloc(64 * 1024);
+    while (total < MAX_CHAT_HEADER_BYTES) {
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, total);
+      if (bytesRead === 0) break;
+      const piece = chunk.subarray(0, bytesRead);
+      const newline = piece.indexOf(0x0a);
+      if (newline >= 0) {
+        chunks.push(Buffer.from(piece.subarray(0, newline)));
+        return Buffer.concat(chunks).toString("utf-8").replace(/\r$/u, "");
+      }
+      chunks.push(Buffer.from(piece));
+      total += bytesRead;
+    }
+    // A file with one line and no newline is all header; one past the limit is not a chat this can list.
+    return total < MAX_CHAT_HEADER_BYTES ? Buffer.concat(chunks).toString("utf-8").replace(/\r$/u, "") : "";
+  } finally {
+    await handle.close();
+  }
+}
+
+async function readChatFile(path: string): Promise<string> {
+  const { size } = await stat(path);
+  if (size > MAX_ST_CHAT_FILE_BYTES) {
+    throw new Error(
+      `the file is ${Math.round(size / (1024 * 1024))} MB, over the ${MAX_ST_CHAT_FILE_BYTES / (1024 * 1024)} MB a chat import can read`,
+    );
+  }
+  return readFile(path, "utf-8");
+}
+
+/** An importer that reports a failure as `{ error }` instead of throwing; counted as an error here, not as imported. */
+function importedOrThrow<T>(result: T): T {
+  if (result && typeof result === "object" && "error" in result && typeof result.error === "string" && result.error) {
+    if (!("success" in result) || result.success !== true) throw new Error(result.error);
+  }
+  return result;
 }
 
 export async function runSTBulkImport(
@@ -651,7 +878,15 @@ export async function runSTBulkImport(
     };
   }
 
-  const imported = { characters: 0, chats: 0, groupChats: 0, presets: 0, lorebooks: 0, backgrounds: 0, personas: 0 };
+  const imported: STBulkImportResult["imported"] = {
+    characters: 0,
+    chats: 0,
+    groupChats: 0,
+    presets: 0,
+    lorebooks: 0,
+    backgrounds: 0,
+    personas: 0,
+  };
   const errors: string[] = [];
   const selectedCharacters = resolveSelectedItems(scanResult.characters, options.characters);
   const selectedChats = resolveSelectedItems(scanResult.chats, options.chats);
@@ -665,7 +900,29 @@ export async function runSTBulkImport(
   const existingTagKeys =
     tagImportMode === "existing" && selectedCharacters.length > 0 ? await getExistingCharacterTagKeys(db) : undefined;
   const skipAlreadyImported = options.skipAlreadyImported !== false;
-  const skipped = { characters: 0, chats: 0, groupChats: 0 };
+  const skipped = { characters: 0, chats: 0, groupChats: 0, personas: 0 };
+  const report = emptyBulkImportReport();
+  const missingPersonas = new Set<string>();
+  const presetLeftOut = new Set<STPresetLeftOut>();
+  const noteChatImport = (notes: STChatImportNote[] | undefined) => {
+    for (const note of notes ?? []) {
+      if (note.kind === "authorsNote") report.authorsNotes++;
+      else if (note.kind === "authorsNotePlacement") report.authorsNotesPlacement++;
+      else if (note.kind === "authorsNoteOff") report.authorsNotesOff++;
+      else if (note.kind === "persona") report.personasLinked++;
+      else if (note.kind === "personaMissing") missingPersonas.add(note.name);
+      else if (note.kind === "hiddenMessages") report.hiddenMessages += note.count;
+      else if (note.kind === "groupIndividual") report.groupChatsIndividual++;
+    }
+  };
+  const noteCharacterImport = (result: Awaited<ReturnType<typeof importSTCharacter>>) => {
+    if (!result || !("regexSkipped" in result)) return;
+    report.regexSkipped += result.regexSkipped ?? 0;
+    for (const note of result.lorebook?.notes ?? []) {
+      if (note.from === "authorsNote") report.lorebookEntriesMovedFromAuthorsNote += note.count;
+      else report.lorebookEntriesMovedFromExamples += note.count;
+    }
+  };
   let chatsWritten = 0;
   const releaseWrittenChats = async () => {
     if (++chatsWritten % IMPORT_TRIM_EVERY_CHATS !== 0) return;
@@ -678,15 +935,15 @@ export async function runSTBulkImport(
   };
   const known = skipAlreadyImported ? await existingImportSignatures(db) : null;
   /**
-   * True when this Engine already has it. Otherwise the first key (a content fingerprint) is
-   * remembered, so a folder's own exact copies import once. Later keys (legacy signatures) only
-   * match what existed before this run: two different files can share one.
+   * True when this Engine already has it. The first key is a content fingerprint, which `remember` adds once the
+   * item is really in, so a folder's own exact copies import once. Later keys (legacy signatures) only match what
+   * existed before this run: two different files can share one.
    */
-  const alreadyHave = (set: Set<string> | undefined, remembered: string | null, ...priorOnly: Array<string | null>) => {
-    if (!set) return false;
-    if ([remembered, ...priorOnly].some((key) => key !== null && set.has(key))) return true;
-    if (remembered !== null) set.add(remembered);
-    return false;
+  const alreadyHave = (set: Set<string> | undefined, ...keys: Array<string | null>) =>
+    !!set && keys.some((key) => key !== null && set.has(key));
+  /** Remembered only after a successful import: a failed copy must not make an identical later file "already here". */
+  const remember = (set: Set<string> | undefined, key: string | null) => {
+    if (set && key !== null) set.add(key);
   };
 
   // Import characters
@@ -702,33 +959,45 @@ export async function runSTBulkImport(
         if (ch.format === "png") {
           const buf = await readFile(ch.path);
           const card = extractCharaFromPng(buf);
-          if (card && alreadyHave(known?.characters, characterImportSignature(card))) {
+          const signature = card ? characterImportSignature(card) : null;
+          if (card && alreadyHave(known?.characters, signature)) {
             skipped.characters++;
           } else if (card) {
             // Attach avatar as data URL
             const b64 = buf.toString("base64");
             const dataUrl = `data:image/png;base64,${b64}`;
             (card as Record<string, unknown>)._avatarDataUrl = dataUrl;
-            await importSTCharacter(card as Record<string, unknown>, db, {
-              timestampOverrides,
-              tagImportMode,
-              existingTagKeys,
-              regexScriptScope,
-            });
+            noteCharacterImport(
+              importedOrThrow(
+                await importSTCharacter(card as Record<string, unknown>, db, {
+                  timestampOverrides,
+                  tagImportMode,
+                  existingTagKeys,
+                  regexScriptScope,
+                }),
+              ),
+            );
+            remember(known?.characters, signature);
             imported.characters++;
           }
         } else {
           const raw = JSON.parse(await readFile(ch.path, "utf-8"));
-          if (alreadyHave(known?.characters, characterImportSignature(raw))) {
+          const signature = characterImportSignature(raw);
+          if (alreadyHave(known?.characters, signature)) {
             skipped.characters++;
             continue;
           }
-          await importSTCharacter(raw, db, {
-            timestampOverrides,
-            tagImportMode,
-            existingTagKeys,
-            regexScriptScope,
-          });
+          noteCharacterImport(
+            importedOrThrow(
+              await importSTCharacter(raw, db, {
+                timestampOverrides,
+                tagImportMode,
+                existingTagKeys,
+                regexScriptScope,
+              }),
+            ),
+          );
+          remember(known?.characters, signature);
           imported.characters++;
         }
       } catch (err) {
@@ -774,6 +1043,82 @@ export async function runSTBulkImport(
     }
   }
 
+  // Import personas first, so the chats below can be linked to them.
+  const importedPersonaAvatars = new Map<string, string>();
+  if (selectedPersonas.length > 0) {
+    const storage = createCharactersStorage(db);
+    const AVATAR_DIR = join(DATA_DIR, "avatars");
+    if (!existsSync(AVATAR_DIR)) {
+      await mkdir(AVATAR_DIR, { recursive: true });
+    }
+    // With "Skip what's already here", a persona of the same name (from a chat import or an earlier run)
+    // is used instead of a second, empty copy. Only personas from before this run count, so two
+    // SillyTavern personas sharing a name both come in.
+    const existingPersonas = skipAlreadyImported ? await buildPersonaLookup(db) : null;
+    const total = selectedPersonas.length;
+    let idx = 0;
+    for (const p of selectedPersonas) {
+      idx++;
+      onProgress?.({ category: "Personas", item: p.name, current: idx, total, imported });
+      const existingId = existingPersonas?.get(personaLookupKey(p.name));
+      if (existingId) {
+        importedPersonaAvatars.set(basename(p.path), existingId);
+        skipped.personas++;
+        if (report.personasAlreadyHere.length < MAX_REPORTED_MISSING_PERSONAS) report.personasAlreadyHere.push(p.name);
+        continue;
+      }
+      try {
+        // Copy avatar image
+        const ext = extname(p.path).toLowerCase();
+        const destName = `${randomUUID()}${ext}`;
+        await copyFile(p.path, join(AVATAR_DIR, destName));
+        const avatarPath = `/api/avatars/file/${destName}`;
+        let persona: Awaited<ReturnType<typeof storage.createPersona>>;
+        try {
+          const fileInfo = await stat(p.path);
+          persona = await storage.createPersona(
+            p.name,
+            p.description,
+            avatarPath,
+            undefined,
+            getFileTimestampOverrides(fileInfo),
+          );
+          if (!persona) throw new Error("Failed to create persona");
+        } catch (err) {
+          // The picture was copied first; without a persona it would stay behind as an orphan file. A persona that
+          // was saved before the error keeps it.
+          const personasNow = await storage.listPersonas().catch(() => null);
+          if (personasNow && !personasNow.some((row) => row.avatarPath === avatarPath)) {
+            await unlink(join(AVATAR_DIR, destName)).catch(() => undefined);
+          }
+          throw err;
+        }
+        importedPersonaAvatars.set(basename(p.path), persona.id);
+        imported.personas++;
+      } catch (err) {
+        errors.push(`Persona "${p.name}": ${(err as Error).message}`);
+      }
+    }
+  }
+
+  // Chats are linked to the persona SillyTavern spoke as: its persona lock (avatar file), else the user's name.
+  let personaLookup: Map<string, string> | undefined;
+  if (selectedChats.length > 0 || selectedGroupChats.length > 0) {
+    try {
+      personaLookup = await buildPersonaLookup(db);
+      for (const [avatar, id] of importedPersonaAvatars) personaLookup.set(`avatar:${avatar}`, id);
+      // A persona already here from an earlier import keeps its SillyTavern name, so a lock finds it by name.
+      for (const p of scanResult.personas) {
+        const id = personaLookup.get(personaLookupKey(p.name));
+        const avatar = `avatar:${basename(p.path)}`;
+        if (id && !personaLookup.has(avatar)) personaLookup.set(avatar, id);
+      }
+    } catch (err) {
+      logger.warn(err, "[import] Could not read personas; chats import without one");
+      personaLookup = new Map();
+    }
+  }
+
   // Import chats (with character linking)
   // Group chats by character, but preserve each imported file's name as a branch label.
   if (selectedChats.length > 0) {
@@ -786,16 +1131,23 @@ export async function runSTBulkImport(
       onProgress?.({ category: "Chats", item: ct.characterName, current: idx, total, imported });
 
       try {
-        const content = await readFile(ct.path, "utf-8");
+        const content = await readChatFile(ct.path);
         const fileInfo = await stat(ct.path);
-        const fingerprint = chatFileFingerprint(content);
+        const fingerprint = stChatFileFingerprint(content);
         const branchName = ct.chatName ?? basename(ct.path, ".jsonl");
-        const legacy = legacyChatSignature(
-          ct.characterName,
-          branchName,
-          parseTrustedTimestamp(getFileTimestampOverrides(fileInfo)?.createdAt),
-        );
-        if (alreadyHave(known?.chats, `fp:${fingerprint}`, legacy && `legacy:${legacy}`)) {
+        const chatName = folderChatName(branchName, ct.characterName);
+        const fileCreatedAt = parseTrustedTimestamp(getFileTimestampOverrides(fileInfo)?.createdAt);
+        // Older folder runs named the chat after the character; chats are named after the file now.
+        const legacy = legacyChatSignature(ct.characterName, branchName, fileCreatedAt);
+        const legacyByFile = legacyChatSignature(chatName, branchName, fileCreatedAt);
+        if (
+          alreadyHave(
+            known?.chats,
+            `fp:${fingerprint}`,
+            legacy && `legacy:${legacy}`,
+            legacyByFile && `legacy:${legacyByFile}`,
+          )
+        ) {
           skipped.chats++;
           continue;
         }
@@ -814,14 +1166,20 @@ export async function runSTBulkImport(
           charGroupIds.set(groupKey, groupId);
         }
 
-        await importSTChat(content, db, {
+        const chatResult = await importSTChat(content, db, {
+          personaLookup,
           characterId: charId,
-          chatName: ct.characterName,
+          // Named after the SillyTavern file, as a single chat import is ("Ilse Marrow - Beach date").
+          // A placeholder file name falls back to the character's.
+          chatName,
           branchName,
           groupId,
           sourceFingerprint: fingerprint,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
         });
+        importedOrThrow(chatResult);
+        if ("importNotes" in chatResult) noteChatImport(chatResult.importNotes);
+        remember(known?.chats, `fp:${fingerprint}`);
 
         imported.chats++;
         await releaseWrittenChats();
@@ -840,9 +1198,9 @@ export async function runSTBulkImport(
       idx++;
       onProgress?.({ category: "Group Chats", item: gc.groupName, current: idx, total, imported });
       try {
-        const content = await readFile(gc.path, "utf-8");
+        const content = await readChatFile(gc.path);
         const fileInfo = await stat(gc.path);
-        const fingerprint = chatFileFingerprint(content);
+        const fingerprint = stChatFileFingerprint(content);
         const legacy = legacyChatSignature(
           gc.groupName,
           null,
@@ -853,11 +1211,15 @@ export async function runSTBulkImport(
           continue;
         }
         // Build speaker→characterId map from member names
+        // Members first, in the group's own order (it decides who speaks first), then their other names.
         const speakerMap: Record<string, string> = {};
         const memberCharacterIds = new Set<string>();
         for (const memberName of gc.members) {
-          const cid = charNameToId.get(normalizeTextForMatch(memberName));
-          if (cid) memberCharacterIds.add(cid);
+          const key = normalizeTextForMatch(memberName);
+          const cid = charNameToId.get(key);
+          if (!cid) continue;
+          memberCharacterIds.add(cid);
+          if (!(key in speakerMap)) speakerMap[key] = cid;
         }
         for (const [alias, characterId] of charNameToId) {
           if (memberCharacterIds.has(characterId)) speakerMap[alias] = characterId;
@@ -866,14 +1228,21 @@ export async function runSTBulkImport(
         if (!gcGroupIds.has(groupKey)) {
           gcGroupIds.set(groupKey, randomUUID());
         }
-        await importSTChat(content, db, {
+        const chatResult = await importSTChat(content, db, {
+          personaLookup,
           chatName: gc.groupName,
+          // Each file shows under its own name, as character chats do (the group name stays the chat's name).
+          branchName: basename(gc.path, ".jsonl"),
           speakerMap,
+          stGroupActivationStrategy: gc.activationStrategy ?? null,
           mode: "roleplay",
           groupId: gcGroupIds.get(groupKey)!,
           sourceFingerprint: fingerprint,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
         });
+        importedOrThrow(chatResult);
+        if ("importNotes" in chatResult) noteChatImport(chatResult.importNotes);
+        remember(known?.chats, `fp:${fingerprint}`);
         imported.groupChats++;
         await releaseWrittenChats();
       } catch (err) {
@@ -892,7 +1261,15 @@ export async function runSTBulkImport(
       try {
         const raw = JSON.parse(await readFile(pr.path, "utf-8"));
         const fileInfo = await stat(pr.path);
-        await importSTPreset(raw, db, pr.name, { timestampOverrides: getFileTimestampOverrides(fileInfo) });
+        const presetResult = await importSTPreset(raw, db, pr.name, {
+          timestampOverrides: getFileTimestampOverrides(fileInfo),
+        });
+        if ((presetResult.parametersImported?.length ?? 0) > 0) report.presetsWithSettings++;
+        if (pr.samplersOnly) report.samplersOnlyPresets++;
+        if (presetResult.worldInfo) {
+          report.presetWorldInfo[presetResult.worldInfo] = (report.presetWorldInfo[presetResult.worldInfo] ?? 0) + 1;
+        }
+        for (const key of presetResult.parametersLeftOut ?? []) presetLeftOut.add(key);
         imported.presets++;
       } catch (err) {
         errors.push(`Preset "${pr.name}": ${(err as Error).message}`);
@@ -910,10 +1287,14 @@ export async function runSTBulkImport(
       try {
         const raw = JSON.parse(await readFile(lb.path, "utf-8"));
         const fileInfo = await stat(lb.path);
-        await importSTLorebook(raw, db, {
+        const lorebookResult = await importSTLorebook(raw, db, {
           fallbackName: lb.name,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
         });
+        for (const note of lorebookResult.notes) {
+          if (note.from === "authorsNote") report.lorebookEntriesMovedFromAuthorsNote += note.count;
+          else report.lorebookEntriesMovedFromExamples += note.count;
+        }
         imported.lorebooks++;
       } catch (err) {
         errors.push(`Lorebook "${lb.name}": ${(err as Error).message}`);
@@ -943,32 +1324,50 @@ export async function runSTBulkImport(
     }
   }
 
-  // Import personas
-  if (selectedPersonas.length > 0) {
-    const storage = createCharactersStorage(db);
-    const AVATAR_DIR = join(DATA_DIR, "avatars");
-    if (!existsSync(AVATAR_DIR)) {
-      await mkdir(AVATAR_DIR, { recursive: true });
-    }
-    const total = selectedPersonas.length;
-    let idx = 0;
-    for (const p of selectedPersonas) {
-      idx++;
-      onProgress?.({ category: "Personas", item: p.name, current: idx, total, imported });
-      try {
-        // Copy avatar image
-        const ext = extname(p.path).toLowerCase();
-        const destName = `${randomUUID()}${ext}`;
-        await copyFile(p.path, join(AVATAR_DIR, destName));
-        const avatarPath = `/api/avatars/file/${destName}`;
-        const fileInfo = await stat(p.path);
-        await storage.createPersona(p.name, p.description, avatarPath, undefined, getFileTimestampOverrides(fileInfo));
-        imported.personas++;
-      } catch (err) {
-        errors.push(`Persona "${p.name}": ${(err as Error).message}`);
+  // Global regex scripts from settings.json, after every script already here in run order.
+  const selectedRegex = resolveSelectedItems(scanResult.regexScripts ?? [], options.regexScripts);
+  if (selectedRegex.length > 0) {
+    onProgress?.({ category: "Regex scripts", item: "settings.json", current: 1, total: 1, imported });
+    try {
+      const settings = JSON.parse(await readFile(selectedRegex[0]!.path, "utf-8"));
+      const all = readSettingsRegexScripts(settings);
+      // settings.json is read again here; take a pick only if it is still the script that was scanned.
+      const picked: unknown[] = [];
+      for (const item of selectedRegex) {
+        const script = all[item.index] as Record<string, unknown> | undefined;
+        if (
+          script &&
+          (!item.fingerprint || regexScriptFingerprint(script.scriptName, script.findRegex) === item.fingerprint)
+        ) {
+          picked.push(script);
+        } else {
+          errors.push(`Regex script "${item.name}": settings.json changed since the scan, so it was not imported.`);
+        }
       }
+      const regexStorage = createRegexScriptsStorage(db);
+      const existing = await regexStorage.list();
+      const orderBase = existing.reduce((maximum, script) => Math.max(maximum, script.order), -1) + 1;
+      imported.regexScripts = 0;
+      const converted = convertStRegexScripts(picked, "", "global");
+      report.regexSkipped += picked.length - converted.length;
+      for (const input of converted) {
+        try {
+          await regexStorage.create({ ...input, order: orderBase + (input.order ?? 0) });
+          imported.regexScripts++;
+        } catch (err) {
+          errors.push(`Regex script "${input.name}": ${(err as Error).message}`);
+        }
+      }
+    } catch (err) {
+      errors.push(`Regex scripts: ${(err as Error).message}`);
     }
   }
 
-  return { success: true, imported, ...(skipAlreadyImported ? { skipped } : {}), errors };
+  if (scanResult.notBroughtOver) report.notBroughtOver = scanResult.notBroughtOver;
+  for (const folder of scanResult.unreadableFolders ?? []) {
+    errors.push(`Folder "${folder}" couldn't be read, so it isn't counted under "Not brought over".`);
+  }
+  report.missingPersonas = [...missingPersonas].slice(0, MAX_REPORTED_MISSING_PERSONAS);
+  report.presetSettingsLeftOut = [...presetLeftOut];
+  return { success: true, imported, ...(skipAlreadyImported ? { skipped } : {}), report, errors };
 }

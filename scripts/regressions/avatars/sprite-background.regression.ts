@@ -710,3 +710,90 @@ console.info("Sprite background regression passed.");
   );
   assert.equal(pixelAt(fittedCorners.data, size, 1, 1).alpha, 0, "a clear corner keeps the padding see-through");
 }
+
+// #9657: a reviewed prompt is the preview's text with its contracts, and it is sent as the review showed it. An edit
+// that takes words out of a contract (a refused face's "a bead of sweat") stays out, and no contract is doubled.
+{
+  const { createServer } = await import("node:http");
+  const { getDB } = await import("../../../packages/server/src/db/connection.js");
+  const { createConnectionsStorage } =
+    await import("../../../packages/server/src/services/storage/connections.storage.js");
+  const sent: string[] = [];
+  const answer = (await encodeRaw(solidImage(64, 64, [0, 255, 0, 255]), 64, 64)).toString("base64");
+  const provider = createServer(async (request, response) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.from(chunk));
+    sent.push(String(JSON.parse(Buffer.concat(chunks).toString()).prompt));
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ data: [{ b64_json: answer }] }));
+  });
+  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+  const address = provider.address();
+  assert.ok(address && typeof address === "object");
+  const db = await getDB();
+  const app = requireFromServer("fastify")();
+  app.decorate("db", db);
+  await app.register(spritesRoutes);
+  const count = (text: string, heading: string) => text.split(heading).length - 1;
+  try {
+    const connections = createConnectionsStorage(db);
+    // GPT Image 2 draws both faces in one sheet; GPT Image 1 draws each face on its own.
+    for (const model of ["gpt-image-2", "gpt-image-1"]) {
+      const connection = await connections.create({
+        name: model,
+        provider: "image_generation",
+        imageGenerationSource: "openai",
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        apiKey: "fixture-key",
+        model,
+      });
+      const body = {
+        connectionId: connection!.id,
+        appearance: "silver hair, red coat",
+        expressions: ["grief", "nervousness"],
+        cols: 2,
+        rows: 1,
+        spriteType: "expressions",
+        noBackground: true,
+        talkingHeadFaces: true,
+      };
+      const preview = await app.inject({ method: "POST", url: "/generate-sheet/preview", payload: body });
+      assert.equal(preview.statusCode, 200, preview.body);
+      const items = preview.json().items as Array<{ id: string; prompt: string; negativePrompt?: string }>;
+      assert.equal(items.length, model === "gpt-image-2" ? 1 : 2);
+      assert.ok(
+        items.some((item) => item.prompt.includes(", a bead of sweat")),
+        "the review shows the face's look",
+      );
+
+      sent.length = 0;
+      const plain = await app.inject({ method: "POST", url: "/generate-sheet", payload: body });
+      assert.equal(plain.statusCode, 200, plain.body);
+      assert.equal(sent.length, items.length);
+      for (const prompt of sent) {
+        assert.equal(count(prompt, "MANDATORY TALKING-HEAD FACES"), 1, `${model}: a plain request has the rule once`);
+        assert.equal(count(prompt, "MANDATORY BACKGROUND CONTRACT"), 1, `${model}: and the background contract once`);
+      }
+
+      sent.length = 0;
+      const edited = items.map((item) => ({ ...item, prompt: item.prompt.replace(", a bead of sweat", "") }));
+      const reviewed = await app.inject({
+        method: "POST",
+        url: "/generate-sheet",
+        payload: { ...body, promptOverrides: edited },
+      });
+      assert.equal(reviewed.statusCode, 200, reviewed.body);
+      assert.equal(sent.length, items.length);
+      for (const [index, prompt] of sent.entries()) {
+        assert.ok(prompt.startsWith(edited[index]!.prompt), `${model}: the reviewed prompt is sent as it was left`);
+        assert.equal(count(prompt, "MANDATORY TALKING-HEAD FACES"), 1, `${model}: the rule is not added again`);
+        assert.equal(count(prompt, "MANDATORY BACKGROUND CONTRACT"), 1, `${model}: nor the background contract`);
+        assert.doesNotMatch(prompt, /a bead of sweat/u, `${model}: words taken out of a contract stay out`);
+      }
+    }
+  } finally {
+    await app.close();
+    provider.closeAllConnections();
+    await new Promise<void>((resolve, reject) => provider.close((error) => (error ? reject(error) : resolve())));
+  }
+}

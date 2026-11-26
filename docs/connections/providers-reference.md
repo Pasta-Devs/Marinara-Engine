@@ -25,6 +25,8 @@ These services use an API key, except the three subscription services, which use
 | Arli AI | `www.arliai.com/account` |
 | Z.AI | `z.ai/manage-apikey/apikey-list` |
 | DeepSeek | `platform.deepseek.com/api_keys` |
+| AI Horde | `aihorde.net/register` (optional, see [AI Horde](#ai-horde)) |
+| BeaverNet | `net.beaverai.org/account` |
 | OpenAI-compatible, Claude (Subscription), OpenAI (ChatGPT), Grok CLI (Subscription) | No key page. See the notes below. |
 
 Default addresses, which Marinara fills in for you:
@@ -42,6 +44,8 @@ Default addresses, which Marinara fills in for you:
 - Arli AI: `https://api.arliai.com/v1`
 - Z.AI: `https://api.z.ai/api/paas/v4`
 - DeepSeek: `https://api.deepseek.com/v1`
+- AI Horde: `https://oai.aihorde.net/v1`
+- BeaverNet: `https://net.beaverai.org/v1`
 - OpenAI-compatible and the subscription services: none. You enter an address, or none is needed.
 
 All key pages start with `https://`.
@@ -81,7 +85,20 @@ An aggregator is a service where one key reaches models from many companies. Ope
 **OpenRouter** is an aggregator with two extra options in the model editor:
 
 - **Preferred provider** forces routing to one named backend. The name must match the one on the OpenRouter models page. Leave it empty for automatic routing.
-- **Enable prompt caching** sends caching hints for Claude models routed through OpenRouter. Most other models cache on their own.
+- **Enable prompt caching** marks the parts of the prompt that the model can reuse for your next message, so long chats cost less. It starts on for each model you add to an OpenRouter account. What it marks depends on the model:
+
+| Model | What is cached | How long |
+| --- | --- | --- |
+| Claude | The system prompt, the chat history up to **Cache depth**, and the newest message | 5 minutes, or 1 hour with **Extended token caching (1 hour)** |
+| Qwen | The system prompt and the chat history up to **Cache depth** | 5 minutes |
+| Gemini | The system prompt | 5 minutes |
+| GPT, DeepSeek, Grok, Kimi and others | The service caches on its own, with or without the switch | Set by the service |
+
+Marinara also asks OpenRouter to keep each chat on one backend, so the cache from your last message is still there. This works with the switch off too. A **Preferred provider** pins the backend instead.
+
+Caching saves the most when the start of the prompt stays the same between messages. See [Prompt caching](../prompts/conditional-prompts.md#prompt-caching).
+
+> **Note:** Writing to the cache costs more than regular input, for example 1.25 times for Claude's 5-minute cache and 2 times for its 1-hour cache. Reading from it costs much less. See OpenRouter's [prompt caching guide](https://openrouter.ai/docs/guides/best-practices/prompt-caching).
 
 ### NanoGPT
 
@@ -121,7 +138,9 @@ The same meter shows under the context bar in a chat's connection picker and in 
 
 ### Z.AI
 
-**Z.AI** serves the GLM models (GLM 5.3, GLM 5.3 Flash, and earlier) on its own API. GLM 5.2 and 5.3 models accept the **Maximum** reasoning level. The default address is the pay-as-you-go endpoint. Z.AI's Coding Plan uses a different endpoint, so a Coding Plan key may not work here.
+**Z.AI** serves the GLM models (GLM 5.4, GLM 5.3, GLM 5.3 Flash, and earlier) on its own API. GLM 5.2, 5.3, and 5.4 models accept the **Maximum** reasoning level. The default address is the pay-as-you-go endpoint. Z.AI's Coding Plan uses a different endpoint, so a Coding Plan key may not work here.
+
+GLM 5.4 is only on the GLM Coding Plan. To use it, set the account's **Address** to `https://api.z.ai/api/coding/paas/v4`. GLM 5.4 always thinks, so its **Reasoning Effort** offers **Low**, **High**, and **Max**, with no **Off**.
 
 ### DeepSeek
 
@@ -130,6 +149,18 @@ The same meter shows under the context bar in a chat's connection picker and in 
 Some parameters do not apply, so the panel leaves them out: **Verbosity**, **Top K**, and the penalties are retired and ignored. **Temperature** and **Top P** are a pair, because DeepSeek uses one at a time. You see **Temperature** when thinking is off and **Top P** when it is on.
 
 Connect DeepSeek with its own tile, not by pointing **OpenAI** at DeepSeek's address. The OpenAI service expects OpenAI's models, so it hides the generation controls for a DeepSeek model and sends almost none of your settings.
+
+### AI Horde
+
+**AI Horde** is a free network where volunteers run models on their own computers. Its tile sets up an **OpenAI-compatible** account with AI Horde's address.
+
+The **API key** field starts with the anonymous key `0000000000`, which works without an account. Anonymous requests wait longest in the queue. A free key from `aihorde.net/register` waits less, and you earn kudos (Horde points that move your requests up the queue) when you share your own computer with the network.
+
+The model list shows the models that volunteers run at the moment, so it changes often. The queue decides how long a reply takes: a few seconds, or several minutes. If a reply times out, try another model, or raise the server's time limits (see [Timeouts](#timeouts)).
+
+### BeaverNet
+
+**BeaverNet** is a free community network: people with spare graphics cards run models, and everyone else uses them. Its tile sets up an **OpenAI-compatible** account with BeaverNet's address. Create a free key at `net.beaverai.org/account`.
 
 ### OpenAI-compatible
 
@@ -160,7 +191,7 @@ Under **Voice**, an audio service speaks character voices and narration. Pick an
 
 Each source fills in a default address and model. **Default voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line. Raise it for a slow voice server.
 
-To choose the speech account Marinara uses by default, click the **Voice** row in the **Jobs** box. To read messages aloud with one, pick its model on the **Voice** row. See [Text to Speech (TTS) Setup](../media/tts-setup.md) and [Use a Voice model from an account](../media/tts-setup.md#use-a-voice-model-from-an-account).
+To choose the speech account Marinara uses by default, click **Voice** on the **Jobs** page. To read messages aloud with one, pick its model for **Voice**. See [Text to Speech (TTS) Setup](../media/tts-setup.md) and [Use a Voice model from an account](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 ## Music & Sound Effects
 
@@ -188,7 +219,7 @@ Embeddings turn text into lists of numbers so Marinara can find related text. Th
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)**, and **Grok CLI (Subscription)** cannot make embeddings. For those, use the **Embedding provider** dropdown to borrow another account, such as an OpenAI-compatible one, **Google Gemini**, or the **Built-in model**.
 
-To use one embedding source for every account that has no embedding settings of its own, click the **Embeddings** row in the **Jobs** box. **Marinara's own search** keeps the built-in embedding model. An account's own embedding model or **Embedding provider** still wins. Vectorize your lorebooks and memories again after you change it. See [Semantic Search for Lorebooks](../lorebooks/semantic-search.md).
+To use one embedding source for every account that has no embedding settings of its own, click **Embeddings** on the **Jobs** page. **Marinara's own search** keeps the built-in embedding model. An account's own embedding model or **Embedding provider** still wins. Vectorize your lorebooks and memories again after you change it. See [Semantic Search for Lorebooks](../lorebooks/semantic-search.md).
 
 ## Timeouts
 

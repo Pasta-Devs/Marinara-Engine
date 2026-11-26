@@ -155,6 +155,8 @@ export function buildCommittedTrackerContextBlock(args: {
   chatMetadata: Record<string, unknown>;
   wrapFormat: WrapFormat;
   excludeAgentIds?: ReadonlySet<string>;
+  /** Leave out the Markdown line telling the narrator not to re-describe this state. */
+  omitNarratorNote?: boolean;
 }): string | null {
   if (!args.chatEnableAgents || args.activeAgentIds.length === 0) return null;
 
@@ -279,7 +281,33 @@ export function buildCommittedTrackerContextBlock(args: {
     ? `Context:\n${trackerParts.join("\n\n")}`
     : args.wrapFormat === "xml"
       ? `<context>\n${trackerParts.map((part) => "    " + part.replace(/\n/g, "\n    ")).join("\n")}\n</context>`
-      : `# Context\n*(Established state as of the last message. Do not re-describe — advance from here.)*\n${trackerParts.join("\n")}`;
+      : `# Context\n${args.omitNarratorNote ? "" : "*(Established state as of the last message. Do not re-describe — advance from here.)*\n"}${trackerParts.join("\n")}`;
+}
+
+/**
+ * Each active tracker's saved state, by agent type, as its preset Agent Data section shows it.
+ * Agents read it without the narrator's Markdown note; preset sections pass `omitNarratorNote: false`.
+ */
+export function buildCommittedTrackerSections(args: {
+  chatEnableAgents: boolean;
+  activeAgentIds: Iterable<string>;
+  latestGameState: GameStateSnapshotLike | null | undefined;
+  beholderState?: unknown;
+  wrapFormat: WrapFormat;
+  omitNarratorNote?: boolean;
+}): Record<string, string> {
+  const sections: Record<string, string> = {};
+  for (const agentType of new Set(args.activeAgentIds)) {
+    const content = buildCommittedTrackerContextBlock({
+      ...args,
+      activeAgentIds: [agentType],
+      // Player notes belong to the shared context, never to an individual tracker.
+      chatMetadata: {},
+      omitNarratorNote: args.omitNarratorNote ?? true,
+    });
+    if (content) sections[agentType] = content;
+  }
+  return sections;
 }
 
 export function injectCommittedTrackerContext(args: {
@@ -296,15 +324,10 @@ export function injectCommittedTrackerContext(args: {
   findTrackerContextInsertIndex(messages: PromptMessage[]): number;
 }): void {
   const placedAgentIds = new Set<string>();
-  if (args.placeSection && args.chatEnableAgents) {
-    for (const agentType of new Set(args.activeAgentIds)) {
-      const sectionContent = buildCommittedTrackerContextBlock({
-        ...args,
-        activeAgentIds: [agentType],
-        // Player notes belong to the shared context, never to an individual tracker.
-        chatMetadata: {},
-      });
-      if (sectionContent && args.placeSection(agentType, sectionContent)) placedAgentIds.add(agentType);
+  if (args.placeSection) {
+    const sections = buildCommittedTrackerSections({ ...args, omitNarratorNote: false });
+    for (const [agentType, sectionContent] of Object.entries(sections)) {
+      if (args.placeSection(agentType, sectionContent)) placedAgentIds.add(agentType);
     }
   }
   const contextBlock = buildCommittedTrackerContextBlock({

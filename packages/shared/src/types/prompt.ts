@@ -13,6 +13,24 @@ export function isStockMarinaraUniversalPreset(preset: { systemKey?: unknown }):
   return preset.systemKey === MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY;
 }
 
+/**
+ * Peek prompt only, never sent: where a block injected at a depth (the Author's Note, a World Info @depth entry)
+ * sits inside a final message that post-processing merged it into.
+ */
+export interface PeekPromptPart {
+  start: number;
+  end: number;
+  label: "authorsNote" | "worldInfo";
+  depth: number;
+}
+
+/** A final prompt message as Peek prompt receives it. */
+export interface PeekPromptMessage {
+  role: string;
+  content: string;
+  parts?: PeekPromptPart[];
+}
+
 /** Role for a prompt section. */
 export type PromptRole = "system" | "user" | "assistant";
 
@@ -36,6 +54,8 @@ export type MarkerType =
   | "current_scene_summary"
   | "recalled_scenes"
   | "recalled_messages"
+  /** Where Memory Recall puts recalled memories. Without one, they go right before the chat history. */
+  | "memory_recall"
   | "id_macro_cards"
   | "world_info_before"
   | "world_info_after"

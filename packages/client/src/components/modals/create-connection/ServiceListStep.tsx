@@ -29,6 +29,8 @@ import {
 const GOOD_NEWS = new Set<ServiceId>([
   "local_model",
   "openrouter",
+  "aihorde",
+  "beavernet",
   "openai_chatgpt",
   "claude_subscription",
   "grok_subscription",
@@ -84,7 +86,7 @@ export function ServiceListStep({
   const tagOf = (key: ServiceId) => {
     const media = mediaBackendOf(key);
     if (key === "local_model") return t("connections.add.tag.offline");
-    if (key === "openrouter") return t("connections.add.tag.free");
+    if (key === "openrouter" || key === "aihorde" || key === "beavernet") return t("connections.add.tag.free");
     if (key === "openai_chatgpt" || key === "claude_subscription" || key === "grok_subscription")
       return t("connections.add.tag.signIn");
     if (media && SELF_HOSTED.has(media.source)) return t("connections.add.tag.selfHosted");

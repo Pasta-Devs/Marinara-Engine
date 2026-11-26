@@ -1,10 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { openJobsPage } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 
-test("Add models for an old ElevenLabs row opens the Voice job picker instead of a blank modal", async ({ page, request }, info) => {
+test("Add models for an old ElevenLabs row opens the Voice job picker instead of a blank modal", async ({
+  page,
+  request,
+}, info) => {
   const response = await request.post("/api/connections", {
     data: {
       name: "ElevenLabs voice regression",
@@ -86,13 +90,13 @@ test("The Voice job turns Text to Speech on with a built-in source", async ({ pa
     });
     await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
     await page.goto("/");
-    const voice = page
-      .locator("[data-connections-panel]")
-      .filter({ visible: true })
-      .locator('[data-defaults-role="voice"]');
-    // The Voice job is the switch: off reads "Off", and a built-in choice On this device turns text to speech on.
+    const jobs = await openJobsPage(page);
+    const voice = jobs.locator('[data-defaults-role="voice"]');
+    // The Voice job is the switch: off, it is a chip in the Jobs page's Off row, and a built-in choice On this
+    // device turns text to speech on.
     await expect(voice.getByRole("button", { name: "Turn on", exact: true })).toHaveCount(0);
-    await expect(voice).toContainText("Off");
+    await expect(jobs.locator('[data-jobs-section="off"] [data-defaults-role="voice"]')).toBeVisible();
+    await expect(voice.locator("[data-defaults-tile]")).toHaveAccessibleName(/^Voice: Off\b/u);
     await voice.locator("[data-defaults-tile]").click();
     const picker = page.getByRole("dialog", { name: "Model for Voice", exact: true });
     // A phone shows the picker one view at a time and opens straight into a list of models; the built-in choices

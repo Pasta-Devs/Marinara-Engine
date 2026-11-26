@@ -1,19 +1,90 @@
 import assert from "node:assert/strict";
+import { capabilityPackageManager } from "../../../packages/server/src/services/capability-packages/package-manager.service.js";
 import { readFileSync } from "node:fs";
+import type { StampedCapabilityCatalogPackage } from "../../../packages/shared/src/schemas/capability-package.schema.js";
+import { buildMariAssistantPrompt } from "../../../packages/server/src/db/seed-mari.js";
 import {
+  buildOfficialCatalogPackageDetail,
+  MariDbService,
+} from "../../../packages/server/src/services/mari-db/mari-db.service.js";
+import {
+  appDataActionLooksReadOnly,
+  buildMariSystemPrompt,
+  isAppDataActionName,
   parseAssistantWorkspaceAction,
+  PROFESSOR_MARI_APP_DATA_ACTIONS,
   professorMariWorkspaceResponseFormat,
   resolveWorkspaceMutationVerification,
+  scrubInternalNames,
   auditWorkspaceCompletionClaim,
   workspaceTextClaimsMutationCompletion,
+  WORKSPACE_TOOL_DEFINITIONS,
   type WorkspaceCommandResult,
 } from "../../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import {
+  entriesFromCapabilityCatalog,
+  formatOfficialAgentCatalogBlock,
+  getCachedOfficialAgentCatalogEntries,
+  getOfficialAgentCatalogKnowledge,
+  lookupOfficialAgentCatalogPackage,
+  OFFICIAL_AGENT_CATALOG_SECTIONS,
   OFFICIAL_AGENT_KNOWLEDGE_ENTRIES,
   PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
+  PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE,
+  resetOfficialAgentCatalogCacheForTests,
 } from "../../../packages/server/src/services/professor-mari/official-agent-knowledge.js";
 import { type RegressionCase, runNamedCases } from "../fixtures/named-cases.js";
 import "../fixtures/regression-agent-definitions.js";
+
+function fakeCatalogPackage(opts: {
+  id: string;
+  name: string;
+  description: string;
+  category?: "writer" | "tracker" | "misc";
+  section?: NonNullable<StampedCapabilityCatalogPackage["store"]>["section"];
+  tagline?: string;
+  preview?: true;
+  homeBrowserTab?: boolean;
+  conversationGame?: boolean;
+}): StampedCapabilityCatalogPackage {
+  return {
+    category: opts.category ?? "misc",
+    iconUrl: `https://example.invalid/${opts.id}.png`,
+    manifest: {
+      schemaVersion: 2,
+      capabilityApi: { major: 1, minor: 836 },
+      builtAgainst: "2.5.1",
+      id: opts.id,
+      name: opts.name,
+      version: "1.0.0",
+      description: opts.description,
+      engine: { min: "2.5.0" },
+      kind: opts.conversationGame ? ["agent", "turn-game"] : ["agent"],
+      entrypoints: { client: "client.js" },
+      files: [{ path: "client.js", sha256: "a".repeat(64) }],
+      permissions: ["ui"],
+      restartRequired: false,
+      ...(opts.homeBrowserTab || opts.conversationGame
+        ? {
+            contributions: {
+              ...(opts.homeBrowserTab
+                ? {
+                    slots: ["home-browser-tab"],
+                    homeBrowserTab: { label: opts.name, iconPaths: ["client.js"] },
+                  }
+                : { slots: ["conversation-surface"] }),
+              ...(opts.conversationGame
+                ? { conversationGame: { command: `/${opts.id}`, aliases: [], playerLabel: opts.name } }
+                : {}),
+            },
+          }
+        : {}),
+    },
+    artifact: { url: `https://example.invalid/${opts.id}.zip`, sha256: "b".repeat(64), size: 1024 },
+    ...(opts.preview ? { preview: true as const } : {}),
+    ...(opts.section ? { store: { section: opts.section, tagline: opts.tagline ?? `${opts.name} tagline.` } } : {}),
+  };
+}
 
 const cases: RegressionCase[] = [
   {
@@ -29,38 +100,29 @@ const cases: RegressionCase[] = [
         /### First-party downloadable agents([\s\S]*?)### Agent result types/u,
       );
       const readme = readFileSync(new URL("../../../README.md", import.meta.url), "utf8");
-      const seededMariSource = readFileSync(
-        new URL("../../../packages/server/src/db/seed-mari.ts", import.meta.url),
-        "utf8",
-      );
-      const workspaceMariSource = readFileSync(
-        new URL("../../../packages/server/src/services/professor-mari/workspace-agent.service.ts", import.meta.url),
-        "utf8",
-      );
 
-      assert.equal(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.length, 39);
-      assert.equal(new Set(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.map((entry) => entry.id)).size, 39);
+      assert.equal(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.length, 46);
+      assert.equal(new Set(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.map((entry) => entry.id)).size, 46);
       assert.deepEqual(
         OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.find((entry) => entry.id === "noodle"),
         {
           id: "noodle",
           name: "Noodle",
-          category: "misc",
+          section: "apps",
           modes: "Home",
-          summary:
-            "adds the optional local Noodle timeline and NoodleR creator-and-fan roleplay feed in a dedicated Home tab",
+          summary: "A pretend social network for your characters",
         },
       );
       assert.ok(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.some((entry) => entry.id === "long-term-memory"));
       assert.ok(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.some((entry) => entry.id === "storyboard"));
       assert.deepEqual(
         Object.fromEntries(
-          (["writer", "tracker", "misc"] as const).map((category) => [
-            category,
-            OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.filter((entry) => entry.category === category).length,
+          OFFICIAL_AGENT_CATALOG_SECTIONS.map((section) => [
+            section,
+            OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.filter((entry) => entry.section === section).length,
           ]),
         ),
-        { writer: 6, tracker: 13, misc: 20 },
+        { apps: 6, games: 8, writing: 4, memory: 5, trackers: 9, adventure: 3, media: 5, alive: 6, more: 0 },
       );
       assert.ok(frontendAgentCatalog, "Frontend architecture is missing the first-party agent catalog");
       assert.deepEqual(
@@ -77,8 +139,20 @@ const cases: RegressionCase[] = [
         assert.ok(readme.includes(entry.name), `README agent catalog is missing ${entry.name}`);
       }
 
-      assert.match(seededMariSource, /\$\{PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE\}/u);
-      assert.match(workspaceMariSource, /\$\{PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE\}/u);
+      const customCatalog = "<official_agent_catalog>\nsentinel\n</official_agent_catalog>";
+      assert.ok(buildMariAssistantPrompt(customCatalog).includes(customCatalog));
+      assert.ok(buildMariSystemPrompt(customCatalog).includes(customCatalog));
+      assert.ok(PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE.includes("`agent.list`"));
+      assert.ok(PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE.includes("`agent.catalog.get`"));
+      assert.ok(!PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE.includes("agent.list"));
+      assert.ok(!PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE.includes("agent.catalog.get"));
+      assert.ok(
+        PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE.includes("Never claim an uninstalled agent is active."),
+      );
+      const workspaceMariSource = readFileSync(
+        new URL("../../../packages/server/src/services/professor-mari/workspace-agent.service.ts", import.meta.url),
+        "utf8",
+      );
       assert.match(workspaceMariSource, /"resultType":"image_prompt"/u);
       assert.match(workspaceMariSource, /"activationKeywords":\["IMG_PROMPT:"\]/u);
       assert.match(workspaceMariSource, /"trigger_image_generation":true/u);
@@ -565,6 +639,631 @@ const cases: RegressionCase[] = [
         }),
       );
       assert.equal(deferral.awaitingAuthorization, true);
+    },
+  },
+  {
+    name: "Live agent catalog formatter groups Organizer sections deterministically and marks previews",
+    run() {
+      const lifeSim = fakeCatalogPackage({
+        id: "modern-life-sim",
+        name: "Modern Life Sim",
+        section: "apps",
+        tagline: "A small-town life simulation.",
+        description: "Full description.",
+        preview: true,
+        homeBrowserTab: true,
+      });
+      const wordGame = fakeCatalogPackage({
+        id: "word-game-two",
+        name: "Word Game Two",
+        description: "First sentence explains the game. Second sentence adds detail.",
+        conversationGame: true,
+      });
+      const fallbackMisc = fakeCatalogPackage({
+        id: "mystery-pack",
+        name: "Mystery Pack",
+        description: "Adds something unexpected without store metadata.",
+      });
+
+      const first = formatOfficialAgentCatalogBlock(
+        entriesFromCapabilityCatalog({ packages: [wordGame, lifeSim, fallbackMisc] }),
+      );
+      const reversed = formatOfficialAgentCatalogBlock(
+        entriesFromCapabilityCatalog({ packages: [fallbackMisc, lifeSim, wordGame] }),
+      );
+      assert.equal(first, reversed, "catalog order must stay byte-identical across shuffled inputs");
+      assert.match(
+        first,
+        /^<official_agent_catalog>\nThe official Marinara Engine v2\.3\.0\+ catalog contains these 3 optional/u,
+      );
+      assert.match(
+        first,
+        /## Apps\n- Modern Life Sim \(package `modern-life-sim`; Home; preview\): A small-town life simulation\./u,
+      );
+      assert.match(
+        first,
+        /## Chat games\n- Word Game Two \(package `word-game-two`; Conversation\): First sentence explains the game\./u,
+      );
+      assert.match(
+        first,
+        /## More agents\n- Mystery Pack \(package `mystery-pack`\): Adds something unexpected without store metadata\./u,
+      );
+      assert.ok(first.includes("Do not describe About Me Keeper as an agent."));
+      assert.ok(!first.includes("## Trackers"), "empty sections must be omitted");
+    },
+  },
+  {
+    name: "Live catalog loader caches results, applies error cooldown, and falls back safely when offline",
+    async run() {
+      resetOfficialAgentCatalogCacheForTests();
+      try {
+        let nowMs = 1_000_000;
+        let fetchCount = 0;
+
+        const coldFallback = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            throw new Error("offline");
+          },
+        });
+        assert.equal(coldFallback.source, "fallback");
+        assert.equal(coldFallback.entries.length, 46);
+        assert.equal(fetchCount, 1);
+        assert.equal(getCachedOfficialAgentCatalogEntries().length, 46);
+
+        // Cooldown suppresses immediate retry after failure.
+        nowMs += 10_000;
+        const cooledDown = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            throw new Error("should not run");
+          },
+        });
+        assert.equal(cooledDown.source, "fallback");
+        assert.equal(fetchCount, 1);
+
+        // Once cooldown passes, a live catalog succeeds and replaces the fallback.
+        nowMs += 65_000;
+        const customPet = fakeCatalogPackage({
+          id: "saucelings-next",
+          name: "Saucelings Next",
+          section: "apps",
+          tagline: "An even smaller pet.",
+          description: "Desc.",
+        });
+        const liveFirst = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            return { packages: [customPet] };
+          },
+        });
+        assert.equal(liveFirst.source, "live");
+        assert.equal(fetchCount, 2);
+        assert.ok(liveFirst.block.includes("`saucelings-next`"));
+        assert.equal(getCachedOfficialAgentCatalogEntries()[0]?.id, "saucelings-next");
+
+        // Cache hit inside the 15-minute TTL does not call fetchCatalog.
+        nowMs += 5 * 60 * 1000;
+        const cachedHit = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            return { packages: [] };
+          },
+        });
+        assert.equal(cachedHit.source, "live");
+        assert.equal(fetchCount, 2);
+
+        // After TTL expiry, a failed refresh preserves the last-known live catalog.
+        nowMs += 16 * 60 * 1000;
+        const staleLiveFallback = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            throw new Error("github blip");
+          },
+        });
+        assert.equal(staleLiveFallback.source, "live");
+        assert.equal(fetchCount, 3);
+        assert.ok(staleLiveFallback.block.includes("`saucelings-next`"));
+
+        // After TTL expiry, an already-aborted wait must fall back to the bundled catalog rather than
+        // returning an expired cache marked as live without attempting refresh.
+        nowMs += 70_000;
+        const expiredPreAborted = new AbortController();
+        expiredPreAborted.abort();
+        const expiredAbortedResult = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          signal: expiredPreAborted.signal,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            return { packages: [] };
+          },
+        });
+        assert.equal(expiredAbortedResult.source, "fallback");
+        assert.equal(fetchCount, 3);
+      } finally {
+        resetOfficialAgentCatalogCacheForTests();
+      }
+    },
+  },
+  {
+    name: "Live catalog loader honors abort signal and deadline without blocking prompt assembly",
+    async run() {
+      resetOfficialAgentCatalogCacheForTests();
+      try {
+        let releaseSlowFetch: (() => void) | undefined;
+        let fetchCount = 0;
+
+        // Pre-aborted signal returns fallback immediately without invoking fetch.
+        const preAborted = new AbortController();
+        preAborted.abort();
+        const immediate = await getOfficialAgentCatalogKnowledge({
+          signal: preAborted.signal,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            return { packages: [] };
+          },
+        });
+        assert.equal(immediate.source, "fallback");
+        assert.equal(fetchCount, 0);
+
+        // In-flight wait stops promptly on signal abort while slow fetch later settles cleanly.
+        const activeController = new AbortController();
+        const abortedWait = getOfficialAgentCatalogKnowledge({
+          signal: activeController.signal,
+          fetchCatalog: () =>
+            new Promise((resolve) => {
+              releaseSlowFetch = () =>
+                resolve({
+                  packages: [
+                    fakeCatalogPackage({
+                      id: "late-pack",
+                      name: "Late Pack",
+                      section: "apps",
+                      tagline: "Loaded late.",
+                      description: "Loaded late.",
+                    }),
+                  ],
+                });
+            }),
+        });
+        activeController.abort();
+        const fromAbort = await abortedWait;
+        assert.equal(fromAbort.source, "fallback");
+        releaseSlowFetch?.();
+
+        // Short timeout returns fallback even when fetch takes longer.
+        resetOfficialAgentCatalogCacheForTests();
+        let releaseTimeoutFetch: (() => void) | undefined;
+        const timedOut = await getOfficialAgentCatalogKnowledge({
+          timeoutMs: 10,
+          fetchCatalog: () =>
+            new Promise((resolve) => {
+              releaseTimeoutFetch = () => resolve({ packages: [] });
+            }),
+        });
+        assert.equal(timedOut.source, "fallback");
+        releaseTimeoutFetch?.();
+      } finally {
+        resetOfficialAgentCatalogCacheForTests();
+      }
+    },
+  },
+  {
+    name: "Catalog package lookup resolves exact id, name, unambiguous partial, ambiguous candidates, and offline fallback",
+    async run() {
+      resetOfficialAgentCatalogCacheForTests();
+      try {
+        let fetchCount = 0;
+        const catalogPackages: StampedCapabilityCatalogPackage[] = [
+          fakeCatalogPackage({
+            id: "otome-forge",
+            name: "Otome Hearth",
+            section: "apps",
+            tagline: "An otome game made from your characters.",
+            description: "Full description for Otome Hearth with routes and affection tracking.",
+            homeBrowserTab: true,
+          }),
+          fakeCatalogPackage({
+            id: "story-tracker-alpha",
+            name: "Alpha Tracker",
+            section: "trackers",
+            category: "tracker",
+            tagline: "Tracks scenes.",
+            description: "Alpha tracker detailed copy.",
+          }),
+          fakeCatalogPackage({
+            id: "story-tracker-beta",
+            name: "Beta Tracker",
+            section: "trackers",
+            category: "tracker",
+            tagline: "Tracks beats.",
+            description: "Beta tracker detailed copy.",
+            preview: true,
+          }),
+        ];
+        const fetchCatalog = async () => {
+          fetchCount += 1;
+          return { packages: catalogPackages };
+        };
+
+        // Cold load caches both entries and raw packages; subsequent lookups reuse warm cache.
+        const byId = await lookupOfficialAgentCatalogPackage("otome-forge", { fetchCatalog });
+        assert.equal(byId.found, true);
+        if (byId.found) {
+          assert.equal(byId.source, "live");
+          assert.equal(byId.entry.name, "Otome Hearth");
+          assert.equal(
+            byId.package?.manifest.description,
+            "Full description for Otome Hearth with routes and affection tracking.",
+          );
+        }
+        assert.equal(fetchCount, 1);
+
+        const byName = await lookupOfficialAgentCatalogPackage("otome hearth", { fetchCatalog });
+        assert.equal(byName.found, true);
+        if (byName.found) assert.equal(byName.entry.id, "otome-forge");
+        assert.equal(fetchCount, 1, "warm cache must satisfy lookups without extra catalog fetches");
+
+        const byNormalizedId = await lookupOfficialAgentCatalogPackage("otome forge");
+        assert.equal(byNormalizedId.found, true);
+        if (byNormalizedId.found) assert.equal(byNormalizedId.entry.id, "otome-forge");
+
+        const byUnambiguousPartial = await lookupOfficialAgentCatalogPackage("alpha");
+        assert.equal(byUnambiguousPartial.found, true);
+        if (byUnambiguousPartial.found) assert.equal(byUnambiguousPartial.entry.id, "story-tracker-alpha");
+
+        const ambiguous = await lookupOfficialAgentCatalogPackage("tracker");
+        assert.equal(ambiguous.found, false);
+        if (!ambiguous.found) {
+          assert.equal(ambiguous.ambiguous, true);
+          assert.deepEqual(
+            ambiguous.candidates.map((candidate) => candidate.id),
+            ["story-tracker-alpha", "story-tracker-beta"],
+          );
+        }
+
+        const missing = await lookupOfficialAgentCatalogPackage("no-such-agent");
+        assert.equal(missing.found, false);
+        if (!missing.found) {
+          assert.equal(missing.ambiguous, false);
+          assert.deepEqual(missing.candidates, []);
+        }
+
+        // Offline fallback still resolves bundled entries when live fetch fails.
+        resetOfficialAgentCatalogCacheForTests();
+        const offline = await lookupOfficialAgentCatalogPackage("Blackjack", {
+          fetchCatalog: async () => {
+            throw new Error("offline");
+          },
+        });
+        assert.equal(offline.found, true);
+        if (offline.found) {
+          assert.equal(offline.source, "fallback");
+          assert.equal(offline.entry.id, "blackjack");
+          assert.equal(offline.package, undefined);
+        }
+
+        // Offline ambiguous candidates are sorted deterministically by name, then id (not section order).
+        const offlineAmbiguous = await lookupOfficialAgentCatalogPackage("o");
+        assert.equal(offlineAmbiguous.found, false);
+        if (!offlineAmbiguous.found) {
+          assert.equal(offlineAmbiguous.ambiguous, true);
+          const candidateNames = offlineAmbiguous.candidates.map((candidate) => candidate.name);
+          assert.ok(candidateNames.indexOf("Background") >= 0);
+          assert.ok(candidateNames.indexOf("Noodle") > candidateNames.indexOf("Background"));
+        }
+      } finally {
+        resetOfficialAgentCatalogCacheForTests();
+      }
+    },
+  },
+  {
+    name: "agent.catalog.get builds bounded package details, classifies read-only, and integrates with MariDbService",
+    async run() {
+      resetOfficialAgentCatalogCacheForTests();
+      try {
+        // Workspace registration, read-only classification, and internal-name scrubbing.
+        assert.ok(PROFESSOR_MARI_APP_DATA_ACTIONS.includes("agent.catalog.get"));
+        assert.ok(PROFESSOR_MARI_APP_DATA_ACTIONS.includes("agent.documentation.get"));
+        assert.equal(appDataActionLooksReadOnly("agent.documentation.get"), true);
+        assert.equal(isAppDataActionName("agent.documentation.get"), true);
+        assert.equal(isAppDataActionName("agent.catalog.get"), true);
+        assert.equal(appDataActionLooksReadOnly("agent.catalog.get"), true);
+        const scrubbed = scrubInternalNames("I checked agent.catalog.get before answering.");
+        assert.ok(!scrubbed.includes("agent.catalog.get"));
+        assert.ok(scrubbed.includes("the agent catalog"));
+        const appDataTool = WORKSPACE_TOOL_DEFINITIONS.find((tool) => tool.name === "app_data");
+        const appDataActions = (
+          appDataTool?.parameters as { properties?: { action?: { enum?: readonly string[] } } } | undefined
+        )?.properties?.action?.enum;
+        assert.ok(appDataActions?.includes("agent.catalog.get"));
+        assert.ok(PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE.includes("`agent.catalog.get` (`id` or `name`)"));
+
+        // agent.catalog.get reads the official catalog, not saved DB state, so it must never mark an
+        // earlier unverified write without readBack as verified.
+        const agentWriteWithoutReadBack: WorkspaceCommandResult = {
+          id: "create-agent",
+          name: "app_data",
+          input: { action: "agent.create" },
+          output: '{"saved": true}',
+          success: true,
+        };
+        const catalogReadResult: WorkspaceCommandResult = {
+          id: "read-catalog",
+          name: "app_data",
+          input: { action: "agent.catalog.get", id: "otome-forge" },
+          output: '{"id":"otome-forge"}',
+          success: true,
+        };
+        assert.equal(
+          resolveWorkspaceMutationVerification([agentWriteWithoutReadBack, catalogReadResult]),
+          "unverified",
+        );
+        assert.equal(
+          resolveWorkspaceMutationVerification([
+            agentWriteWithoutReadBack,
+            { ...catalogReadResult, input: { action: "agent.documentation.get", id: "otome-forge" } },
+          ]),
+          "unverified",
+        );
+        assert.equal(
+          resolveWorkspaceMutationVerification([
+            agentWriteWithoutReadBack,
+            { ...catalogReadResult, input: { action: "agent.get", id: "agent-1" } },
+          ]),
+          "verified",
+        );
+
+        const otomePkg = fakeCatalogPackage({
+          id: "otome-forge",
+          name: "Otome Hearth",
+          section: "apps",
+          tagline: "An otome game made from your characters.",
+          description: "Detailed otome app with routes, choices, and persistent affection state.",
+          homeBrowserTab: true,
+        });
+        otomePkg.documentationUrl = "https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/otome-forge";
+        otomePkg.manifest.version = "1.4.0";
+        otomePkg.manifest.permissions = ["network", "routes", "storage", "ui"];
+
+        // Unit detail builder: installed Home app with newer catalog version + release notes capped to 3.
+        const liveDetail = await buildOfficialCatalogPackageDetail("Otome Hearth", {
+          lookup: async () => ({
+            found: true,
+            source: "live",
+            entry: {
+              id: "otome-forge",
+              name: "Otome Hearth",
+              section: "apps",
+              modes: "Home",
+              summary: "An otome game made from your characters",
+            },
+            package: otomePkg,
+          }),
+          getInstalled: async () => [
+            {
+              id: "otome-forge",
+              version: "1.2.0",
+              manifest: otomePkg.manifest,
+              installedAt: "2026-11-01T00:00:00.000Z",
+              status: "active",
+              error: null,
+              readiness: "ready",
+              readinessError: null,
+              legacy: false,
+            },
+          ],
+          getReleaseNotes: async () => [
+            { version: "1.4.0", date: "2026-11-20", notes: "Added route skip", highlight: true },
+            { version: "1.3.0", date: "2026-11-10", notes: "Added cg gallery", highlight: false },
+            { version: "1.2.0", date: "2026-11-01", notes: "Bug fixes", highlight: false },
+            { version: "1.1.0", date: "2026-10-20", notes: "Initial fixes", highlight: false },
+          ],
+          getDocumentation: async () => ({
+            packageId: "otome-forge",
+            packageVersion: "1.4.0",
+            guideId: "overview",
+            title: "Overview",
+            topics: [
+              { id: "overview", title: "Overview" },
+              { id: "routes", title: "Routes" },
+            ],
+            status: "available",
+            content: "x".repeat(20_000),
+          }),
+        });
+        assert.equal(liveDetail.ok, true, liveDetail.error);
+        assert.equal(liveDetail.output?.source, "live");
+        assert.equal(liveDetail.output?.id, "otome-forge");
+        assert.equal(liveDetail.output?.version, "1.4.0");
+        assert.deepEqual(liveDetail.output?.permissions, ["network", "routes", "storage", "ui"]);
+        assert.equal(liveDetail.output?.capabilityApi, "1.836");
+        assert.equal(liveDetail.output?.installed, true);
+        assert.equal(liveDetail.output?.installedVersion, "1.2.0");
+        assert.equal(liveDetail.output?.updateAvailable, true);
+        assert.equal((liveDetail.output?.releaseNotes as unknown[])?.length, 3);
+        const overview = liveDetail.output?.documentation as {
+          content: string;
+          truncated: boolean;
+          referenceOnly: boolean;
+          topics: unknown[];
+        };
+        assert.equal(overview.content.length, 8_000);
+        assert.equal(overview.truncated, true);
+        assert.equal(overview.referenceOnly, true);
+        assert.equal(overview.topics.length, 2);
+
+        // Slow/hanging release notes time out within budget without keeping Node handles open.
+        let releaseSlowNotes: (() => void) | undefined;
+        const notesTimedOut = await buildOfficialCatalogPackageDetail("otome-forge", {
+          lookup: async () => ({
+            found: true,
+            source: "live",
+            entry: {
+              id: "otome-forge",
+              name: "Otome Hearth",
+              section: "apps",
+              summary: "An otome game made from your characters",
+            },
+            package: otomePkg,
+          }),
+          getInstalled: async () => [],
+          getReleaseNotes: () =>
+            new Promise((resolve) => {
+              releaseSlowNotes = () => resolve([]);
+            }),
+          releaseNotesTimeoutMs: 10,
+        });
+        releaseSlowNotes?.();
+        assert.equal(notesTimedOut.ok, true);
+        assert.deepEqual(notesTimedOut.output?.releaseNotes, []);
+
+        // Offline fallback omits manifest permissions/version cleanly and never blocks on release notes.
+        // A rejected installed() read keeps install/update status unknown (null), while an empty registry reports false.
+        let offlineReleaseNotesCalls = 0;
+        const fallbackUnknownInstall = await buildOfficialCatalogPackageDetail("blackjack", {
+          lookup: async () => ({
+            found: true,
+            source: "fallback",
+            entry: {
+              id: "blackjack",
+              name: "Blackjack",
+              section: "games",
+              modes: "Conversation",
+              summary: "Conversation game: play blackjack against the house",
+            },
+          }),
+          getInstalled: async () => {
+            throw new Error("no registry");
+          },
+          getReleaseNotes: async () => {
+            offlineReleaseNotesCalls += 1;
+            return [];
+          },
+        });
+        assert.equal(offlineReleaseNotesCalls, 0);
+        assert.equal(fallbackUnknownInstall.ok, true);
+        assert.equal(fallbackUnknownInstall.output?.source, "fallback");
+        assert.equal(fallbackUnknownInstall.output?.installed, null);
+        assert.equal(fallbackUnknownInstall.output?.updateAvailable, null);
+        assert.deepEqual(fallbackUnknownInstall.output?.releaseNotes, []);
+        assert.match(String(fallbackUnknownInstall.output?.note ?? ""), /bundled summary/i);
+
+        const fallbackNotInstalled = await buildOfficialCatalogPackageDetail("blackjack", {
+          lookup: async () => ({
+            found: true,
+            source: "fallback",
+            entry: {
+              id: "blackjack",
+              name: "Blackjack",
+              section: "games",
+              modes: "Conversation",
+              summary: "Conversation game: play blackjack against the house",
+            },
+          }),
+          getInstalled: async () => [],
+          getReleaseNotes: async () => {
+            offlineReleaseNotesCalls += 1;
+            return [];
+          },
+        });
+        assert.equal(offlineReleaseNotesCalls, 0);
+        assert.equal(fallbackNotInstalled.ok, true);
+        assert.equal(fallbackNotInstalled.output?.installed, false);
+        assert.equal(fallbackNotInstalled.output?.updateAvailable, false);
+
+        // Empty query returns validation error before any lookup.
+        const missingArg = await buildOfficialCatalogPackageDetail("   ");
+        assert.equal(missingArg.ok, false);
+        assert.match(String(missingArg.error ?? ""), /Provide a catalog package/i);
+
+        // MariDbService.executeAction end-to-end against warm live cache.
+        await getOfficialAgentCatalogKnowledge({
+          forceRefresh: true,
+          fetchCatalog: async () => ({
+            packages: [
+              fakeCatalogPackage({
+                id: "test-home-app",
+                name: "Test Home App",
+                section: "apps",
+                tagline: "Short summary.",
+                description: "Long description from live package manifest.",
+                homeBrowserTab: true,
+              }),
+              fakeCatalogPackage({
+                id: "test-game-one",
+                name: "Test Game One",
+                section: "games",
+                conversationGame: true,
+                tagline: "First test game.",
+                description: "First test game.",
+              }),
+              fakeCatalogPackage({
+                id: "test-game-two",
+                name: "Test Game Two",
+                section: "games",
+                conversationGame: true,
+                tagline: "Second test game.",
+                description: "Second test game.",
+              }),
+            ],
+          }),
+        });
+        const mariDb = new MariDbService(null as never);
+        const missingCall = await mariDb.executeAction({ action: "agent.catalog.get" } as never);
+        assert.equal(missingCall.ok, false);
+        assert.equal(missingCall.mode, "read");
+
+        const ambiguousCall = await mariDb.executeAction({
+          action: "agent.catalog.get",
+          query: "Test Game",
+        } as never);
+        assert.equal(ambiguousCall.ok, false);
+        assert.equal(ambiguousCall.mode, "read");
+        assert.equal(((ambiguousCall.output as { candidates?: unknown[] } | undefined)?.candidates ?? []).length, 2);
+
+        const foundCall = await mariDb.executeAction({
+          action: "agent.catalog.get",
+          name: "Test Home App",
+        } as never);
+        assert.equal(foundCall.ok, true, foundCall.error);
+        assert.equal(foundCall.mode, "read");
+        const foundOutput = foundCall.output as Record<string, unknown>;
+        assert.equal(foundOutput.source, "live");
+        assert.equal(foundOutput.id, "test-home-app");
+        assert.equal(foundOutput.description, "Long description from live package manifest.");
+        assert.equal(foundOutput.capabilityApi, "1.836");
+        const originalDocumentation = capabilityPackageManager.documentation;
+        try {
+          capabilityPackageManager.documentation = async (id, guide = "overview") => ({
+            packageId: id,
+            guideId: guide,
+            title: "Setup",
+            topics: [{ id: "setup", title: "Setup" }],
+            status: "available",
+            content: "# Setup\n\n## First steps\nPick a character.\n\n## Next\nMore.",
+          });
+          const guideCall = await mariDb.executeAction({
+            action: "agent.documentation.get",
+            id: "test-home-app",
+            guide: "setup",
+            heading: "First steps",
+          } as never);
+          assert.equal(guideCall.ok, true, guideCall.error);
+          assert.equal(guideCall.mode, "read");
+          assert.match((guideCall.output as { content: string }).content, /Pick a character/u);
+          assert.doesNotMatch((guideCall.output as { content: string }).content, /More\./u);
+        } finally {
+          capabilityPackageManager.documentation = originalDocumentation;
+        }
+      } finally {
+        resetOfficialAgentCatalogCacheForTests();
+      }
     },
   },
 ];

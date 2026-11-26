@@ -6,7 +6,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
-import { hideExistingItems, showConnectionsList } from "./connections-panel.js";
+import { hideExistingItems, panelSearch, showConnectionsList } from "./connections-panel.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -263,8 +263,8 @@ test("the panel list shows each Connection's Models open, and its row or toggle 
     await expect(model).toBeVisible();
 
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
-    const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
-    await search.fill("E2E open models");
+    // With 8 Models or more the fold below runs on a filtered list (panelSearch checks the box either way).
+    await (await panelSearch(panel))?.fill("E2E open models");
     await toggle.click();
     await expect(model).toHaveCount(0);
     await toggle.click();
@@ -512,6 +512,29 @@ test("the Add window lists providers by what they give; one search finds a provi
   // A word that is not in the name still finds it (Codex is the ChatGPT sign-in).
   await search.fill("codex");
   await expect(tile("openai_chatgpt")).toBeVisible();
+
+  // AI Horde and BeaverNet are online OpenAI-compatible services: their tiles fill in the address, and AI Horde its
+  // anonymous key, whose note goes away once the user pastes a key of their own.
+  await page.route("**/api/connections/check", (route) => route.fulfill({ json: { supported: false } }));
+  await search.fill("stable horde");
+  await expect(tile("aihorde")).toContainText("Free models");
+  await tile("aihorde").click();
+  const key = dialog.getByLabel("API key", { exact: true });
+  await expect(key).toHaveValue("0000000000");
+  await expect(dialog.getByText(/The anonymous key is filled in/)).toBeVisible();
+  await expect(dialog.getByLabel("Address", { exact: true })).toHaveValue("https://oai.aihorde.net/v1");
+  await expect(dialog.getByRole("link", { name: /Where do I find my key\?/ })).toHaveAttribute(
+    "href",
+    "https://aihorde.net/register",
+  );
+  await key.fill("own-horde-key");
+  await expect(dialog.getByText(/The anonymous key is filled in/)).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Back", exact: true }).click();
+  await search.fill("beaver");
+  await tile("beavernet").click();
+  await expect(dialog.getByLabel("API key", { exact: true })).toHaveValue("");
+  await expect(dialog.getByLabel("Address", { exact: true })).toHaveValue("https://net.beaverai.org/v1");
+  await dialog.getByRole("button", { name: "Back", exact: true }).click();
 
   // No match says so and offers the custom address.
   await search.fill("zzzz");

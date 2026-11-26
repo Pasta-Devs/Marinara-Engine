@@ -12,7 +12,7 @@ An API key is a secret code a service gives you so Marinara can use your account
 4. Click **Connect**. Marinara tests the account.
 5. Under **Found in … — use it for:**, tick **Images**. If the service has no model list, type the model ID in the row. Click **Done**.
 6. Open the image model and click **Test image**. Marinara makes a small test picture.
-7. Ticking **Images** in step 5 also sets the **Images** job in the **Jobs** box at the top of the **Connections** panel. To change it later, click the **Images** row.
+7. Ticking **Images** in step 5 also sets the **Images** job on the **Jobs** page of the **Connections** panel. To change it later, click **Images** there.
 
 To add another image model to an account, click **⋯** on the account's row and choose **Add model**. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) for the full window.
 
@@ -66,7 +66,7 @@ Notes for the simple services:
 - **Together AI**: FLUX and other open image models.
 - **OpenRouter Images**: reaches image models through OpenRouter's chat interface, so the models vary by account.
 - **xAI / Grok Imagine**: uses Grok Imagine.
-- **NanoGPT**: an aggregator, so use its model list.
+- **NanoGPT**: an aggregator, so use its model list. Marinara sends each model the sizes NanoGPT lists for it, for example `1.5k` with an aspect ratio instead of `1344x768`, and only as many reference images as the model takes. If a model refuses a negative prompt, Marinara draws the picture without one and logs a warning on the server.
 - **Pollinations**: the fastest way to try image generation. No account needed.
 - **Stable Horde**: a crowdsourced network. A free key gives higher queue priority.
 - **SD Web UI** and **Draw Things**: start the software with its application interface turned on. Marinara treats Draw Things like an AUTOMATIC1111 server (the app runs on macOS or iOS).
@@ -113,7 +113,7 @@ It runs hosted Stable Diffusion models. A model is required, so type the name of
 
 ### NovelAI
 
-NovelAI focuses on anime-style art. On V4, V4.5 and V5 models, Marinara sends native per-character prompts with positions for multi-character storyboards and Illustrator scenes. Precise reference images work only on a V4.5 model.
+NovelAI focuses on anime-style art. On V4, V4.5 and V5 models, Marinara sends native per-character prompts with positions for multi-character storyboards, Illustrator scenes and Professor Mari's images. Precise reference images work on V4.5 and V5 models.
 
 ### Venice.ai
 
@@ -155,6 +155,20 @@ The **ComfyUI workflow (optional)** field can stay empty. Leave it empty to use 
 
 When a service returns a URL instead of image data, Marinara downloads public CDN URLs through its normal outbound-request checks. A private or loopback result URL is accepted only when its scheme, hostname and port exactly match the configured image service. Redirects from that origin cannot jump to another local service. If a local proxy stores results on a different private origin, make it serve those files through the same origin as its image API.
 
+## Edit an existing picture
+
+Open a picture in a gallery and choose **Regenerate image**. For an avatar, choose **Edit avatar** in a character or persona editor. Select an image model, then choose **Edit image**. The controls depend on the selected service:
+
+| Service                           | Whole-image edits | Painted-mask edits |
+| --------------------------------- | ----------------- | ------------------ |
+| Native NovelAI                    | Yes               | Yes                |
+| SD Web UI (AUTOMATIC1111 / Forge) | Yes               | Yes                |
+| Draw Things                       | Yes               | No                 |
+
+Change the prompt and **Strength**, then choose **Apply edit**. Where mask tools are available, paint the area to redraw and choose **Inpaint image**. **Noise** and **Reuse original seed** are available only for native NovelAI. Other services still support ordinary regeneration with a changed prompt.
+
+Edits use the displayed picture as their source canvas. Changing to a service without mask support clears the painted mask. An avatar edit stays a preview until you choose **Use as avatar**.
+
 ## ComfyUI workflow JSON and RunPod
 
 For **ComfyUI**, **SwarmUI** and **RunPod Serverless (ComfyUI)** a **ComfyUI workflow (optional)** or **(required)** field appears. Paste a workflow JSON you exported from ComfyUI with **Save (API Format)**, **Export (API)** or **Export to API**, depending on your ComfyUI version. It is optional for ComfyUI and SwarmUI and required for RunPod, which needs your RunPod API token as the API key, a **RunPod endpoint ID** and the workflow.
@@ -188,12 +202,14 @@ Every service has a **Seed** field. -1 keeps each image random. Any other number
 | ComfyUI               | Sampler         | euler_ancestral   |
 | ComfyUI               | Scheduler       | normal            |
 | ComfyUI               | Denoise         | 1                 |
-| NovelAI               | Steps           | 28                |
-| NovelAI               | Prompt guidance | 6                 |
+| NovelAI               | Steps           | Automatic         |
+| NovelAI               | Prompt guidance | Automatic         |
 | NovelAI               | Sampler         | k_euler_ancestral |
 | NovelAI               | Noise schedule  | karras            |
 
 Each service also has **Prompt prefix** and **Negative prefix** fields. Text there is added to the front of every prompt on this model. AUTOMATIC1111 / Forge and ComfyUI have a **Clip skip** field. AUTOMATIC1111 / Forge adds a **Restore faces** toggle. ComfyUI adds a toggle to upload a 1x1 placeholder when no reference image is given, which matters only for custom workflows with reference placeholders. NovelAI adds **Guidance rescale** and **UC preset**.
+
+NovelAI's **Steps** and **Prompt guidance** are empty by default, which means **Automatic**: Marinara sends NovelAI's own default for the model, shown in the empty field. That is 23 steps with guidance 7 on V5, guidance 5 on V4.5 and 5.5 on V4. Type a number to use your own. Clear the field to go back to automatic. A connection saved before this setting existed with the old built-in 28 steps or guidance 6 now uses the automatic value.
 
 NovelAI also has **Background dataset for backgrounds**, off by default. When it is on, background pictures (Character and Persona Gallery backgrounds, chat and Illustrator scene backgrounds, chat gallery location pictures and game backgrounds) start with NovelAI's `background dataset` tag on V4.5 and V5 models. NovelAI's background dataset leans photographic, so leave it off if your backgrounds should match an anime-style chat.
 
@@ -219,9 +235,9 @@ A reference image is an existing picture you send with your prompt, so the new i
 | ----------------------------------------------- | --------------------------------------------------------------------- |
 | OpenAI (DALL-E)                                 | Up to 16, GPT Image models only. None for a GIF                       |
 | ChatGPT (Codex login)                           | Up to 16                                                              |
-| NovelAI                                         | Up to 16, V4.5 model only                                             |
+| NovelAI                                         | Up to 16, V4.5 and V5 models only                                     |
 | xAI / Grok Imagine                              | Up to 3                                                               |
-| NanoGPT                                         | Up to 3                                                               |
+| NanoGPT                                         | Up to 3, within the model's limit. None for text-to-image models      |
 | ComfyUI, RunPod Serverless (ComfyUI), SwarmUI   | Up to 4, through workflow placeholders                                |
 | Stability AI, Arli AI, SD Web UI, Draw Things   | First image only, as image to image                                   |
 | Atlas Cloud                                     | First image, for compatible image-to-image, edit or Kontext model IDs |
@@ -230,7 +246,7 @@ A reference image is an existing picture you send with your prompt, so the new i
 | Venice.ai, Z.AI                                 | Not supported for text-to-image                                       |
 | Together AI, Pollinations, Stable Horde, fal.ai | Not supported                                                         |
 
-NovelAI precise reference works only on a V4.5 model such as `nai-diffusion-4-5-full`. NovelAI has not released Precise Reference for V5. If you ask for references on another model, Marinara renders without them and logs a warning on the server.
+NovelAI precise reference works on V4.5 and V5 models, such as `nai-diffusion-4-5-full` or `nai-diffusion-5-full`. On an older model, Marinara renders without the references and logs a warning on the server. V5 has no style fidelity, so it ignores **Style fidelity (V4.5 only)**. Each reference costs NovelAI's own price, 5 Anlas per picture.
 
 ## Queue media generation requests
 

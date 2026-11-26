@@ -101,6 +101,7 @@ A **Prompt Block** is text you write: system instructions, tone rules, anything 
 | **Lorebook Marker (All)** | All active lorebook entries. |
 | **Lorebook Marker (Before)** | Lorebook entries set to go before. |
 | **Lorebook Marker (After)** | Lorebook entries set to go after. |
+| **Memory Recall** | The memories [Memory Recall](../agents/memory.md) finds for each reply. Without this marker, they go right before the chat history. |
 
 A marker row shows a **MARKER** badge. You cannot type into most markers. Use **Lorebook Marker (All)** unless you want to split lorebook entries into before and after.
 
@@ -137,7 +138,7 @@ A group wraps several sections in one container.
 2. Click the group's name to rename it.
 3. Expand a section and pick the group in its **Group** dropdown.
 
-With **XML**, a group becomes one parent tag. With **MARKDOWN**, it becomes one heading. Deleting a group does not delete its sections. They only lose the group.
+With **XML**, a group becomes one parent tag. With **MARKDOWN**, it becomes one heading. Sections of one group that are not next to each other each get their own tag or heading. Deleting a group does not delete its sections. They only lose the group.
 
 ### Position and depth
 
@@ -176,6 +177,12 @@ Below the dropdown, a badge shows where the prompt comes from.
 The text box shows the prompt in use. Edit it to make a chat-local copy. If your text matches the preset or default exactly, Marinara treats it as not customized. While a custom edit exists, a reset icon appears (tooltip **Reset to default prompt**).
 
 Game chats add more controls. **Story style**, **Violence**, **Content boundaries** and **Rating guidelines** set what the game's story may contain. See [Change them during a game](../game/getting-started.md#change-them-during-a-game). Two more shape the prompt. **GM prompt style** replaces only the Game prompt, and a chat-local edit still wins. **Extra instructions** adds text to the Game prompt, up to 2000 characters, such as "Write in the style of Terry Pratchett."
+
+## Order sections for prompt caching
+
+Prompt caching lets a service reuse the start of a prompt it has already read, so long chats cost less and answer sooner. The service reuses the prompt only up to the first text that changed since the last message. Recalled memories change with almost every message, so in front of the chat history they keep the whole history out of the cache.
+
+To place them yourself, add a **Memory Recall** marker to the preset. Drag it below **Chat History**, or set its **Position** to **Depth (from end of chat)** to put it inside the history. Memories read before the story keep replies closer to them, so the default stays before the history.
 
 ## Decision blocks and prompt caching
 

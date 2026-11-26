@@ -346,12 +346,15 @@ Panels keep their state through a `mountedPanels` Set held in a `useState` insid
 | `GifPicker`        | GIF search via the Giphy API                                          |
 | `HelpTooltip`      | Hover icon that shows a portal-positioned tooltip                     |
 | `LibraryToolbar`   | The toolbar every library panel shares (see below)                    |
+| `EditorHeader`     | The header every full-page editor shares (see below)                  |
 
 All UI components use controlled props (value plus onChange) and portal rendering for overlays.
 
 **Library panels use `LibraryToolbar`.** Characters, Personas, Lorebooks, Agents and the Presets panel's tabs render their top controls through it: an optional library row (one full-width button, or the Download / Open Library pair), create / import / export / select, search with the shared sort menu, New Folder, then panel filters as `children`. The rows are typed props, not slots, so a new library panel gets the same markup instead of a copy that drifts. Add a prop there rather than hand-building a toolbar in a panel.
 
 `LibraryToolbar.tsx` also exports `SegmentedButtons`, one long `.mari-chrome-segmented` button split by `|`. It draws the Download / Open Library pair and the Presets panel's **Prompts** / **Regexes** / **Tools** / **Profiles** tabs, so every panel's top row has the same height. Passing `groupLabel` makes the row a `role="group"` of tabs, and `pressed` sets each tab's `aria-pressed`. `.mari-chrome-segmented` has `flex-shrink: 0`, so a panel's own fixed-height flex scroller (as in Characters) cannot squeeze the row.
+
+**Full-page editors use `EditorHeader`.** It draws Back, the icon tile, the name, the optional section tabs, the actions and Close, in one of two layouts. With `nav` (section tabs), the `mari-editor-header--with-nav` density rules size everything against the tabs. Without it, the actions get a row of their own on phones, and Save shows only its icon there. The name, the tile's content and the buttons are slots, so each editor keeps its own name field and its own controls. Build header buttons with `EditorSaveButton` and `EditorHeaderAction`: their label is always both the tooltip and the accessible name. Add a slot or a part there rather than hand-building a header in an editor.
 
 ## API client (`lib/api-client.ts`)
 
@@ -649,17 +652,24 @@ The lightweight Engine ships with an empty runtime agent registry. Packages inst
 | `haptic`                 | post_processing | Sends haptic device commands                                      |
 | `cyoa`                   | post_processing | Generates choice prompts                                          |
 | `storyboard`             | post_processing | Plans still or animated Game and Roleplay storyboards             |
+| `2d-avatars`             | feature         | Renders animated 2D sprite or mesh character avatars              |
+| `3d-avatars`             | feature         | Renders animated VRM, MMD PMX, GLB, and FBX 3D avatars            |
 | `conversation-calls`     | feature         | Adds Conversation audio/video calls and related settings          |
 | `hierarchical-maps`      | feature         | Adds Roleplay/Game maps, spatial context, and movement             |
 | `noodle`                 | feature         | Adds the local Noodle social feed to Home                         |
+| `otome-forge`            | feature         | Adds Otome Hearth, an otome game made from characters, to Home    |
+| `saucelings`             | feature         | Adds Saucelings, a virtual pet raised by characters, to Home      |
 | `slurp2`                 | feature         | Adds Slurp, a private creator app for characters, to Home         |
+| `story-writer`           | feature         | Adds Story Writer, a co-writing book workspace, to Home           |
 | `gacha-forge`            | feature         | Adds a gacha game mode to Home                                    |
+| `blackjack`              | feature         | Adds the Conversation Blackjack table                             |
 | `uno`                    | feature         | Adds the Conversation UNO table                                   |
 | `chess`                  | feature         | Adds the Conversation Chess board                                 |
 | `poker`                  | feature         | Adds the Conversation Texas Hold'em table                         |
 | `eightball`              | feature         | Adds the Conversation 8-Ball Pool table                           |
 | `tic-tac-toe`            | feature         | Adds the Conversation Tic-Tac-Toe board                           |
 | `rock-paper-scissors`    | feature         | Adds Conversation Rock-Paper-Scissors matches                     |
+| `wordle`                 | feature         | Adds the Conversation daily Wordle race                           |
 
 ### Agent result types
 

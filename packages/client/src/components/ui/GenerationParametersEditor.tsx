@@ -34,6 +34,7 @@ export type EditableGenerationParameters = Pick<
   | "maxTokens"
   | "topP"
   | "topK"
+  | "minP"
   | "frequencyPenalty"
   | "presencePenalty"
   | "reasoningEffort"
@@ -80,6 +81,7 @@ export const CHAT_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   maxTokens: 4096,
   topP: 1,
   topK: 0,
+  minP: 0,
   frequencyPenalty: 0,
   presencePenalty: 0,
   reasoningEffort: "maximum",
@@ -100,6 +102,7 @@ export const ROLEPLAY_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   maxTokens: 8192,
   topP: 1,
   topK: 0,
+  minP: 0,
   frequencyPenalty: 0,
   presencePenalty: 0,
   reasoningEffort: "maximum",
@@ -157,6 +160,7 @@ export function parseEditableGenerationParameters(raw: unknown): EditableGenerat
   if (typeof source.maxTokens === "number") next.maxTokens = source.maxTokens;
   if (typeof source.topP === "number") next.topP = source.topP;
   if (typeof source.topK === "number") next.topK = source.topK;
+  if (typeof source.minP === "number") next.minP = source.minP;
   if (typeof source.frequencyPenalty === "number") next.frequencyPenalty = source.frequencyPenalty;
   if (typeof source.presencePenalty === "number") next.presencePenalty = source.presencePenalty;
   if (
@@ -226,6 +230,19 @@ export function parseEditableGenerationParameters(raw: unknown): EditableGenerat
   return Object.keys(next).length > 0 ? next : null;
 }
 
+/**
+ * Only the settings these fields edit, picked from a full parameter set. A preset's stored parameters hold more
+ * (Squash system messages, stop sequences, an imported Min P…), and the fields must never write defaults over them.
+ */
+export function pickEditableGenerationParameters(source: GenerationParameters): EditableGenerationParameters {
+  const picked: Record<string, unknown> = {};
+  for (const key of [...Object.keys(CHAT_PARAMETER_DEFAULTS), "customHeaders"]) {
+    const value = (source as unknown as Record<string, unknown>)[key];
+    if (value !== undefined) picked[key] = value;
+  }
+  return picked as EditableGenerationParameters;
+}
+
 export function getEditableGenerationParameters(
   defaults: EditableGenerationParameters,
   overrides: unknown,
@@ -237,8 +254,26 @@ export function getEditableGenerationParameters(
     // Codex keeps its own thinking level until one is picked, so its parameters start at Default.
     ...(provider === "openai_chatgpt" ? { reasoningEffort: null } : {}),
     ...parsed,
+    // The request merges custom parameter values per parameter, so a chat's own map adds to the connection's.
+    managedCustomParameters: { ...defaults.managedCustomParameters, ...parsed.managedCustomParameters },
     enabledParameters: mergeEnabledParameters(defaults.enabledParameters, parsed.enabledParameters),
   };
+}
+
+/**
+ * The custom parameter values a chat keeps as its own: those it already had and those that now differ from what it
+ * inherits. The rest are left out, so they keep following the connection.
+ */
+export function managedParameterOverrides(
+  own: EditableGenerationParameters["managedCustomParameters"] | undefined,
+  inherited: EditableGenerationParameters["managedCustomParameters"],
+  next: EditableGenerationParameters["managedCustomParameters"],
+): EditableGenerationParameters["managedCustomParameters"] {
+  return Object.fromEntries(
+    Object.entries(next).filter(
+      ([id, entry]) => own?.[id] !== undefined || JSON.stringify(entry) !== JSON.stringify(inherited[id]),
+    ),
+  );
 }
 
 export function GenerationParametersFields({
@@ -315,6 +350,18 @@ export function GenerationParametersFields({
   const show = (key: GenerationParameterKey) =>
     (showTokenLimits || key !== "maxTokens") &&
     (relevant ? relevant.has(key) : key !== "serviceTier" || showOpenRouterServiceTier);
+  // One Min P control (#9816). With no Model picked the request can go to any connection, and every one that takes
+  // custom parameters sends a custom min_p, so it stands in for the built-in field, which only two kinds of connection
+  // send. Elsewhere the built-in field, where it shows, takes the custom one's place. Only the exact key overrides it.
+  const customMinP = managedDefinitions.find((definition) => definition.requestKey === "min_p");
+  const showMinP = show("minP") && !(customMinP && relevant && !provider);
+  const managedControls = showMinP
+    ? managedDefinitions.filter((definition) => definition !== customMinP)
+    : managedDefinitions;
+  // Custom parameters are merged over the built-in field, so while a Model's custom min_p is on, the field edits it
+  // and it stays on. A preset's custom values are never sent, so its field always edits its own Min P.
+  const sentCustomMinP =
+    showMinP && customMinP && provider && value.managedCustomParameters[customMinP.id]?.enabled ? customMinP : null;
   const effortChoices = reasoningEffortChoices({ ...context, selected: value.reasoningEffort }).filter(
     (choice) => choice.value !== null || !isClaudeOpus55Model(model ?? ""),
   );
@@ -330,7 +377,7 @@ export function GenerationParametersFields({
   };
   const isSendEnabled = (key: GenerationParameterSendKey) =>
     (value.enabledParameters ?? enabledParametersFallback)[key] !== false;
-  const showSamplingGrid = show("temperature") || show("maxTokens") || show("topP") || show("topK");
+  const showSamplingGrid = show("temperature") || show("maxTokens") || show("topP") || show("topK") || showMinP;
   const showPenaltyGrid = show("frequencyPenalty") || show("presencePenalty");
   const setManagedParameter = (
     definition: ManagedGenerationParameterDefinition,
@@ -409,6 +456,28 @@ export function GenerationParametersFields({
               step={1}
             />
           )}
+          {/* 0 sends nothing. */}
+          {showMinP && (
+            <ParamInput
+              label={localizeUi("ui.ui.generationparametersfields.minP")}
+              help={localizeUi("ui.ui.generationparametersfields.minPHelp")}
+              value={
+                sentCustomMinP
+                  ? (value.managedCustomParameters[sentCustomMinP.id]?.value ?? sentCustomMinP.min)
+                  : (value.minP ?? 0)
+              }
+              onChange={(nextValue) =>
+                sentCustomMinP ? setManagedParameter(sentCustomMinP, { value: nextValue }) : set("minP", nextValue)
+              }
+              effective={effectiveHint("minP")}
+              // The custom parameter's own switch; turned off, the field edits the built-in Min P.
+              sendEnabled={sentCustomMinP ? true : undefined}
+              onSendChange={sentCustomMinP ? (enabled) => setManagedParameter(sentCustomMinP, { enabled }) : undefined}
+              min={sentCustomMinP?.min ?? 0}
+              max={sentCustomMinP?.max ?? 1}
+              step={0.01}
+            />
+          )}
         </div>
       )}
       {showPenaltyGrid && (
@@ -443,9 +512,9 @@ export function GenerationParametersFields({
           )}
         </div>
       )}
-      {show("customParameters") && managedDefinitions.length > 0 && (
+      {show("customParameters") && managedControls.length > 0 && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {managedDefinitions.map((definition) => {
+          {managedControls.map((definition) => {
             const stored = value.managedCustomParameters[definition.id];
             return (
               <ParamInput
@@ -957,8 +1026,9 @@ function ParamInput({
   label: string;
   value: number;
   onChange: (next: number) => void;
-  sendEnabled: boolean;
-  onSendChange: (enabled: boolean) => void;
+  /** Left out for a setting with no send switch (Min P: 0 sends nothing). */
+  sendEnabled?: boolean;
+  onSendChange?: (enabled: boolean) => void;
   min: number;
   max?: number;
   step: number;
@@ -1033,8 +1103,8 @@ function ParameterHeader({
   label: string;
   help?: string;
   effective?: string;
-  sendEnabled: boolean;
-  onSendChange: (enabled: boolean) => void;
+  sendEnabled?: boolean;
+  onSendChange?: (enabled: boolean) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
@@ -1044,18 +1114,20 @@ function ParameterHeader({
           <span className="truncate">{label}</span>
           {help && <HelpTooltip text={help} size="0.625rem" />}
         </span>
-        <SettingsSwitch
-          ariaLabel={`Send ${label} parameter`}
-          checked={sendEnabled}
-          onChange={onSendChange}
-          labelPosition="start"
-          className="!gap-0 !rounded-md !p-0 hover:!bg-transparent"
-          title={
-            sendEnabled
-              ? localizeUi("ui.ui.parameterheader.thisParameterIsSentToTheModel")
-              : localizeUi("ui.ui.parameterheader.thisParameterIsNotSentToTheModel")
-          }
-        />
+        {onSendChange ? (
+          <SettingsSwitch
+            ariaLabel={`Send ${label} parameter`}
+            checked={sendEnabled !== false}
+            onChange={onSendChange}
+            labelPosition="start"
+            className="!gap-0 !rounded-md !p-0 hover:!bg-transparent"
+            title={
+              sendEnabled
+                ? localizeUi("ui.ui.parameterheader.thisParameterIsSentToTheModel")
+                : localizeUi("ui.ui.parameterheader.thisParameterIsNotSentToTheModel")
+            }
+          />
+        ) : null}
       </div>
       {effective && (
         // One line like the label: wrapping would push this column's input below its neighbour's.

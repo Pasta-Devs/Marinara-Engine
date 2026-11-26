@@ -368,6 +368,38 @@ try {
       "Search treats keys as values, not JSON or SQL patterns",
     );
   }
+
+  // Picks checked by id (#9645): only entries play would read come back, as slim rows, in pick order.
+  const pickBook = await lorebooks.create({ name: "Picks" });
+  const offBook = await lorebooks.create({ name: "Off picks", enabled: false });
+  const kept = await lorebooks.createEntry({ lorebookId: pickBook.id, name: "Kept", content: "Kept lore", keys: [] });
+  const offEntry = await lorebooks.createEntry({
+    lorebookId: pickBook.id,
+    name: "Off entry",
+    content: "Off",
+    keys: [],
+    enabled: false,
+  });
+  const inOffBook = await lorebooks.createEntry({
+    lorebookId: offBook.id,
+    name: "In off book",
+    content: "x",
+    keys: [],
+  });
+  assert.ok(pickBook && offBook && kept && offEntry && inOffBook);
+  const eligible = await app.inject({
+    method: "POST",
+    url: "/api/lorebooks/entries/eligible",
+    payload: { ids: ["missing-entry", offEntry.id, inOffBook.id, kept.id] },
+  });
+  assert.equal(eligible.statusCode, 200, eligible.body);
+  assert.deepEqual(eligible.json(), [
+    { id: kept.id, lorebookId: pickBook.id, name: "Kept", enabled: true, constant: false, order: kept.order },
+  ]);
+  for (const payload of [{}, { ids: "x" }, { ids: [1] }, { ids: Array.from({ length: 501 }, (_, i) => `e${i}`) }]) {
+    const refused = await app.inject({ method: "POST", url: "/api/lorebooks/entries/eligible", payload });
+    assert.equal(refused.statusCode, 400, JSON.stringify(payload).slice(0, 40));
+  }
 } finally {
   await app.close();
   await closeDB();

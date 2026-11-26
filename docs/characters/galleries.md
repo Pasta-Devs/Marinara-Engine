@@ -92,7 +92,7 @@ Any gallery picture can have a short description of what it shows. Conversation 
 - To write one, click the tag button in the image's top-left corner and choose **Add description**, or **Edit description** to change it.
 - To have AI write them, click **Select images**, pick the pictures, then click **Describe with AI**. The **Image reading** model looks at each one and writes a short description. If some already have one, choose to describe only the ones without or all of them again.
 
-Before you start: AI descriptions need a model that can read images. Marinara uses the **Image reading** model if you set one under **Behind the scenes** in your connection settings, and otherwise your agents' model. Up to 8 pictures are sent at a time, so a large selection takes a moment.
+Before you start: AI descriptions need a model that can read images. Marinara uses the **Image reading** model if you set one on the **Jobs** page in **Connections**, and otherwise your agents' model. Up to 8 pictures are sent at a time, so a large selection takes a moment.
 
 A chat's own gallery has the same **Describe with AI** in its select mode.
 

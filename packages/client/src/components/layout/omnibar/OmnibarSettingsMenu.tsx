@@ -13,9 +13,11 @@ import { useTranslation } from "react-i18next";
 import { Check, ChevronLeft, Lock, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  DEFAULT_MARI_CONTEXT_DEPTH,
   DEFAULT_MARI_PERMISSIONS_MODE,
   DEFAULT_MARI_RUNTIME,
   LOCAL_SIDECAR_CONNECTION_ID,
+  MAX_MARI_CONTEXT_DEPTH,
   MARI_PERMISSIONS_MODE_LABELS,
   MARI_PERMISSIONS_MODES,
   MARI_RUNTIMES,
@@ -27,10 +29,6 @@ import {
 import { useInDialogFocusScope } from "../../../hooks/use-in-dialog-focus-scope";
 import { useSidecarStore } from "../../../stores/sidecar.store";
 import {
-  MARI_WINDOW_HEIGHT_MIN_REM,
-  MARI_WINDOW_HEIGHT_MAX_REM,
-  MARI_WINDOW_WIDTH_MIN_REM,
-  MARI_WINDOW_WIDTH_MAX_REM,
   OMNIBAR_WINDOW_HEIGHT_MIN_REM,
   OMNIBAR_WINDOW_HEIGHT_MAX_REM,
   OMNIBAR_WINDOW_WIDTH_MIN_REM,
@@ -289,6 +287,80 @@ function SkillGateRow() {
   );
 }
 
+// Where her per-turn context (the time, attached chats, @ links, notes from earlier turns) goes: that many
+// messages before the end of the chat. Server-authoritative like the rows around it; read fresh on each run.
+function ContextDepthRow() {
+  const { t } = useTranslation();
+  const selectId = useId();
+  const helpId = useId();
+  const [depth, setDepth] = useState(DEFAULT_MARI_CONTEXT_DEPTH);
+  const writeSeqRef = useRef(0);
+  // What the server holds: a failed write goes back to it, not to a choice that was never saved.
+  const savedDepthRef = useRef(DEFAULT_MARI_CONTEXT_DEPTH);
+  // Counts successful saves, so a read that answers after a save cannot replace the value that save stored.
+  const savedSeqRef = useRef(0);
+  useEffect(() => {
+    let cancelled = false;
+    const seqAtStart = writeSeqRef.current;
+    const savedSeqAtStart = savedSeqRef.current;
+    api
+      .get<{ depth: number }>("/professor-mari/workspace/context-depth")
+      .then((response) => {
+        if (cancelled) return;
+        if (savedSeqRef.current === savedSeqAtStart) savedDepthRef.current = response.depth;
+        if (writeSeqRef.current === seqAtStart) setDepth(response.depth);
+      })
+      .catch(() => {
+        // The select keeps the default; a failed read is not worth a toast in a settings view.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const change = async (next: number) => {
+    const writeSeq = ++writeSeqRef.current;
+    setDepth(next);
+    try {
+      await enqueueMariPermissionsModeWrite(() => api.put("/professor-mari/workspace/context-depth", { depth: next }));
+      savedDepthRef.current = next;
+      savedSeqRef.current += 1;
+    } catch {
+      if (writeSeqRef.current !== writeSeq) return;
+      setDepth(savedDepthRef.current);
+      toast.error(t("omnibar.settings.mariContextDepth.couldNotChange"));
+    }
+  };
+  const optionLabel = (value: number) => {
+    const label =
+      value === 0
+        ? t("omnibar.settings.mariContextDepth.option.end")
+        : t("omnibar.settings.mariContextDepth.option.back", { count: value });
+    return value === DEFAULT_MARI_CONTEXT_DEPTH
+      ? t("omnibar.settings.mariContextDepth.option.default", { label })
+      : label;
+  };
+  return (
+    <div id={anchorId("mari-context-depth")} className="omnibar-settings-menu__row omnibar-settings-menu__row--stacked">
+      <div className="omnibar-settings-menu__label">{t("omnibar.settings.mariContextDepth.label")}</div>
+      <Select<string>
+        id={selectId}
+        label={t("omnibar.settings.mariContextDepth.label")}
+        aria-describedby={helpId}
+        className="mari-chrome-field omnibar-settings-sheet__select"
+        value={String(depth)}
+        options={Array.from({ length: MAX_MARI_CONTEXT_DEPTH + 1 }, (_, value) => ({
+          value: String(value),
+          label: optionLabel(value),
+        }))}
+        onChange={(value) => void change(Number(value))}
+      />
+      <span id={helpId} className="omnibar-settings-menu__description">
+        {t("omnibar.settings.mariContextDepth.help")}
+      </span>
+    </div>
+  );
+}
+
 // Professor Mari's runtime ("classic" or "pi"), the same server-authoritative pattern as the
 // Permissions Mode row above. The workspace status answers for her connection, so it also says
 // when "pi" is selected but the next run falls back to "classic" there.
@@ -513,18 +585,15 @@ export function OmnibarSettingsSheet({
   const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
   const connectionSelectId = useId();
-  const windowHeightRem = useUIStore((state) => state.mariWindowHeightRem);
-  const setWindowHeightRem = useUIStore((state) => state.setMariWindowHeightRem);
-  const windowWidthRem = useUIStore((state) => state.mariWindowWidthRem);
-  const setWindowWidthRem = useUIStore((state) => state.setMariWindowWidthRem);
   const searchWindowHeightRem = useUIStore((state) => state.omnibarWindowHeightRem);
   const setSearchWindowHeightRem = useUIStore((state) => state.setOmnibarWindowHeightRem);
   const searchWindowWidthRem = useUIStore((state) => state.omnibarWindowWidthRem);
   const setSearchWindowWidthRem = useUIStore((state) => state.setOmnibarWindowWidthRem);
-  // Which window's sliders have focus. While one does, the sheet shrinks to that slider and the window resizes behind it.
-  const [sizingGroup, setSizingGroup] = useState<"search" | "mari" | null>(null);
+  // While the search window's sliders have focus, the sheet shrinks to them and the window resizes behind it.
+  // (Prof. Mari's pair went with #9818: she is sized by dragging her floating window.)
+  const [sizingGroup, setSizingGroup] = useState<"search" | null>(null);
   // Focus can move between a group's sliders and its Automatic button; the group stays active until focus leaves it.
-  const sizingFocus = (group: "search" | "mari") => ({
+  const sizingFocus = (group: "search") => ({
     onFocus: () => setSizingGroup(group),
     onBlur: (event: FocusEvent<HTMLDivElement>) => {
       if (!event.currentTarget.contains(event.relatedTarget)) setSizingGroup(null);
@@ -755,32 +824,10 @@ export function OmnibarSettingsSheet({
           </div>
         </Section>
 
-        <Section title={t("omnibar.settings.mariWindow.heading", "Professor Mari window")} className="hidden sm:block">
-          <div className="omnibar-settings-size-row" data-size-group="mari" {...sizingFocus("mari")}>
-            <WindowSizeSlider
-              anchor={anchorId("mari-window-height")}
-              label={t("omnibar.settings.windowHeight.label", "Professor Mari window height")}
-              visibleLabel={t("omnibar.settings.windowSize.height", "Height")}
-              min={MARI_WINDOW_HEIGHT_MIN_REM}
-              max={MARI_WINDOW_HEIGHT_MAX_REM}
-              value={windowHeightRem}
-              onChange={setWindowHeightRem}
-            />
-            <WindowSizeSlider
-              anchor={anchorId("mari-window-width")}
-              label={t("omnibar.settings.windowWidth.label", "Professor Mari window width")}
-              visibleLabel={t("omnibar.settings.windowSize.width", "Width")}
-              min={MARI_WINDOW_WIDTH_MIN_REM}
-              max={MARI_WINDOW_WIDTH_MAX_REM}
-              value={windowWidthRem}
-              onChange={setWindowWidthRem}
-            />
-          </div>
-        </Section>
-
         <Section title={t("omnibar.settings.mari.heading", "Professor Mari")}>
           <PermissionsModeRow />
           <RuntimeRow />
+          <ContextDepthRow />
           <SkillGateRow />
           <SettingRow
             controlId="professor-mari-suggestions"

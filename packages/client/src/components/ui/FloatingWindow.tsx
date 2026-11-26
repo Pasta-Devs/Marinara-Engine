@@ -28,6 +28,7 @@ import { Lock, PictureInPicture2, Pin, Unlock, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
+import { WindowResizeGrip, isWindowResizeCorner } from "./WindowResizeGrip";
 import {
   PHONE_BUBBLE_SIZE_PX,
   RESIZE_EDGES,
@@ -48,7 +49,7 @@ import {
   type WindowGeometry,
   type WindowLayout,
 } from "../../lib/floating-window-layout";
-import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
+import { isModalOverlayOpen } from "../../lib/layer-stack";
 import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
 import { CHAT_VISUAL_VIEWPORT_CHANGE_EVENT } from "../../hooks/use-visual-viewport-chat-bottom";
 import { BUBBLE_SNAP_GAP_PX } from "../../lib/window-bubble-snap";
@@ -1069,7 +1070,7 @@ export function FloatingWindow({
               onKeyDown={handleResizeKeyDown}
             >
               {/* Shown while the pointer or focus is in the window: a cue that it resizes from here. */}
-              <span aria-hidden="true" className="mari-window__resize-grip" />
+              <WindowResizeGrip corner="se" />
             </button>
           ) : (
             <div
@@ -1081,7 +1082,9 @@ export function FloatingWindow({
               onPointerMove={updatePointerSession}
               onPointerUp={endPointerSession}
               onPointerCancel={endPointerSession}
-            />
+            >
+              {isWindowResizeCorner(edge) ? <WindowResizeGrip corner={edge} /> : null}
+            </div>
           ),
         )}
     </div>

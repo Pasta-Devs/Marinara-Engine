@@ -22,28 +22,32 @@ const cases: RegressionCase[] = [
       // Every row pins all stored levels, including the default used by a saved Off.
       const levels: Effort[] = [null, "low", "medium", "high", "xhigh", "maximum"];
       const rows: Array<[string, string, Array<string | null>]> = [
-        ...["openai", "openai_chatgpt", "custom"].flatMap((provider): Array<[string, string, Array<string | null>]> => [
-          [provider, "gpt-5.2", [null, "low", "medium", "high", "xhigh", "xhigh"]],
-          ...["gpt-5.2-codex", "gpt-5.3-codex"].map((model): [string, string, Array<string | null>] => [
-            provider,
-            model,
-            ["medium", "low", "medium", "high", "xhigh", "xhigh"],
-          ]),
-          [provider, "gpt-5.4-pro-2026-03-05", ["medium", "medium", "medium", "high", "xhigh", "xhigh"]],
-          [provider, "gpt-5.5-pro", ["high", "medium", "medium", "high", "xhigh", "xhigh"]],
-          ...["gpt-5", "gpt-5-mini", "gpt-5-nano-2025-08-07"].map((model): [string, string, Array<string | null>] => [
-            provider,
-            model,
-            ["medium", "low", "medium", "high", "high", "high"],
-          ]),
-          ...["gpt-6-astra", "gpt-6.1-sol", "gpt-6.2-sol", "gpt-6.2-astra"].map(
-            (model): [string, string, Array<string | null>] => [
+        ...["openai", "openai_chatgpt", "custom"].flatMap((provider): Array<[string, string, Array<string | null>]> => {
+          // Codex has no Off: Default sends nothing, so Codex keeps its own level for the model.
+          const off = (level: string) => (provider === "openai_chatgpt" ? null : level);
+          return [
+            [provider, "gpt-5.2", [null, "low", "medium", "high", "xhigh", "xhigh"]],
+            ...["gpt-5.2-codex", "gpt-5.3-codex"].map((model): [string, string, Array<string | null>] => [
               provider,
               model,
-              ["low", "low", "medium", "high", "xhigh", "max"],
-            ],
-          ),
-        ]),
+              [off("medium"), "low", "medium", "high", "xhigh", "xhigh"],
+            ]),
+            [provider, "gpt-5.4-pro-2026-03-05", [off("medium"), "medium", "medium", "high", "xhigh", "xhigh"]],
+            [provider, "gpt-5.5-pro", [off("high"), "medium", "medium", "high", "xhigh", "xhigh"]],
+            ...["gpt-5", "gpt-5-mini", "gpt-5-nano-2025-08-07"].map((model): [string, string, Array<string | null>] => [
+              provider,
+              model,
+              [off("medium"), "low", "medium", "high", "high", "high"],
+            ]),
+            ...["gpt-6-astra", "gpt-6.1-sol", "gpt-6.2-sol", "gpt-6.2-astra"].map(
+              (model): [string, string, Array<string | null>] => [
+                provider,
+                model,
+                [off("low"), "low", "medium", "high", "xhigh", "max"],
+              ],
+            ),
+          ];
+        }),
         ...["anthropic", "claude_subscription"].flatMap((provider): Array<[string, string, Array<string | null>]> => [
           ...["claude-opus-4-6", "claude-sonnet-4-6"].map((model): [string, string, Array<string | null>] => [
             provider,

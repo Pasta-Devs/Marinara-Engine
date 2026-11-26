@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { openJobsPage, panelSearch, showConnectionsList } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -96,11 +97,10 @@ test("Connections keep the established header, mixed models and compact role con
     await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
     await page.goto("/");
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
-    // One header row: Search, a labelled Add and More (Import and Export live in More).
+    // One header row: Search (from 8 Models), a labelled Add and More (Import and Export live in More).
     await expect(panel.getByRole("button", { name: "Add account", exact: true })).toBeVisible();
     await expect(panel.getByRole("button", { name: "Import connection", exact: true })).toHaveCount(0);
     await expect(panel.getByRole("button", { name: "More actions", exact: true })).toBeVisible();
-    await expect(panel.getByRole("searchbox", { name: "Search models and accounts" })).toBeVisible();
     const group = panel.locator(`[data-connection-account-id="${created.account.id}"]`);
     const singleProvider = panel.locator('[data-connection-provider="openai"]');
     const accountHeader = group.locator(`[data-connections-row="account:${created.account.id}"]`);
@@ -141,14 +141,19 @@ test("Connections keep the established header, mixed models and compact role con
     await expect(group.locator("[data-connection-id]")).toHaveCount(0);
     await group.locator(`[data-connections-toggle="${created.account.id}"]`).click();
     await expect(group.locator("[data-connection-id]")).toHaveCount(3);
-    const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
-    await search.fill("Studio Image");
+    // The heading folds the same way with or without a search; with 8 Models or more a new query opens the fold again.
+    const search = await panelSearch(panel);
+    await search?.fill("Studio Image");
     await expect(accountHeader).toContainText("3 starred");
     await accountHeader.click();
     await expect(group.locator("[data-connection-id]")).toHaveCount(0);
-    await search.fill("Studio Voice");
-    await expect(group.locator("[data-connection-id]")).toHaveCount(3);
-    await search.fill("");
+    if (search) {
+      await search.fill("Studio Voice");
+      await expect(group.locator("[data-connection-id]")).toHaveCount(3);
+      await search.fill("");
+    } else {
+      await accountHeader.click();
+    }
     await expect(group.locator("[data-connection-id]")).toHaveCount(3);
     expect(
       (await request.patch(`/api/connection-accounts/${created.account.id}`, { data: { enabled: false } })).ok(),
@@ -218,15 +223,17 @@ test("Connections keep the established header, mixed models and compact role con
       await page.setViewportSize(originalViewport);
       await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
     }
-    // The Defaults box lists every job without a click; Main, Agents and Images always show.
-    await expect(panel.locator('[data-defaults-tile="main"]')).toBeVisible();
-    await expect(panel.locator('[data-defaults-role="main"]')).toContainText("gpt-5.5");
-    await expect(panel.locator('[data-defaults-tile="images"]')).toBeVisible();
-    // A newly configured role must not remount while its controls are open.
-    const images = panel.locator('[data-defaults-role="images"]');
+    // Main shows on the Jobs summary; the Jobs page lists every job, Main and Images included.
+    await expect(panel.locator('[data-connections-row="defaults"]')).toBeVisible();
+    const jobs = await openJobsPage(page);
+    await expect(jobs.locator('[data-defaults-tile="main"]')).toBeVisible();
+    await expect(jobs.locator('[data-defaults-role="main"]')).toContainText("gpt-5.5");
+    await expect(jobs.locator('[data-defaults-tile="images"]')).toBeVisible();
+    // A pick that moves a job to another section (an Off chip becomes a row with its Model, and back) keeps
+    // focus on that job.
+    const images = jobs.locator('[data-defaults-role="images"]');
     const imageTile = images.locator('[data-defaults-tile="images"]');
     await imageTile.click();
-    await images.evaluate((element) => element.setAttribute("data-retained-row", "true"));
     const picker = page.getByRole("dialog", { name: /^Model for Images/ });
     // The chooser shows one account's models at a time; a phone shows the account list after Back.
     await expect(picker.locator("[data-switcher-search]")).toBeVisible();
@@ -234,7 +241,6 @@ test("Connections keep the established header, mixed models and compact role con
     await picker.locator("[data-switcher-pane]").filter({ hasText: "Mixed studio" }).click();
     await picker.locator("[data-switcher-entry]").filter({ hasText: "Studio Image" }).click();
     await expect(imageTile).toContainText("Studio Image");
-    await expect(images).toHaveAttribute("data-retained-row", "true");
     await expect(imageTile).toBeFocused();
     await imageTile.click();
     // A phone shows the Now strip, with "None", beside the account list.
@@ -242,9 +248,10 @@ test("Connections keep the established header, mixed models and compact role con
     if (await picker.locator("[data-switcher-back]").isVisible()) await picker.locator("[data-switcher-back]").click();
     await picker.getByRole("button", { name: /None/ }).click();
     await expect(imageTile).not.toContainText("Studio Image");
-    await expect(images).toHaveAttribute("data-retained-row", "true");
     await expect(imageTile).toBeFocused();
-    // The saved key stays masked in the editor, and opening it never changes the connection.
+    // The saved key stays masked in the editor, and opening it never changes the connection. A narrow panel
+    // shows the Jobs page in place of the list, so go back to the list first.
+    await showConnectionsList(page);
     await group.getByRole("button", { name: `Actions for Mixed studio ${info.project.name}` }).click();
     await page.getByRole("menuitem", { name: "Edit account", exact: true }).click();
     const dialog = page.getByRole("dialog");
@@ -434,7 +441,8 @@ test("Move to account offers the same service first, then other services with a 
     await page.goto("/");
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
     const openMove = async () => {
-      await panel.getByRole("searchbox", { name: "Search models and accounts" }).fill(modelName);
+      // With 8 Models or more the search lists the row first; with fewer it is already in the list.
+      await (await panelSearch(panel))?.fill(modelName);
       await panel
         .locator(`[data-connection-id="${home.connectionId}"]`)
         .getByRole("button", { name: `Actions for ${modelName}`, exact: true })

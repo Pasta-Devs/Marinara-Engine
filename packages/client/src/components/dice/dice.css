@@ -654,6 +654,38 @@
   color: var(--foreground);
 }
 
+/* Show Dice Rolls as Text (Settings → Appearance → App): the card's header and result on one small
+   line, without the dice, glow or shadow. It wraps on a narrow screen instead of overflowing. */
+.dice-roll-card--text {
+  width: fit-content;
+  max-width: 100%;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.6rem;
+  border-radius: 0.5rem;
+  background: var(--dice-surface);
+  padding: 0.3rem 0.6rem;
+  box-shadow: none;
+}
+
+.dice-roll-card--text::before,
+.dice-roll-card--text::after {
+  display: none;
+}
+
+.dice-roll-card--text .dice-roll-header {
+  padding-right: 0;
+}
+
+.dice-roll-card--text .dice-roll-total {
+  font-size: 0.85rem;
+}
+
+.dice-roll-card--text .dice-roll-dismiss {
+  position: static;
+}
+
 .skill-check-roll {
   --dice-accent: var(--primary);
 
