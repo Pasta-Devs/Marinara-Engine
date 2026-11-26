@@ -513,16 +513,23 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
     });
     await widget.locator(`[data-card-library-card="${selectedId}"]`).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
-    // On phones the whole library scrolls under its sticky header (its first child): an opened card must land below it.
-    const cardTopBelowHeader = (id: string) =>
+    // How far an opened card's top is from the bottom of the sticky header (the library's first child). Where the whole
+    // library scrolls (phones), the card lands right at the header's bottom unless the library is at its end; where it
+    // does not (desktop), the card only must not be under the header.
+    const cardOffHeader = (id: string) =>
       library.evaluate((root, cardId) => {
-        const header = root.firstElementChild!.getBoundingClientRect();
-        const card = root.querySelector(`[data-card-library-card="${CSS.escape(cardId)}"]`)!.getBoundingClientRect();
-        return card.top - header.bottom;
+        const header = root.firstElementChild;
+        const card = root.querySelector(`[data-card-library-card="${CSS.escape(cardId)}"]`);
+        // A row the list has not mounted yet keeps the poll going.
+        if (!header || !card) return Number.POSITIVE_INFINITY;
+        const gap = card.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
+        const rootScrolls = getComputedStyle(root).overflowY !== "hidden";
+        const atEnd = root.scrollTop >= root.scrollHeight - root.clientHeight - 1;
+        return rootScrolls && !atEnd ? Math.abs(gap) : Math.max(-gap, 0);
       }, id);
     await expect(library).toBeVisible();
     await expect(library.locator(`[data-card-library-card="${selectedId}"]`)).toBeInViewport();
-    await expect.poll(() => cardTopBelowHeader(selectedId)).toBeGreaterThanOrEqual(-1);
+    await expect.poll(() => cardOffHeader(selectedId)).toBeLessThanOrEqual(1);
     await expect
       .poll(() =>
         page.evaluate(async () => {
@@ -560,7 +567,7 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
         useUIStore.getState().openCharacterLibrary(id!);
       }, nextId);
       await expect(library.locator(`[data-card-library-card="${nextId}"]`)).toBeInViewport();
-      await expect.poll(() => cardTopBelowHeader(nextId!)).toBeGreaterThanOrEqual(-1);
+      await expect.poll(() => cardOffHeader(nextId!)).toBeLessThanOrEqual(1);
     }
     await page.setViewportSize(viewport);
     await page.evaluate(async () => {
