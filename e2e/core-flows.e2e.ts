@@ -14000,10 +14000,9 @@ test("custom generation parameters become reusable chat controls", async ({ page
 
     await minPInput.fill("0,35");
     await minPInput.blur();
+    // The shared Switch is a button named by its aria-label, with no <label> of its own.
     const minPSendToggle = drawer.getByRole("switch", { name: "Send Min P parameter" });
-    const minPSendToggleId = await minPSendToggle.getAttribute("id");
-    expect(minPSendToggleId).toBeTruthy();
-    await drawer.locator(`label[for="${minPSendToggleId}"]`).click();
+    await minPSendToggle.click();
     await expect(minPSendToggle).toBeChecked();
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
