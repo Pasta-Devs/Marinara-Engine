@@ -2954,8 +2954,10 @@ function SectionsTab({
                       aria-current={masterDetail && isExpanded ? "true" : undefined}
                       aria-expanded={masterDetail ? undefined : isExpanded}
                       aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                      // The name keeps at least 45% of the row: a group badge gives way first, and the token
+                      // count and row buttons always stay inside the column.
                       className={cn(
-                        "min-w-0 flex-1 cursor-pointer truncate rounded-sm font-medium",
+                        "min-w-[45%] flex-1 cursor-pointer truncate rounded-sm font-medium",
                         compact ? "text-xs" : "text-sm",
                       )}
                       onClick={() => toggleExpanded(section.id)}
@@ -3000,12 +3002,13 @@ function SectionsTab({
                     {group && (
                       <span
                         data-preset-section-group-badge
+                        title={group.name}
                         className={cn(
-                          "mari-editor-chip shrink-0 whitespace-nowrap px-1.5 py-0.5 text-[0.5625rem]",
+                          "mari-editor-chip min-w-[3rem] max-w-[7rem] whitespace-nowrap px-1.5 py-0.5 text-[0.5625rem]",
                           compact && "max-sm:hidden",
                         )}
                       >
-                        {group.name}
+                        <span className="truncate">{group.name}</span>
                       </span>
                     )}
                     <span className="hidden shrink-0 text-[0.625rem] text-[var(--muted-foreground)] sm:inline">

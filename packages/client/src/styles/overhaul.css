@@ -794,7 +794,18 @@
   color: var(--ov-muted);
   font-size: 0.75rem;
 }
+.ov-tag[data-ov-tag] {
+  max-width: 100%;
+  min-width: 0;
+}
+.ov-tag__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .ov-tag button {
+  flex-shrink: 0;
   opacity: 0.5;
 }
 @media (hover: hover) {
@@ -1176,6 +1187,9 @@
 }
 .ov-gallery__head {
   display: flex;
+  /* When the buttons don't fit beside the title (Lorebooks' Books/Sets + five buttons on a sideways iPad), they
+     wrap under it instead of running past the page's edge. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
@@ -2847,7 +2861,8 @@
 }
 /* The italic name already says "marker"; the badge spot names the entry's group instead. */
 [data-ov-row] [data-preset-section-group-badge] {
-  max-width: 7rem;
+  min-width: 2.5rem;
+  max-width: 6rem;
   overflow: hidden;
   border: 1px solid var(--ov-line);
   border-radius: 0.25rem;
@@ -2858,6 +2873,9 @@
 }
 .ov-preset__left [data-preset-section-root] {
   display: grid;
+  /* One column exactly as wide as the list: an auto column grew to the longest name, so the token counts and
+     row buttons ended up past the column's edge behind a sideways scrollbar. Names truncate instead. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.125rem;
 }
 .ov-preset__left [data-preset-section-root] > * + * {
@@ -14202,6 +14220,20 @@ input.ov-edhead__title:not(#ov-x) {
     border-right: 0;
     border-bottom: 1px solid var(--ov-line);
   }
+  /* A preset on a narrow page stacks like the viewers above: its pages and Prompt order on top, the open page
+     below, each as wide as the page (side by side, the list kept 17rem and squeezed the editor to a sliver). */
+  .ov-preset__body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(9rem, 40%) minmax(0, 1fr);
+  }
+  .ov-preset__left {
+    padding: 0.5rem 1rem 1rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--ov-line);
+  }
+  .ov-preset__main {
+    padding: 1rem 1rem 3rem;
+  }
 }
 /* A very narrow editor (e.g. beside its list on a narrow split side): labels sit above their fields. */
 @container ov-ed (max-width: 30rem) {
@@ -15900,6 +15932,8 @@ input.ov-edhead__title:not(#ov-x) {
 }
 .ov-setup__morebody {
   display: grid;
+  /* As wide as the page, never as wide as the longest lorebook or entry name (which then ran off the right edge). */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
   padding-bottom: 0.5rem;
 }

@@ -5186,7 +5186,8 @@ function AppearanceSettings({
           >
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
+                {/* Wraps in a narrow column, so the Dark / Light switch never runs past the column's edge. */}
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <Palette size="0.75rem" className="text-[var(--muted-foreground)]" />
                     <span className="text-xs font-medium">
