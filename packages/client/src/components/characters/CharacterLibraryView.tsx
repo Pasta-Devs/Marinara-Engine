@@ -348,6 +348,7 @@ export function CharacterLibraryView() {
   const { cards, isLoading, hasNextPage, isFetchingNextPage } = source;
   const libraryRootScrollRef = useRef<HTMLDivElement | null>(null);
   const libraryListScrollRef = useRef<HTMLElement | null>(null);
+  const libraryHeaderRef = useRef<HTMLDivElement | null>(null);
   const pendingLibraryScrollTopRef = useRef(0);
   const libraryScrollFrameRef = useRef<number | null>(null);
 
@@ -453,14 +454,14 @@ export function CharacterLibraryView() {
         const target = libraryRootScrollRef.current?.querySelector<HTMLElement>(
           `[data-card-library-card="${CSS.escape(initialTargetId)}"]`,
         );
+        // The card list scrolls to it (scrollToIndex) below the sticky header; scrollIntoView would put it under the
+        // header on phones.
         if (target) {
-          target.scrollIntoView({ block: "start", behavior: "instant" });
           initialScrollHandled.current = initialTargetId;
           rememberLibraryScroll();
           return;
         }
-        // An unmounted card: the card list scrolls to it (scrollToIndex).
-        // Not marked handled: scrollToIndex reveals it, and the stored offset stays out of the way.
+        // An unmounted card is not marked handled: scrollToIndex reveals it, and the stored offset stays out of the way.
         if (sortedCards.some((card) => card.id === initialTargetId)) return;
       }
       const scrollTop = useUIStore.getState()[config.store.scrollTop] as number;
@@ -573,7 +574,10 @@ export function CharacterLibraryView() {
       onScroll={handleLibraryScroll}
       className="mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_14%,transparent),_transparent_30%),radial-gradient(circle_at_top_right,_color-mix(in_srgb,var(--marinara-chat-chrome-text)_10%,transparent),_transparent_26%),var(--background)] text-[var(--marinara-chat-chrome-panel-text)] lg:overflow-hidden"
     >
-      <div className="sticky top-0 z-10 border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--card)]/85 backdrop-blur-xl">
+      <div
+        ref={libraryHeaderRef}
+        className="sticky top-0 z-10 border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--card)]/85 backdrop-blur-xl"
+      >
         <div className="relative flex flex-col gap-2 px-3 py-2 md:px-6 md:py-3 lg:flex-row lg:items-start lg:justify-between">
           <div className={cn("flex min-w-0 items-center gap-3", showsClose && "max-lg:pr-12")}>
             <SurfaceBackButton
@@ -705,6 +709,7 @@ export function CharacterLibraryView() {
               columns={libraryColumns}
               scrollToIndex={initialTargetIndex}
               scrollAlign="start"
+              stickyHeaderRef={libraryHeaderRef}
               renderRow={(index) => {
                 const card = sortedCards[index]!;
                 const isSelected = selectedId === card.id;

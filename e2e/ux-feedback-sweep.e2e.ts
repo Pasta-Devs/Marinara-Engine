@@ -513,8 +513,16 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
     });
     await widget.locator(`[data-card-library-card="${selectedId}"]`).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
+    // On phones the whole library scrolls under its sticky header (its first child): an opened card must land below it.
+    const cardTopBelowHeader = (id: string) =>
+      library.evaluate((root, cardId) => {
+        const header = root.firstElementChild!.getBoundingClientRect();
+        const card = root.querySelector(`[data-card-library-card="${CSS.escape(cardId)}"]`)!.getBoundingClientRect();
+        return card.top - header.bottom;
+      }, id);
     await expect(library).toBeVisible();
     await expect(library.locator(`[data-card-library-card="${selectedId}"]`)).toBeInViewport();
+    await expect.poll(() => cardTopBelowHeader(selectedId)).toBeGreaterThanOrEqual(-1);
     await expect
       .poll(() =>
         page.evaluate(async () => {
@@ -534,11 +542,14 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
         return useUIStore.getState().characterLibraryInitialId;
       });
       const nextId = await library.locator("[data-card-library-card]").evaluateAll((cards, current) => {
+        // A card behind the sticky header is out of sight too.
+        const header = cards[0]!.closest('[data-component="CharacterLibraryView"]')!.firstElementChild!;
+        const top = header.getBoundingClientRect().bottom;
         const offscreen = cards.find((card) => {
           const bounds = card.getBoundingClientRect();
           return (
             card.getAttribute("data-card-library-card") !== current &&
-            (bounds.bottom < 0 || bounds.top >= window.innerHeight)
+            (bounds.bottom <= top || bounds.top >= window.innerHeight)
           );
         });
         return offscreen?.getAttribute("data-card-library-card");
@@ -549,6 +560,7 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
         useUIStore.getState().openCharacterLibrary(id!);
       }, nextId);
       await expect(library.locator(`[data-card-library-card="${nextId}"]`)).toBeInViewport();
+      await expect.poll(() => cardTopBelowHeader(nextId!)).toBeGreaterThanOrEqual(-1);
     }
     await page.setViewportSize(viewport);
     await page.evaluate(async () => {
