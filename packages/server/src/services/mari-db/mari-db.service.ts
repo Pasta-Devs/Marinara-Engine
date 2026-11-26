@@ -3844,9 +3844,11 @@ export class MariDbService {
         if (!existing) throw missingRecord("character", id, "character.search (or character.list)");
         const existingDataRaw = tryParseJsonColumn(existing, "data");
         const existingData = isRecord(existingDataRaw) ? existingDataRaw : {};
-        const { onboarding, warnings } = buildOnboardingUpdate(
+        const { onboarding, warnings, counts } = buildOnboardingUpdate(
           existingData,
           args.onboarding ?? args.patch ?? args.data,
+          args.questionOps,
+          args.questionOps,
         );
         const extensions = isRecord(existingData.extensions) ? existingData.extensions : {};
         const name = typeof existingData.name === "string" ? existingData.name : "";
@@ -3877,7 +3879,7 @@ export class MariDbService {
           context.command,
           context.sessionId,
         );
-        return withNotices(result, "characters", id, warnings);
+        return { ...withNotices(result, "characters", id, warnings), questionCounts: counts };
       }
       case "movetofolder": {
         return this.withCharacterFolderMutationLock(async () => {

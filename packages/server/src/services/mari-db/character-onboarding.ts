@@ -112,7 +112,7 @@ function describeIssue(issue: OnboardingIssue, onboarding: CharacterOnboarding):
     case "plainIf":
       return `The ${issue.field} field has {{if ...}}. Conditions need a #: {{#if name == value}}...{{/if}}.`;
     case "unknownName":
-      return `The ${issue.field} field uses {{${issue.name}}}, but no question has that name (names are case-sensitive).`;
+      return `The ${issue.field} field uses {{${issue.name}}}, but no question has that name (names are case-sensitive). Remove the tag with character.update first if you are removing this question.`;
     case "unused": {
       const isCard = onboarding.cardVariables.some(
         (variable) => variable.id === issue.variableId && variable.variableName === issue.name,
@@ -159,6 +159,63 @@ export function describeCharacterOnboarding(data: Row) {
   return { onboarding, errors, warnings, samplePersona: samplePersona(onboarding) };
 }
 
+/** Operations are scoped to one question list. Unknown input is checked before merging. */
+function mergeQuestionOps(stored: CharacterOnboarding, patch: Row, input: unknown) {
+  const counts = { added: 0, updated: 0, removed: 0 };
+  const lists: Row = {};
+  if (input === undefined) return { lists, counts };
+  if (
+    !isRecord(input) ||
+    Object.keys(input).some((key) => !QUESTION_LISTS.includes(key as (typeof QUESTION_LISTS)[number]))
+  ) {
+    throw new Error("questionOps must contain only variables and cardVariables.");
+  }
+  for (const list of QUESTION_LISTS) {
+    const ops = input[list];
+    if (ops === undefined) continue;
+    if (list in patch) throw new Error(`Send either the whole list or questionOps for ${list}, not both.`);
+    if (!isRecord(ops) || Object.keys(ops).some((key) => !["add", "update", "remove", "after"].includes(key))) {
+      throw new Error(`questionOps.${list} accepts add, update, remove and after.`);
+    }
+    for (const key of ["add", "update", "remove"]) {
+      if (ops[key] !== undefined && !Array.isArray(ops[key])) throw new Error(`${list}.${key} must be an array.`);
+    }
+    let questions: Row[] = stored[list].map((question) => ({ ...question }));
+    const find = (selector: unknown) => {
+      if (typeof selector !== "string" || !selector)
+        throw new Error("Question selector must be a nonempty id or variableName.");
+      const byId = questions.filter((question) => question.id === selector);
+      const matches = byId.length ? byId : questions.filter((question) => question.variableName === selector);
+      if (matches.length !== 1) {
+        throw new Error(
+          `Unknown or ambiguous question "${selector}" in ${list}. Available names: ${questions.map((question) => question.variableName).join(", ")}.`,
+        );
+      }
+      return questions.indexOf(matches[0]);
+    };
+    for (const update of (ops.update ?? []) as unknown[]) {
+      if (!isRecord(update)) throw new Error("Each question update must be an object.");
+      const problems = unknownNestedKeys({ [list]: [update] });
+      if (problems.length) throw new Error(problems.join("\n"));
+      const index = find(update.id ?? update.variableName ?? update.name);
+      questions[index] = normalizeQuestion({ ...questions[index], ...update }) as Row;
+      counts.updated++;
+    }
+    for (const selector of (ops.remove ?? []) as unknown[]) {
+      questions.splice(find(selector), 1);
+      counts.removed++;
+    }
+    const additions = (ops.add ?? []) as unknown[];
+    const problems = unknownNestedKeys({ [list]: additions });
+    if (problems.length) throw new Error(problems.join("\n"));
+    const index = ops.after === undefined ? questions.length : find(ops.after) + 1;
+    questions.splice(index, 0, ...additions.map((question) => normalizeQuestion(question) as Row));
+    counts.added += additions.length;
+    lists[list] = questions;
+  }
+  return { lists, counts };
+}
+
 const WRAPPER_KEYS = ["onboarding", "patch", "data"];
 
 /**
@@ -169,7 +226,13 @@ const WRAPPER_KEYS = ["onboarding", "patch", "data"];
 export function buildOnboardingUpdate(
   data: Row,
   patch: unknown,
-): { onboarding: CharacterOnboarding; warnings: string[] } {
+  questionOps?: unknown,
+): {
+  onboarding: CharacterOnboarding;
+  warnings: string[];
+  counts: { added: number; updated: number; removed: number };
+} {
+  if (patch === undefined && questionOps !== undefined) patch = {};
   if (!isRecord(patch)) throw new Error("character.onboarding.update needs an onboarding object.");
   const unknownKeys = Object.keys(patch).filter((key) => !ONBOARDING_KEYS.includes(key));
   if (unknownKeys.length > 0) {
@@ -198,11 +261,17 @@ export function buildOnboardingUpdate(
       `Onboarding not saved. Fix and retry:\n- ${nested.join("\n- ")}\nQuestion keys: variableName, question, options, allowCustom, multiSelect, separator, displayMode, optionSort. Option keys: label, value, description.`,
     );
   }
-  const stored = readStoredOnboarding(data).onboarding ?? characterOnboardingSchema.parse({});
+  const existing = readStoredOnboarding(data).onboarding;
+  if (questionOps !== undefined && !existing)
+    throw new Error("questionOps needs a stored onboarding block. Send a full block first.");
+  const stored = existing ?? characterOnboardingSchema.parse({});
+  const { lists, counts } = mergeQuestionOps(stored, patch, questionOps);
   const merged: Row = { ...stored, ...patch };
   for (const list of QUESTION_LISTS) {
     if (Array.isArray(patch[list])) merged[list] = patch[list].map(normalizeQuestion);
   }
+  Object.assign(merged, lists);
+  assertOnboardingMacros(merged);
   const parsed = characterOnboardingSchema.safeParse(merged);
   if (!parsed.success) {
     const problems = parsed.error.issues.map((issue) => `${issue.path.join(".") || "onboarding"}: ${issue.message}`);
@@ -216,5 +285,5 @@ export function buildOnboardingUpdate(
   const onboarding = withUniqueOnboardingIds(parsed.data);
   const { errors, warnings } = checkOnboarding(onboarding, onboardingCardFields(data));
   if (errors.length > 0) throw new Error(`Onboarding not saved. Fix and retry:\n- ${errors.join("\n- ")}`);
-  return { onboarding, warnings };
+  return { onboarding, warnings, counts };
 }

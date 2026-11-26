@@ -78,8 +78,8 @@ false for those answers — say which.
    because the card text it is checked against does not carry the `{{name}}` yet. With no
    character questions, skip the card patch.
    When the output limit is small (your workspace rules say so, or a reply was cut at it), send the card patch and the block in separate replies, the patch first, and the block
-   only once the patch has applied (its `readBack`, or the user's Accept when it is held). The block
-   itself cannot go in parts, since each question list you send replaces the whole list: keep it short.
+   only once the patch has applied (its `readBack`, or the user's Accept when it is held). Create the initial block compactly, then add further questions with questionOps.
+   Add a question with questionOps instead of resending the list.
 6. **Write with `apply: true`** and a one-sentence `reason` that says what the player gets ("Players
    build their newcomer with a few questions when a chat starts"). The result is a change card the
    user reviews; the template itself is not applied to any existing chat. Report the shape in one or
@@ -93,10 +93,30 @@ false for those answers — say which.
 
 ## Updating an existing block
 
-The update **merges**: top-level keys you send replace, keys you omit stay, and a `variables` or
-`cardVariables` list you send replaces that **whole list**. So to change one question, read the
-block, edit that question, and send the complete list. To switch onboarding off, send
-`{ "enabled": false }` — that keeps everything else. To start over, send a full block.
+Use top-level `questionOps` alongside `onboarding` to change individual questions. Read the
+stored block first. Each of `variables` and `cardVariables` accepts `add`, `update`, `remove`
+and `after`. Updates match `id` first, otherwise `variableName`, and preserve omitted fields.
+A sent `options` array replaces that question's options. To rename, select by id and send the new
+variableName. Operations run update, remove, add. Add appends by default. Set `after` to an
+existing question's name or id to insert the entire add batch immediately after it.
+
+```json
+{
+  "action": "character.onboarding.update",
+  "characterId": "<id>",
+  "questionOps": {
+    "variables": { "add": [{ "variableName": "hobby", "question": "Your hobby?" }], "after": "player" }
+  },
+  "reason": "Adds a hobby question after the name.",
+  "apply": true
+}
+```
+
+Top-level onboarding fields replace when sent, and omitted fields stay. A sent whole question list
+replaces that list for full rewrites. Send either the whole list or questionOps for a given
+list in one call. questionOps requires an existing readable block. An unknown or ambiguous selector
+is refused with available names. Remove any template reference before removing its question.
+To switch onboarding off, send `{ "enabled": false }`. To start over, send a full block.
 
 ## Question and option fields
 

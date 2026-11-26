@@ -33,11 +33,12 @@ try {
         extensions?: Record<string, unknown> & { onboarding?: CharacterOnboarding };
       };
     };
-    const update = async (onboarding: unknown) => {
+    const update = async (onboarding: unknown, questionOps?: unknown) => {
       const result = await mari.executeAction({
         action: "character.onboarding.update",
         characterId,
         onboarding,
+        questionOps,
         reason: "test",
         apply: true,
       });
@@ -68,6 +69,10 @@ try {
     const empty = await get();
     assert.equal(empty.onboarding, null, "a card without onboarding reads as null");
     assert.match(empty.note ?? "", /no onboarding/i);
+
+    const noBlock = await update(undefined, { variables: { add: [] } });
+    assert.equal(noBlock.ok, false);
+    assert.match(noBlock.error ?? "", /stored onboarding block/);
 
     // A valid block, written the way a model would: no ids, options as plain strings or label-only.
     const saved = await update({
@@ -116,6 +121,60 @@ try {
     assert.equal(data.extensions?.onboarding?.enabled, false, "the sent key changes");
     assert.equal(data.extensions?.onboarding?.variables.length, 2, "omitted persona questions stay");
     assert.equal(data.extensions?.onboarding?.cardVariables.length, 1, "omitted character questions stay");
+
+    // Exercise question operations through the real action and persistent store.
+    const opsBefore = (await get()).onboarding!;
+    const added = await update(undefined, {
+      variables: { add: [{ variableName: "hobby", question: "Hobby?", options: ["Art"] }], after: "player" },
+    });
+    assert.equal(added.ok, true, added.error);
+    const afterAdd = (await get()).onboarding!;
+    assert.deepEqual(
+      afterAdd.variables.map((q) => q.variableName),
+      ["player", "hobby", "origin"],
+    );
+    assert.deepEqual(
+      afterAdd.variables.filter((q) => q.variableName !== "hobby"),
+      opsBefore.variables,
+    );
+    assert.equal(
+      (await update(undefined, { variables: { update: [{ variableName: "hobby", question: "Favorite hobby?" }] } })).ok,
+      true,
+    );
+    const hobby = (await get()).onboarding!.variables[1];
+    assert.equal(hobby.question, "Favorite hobby?");
+    assert.deepEqual(hobby.options, afterAdd.variables[1].options);
+    assert.equal((await update(undefined, { variables: { update: [{ id: hobby.id, allowCustom: true }] } })).ok, true);
+    assert.equal((await get()).onboarding!.variables[1].allowCustom, true);
+    for (const [patch, ops, pattern] of [
+      [{}, { variables: { update: [{ id: "missing", question: "?" }] } }, /Available names:.*player.*hobby.*origin/],
+      [{}, { variables: { remove: ["origin"] } }, /description.*origin/],
+      [{ variables: [] }, { variables: { add: [] } }, /either the whole list/],
+      [{}, { variables: { add: [{ variableName: "player", question: "?" }] } }, /More than one question/],
+      [{}, { variables: { add: [], after: "missing" } }, /Unknown or ambiguous/],
+      [{}, { variables: { update: [{ variableName: "hobby", allowcustom: true }] } }, /unknown key/],
+      [{}, { variables: { add: "bad" } }, /must be an array/],
+      [{}, { variables: { remove: ["hobby", "missing"] } }, /Unknown or ambiguous/],
+    ] as Array<[unknown, unknown, RegExp]>) {
+      const beforeFailure = (await get()).onboarding;
+      const result = await update(patch, ops);
+      assert.equal(result.ok, false);
+      assert.match(result.error ?? "", pattern);
+      assert.deepEqual((await get()).onboarding, beforeFailure, "failed operations save nothing");
+    }
+    assert.equal(
+      (
+        await update(undefined, {
+          variables: { remove: ["hobby"], add: [{ variableName: "pastime", question: "Pastime?" }] },
+        })
+      ).ok,
+      true,
+    );
+    assert.deepEqual(
+      (await get()).onboarding!.variables.map((q) => q.variableName),
+      ["player", "origin", "pastime"],
+    );
+    assert.equal((await update(undefined, { variables: { remove: ["pastime"] } })).ok, true);
 
     // Broken blocks are refused and leave the stored block as it was.
     const before = JSON.stringify((await readData()).extensions?.onboarding);

@@ -31,6 +31,7 @@ type Command = {
   action?: string;
   patch?: Record<string, unknown>;
   onboarding?: unknown;
+  questionOps?: unknown;
 };
 // The example is protocol-neutral: one app_data argument object per line, in response order.
 const commands = body
@@ -52,6 +53,17 @@ const { onboarding, warnings } = buildOnboardingUpdate({ name: "Queen Ayrene", .
 assert.equal(onboarding.enabled, true, "the example turns onboarding on");
 assert.ok(onboarding.cardVariables.length > 0, "the example shows a character question");
 assert.deepEqual(warnings, [], "every question in the example is used");
+
+const targeted = commands.find((command) => command.questionOps);
+assert.ok(targeted, "the skill demonstrates targeted question operations");
+const targetedResult = buildOnboardingUpdate(
+  { ...cardEdit.patch, extensions: { onboarding } },
+  { description: onboarding.description + " {{hobby}}" },
+  targeted.questionOps,
+);
+assert.equal(targetedResult.onboarding.variables.length, onboarding.variables.length + 1);
+assert.deepEqual(targetedResult.warnings, []);
+assert.deepEqual(targetedResult.counts, { added: 1, updated: 0, removed: 0 });
 
 // A JSON string cut by an unescaped quote arrives as garbage keys; name that failure, not just the keys.
 assert.throws(
