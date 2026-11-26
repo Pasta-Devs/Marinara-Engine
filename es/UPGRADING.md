@@ -37,7 +37,7 @@ El lanzador actualiza Marinara cuando la inicias.
 1. Cierra Marinara Engine.
 2. Ábrela de nuevo desde el acceso directo del escritorio o del menú Inicio, o ejecuta `start.bat`.
 
-El lanzador obtiene el código más reciente, reinstala lo que cambió, recompila y arranca la nueva versión. Si cambiaste el código tú mismo, aparta tus cambios y los vuelve a poner después de la actualización. Si no puede, mantiene tu versión actual e imprime una nota. Copia tus datos antes de actualizar, y omite una actualización que llevaría a una versión más antigua que tus datos (consulta [Volver a una versión anterior](#downgrading-to-an-older-version)).
+El lanzador obtiene el código más reciente, reinstala lo que cambió, recompila y arranca la nueva versión. Si cambiaste el código tú mismo, aparta tus cambios y los vuelve a poner después de la actualización. Si no puede, mantiene tu versión actual e imprime una nota. Copia tus datos antes de actualizar, y omite una actualización que llevaría a una versión más antigua que tus datos (consulta [Volver a una versión anterior](#downgrading-to-an-older-version)). Esa copia no incluye tus copias de seguridad automáticas (los archivos zip `marinara-automatic-backup` de la carpeta `backups/` dentro de la carpeta de datos). Las demás copias de seguridad de esa carpeta sí se copian.
 
 Para omitir la actualización una vez, ejecuta `start.bat --skip-update`. Para mantener la versión instalada entre inicios, define `AUTO_UPDATE_ENABLED=false` en el `.env` del proyecto. Esto solo desactiva las actualizaciones automáticas. Los comandos manuales y **Settings → Advanced → Check for Updates** siguen funcionando.
 
