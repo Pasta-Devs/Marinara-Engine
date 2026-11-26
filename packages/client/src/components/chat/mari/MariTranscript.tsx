@@ -164,6 +164,11 @@ export const MariTranscript = memo(function MariTranscript({
   // The fade-in follows the loading skeleton only; a thread drawn at once (a cached reopen) shows as it is.
   const [showedSkeleton, setShowedSkeleton] = useState(loadingHistory);
   if (loadingHistory && !showedSkeleton) setShowedSkeleton(true);
+  // Where the newest turn of the history starts (its user message), so that turn always lays out for real.
+  const previousTurnStart = Math.max(
+    0,
+    transcriptHeadMessages.findLastIndex((message) => message.role === "user"),
+  );
   const runErrorCard = activeRunError
     ? renderRunErrorCard(activeRunError, true)
     : workspaceStatus?.error && !isBusy
@@ -200,9 +205,14 @@ export const MariTranscript = memo(function MariTranscript({
                 <span className="mari-note__detail">{workspaceToolsIssue}</span>
               </MariNote>
             ) : null}
-            {transcriptHeadMessages.map((message) => (
-              // Older turns skip style and layout while off screen (mari.css).
-              <div key={message.id} className="mari-transcript-past-turn">
+            {transcriptHeadMessages.map((message, index) => (
+              // Older turns skip style and layout while off screen (mari.css). The turn just before yours is
+              // laid out for real: it moves here from the active turn as you send, and a placeholder height
+              // there resolved a frame later and threw your question down the screen as her reply began.
+              <div
+                key={message.id}
+                className={index >= previousTurnStart ? undefined : "mari-transcript-past-turn"}
+              >
                 {renderDisplayMessage(message)}
               </div>
             ))}

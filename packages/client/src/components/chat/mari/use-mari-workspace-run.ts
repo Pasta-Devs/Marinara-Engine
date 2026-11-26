@@ -174,11 +174,24 @@ export function useMariWorkspaceRun({
       let workingToolId: string | null = null;
       // Her provisional words for the round she is writing reach the store at most once a frame.
       let draft = "";
+      // The round's draft has ended: it stays up until her real words (or other work) take its place.
+      let draftEnded = false;
       const draftThrottle = rafThrottle<string>((value) => useChatStore.getState().setMariDraft(chat.id, value));
+      // Her real words land on the next frame; the draft goes in that same frame, so the reply never blinks
+      // out between the two (the text throttle was scheduled first, so it runs first).
+      const draftHandoff = rafThrottle<void>(() => useChatStore.getState().setMariDraft(chat.id, null));
       const clearDraft = () => {
         draft = "";
+        draftEnded = false;
         draftThrottle.cancel();
+        draftHandoff.cancel();
         useChatStore.getState().setMariDraft(chat.id, null);
+      };
+      const handOffDraft = () => {
+        draft = "";
+        draftEnded = false;
+        draftThrottle.cancel();
+        draftHandoff.call(undefined);
       };
       // Her text for character fields while she writes them, also once a frame. Kept for every
       // character, so an editor opened mid-stream shows the whole text so far.
@@ -231,8 +244,15 @@ export function useMariWorkspaceRun({
           { disconnectOnResume: true },
         )) {
           if (event.type === "draft") {
-            if (typeof event.data !== "string") clearDraft();
-            else draftThrottle.call((draft = event.data));
+            if (typeof event.data === "string") {
+              draftEnded = false;
+              draftThrottle.call((draft = event.data));
+            } else if (draft) {
+              // Keep her last words showing until the audited text replaces them (clearing here left a
+              // blank gap, then the whole reply popped in at once).
+              draftThrottle.flush();
+              draftEnded = true;
+            }
             continue;
           }
           if (event.type === "edit_delta") {
@@ -251,15 +271,21 @@ export function useMariWorkspaceRun({
             }
             continue;
           }
-          // Her real words or a step replace the draft.
-          if (draft && (event.type === "token" || event.type === "tool_start")) clearDraft();
+          // Her real words or a step replace the draft; once the draft has ended, so does her next thought or note.
           if (event.type === "token" && typeof event.data === "string") {
             received = true;
             pendingWorkspaceTextRef.current += event.data;
             workspaceTextThrottle.call(undefined);
+            if (draft) handOffDraft();
             useChatStore.getState().appendStreamBuffer(event.data, chat.id);
             continue;
           }
+          if (
+            draft &&
+            (event.type === "tool_start" ||
+              (draftEnded && (event.type === "thinking" || event.type === "status")))
+          )
+            clearDraft();
           workspaceTextThrottle.flush();
           if (event.type === "thinking" && typeof event.data === "string") {
             setWorkspaceTimeline((current) => appendThinkingTimeline(current, event.data as string));
