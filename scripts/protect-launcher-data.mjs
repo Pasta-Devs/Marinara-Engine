@@ -584,6 +584,10 @@ export async function snapshotLauncherData({
   // that socket and fail with EINVAL, aborting the whole update (#6046). Nothing
   // in the lease is user data, so leave the directory out entirely.
   const writerLeaseDir = resolve(dataDir, "storage", ".writer-lease");
+  // DATA_DIR/backups holds the automatic, manual and pre-import backups, which are
+  // copies of this same data. Copying them grew every update snapshot by each backup
+  // kept (25 GB with five daily ones, #9861), and a restore does not need them.
+  const backupsDir = resolve(dataDir, "backups");
 
   await rm(incompleteDir, { recursive: true, force: true });
   try {
@@ -597,7 +601,8 @@ export async function snapshotLauncherData({
         if (
           sourcePath === capabilityRuntimeLink ||
           sourcePath === capabilityRuntimeSnapshots ||
-          sourcePath === writerLeaseDir
+          sourcePath === writerLeaseDir ||
+          sourcePath === backupsDir
         ) return false;
         if (
           !downloadableDataDirs.every(

@@ -402,6 +402,11 @@ try {
   const galleryDir = join(defaultDataDir, "gallery");
   mkdirSync(galleryDir, { recursive: true });
   writeFileSync(join(galleryDir, "selfie.png"), "irreplaceable user data\n");
+  // #9861: automatic, manual and pre-import backups are copies of the data itself.
+  const userBackupsDir = join(defaultDataDir, "backups");
+  mkdirSync(join(userBackupsDir, "marinara-backup-2026-07-22_12-00-00"), { recursive: true });
+  writeFileSync(join(userBackupsDir, "marinara-automatic-backup.zip"), "automatic backup\n");
+  writeFileSync(join(userBackupsDir, "marinara-backup-2026-07-22_12-00-00", "marinara-profile.zip"), "manual backup\n");
   // #6046: a server that is still running (or died without releasing its lease)
   // leaves the writer lease behind, including the live.sock liveness socket.
   // fs.cp cannot copy a socket, so the snapshot used to abort and the launcher
@@ -469,6 +474,11 @@ try {
     existsSync(join(snapshot.backupDir, "data", "storage", ".writer-lease")),
     false,
     "Launcher snapshots must omit the per-process storage writer lease (#6046)",
+  );
+  assert.equal(
+    existsSync(join(snapshot.backupDir, "data", "backups")),
+    false,
+    "Launcher snapshots must not copy the backups kept in the data folder (#9861)",
   );
   if (livenessSocket) {
     await new Promise((resolvePromise) => livenessSocket.close(resolvePromise));
