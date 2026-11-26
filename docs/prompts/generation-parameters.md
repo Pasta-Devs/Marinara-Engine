@@ -114,7 +114,7 @@ A value still shows in the box when its Send switch is off. It is not sent until
 
 ## Context message limit
 
-**Limit Context Messages** (also labeled **Context message limit**) sends only the last N messages instead of the whole chat. It is off by default. When you turn it on, the count starts at 50, and you can set 1 to 9999. A smaller number lowers cost and speeds things up, and the AI remembers less.
+**Limit Context Messages** (also labeled **Context message limit**) sends only the last N messages instead of the whole chat. It is off by default. When you turn it on, the count starts at 50, and you can set 1 to 9999. Turning it on also turns on **Drop Old Messages in Steps** at 10, unless you already set a step, because a limit that drops one message per reply keeps prompt caching from reusing the history. A smaller number lowers cost and speeds things up, and the AI remembers less.
 
 In a Roleplay chat with **Advanced Memory Recall** on, this limit is not used. Advanced Memory Recall sets how much history is sent with **Maximum allowed context before compression (tokens)**. To send less, lower that setting in **Chat Settings → Memory Recall**. See [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay-and-game-mode).
 

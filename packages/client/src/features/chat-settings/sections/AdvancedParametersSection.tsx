@@ -359,7 +359,13 @@ export function AdvancedParametersSection({
           label={localizeUi("ui.chatSettings.advancedparameterssection.limitContextMessages")}
           description={localizeUi("ui.chatSettings.advancedparameterssection.onlySendTheLastNMessagesToTheModel")}
           checked={Boolean(contextMessageLimit)}
-          onChange={(checked) => onContextMessageLimitChange(checked ? 50 : null)}
+          onChange={(checked) => {
+            onContextMessageLimitChange(checked ? 50 : null);
+            // A limit without steps drops a message every reply and breaks prompt caching, so steps come with it.
+            if (checked && !advancedMemoryManagesHistory && dropStep <= 1) {
+              onHistoryDropStepChange(HISTORY_DROP_STEP.SUGGESTED);
+            }
+          }}
           labelPosition="start"
           className={cn(
             "justify-between rounded-lg px-3 py-2.5 text-left",
