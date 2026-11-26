@@ -903,6 +903,11 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           description:
             "Partial update fields only. Omitted fields remain unchanged. For character/persona cards, never put requested backstory or appearance content into description: description is the brief identity overview, personality is behavioral traits and mannerisms, backstory is history, and appearance is physical features/clothing.",
         },
+        questionOps: {
+          type: "object",
+          description:
+            "For character.onboarding.update, prefer this over resending a list. variables and cardVariables each accept add (question objects), update (partial question objects matched by id first, else variableName), remove (ids or variableNames), and after (existing question id or variableName to insert the add batch after). Add appends by default. Omitted fields stay. Sent options replace that question's options. Requires a stored block. Send either the whole list or questionOps for a given list. Read builtin-onboarding.",
+        },
         onboarding: {
           type: "object",
           description:
@@ -1469,6 +1474,9 @@ export function compactMutationResult(
     // validation rides up here for the same reason: the message tells her to read validation.notices, and a long
     // preview used to cut them off when they sat after the summary.
     validation: result.validation,
+    ...(isRecord(result.output) && result.output.questionCounts
+      ? { questionCounts: result.output.questionCounts }
+      : {}),
     // app_data passes dropCommand: its command string is "app_data <action> <whole input JSON>", a third copy of
     // what the call already carried. A `mari` CLI command line is the call itself, so it stays.
     ...(options.dropCommand
