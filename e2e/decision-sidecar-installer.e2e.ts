@@ -10,8 +10,8 @@ const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.u
  *
  * Nothing here installs anything: the point is that a user cannot reach a download by
  * accident. Download turns the sidecar on first, and turning it on is a confirmation
- * carrying this machine's verdict. Where no decision model can run (the runtime needs
- * Linux x64, a model an NVIDIA GPU), the row says so and offers nothing to download.
+ * carrying this machine's verdict. Where no decision model can run on this machine, the
+ * row says so and offers nothing to download.
  */
 test("the decision installer is reachable before setup, asks before turning on, and judges a pasted repository", async ({
   page,
@@ -50,7 +50,7 @@ test("the decision installer is reachable before setup, asks before turning on, 
   // sidecar is its own model and its own process, so it must be reachable before anything is set up.
   const panel = page.locator("[data-connections-panel]").filter({ visible: true });
   // The app's own rule (`decisionCannotRun`): nothing runs when the runtime is unsupported, or when every model's
-  // verdict is "unsupported", as on a Linux x64 machine with no NVIDIA GPU such as CI's runners.
+  // verdict is "unsupported". CI's runners can run a decision model, so CI takes the second branch.
   const cannotRun =
     !status.supported ||
     (status.models.length > 0 &&
@@ -64,7 +64,11 @@ test("the decision installer is reachable before setup, asks before turning on, 
     await panel.locator('[data-add-connection-service="local_model"]').click();
     const devicePage = page.getByRole("dialog");
     await expect(devicePage.getByText("Not available on this machine", { exact: true })).toBeVisible();
-    await expect(devicePage.getByRole("button", { name: "Download", exact: true })).toHaveCount(0);
+    // Scoped to the decision section, as the click below: the other built-in models on this page have their own
+    // Download buttons.
+    await expect(
+      devicePage.locator('[data-component="DecisionModelDetail"]').getByRole("button", { name: /^Download/u }),
+    ).toHaveCount(0);
     // An unsupported runtime also names what does work instead.
     if (!status.supported) await expect(devicePage.getByText(/You can still use activation questions/u)).toBeVisible();
     await screenshot("decision-installer-dark");
