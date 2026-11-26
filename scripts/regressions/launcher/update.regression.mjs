@@ -402,6 +402,22 @@ try {
   const galleryDir = join(defaultDataDir, "gallery");
   mkdirSync(galleryDir, { recursive: true });
   writeFileSync(join(galleryDir, "selfie.png"), "irreplaceable user data\n");
+  // #9861: the daily automatic backups are zips of the data itself; manual and
+  // pre-import backups sit next to them and may be the only copy of older data.
+  const userBackupsDir = join(defaultDataDir, "backups");
+  const automaticBackupNames = [
+    "marinara-automatic-backup.zip",
+    "marinara-automatic-backup.zip.pending",
+    "marinara-automatic-backup.zip.previous",
+    "marinara-automatic-backup-2026-07-21T12-00-00-000Z-ab12cd34.zip",
+  ];
+  mkdirSync(join(userBackupsDir, "marinara-backup-2026-07-22_12-00-00"), { recursive: true });
+  for (const name of automaticBackupNames) writeFileSync(join(userBackupsDir, name), "automatic backup\n");
+  writeFileSync(join(userBackupsDir, "marinara-backup-2026-07-22_12-00-00", "marinara-profile.zip"), "manual backup\n");
+  writeFileSync(
+    join(userBackupsDir, "marinara-before-import-2026-07-22T12-00-00-000Z-ab12cd34.zip"),
+    "pre-import backup\n",
+  );
   // #6046: a server that is still running (or died without releasing its lease)
   // leaves the writer lease behind, including the live.sock liveness socket.
   // fs.cp cannot copy a socket, so the snapshot used to abort and the launcher
@@ -469,6 +485,29 @@ try {
     existsSync(join(snapshot.backupDir, "data", "storage", ".writer-lease")),
     false,
     "Launcher snapshots must omit the per-process storage writer lease (#6046)",
+  );
+  for (const name of automaticBackupNames) {
+    assert.equal(
+      existsSync(join(snapshot.backupDir, "data", "backups", name)),
+      false,
+      `Launcher snapshots must not copy the automatic backup ${name} (#9861)`,
+    );
+  }
+  assert.equal(
+    readFileSync(
+      join(snapshot.backupDir, "data", "backups", "marinara-backup-2026-07-22_12-00-00", "marinara-profile.zip"),
+      "utf8",
+    ),
+    "manual backup\n",
+    "Launcher snapshots must keep manual backups",
+  );
+  assert.equal(
+    readFileSync(
+      join(snapshot.backupDir, "data", "backups", "marinara-before-import-2026-07-22T12-00-00-000Z-ab12cd34.zip"),
+      "utf8",
+    ),
+    "pre-import backup\n",
+    "Launcher snapshots must keep the pre-import backup behind Undo Last Import",
   );
   if (livenessSocket) {
     await new Promise((resolvePromise) => livenessSocket.close(resolvePromise));

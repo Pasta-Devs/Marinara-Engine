@@ -308,7 +308,7 @@ export function ChatSidebar() {
   const setPendingNewChatMode = useChatStore((s) => s.setPendingNewChatMode);
 
   // Folder hooks
-  const { data: folders } = useChatFolders();
+  const { data: folders, isPending: foldersPending } = useChatFolders();
   const createFolderMut = useCreateFolder();
   const updateFolderMut = useUpdateFolder();
   // Stable across renders, unlike the mutation object itself — safe as an effect dep.
@@ -710,7 +710,8 @@ export function ChatSidebar() {
     //    re-runs after the query delivers the expanded state.
     if (!s.folderSynced) {
       if (!chat.folderId) {
-        s.folderSynced = true;
+        // The folders sit above the unfiled chats: scrolled before they arrive, the row ends up below the view.
+        if (!foldersPending) s.folderSynced = true;
       } else if (folders) {
         const folder = folders.find((f) => f.id === chat.folderId);
         if (folder?.collapsed) {
@@ -741,7 +742,7 @@ export function ChatSidebar() {
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [activeChatId, chats, folders, mutateFolder]);
+  }, [activeChatId, chats, folders, foldersPending, mutateFolder]);
 
   const handleNewChat = useCallback(
     (mode: ChatMode) => {
@@ -1923,6 +1924,8 @@ export function ChatSidebar() {
             gap={2}
             pinnedIndex={unfiledChats.findIndex((entry) => entry.chat.id === draggedChatId)}
             scrollToIndex={(() => {
+              // Waits for the folders above: arriving after this scroll, they push the open chat below the view.
+              if (foldersPending) return undefined;
               const i = unfiledChats.findIndex(
                 (entry) =>
                   entry.chat.id === activeChatId || (activeGroupId != null && entry.chat.groupId === activeGroupId),

@@ -18,22 +18,27 @@ const require = createRequire(new URL("../../../packages/client/package.json", i
 // import() needs a file URL: a bare Windows path such as C:\… reads as the scheme "c:".
 const importClientPackage = (id: string) => import(pathToFileURL(require.resolve(id)).href);
 let stopped = 0;
+let started = 0;
 const clock = {
   frames: 0,
   update() {
     this.frames += 1;
   },
 };
-const advance = bindMmdStageClock({
-  _animation: {
-    stop() {
-      stopped += 1;
-    },
+const library = {
+  start() {
+    started += 1;
   },
-  _nodes: { nodeFrame: clock },
-});
+  stop() {
+    stopped += 1;
+  },
+};
+const advance = bindMmdStageClock({ _animation: library, _nodes: { nodeFrame: clock } });
 assert.equal(stopped, 1);
 assert.equal(clock.frames, 0, "stopping the library loop must not invent a stage tick");
+// Three 0.187's render() calls start() on every draw.
+library.start();
+assert.equal(started, 0, "a draw cannot restart the library loop the stage stopped");
 advance();
 advance();
 assert.equal(clock.frames, 2, "only explicit stage draws advance the library's frame clock");
