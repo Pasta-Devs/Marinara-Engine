@@ -2351,6 +2351,9 @@
 }
 .ovm-preset__body {
   display: grid;
+  /* One column that never grows past the screen: an auto column sized to the
+     toolbar's unwrapped width pushed every section row off the right edge. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.25rem;
   padding: 0.25rem 0 2rem;
 }
@@ -2794,12 +2797,16 @@
   font-size: 0.9375rem !important;
 }
 :root[data-overhaul="mobile"] .ovm-preset .ov-po-tools {
-  flex-wrap: nowrap;
+  /* Buttons share one row; the token total takes its own row below them. */
+  flex-wrap: wrap;
   gap: 0.125rem;
-  padding-inline: 0;
+  padding-left: 0;
+  padding-right: 0;
 }
 :root[data-overhaul="mobile"] .ovm-preset .ov-po-tools .mari-editor-action:not(#ovm-x) {
-  padding-inline: 0.5rem !important;
+  flex-shrink: 0;
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
   white-space: nowrap;
 }
 :root[data-overhaul="mobile"] .ovm-preset .ov-po-tools [data-preset-touch-edit] {

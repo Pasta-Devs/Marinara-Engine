@@ -2997,14 +2997,6 @@ function SectionsTab({
                         {localizeUi("ui.presets.sectionstab.marker")}
                       </span>
                     )}
-                    {recentMessages !== null && (
-                      <span
-                        data-preset-recent-count
-                        className="hidden shrink-0 whitespace-nowrap text-[0.625rem] text-[var(--muted-foreground)] sm:inline"
-                      >
-                        {localizeUi("ui.presets.sectionstab.recentHistoryCount", { count: recentMessages })}
-                      </span>
-                    )}
                     {group && (
                       <span
                         data-preset-section-group-badge
@@ -3038,7 +3030,12 @@ function SectionsTab({
                           : formatEstimatedTokens(sectionTokens, localizeUi)
                       }
                     >
-                      {sectionTokens === null ? (
+                      {recentMessages !== null ? (
+                        // Recent History says how much history it takes; like every marker, it has no fixed cost.
+                        <span data-preset-recent-count>
+                          {localizeUi("ui.presets.sectionstab.recentHistoryCount", { count: recentMessages })}
+                        </span>
+                      ) : sectionTokens === null ? (
                         localizeUi("ui.presets.sectionstab.dynamic")
                       ) : (
                         <>

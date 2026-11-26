@@ -20288,7 +20288,7 @@
   "ui.presets.sectionstab.recalledScenes": "Recalled scenes",
   "ui.presets.sectionstab.recalledScenesDescription": "Places all recalled scene summaries in one section, each immediately followed by its available message excerpt. Without an enabled marker, this section appears before chat history.",
   "ui.presets.sectionstab.recentHistory": "Recent History",
-  "ui.presets.sectionstab.recentHistoryCount": "Newest {{count}} messages",
+  "ui.presets.sectionstab.recentHistoryCount": "Newest {{count}}",
   "ui.presets.sectionstab.recentHistoryDescription": "Sends the newest messages of the chat here instead of at Chat History. Anything you put between Chat History and Recent History goes between older and newer messages.",
   "ui.presets.sectionstab.recentHistoryWarning.aboveChatHistory": "Move this below Chat History. Above it, it sends nothing.",
   "ui.presets.sectionstab.recentHistoryWarning.duplicate": "Only the first Recent History is used; this one sends nothing.",
