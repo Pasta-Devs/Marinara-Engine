@@ -24,7 +24,7 @@ const SUMMARY_COMBINE_MESSAGE_OVERHEAD_TOKENS = 64;
 
 export const SUMMARY_AUTO_COMBINE = { MIN: 2, MAX: 100, SUGGESTED: 10 } as const;
 
-/** Chat setting `summaryAutoCombineAbove`: combine when there are more entries than this; 0 means off. */
+/** Chat setting `summaryAutoCombineAbove`: combine when there are more summaries than this; 0 means off. */
 export function normalizeSummaryAutoCombineAbove(value: unknown): number {
   const parsed = Math.floor(Number(value));
   if (!Number.isFinite(parsed) || parsed < SUMMARY_AUTO_COMBINE.MIN) return 0;
@@ -32,15 +32,20 @@ export function normalizeSummaryAutoCombineAbove(value: unknown): number {
 }
 
 /**
- * The entries automatic combining folds together, or none while the count is within the limit: every turned-on
- * entry except the newest, so the next combine is a whole limit's worth of summaries away. It runs right after a
- * new summary is saved, the moment the Past Events block changes anyway, so it costs no extra prompt-cache write.
+ * The entries automatic combining folds into a new chapter, or none while the counts are within the limit. Once
+ * there are more turned-on summaries outside chapters than the limit, all of them except the newest become one
+ * chapter. Chapters are left as written, so older events are not summarised again and again; only when chapters
+ * themselves pass the limit (a limit's worth of chapters, which takes a long chat) are all but the newest chapter
+ * combined. It runs right after a new summary is saved, the moment Past Events changes anyway, so it costs no extra
+ * prompt-cache write.
  */
 export function selectEntriesToAutoCombine(entries: readonly ChatSummaryEntry[], above: number): string[] {
   if (above < SUMMARY_AUTO_COMBINE.MIN) return [];
   const enabled = entries.filter((entry) => entry.enabled);
-  if (enabled.length <= above) return [];
-  return enabled
+  const loose = enabled.filter((entry) => !entry.chapter);
+  const chapters = enabled.filter((entry) => entry.chapter);
+  const pick = loose.length > above ? loose : chapters.length > above ? chapters : [];
+  return pick
     .slice(0, -1)
     .slice(-SUMMARY_AUTO_COMBINE.MAX)
     .map((entry) => entry.id);
@@ -69,6 +74,8 @@ export async function combineSummaryEntries(args: {
   signal?: AbortSignal;
   /** Throws when the caller's request was cancelled. */
   throwIfAborted?: () => void;
+  /** Automatic combining: the new entry is a chapter, which later automatic combines leave alone. */
+  chapter?: boolean;
 }): Promise<CombineSummaryEntriesResult> {
   const checkAborted = args.throwIfAborted ?? (() => undefined);
   const requestedIds = new Set(args.entryIds);
@@ -156,6 +163,7 @@ export async function combineSummaryEntries(args: {
         messageIds,
         hiddenMessageIds,
         promptTemplateId: args.promptTemplateId,
+        ...(args.chapter ? { chapter: true } : {}),
         createdAt: selected[0]?.createdAt ?? now,
         updatedAt: now,
       },

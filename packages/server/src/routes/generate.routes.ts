@@ -13885,6 +13885,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     globalSummaryPromptSettings,
                     storage: chats,
                     signal: generationSignal,
+                    chapter: true,
                   });
                   if (folded.ok) {
                     chatMeta = { ...chatMeta, summary: folded.summary, summaryEntries: folded.entries };

@@ -141,6 +141,7 @@ export function normalizeChatSummaryEntry(
   } else if (value.promptTemplateId === null) {
     base.promptTemplateId = null;
   }
+  if (value.chapter === true) base.chapter = true;
 
   if (!base.title) base.title = generateChatSummaryEntryTitle(base);
   return base;

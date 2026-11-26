@@ -1,5 +1,6 @@
 // "Combine older summaries automatically" (chat setting summaryAutoCombineAbove): once a chat has more turned-on
-// summary entries than the limit, every one but the newest is folded into one entry with the combine prompt.
+// summaries outside chapters than the limit, all but the newest become one chapter with the combine prompt.
+// Chapters are left as written; only a limit's worth of chapters is combined again.
 import assert from "node:assert/strict";
 import type { ChatSummaryEntry } from "../../../packages/shared/src/index.js";
 import {
@@ -10,8 +11,9 @@ import {
 import type { BaseLLMProvider } from "../../../packages/server/src/services/llm/base-provider.js";
 import { type RegressionCase, runNamedCases } from "../fixtures/named-cases.js";
 
-const entry = (n: number, enabled = true): ChatSummaryEntry =>
+const entry = (n: number, enabled = true, chapter = false): ChatSummaryEntry =>
   ({
+    ...(chapter ? { chapter: true } : {}),
     id: `e${n}`,
     kind: "rolling",
     origin: "automated",
@@ -45,6 +47,17 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "chapters are not summarised again until there are more chapters than the limit",
+    run() {
+      const chapters = [1, 2].map((n) => entry(n, true, true));
+      const loose = [3, 4, 5, 6].map((n) => entry(n));
+      assert.deepEqual(selectEntriesToAutoCombine([...chapters, ...loose], 4), [], "chapters do not count");
+      assert.deepEqual(selectEntriesToAutoCombine([...chapters, ...loose, entry(7)], 4), ["e3", "e4", "e5", "e6"]);
+      const many = [1, 2, 3, 4, 5].map((n) => entry(n, true, true));
+      assert.deepEqual(selectEntriesToAutoCombine([...many, entry(6)], 4), ["e1", "e2", "e3", "e4"]);
+    },
+  },
+  {
     name: "combining keeps order and coverage and saves one entry in place of the older ones",
     async run() {
       let meta: Record<string, unknown> = { summaryEntries: [1, 2, 3, 4, 5].map((n) => entry(n)) };
@@ -67,6 +80,7 @@ const cases: RegressionCase[] = [
         summaryMaxTokens: 512,
         promptTemplateId: null,
         globalSummaryPromptSettings: null,
+        chapter: true,
         storage: {
           async patchMetadata(_id, patch) {
             meta = { ...meta, ...patch(meta) };
@@ -81,6 +95,8 @@ const cases: RegressionCase[] = [
       assert.equal(saved.filter((item) => item.enabled).length, 2);
       const enabled = saved.filter((item) => item.enabled);
       assert.equal(enabled[0]!.content, "Everything before part 5.");
+      assert.equal(enabled[0]!.chapter, true, "the combined entry is a chapter");
+      assert.equal(enabled[1]!.chapter, undefined);
       assert.deepEqual(enabled[0]!.messageIds, ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"]);
       assert.equal(enabled[1]!.id, "e5", "the newest entry stays last");
     },

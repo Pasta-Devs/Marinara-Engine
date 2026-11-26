@@ -3013,6 +3013,14 @@ function SummaryEntryRow({
           <div className="flex min-w-0 items-center gap-1.5">
             <SummaryEntryOriginIcon entry={entry} />
             <span className="min-w-0 truncate text-xs font-semibold">{entry.title}</span>
+            {entry.chapter && (
+              <span
+                className="shrink-0 rounded bg-[var(--secondary)] px-1.5 py-0.5 text-[0.5625rem] font-semibold text-[var(--muted-foreground)]"
+                data-summary-chapter
+              >
+                {localizeUi("ui.chat.summarypopover.chapter")}
+              </span>
+            )}
             {editing && (
               <span className="shrink-0 rounded bg-[var(--primary)]/15 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-[var(--primary)]">
                 {localizeUi("ui.panels.imagestyleprofileseditor.editing")}

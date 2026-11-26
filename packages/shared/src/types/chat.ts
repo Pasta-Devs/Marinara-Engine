@@ -296,6 +296,11 @@ export interface ChatSummaryEntry {
    */
   hiddenMessageIds?: string[];
   promptTemplateId?: string | null;
+  /**
+   * Made by "Combine older summaries automatically" from older summaries. A chapter is kept as written: later
+   * automatic combines leave it alone, so its events are not summarised again.
+   */
+  chapter?: boolean;
   tokenEstimate: number;
   createdAt: string;
   updatedAt: string;
