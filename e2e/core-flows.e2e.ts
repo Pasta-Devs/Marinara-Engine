@@ -23307,6 +23307,18 @@ test("mobile chat composer follows the visual viewport above the software keyboa
     expect(iosComposerBox!.y).toBeGreaterThanOrEqual(iosFocusPageTop);
     expect(iosComposerBox!.y + iosComposerBox!.height).toBeLessThanOrEqual(iosFocusPageTop + 360);
 
+    // The persona sheet's name field takes focus while the sheet is still below the screen. WebKit
+    // scrolled the page to reveal it, so the whole app jumped up and slid back as the sheet rose.
+    await page.evaluate(() => {
+      const probeWindow = window as typeof window & { __mariPeakPageScroll: number };
+      probeWindow.__mariPeakPageScroll = document.documentElement.scrollTop;
+      document.addEventListener("scroll", () => {
+        probeWindow.__mariPeakPageScroll = Math.max(
+          probeWindow.__mariPeakPageScroll,
+          document.documentElement.scrollTop,
+        );
+      });
+    });
     await page.evaluate(async () => {
       const storePath = "/src/stores/ui.store.ts";
       const { useUIStore } = (await import(/* @vite-ignore */ storePath)) as {
@@ -23324,6 +23336,11 @@ test("mobile chat composer follows the visual viewport above the software keyboa
     await expect(personaModal).toBeVisible();
     await expect(personaNameInput).toBeFocused();
     await expect(personaModal).toHaveCSS("position", "absolute");
+    // Phone sheets slide up from below the screen (#8795): measure the sheet once it has landed.
+    await expect(personaModalPanel).toHaveCSS("transform", "none");
+    expect(
+      await page.evaluate(() => (window as typeof window & { __mariPeakPageScroll: number }).__mariPeakPageScroll),
+    ).toBe(0);
     const [personaModalBox, personaModalPanelBox] = await Promise.all([
       personaModal.boundingBox(),
       personaModalPanel.boundingBox(),
