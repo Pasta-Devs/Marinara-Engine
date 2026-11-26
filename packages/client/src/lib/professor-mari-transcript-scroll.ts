@@ -99,10 +99,14 @@ export function followTranscriptGrowth(
     requestAnimationFrame(() => requestAnimationFrame(() => (readerClicked = false)));
   };
   stack.addEventListener("click", noteReaderClick, true);
+  // The scroll event of a pin arrives a frame later. When a second picture grew in between, the scroll handler
+  // finds the reader far from the new bottom and clears "following". A transcript still where the last pin left
+  // it has not been moved by the reader, as in landProfessorMariTranscript.
+  let pinnedTop: number | null = null;
   const observer = new ResizeObserver(() => {
     const revealed = !shown && scroller.clientHeight > 0;
     shown = scroller.clientHeight > 0;
-    const following = isFollowing();
+    const following = isFollowing() || scroller.scrollTop === pinnedTop;
     // #9821: a picture in one of her replies loads after she landed and grows the transcript by its whole
     // height at once, so the reader is never "near the bottom" of the new height. Where they were is measured
     // against the height before this growth, at the live scroll position, so a reader who scrolled away still
@@ -118,7 +122,10 @@ export function followTranscriptGrowth(
       nearBottom: revealed || (wasNearBottom && !readerClicked) || isProfessorMariTranscriptNearBottom(scroller),
       following,
     });
-    if (scrollTo === "bottom") scrollProfessorMariTranscriptToBottom(scroller);
+    if (scrollTo === "bottom") {
+      scrollProfessorMariTranscriptToBottom(scroller);
+      pinnedTop = scroller.scrollTop;
+    }
     // Slice 67: output that grew past the fold while the reader is not following gets the jump arrow,
     // not only after they scroll by hand - otherwise her answer can end hidden under the composer.
     onGrown?.(!following && !isProfessorMariTranscriptNearBottom(scroller));

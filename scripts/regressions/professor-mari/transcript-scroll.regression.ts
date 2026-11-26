@@ -68,12 +68,14 @@ assert.equal(
 );
 // #9821: after she landed, a picture in one of her replies loads and grows the transcript by its whole height at
 // once. A following reader at the bottom stays on the newest line; one who scrolled away stays where they are, even
-// before their scroll event clears "following"; a disclosure the reader opens stays where they opened it; and a click
-// on her reply text just before a picture loads does not stop the follow.
+// before their scroll event clears "following"; a disclosure the reader opens stays where they opened it; a click on
+// her reply text just before a picture loads does not stop the follow; and neither does the pin's own scroll event
+// when it arrives after the next picture grew.
 {
   let grow = () => {};
   let click = (_event: { target: unknown }) => {};
   let frames: Array<() => void> = [];
+  let following = true;
   const nextFrame = () => {
     const due = frames;
     frames = [];
@@ -100,7 +102,7 @@ assert.equal(
     const stop = followTranscriptGrowth(
       scroller as unknown as HTMLElement,
       stack as unknown as HTMLElement,
-      () => true,
+      () => following,
     );
     scroller.scrollHeight = 4512; // a 512px picture took its height
     grow();
@@ -126,6 +128,14 @@ assert.equal(
     grow();
     assert.equal(scroller.scrollTop, 6448, "a click on her reply text does not stop a picture keeping the newest line");
     nextFrame();
+    following = false; // that pin's scroll event arrived after the next picture grew, 512px above the new bottom
+    scroller.scrollHeight = 6960;
+    grow();
+    assert.equal(scroller.scrollTop, 6960, "the pin's own scroll event does not stop the next picture's follow");
+    scroller.scrollTop = 6300; // the reader scrolled up a little; their scroll event cleared "following"
+    scroller.scrollHeight = 7472;
+    grow();
+    assert.equal(scroller.scrollTop, 6300, "a reader who moved after the pin is not pulled down");
     stop();
   } finally {
     globalThis.ResizeObserver = realResizeObserver;
