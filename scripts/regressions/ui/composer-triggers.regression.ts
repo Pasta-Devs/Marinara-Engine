@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import {
   activeToken,
+  showsReferenceGuess,
+  unlinkedActiveToken,
   composerKeyAction,
   draftSegments,
   formatReferenceToken,
@@ -199,4 +201,36 @@ for (const marks of markSets) assert.equal(joined(sample, marks), sample);
   assert.deepEqual(pastedFiles(clipboard("", [{ kind: "file", getAsFile: () => null }])), []);
 }
 
+// A linked `@` ends at its name; the guess only continues the whole unlinked token.
+{
+  const text = "OK so in @MARINARASIM  since I ha";
+  const linkedSpot = [{ start: 9, end: 21 }];
+  const after = unlinkedActiveToken(text, text.length, linkedSpot);
+  assert.equal(after.token, null, "words after a linked @ are prose");
+  assert.equal(unlinkedActiveToken(text, text.length, []).token?.start, 9, "an unlinked @ keeps its spaced name");
+  const inside = unlinkedActiveToken("@MARINARASIM", 5, [{ start: 0, end: 12 }]);
+  assert.equal(inside.token?.start, 0, "inside a linked name it stays editable");
+  assert.equal(inside.linked, true);
+  const atEnd = unlinkedActiveToken("@MARINARASIM", 12, [{ start: 0, end: 12 }]);
+  assert.equal(showsReferenceGuess("@MARINARASIM", atEnd.token, atEnd.linked, 0), false, "no guess on a linked name");
+  const open = unlinkedActiveToken("see @Alice and ha", 17, []);
+  assert.equal(
+    showsReferenceGuess("see @Alice and ha", open.token, open.linked, 15),
+    false,
+    "no guess for a later word",
+  );
+  assert.equal(
+    showsReferenceGuess("see @Alice and ha", open.token, open.linked, 4),
+    true,
+    "a guess for the whole token",
+  );
+  const typing = unlinkedActiveToken("see @Ha", 7, []);
+  assert.equal(showsReferenceGuess("see @Ha", typing.token, typing.linked, 4), true);
+  assert.equal(
+    showsReferenceGuess("see @Ha ", unlinkedActiveToken("see @Ha ", 8, []).token, false, 4),
+    false,
+    "a space ends it",
+  );
+  assert.equal(showsReferenceGuess("I have a pr", unlinkedActiveToken("I have a pr", 11, []).token, false, 9), false);
+}
 console.log("Composer triggers regression passed");
