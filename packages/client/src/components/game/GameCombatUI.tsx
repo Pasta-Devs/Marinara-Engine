@@ -507,6 +507,8 @@ interface GameCombatUIProps {
   /** The game's elements (worldgen W6c), whose own colours mark an aura. */
   elements?: WorldElementSet;
   directed?: {
+    /** The fight's own identity: a restored or branched fight under the same screen is told afresh. */
+    instanceId?: string;
     actorId?: string;
     canAct: boolean;
     /** The fight waits on a choice shown beside it (sparing yielded foes): no "resolving" spinner. */
@@ -905,7 +907,7 @@ export function GameCombatUI({
     },
     [],
   );
-  const { prose: narrated, narrate } = useCombatNarration();
+  const { prose: narrated, narrate, reset: resetNarration } = useCombatNarration();
 
   // A directed fight's own log, new lines only, each blow told as prose. What was on the log when the
   // fight opened (a fight read back) is shown as it was, never sent for narration again.
@@ -921,7 +923,15 @@ export function GameCombatUI({
     narrate(beats);
   }, [narrate]);
   const [directedBlow, setDirectedBlow] = useState<CombatLogEntry | null>(null);
+  const directedInstance = useRef(directed?.instanceId);
   useEffect(() => {
+    if (directedInstance.current !== directed?.instanceId) {
+      // Another fight took this screen: its log starts over, and nothing of the last one is told.
+      directedInstance.current = directed?.instanceId;
+      directedLogSeen.current = null;
+      directedPending.current = { round: 0, beats: [] };
+      resetNarration();
+    }
     if (!directedLog) return;
     const first = directedLogSeen.current === null;
     const fresh = directedLog.filter((entry) => entry.id > (directedLogSeen.current ?? -1));
@@ -951,7 +961,7 @@ export function GameCombatUI({
       if (directedPending.current.beats.length >= COMBAT_NARRATION_MAX_BEATS) flushDirected();
     }
     if (blow) setDirectedBlow(blow);
-  }, [directedLog, directed?.round, appendCombatLog, flushDirected, localizeUi]);
+  }, [directedLog, directed?.round, directed?.instanceId, appendCombatLog, flushDirected, resetNarration, localizeUi]);
   const directedWaits = !!(directed?.canAct || directed?.outcome || directed?.paused);
   useEffect(() => {
     if (directedWaits) {
