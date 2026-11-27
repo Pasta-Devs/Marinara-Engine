@@ -10,7 +10,12 @@
 // ──────────────────────────────────────────────
 import { announce } from "../../lib/live-announcer";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
-import { estimateTextTokens } from "@marinara-engine/shared";
+import {
+  clampLorebookEntryMoveToPromptSpot,
+  compareLorebookEntriesByPromptOrder,
+  estimateTextTokens,
+  lorebookPromptPlacement,
+} from "@marinara-engine/shared";
 import { useBuiltinEmbeddingOption } from "../connections/BuiltinEmbeddingDetail";
 import {
   useState,
@@ -245,7 +250,8 @@ const CATEGORY_OPTIONS: Array<{ value: LorebookCategory; label: string; icon: ty
 type EntrySortKey = "order" | "entries" | "name-asc" | "name-desc" | "tokens" | "keys" | "fired" | "newest" | "oldest";
 
 const SORT_OPTIONS: Array<{ value: EntrySortKey; label: string }> = [
-  { value: "order", label: "Order" },
+  // Where entries land in the prompt: Before, After, depth, Outlets, with Order inside each.
+  { value: "order", label: "Prompt order" },
   { value: "entries", label: "Entries" },
   { value: "name-asc", label: "Name A→Z" },
   { value: "name-desc", label: "Name Z→A" },
@@ -811,7 +817,7 @@ export function LorebookEditor() {
         return [...result].sort(
           (a, b) =>
             (activationStatsById.get(b.id)?.count ?? 0) - (activationStatsById.get(a.id)?.count ?? 0) ||
-            a.order - b.order,
+            compareLorebookEntriesByPromptOrder(a, b),
         );
       case "newest":
         return [...result].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
@@ -820,11 +826,13 @@ export function LorebookEditor() {
       case "entries":
         return [...result].sort(
           (a, b) =>
-            entryStatusSortRank(a) - entryStatusSortRank(b) || a.order - b.order || a.name.localeCompare(b.name),
+            entryStatusSortRank(a) - entryStatusSortRank(b) ||
+            compareLorebookEntriesByPromptOrder(a, b) ||
+            a.name.localeCompare(b.name),
         );
       case "order":
       default:
-        return [...result].sort((a, b) => a.order - b.order);
+        return [...result].sort(compareLorebookEntriesByPromptOrder);
     }
   }, [activationStatsById, entries, entrySearch, entrySort, neverFiredOnly]);
 
@@ -854,7 +862,8 @@ export function LorebookEditor() {
     });
   }, [entries]);
 
-  /** Entries for a given container (null = root, string = folder.id), sorted by Order. */
+  /** Entries for a given container (null = root, string = folder.id), in prompt order (Before, After, depth,
+   *  Outlets; Order inside each), since Order alone never moves an After entry above a Before one. */
   const entriesByContainer = useMemo(() => {
     const map = new Map<string | null, LorebookEntry[]>();
     map.set(null, []);
@@ -866,9 +875,45 @@ export function LorebookEditor() {
       if (list) list.push(e);
       else map.get(null)!.push(e);
     }
-    for (const list of map.values()) list.sort((a, b) => a.order - b.order);
+    for (const list of map.values()) list.sort(compareLorebookEntriesByPromptOrder);
     return map;
   }, [entries, folders]);
+
+  // Prompt order: a thin label above the first entry of each prompt spot, only in lists that mix spots.
+  const mixedSpotLists = useMemo(() => {
+    const mixed = new WeakSet<readonly LorebookEntry[]>();
+    const lists = [...entriesByContainer.values(), filteredEntries];
+    for (const list of lists) {
+      const first = list[0];
+      if (first && list.some((entry) => lorebookPromptPlacement(entry) !== lorebookPromptPlacement(first))) {
+        mixed.add(list);
+      }
+    }
+    return mixed;
+  }, [entriesByContainer, filteredEntries]);
+  const promptSpotHeading = useCallback(
+    (list: readonly LorebookEntry[], index: number) => {
+      if (entrySort !== "order" || !mixedSpotLists.has(list)) return null;
+      const entry = list[index];
+      if (!entry) return null;
+      const placement = lorebookPromptPlacement(entry);
+      if (index > 0 && lorebookPromptPlacement(list[index - 1]!) === placement) return null;
+      const heading =
+        placement === "before"
+          ? "headingBefore"
+          : placement === "after"
+            ? "headingAfter"
+            : placement === "depth"
+              ? "headingDepth"
+              : "headingOutlet";
+      return (
+        <p className="ov-lsec" data-lorebook-prompt-spot={placement}>
+          {localizeUi(`lorebook.editor.promptSpot.${heading}`)}
+        </p>
+      );
+    },
+    [entrySort, localizeUi, mixedSpotLists],
+  );
 
   // Folder hierarchy: flat parentFolderId rows → sorted roots + child lists.
   const folderForest = useMemo(() => buildFolderForest(folders), [folders]);
@@ -933,8 +978,10 @@ export function LorebookEditor() {
       const container = entry.folderId && entriesByContainer.has(entry.folderId) ? entry.folderId : null;
       const ids = (entriesByContainer.get(container) ?? []).map((candidate) => candidate.id);
       const from = ids.indexOf(entryId);
-      const to = from + offset;
-      if (from < 0 || to < 0 || to >= ids.length) return;
+      if (from < 0 || from + offset < 0 || from + offset >= ids.length) return;
+      // Moving renumbers Order only, so the entry stays among entries at its own prompt spot.
+      const to = clampLorebookEntryMoveToPromptSpot(entriesByContainer.get(container) ?? [], from, from + offset);
+      if (to === from) return;
       ids.splice(from, 1);
       ids.splice(to, 0, entryId);
       reorderEntries.mutate({ lorebookId, entryIds: ids, folderId: container });
@@ -1450,6 +1497,8 @@ export function LorebookEditor() {
       if (sourceContainer === targetContainer) {
         let insertAt = targetIdx;
         if (sourceIdx < insertAt) insertAt--;
+        // A drag renumbers Order only, so it can't carry an entry past another prompt spot (After above Before).
+        insertAt = clampLorebookEntryMoveToPromptSpot(sourceList, sourceIdx, insertAt);
         if (sourceIdx === insertAt) return;
         const ids = sourceList.map((entry) => entry.id);
         ids.splice(sourceIdx, 1);
@@ -1632,6 +1681,7 @@ export function LorebookEditor() {
       if (source.containerId === targetContainer) {
         let insertAt = targetIdx;
         if (source.index < insertAt) insertAt--;
+        insertAt = clampLorebookEntryMoveToPromptSpot(sourceList, source.index, insertAt);
         if (source.index === insertAt) return;
         const ids = sourceList.map((entry) => entry.id);
         ids.splice(source.index, 1);
@@ -2353,6 +2403,7 @@ export function LorebookEditor() {
                   draggingEntryIdx !== eIdx;
                 return (
                   <div key={entry.id}>
+                    {promptSpotHeading(folderEntries, eIdx)}
                     {showDropBefore && (
                       <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
                     )}
@@ -3481,6 +3532,7 @@ export function LorebookEditor() {
                   draggingEntryIdx !== idx;
                 return (
                   <div key={entry.id}>
+                    {promptSpotHeading(rootList, idx)}
                     {showDropBefore && (
                       <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
                     )}
@@ -3552,7 +3604,8 @@ export function LorebookEditor() {
             scrollAlign="start"
             renderRow={(i) => {
               const entry = filteredEntries[i]!;
-              return (
+              const heading = promptSpotHeading(filteredEntries, i);
+              const row = (
                 <LorebookEntryRow
                   entry={entry}
                   lorebookId={lorebookId}
@@ -3578,6 +3631,14 @@ export function LorebookEditor() {
                   mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
                   onUpdateEntry={handleEntryUpdate}
                 />
+              );
+              return heading ? (
+                <div key={entry.id}>
+                  {heading}
+                  {row}
+                </div>
+              ) : (
+                row
               );
             }}
           />
@@ -3867,7 +3928,10 @@ export function LorebookEditor() {
                             ))}
                           </div>
                           {/* The header already says "4 entries · ~25 tokens"; the list label doesn't repeat it (audit C7). */}
-                          <p className="ov-vw__label">{localizeUi("Entries")}</p>
+                          <p className="ov-vw__label">
+                            {localizeUi("Entries")}
+                            <HelpTooltip text={localizeUi("lorebook.editor.promptSpot.help")} wide />
+                          </p>
                           <div className="ov-lv__entries">{ovEntriesBody}</div>
                         </aside>
                         <div className="ov-lv__right">

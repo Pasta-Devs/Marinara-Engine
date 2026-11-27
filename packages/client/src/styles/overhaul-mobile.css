@@ -2200,6 +2200,14 @@
 :root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .ov-lrow__keys code {
   font-size: 0.8125rem;
 }
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .ov-lrow__spot {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lsec {
+  margin-top: 0.875rem;
+  padding: 0 0.25rem;
+  font-size: 0.8125rem;
+}
 /* The entry: one column. */
 :root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry__cols {
   grid-template-columns: minmax(0, 1fr) !important;
