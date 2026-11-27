@@ -73,7 +73,7 @@ characters, a lorebook with 24 entries, chats with long messages and so on (`scr
 
 Options: `--sizes` (desktop, desktop-short, tablet-landscape, tablet-portrait, phone), `--screens` (ids in
 `screens.mjs`), `--themes all|none|dewglass,quiet-iris`, `--theme-sizes desktop,phone`, `--jobs 3`,
-`--no-vivaldi`, `--no-webkit`, `--quick`, `--full`, `--base <branch>`, `--update-map`, `--out dir`.
+`--no-vivaldi`, `--no-webkit`, `--quick`, `--full`, `--base <branch>`, `--update-map`, `--dry-run` (print the choice only), `--out dir`.
 
 - **Phones and tablets** run with Settings > Advanced > Troubleshooting > **Show tap timings** on. The WebKit pass
   makes real taps (Library, Characters, Home) and puts the readings at the top of the report.

@@ -10,6 +10,7 @@
 //   pnpm ui:check:full  (--full)       everything: every screen, every size, every starter theme on the core
 //                                      screens, Vivaldi, WebKit; also rebuilds the screen map (screen-map.json)
 //   --base <branch>                    compare with this branch (default: the nearest one this branch grew from)
+//   --dry-run                          only print what it would check, and why
 //   --update-map                       rebuild the screen map only (every screen and size, Chromium, no themes)
 //   pnpm ui:check --quick              no themes, no Vivaldi/WebKit
 //   pnpm ui:check --url http://127.0.0.1:7860   check an Engine that is already running (no test data is added
@@ -507,6 +508,7 @@ async function main() {
   const decision = decide(screenList({}));
   partial.plan = decision.plan;
   printPlan(decision.plan, decision);
+  if (flag("dry-run")) return;
   if (!decision.everything && !decision.byHand && !decision.jobs.size) {
     log("Nothing the change touches is on a checked screen: nothing to check.");
     writeReport([], { themes: [], tapTimings: null, plan: decision.plan });
