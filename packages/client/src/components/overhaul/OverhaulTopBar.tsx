@@ -704,7 +704,8 @@ export function useTabBookkeeping(current: OverhaulTab | null, chats: Chat[]) {
   const activeChatId = useChatStore((s) => s.activeChatId);
 
   // Whatever is on screen gets a tab, so you can hop back to it. Library sections, Settings and
-  // Extensions don't: they are one click away in the Library pane. Neither do the Docs (the Docs button).
+  // Extensions don't get one by themselves: they are one click away in the Library pane, and you pin one by
+  // dragging its row onto the tab strip (DesktopTabStrip). Neither do the Docs (the Docs button).
   useEffect(() => {
     if (current && current.kind !== "library" && current.kind !== "docs") touchTab(current);
   }, [current, touchTab]);
