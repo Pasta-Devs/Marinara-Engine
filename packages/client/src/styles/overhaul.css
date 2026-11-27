@@ -16825,10 +16825,15 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-bglib__gap {
   flex: 1;
 }
+/* Top right: the card's ⋯ owns the top left corner, the Default badge and the star the bottom. */
 .ov-bglib__versions-badge {
   position: absolute;
   top: 0.375rem;
-  left: 0.375rem;
+  right: 0.375rem;
+  max-width: calc(100% - 3rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;

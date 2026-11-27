@@ -32,6 +32,7 @@ import {
   replacedGeneratedChatBackgroundPath,
   chatBackgroundWindowMaskPath,
   chatBackgroundPlainPicture,
+  isChatBackgroundWeatherVersion,
   chatBackgroundScenePrompt,
   generateChatBackgroundWeatherVersion,
   generateChatBackgroundWindowMask,
@@ -271,6 +272,9 @@ export async function backgroundsRoutes(app: FastifyInstance) {
         createdAt: fileCreatedAt(join(BG_DIR, filename)),
         folderId: organization.assignments[id] ?? null,
         favorite: favorites.has(id),
+        // A weather or time of day version names its plain picture (a library file or a gallery address), so the
+        // Library can show it under that picture.
+        ...(isChatBackgroundWeatherVersion(filename) ? { versionOf: chatBackgroundPlainPicture(filename) } : {}),
       };
     });
 

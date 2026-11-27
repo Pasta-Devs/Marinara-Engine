@@ -6819,6 +6819,8 @@
   "library.backgrounds.manage": "Manage backgrounds in the Library",
   "library.backgrounds.removeDefault": "Stop using as the Roleplay default",
   "library.backgrounds.renameOrTag": "Rename or tag",
+  "library.backgrounds.showVersions": "Versions",
+  "library.backgrounds.showVersionsHelp": "Show weather and time of day versions as pictures of their own. Off, they sit under their plain picture.",
   "library.backgrounds.source": "From",
   "library.backgrounds.upload": "Upload backgrounds",
   "library.backgrounds.useAsDefault": "Use as default Roleplay background",
