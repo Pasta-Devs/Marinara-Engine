@@ -70,6 +70,9 @@ import {
   type SeasonalYears,
 } from "../lib/seasonal-themes";
 
+/** UI overhaul: "?" and Search's "Keyboard shortcuts" ask AppShell to open Settings › Shortcuts. */
+export const OPEN_SHORTCUTS_PAGE_EVENT = "marinara:open-shortcuts-page";
+
 export type Panel =
   | "chat"
   | "characters"
@@ -3208,6 +3211,11 @@ export const useUIStore = create<UIState>()(
                   : null;
             get().closeAllDetails();
             useOverhaulStore.getState().openDocs(initialDoc, { newTab: Boolean(props?.newTab) });
+            return;
+          }
+          // UI overhaul: the shortcut list is Settings › Shortcuts (AppShell opens it), not a window.
+          if (type === "keyboard-shortcuts" && isOverhaulLook()) {
+            window.dispatchEvent(new Event(OPEN_SHORTCUTS_PAGE_EVENT));
             return;
           }
           // UI overhaul: Chat Variables' State editor is a page inside that chat's Chat settings.

@@ -55,7 +55,16 @@ export type LibrarySection =
   | "bot-browser";
 
 export type OverhaulSettingsTab =
-  "general" | "chatting" | "appearance" | "conversation" | "roleplay" | "game" | "media" | "data" | "advanced";
+  | "general"
+  | "chatting"
+  | "shortcuts"
+  | "appearance"
+  | "conversation"
+  | "roleplay"
+  | "game"
+  | "media"
+  | "data"
+  | "advanced";
 
 /** Chat settings drawer arrangement for one chat mode: section ids in order, and hidden ones. */
 export type OverhaulChatSettingsLayout = { order: string[]; hidden: string[] };

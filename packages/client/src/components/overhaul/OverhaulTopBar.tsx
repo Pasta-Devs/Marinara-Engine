@@ -12,6 +12,8 @@ import {
 } from "../../lib/chat-settings-close";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import {
+  ArrowLeft,
+  ArrowRight,
   BookOpen,
   CalendarDays,
   CircleHelp,
@@ -78,6 +80,9 @@ import { useTabScrollMemory } from "./use-tab-scroll-memory";
 import { markThingTried } from "../../lib/things-to-try-progress";
 import { splitDragProps } from "./split-view";
 import { ChatModeIcon } from "../chat/ChatModeIcon";
+import { goBackPlace, goForwardPlace, usePlaceHistory } from "./place-history";
+import { isApplePlatform } from "../../lib/command-center";
+import { useNavigationKeys } from "./use-navigation-keys";
 // Its own chunk, so the app shell stays under the bundle budget.
 const DesktopTabStrip = lazy(() => import("./DesktopTabStrip").then((module) => ({ default: module.DesktopTabStrip })));
 
@@ -867,8 +872,56 @@ export function usePublishTopBarHeight(barRef: { current: HTMLElement | null }) 
   }, [barRef]);
 }
 
+const KEYS_ARIA = {
+  back: "Alt+ArrowLeft",
+  backApple: "Meta+BracketLeft",
+  forward: "Alt+ArrowRight",
+  forwardApple: "Meta+BracketRight",
+} as const;
+
+/** Back and Forward between the places visited (place-history.ts), beside the logo like a browser's arrows. */
+function PlaceArrows() {
+  const { t } = useTranslation();
+  const canBack = usePlaceHistory((s) => s.canBack);
+  const canForward = usePlaceHistory((s) => s.canForward);
+  const apple = isApplePlatform();
+  const backKeys = apple ? "⌘[" : "Alt+←";
+  const forwardKeys = apple ? "⌘]" : "Alt+→";
+  // ARIA key names, not words to translate.
+  const backAria = apple ? KEYS_ARIA.backApple : KEYS_ARIA.back;
+  const forwardAria = apple ? KEYS_ARIA.forwardApple : KEYS_ARIA.forward;
+  return (
+    <div className="ov-place-arrows" role="group" aria-label={t("ui.overhaul.places.group")}>
+      <button
+        type="button"
+        className="ov-icon-btn ov-icon-btn--sm"
+        disabled={!canBack}
+        onClick={() => goBackPlace()}
+        title={t("ui.overhaul.places.backWithKeys", { keys: backKeys })}
+        aria-label={t("ui.overhaul.places.back")}
+        aria-keyshortcuts={backAria}
+        data-tour="place-back"
+      >
+        <ArrowLeft size={15} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="ov-icon-btn ov-icon-btn--sm"
+        disabled={!canForward}
+        onClick={() => goForwardPlace()}
+        title={t("ui.overhaul.places.forwardWithKeys", { keys: forwardKeys })}
+        aria-label={t("ui.overhaul.places.forward")}
+        aria-keyshortcuts={forwardAria}
+      >
+        <ArrowRight size={15} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 export function OverhaulTopBar() {
   const localize = useLocalizedUiText();
+  useNavigationKeys();
   const mariEdgeGlow = useMariEdgeGlow();
   const autoHide = useWindowFullscreen();
   useEffect(() => {
@@ -949,6 +1002,7 @@ export function OverhaulTopBar() {
           alt=""
           aria-hidden="true"
         />
+        <PlaceArrows />
         <Suspense fallback={<nav className="ov-tabs" aria-label={localize("Open tabs")} />}>
           <DesktopTabStrip chats={chats} current={current} currentKey={currentKey} rowSlot={tabRowSlot} />
         </Suspense>

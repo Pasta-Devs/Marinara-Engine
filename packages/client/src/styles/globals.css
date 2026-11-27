@@ -9891,3 +9891,36 @@ html[data-mari-ios-webkit][data-mari-software-keyboard-open] .mari-window.ov-cs-
 .mari-md-link:hover {
   text-decoration-color: currentColor;
 }
+
+/* Left-edge swipe back in the installed iPhone / iPad app (lib/edge-swipe-back.ts). */
+.edge-back-arrow {
+  position: fixed;
+  z-index: 2147483000;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-top: -1.25rem;
+  margin-left: -2.5rem;
+  border-radius: 999px;
+  background: var(--card, #222);
+  color: var(--foreground, #fff);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.28);
+  pointer-events: none;
+  transform: translateX(calc(2.5rem + var(--edge-back-x, 0px)));
+  transition:
+    opacity 0.15s ease,
+    background-color 0.12s ease;
+}
+.edge-back-arrow[data-side="right"] {
+  right: 0;
+  left: auto;
+  margin-right: -2.5rem;
+  margin-left: 0;
+  transform: translateX(calc(-2.5rem + var(--edge-back-x, 0px))) scaleX(-1);
+}
+.edge-back-arrow[data-armed="true"] {
+  background: var(--primary, #6d5dfc);
+  color: var(--primary-foreground, #fff);
+}
