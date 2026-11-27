@@ -94,3 +94,56 @@ console.log("lorebook prompt order: ok");
   // depth6 is alone at its depth: it cannot move.
   assert.equal(clampLorebookEntryMoveToPromptSpot(list, 4, 0), 4);
 }
+
+// The drop marker shows the slot the move really lands in.
+{
+  const { clampLorebookEntryDropSlotToPromptSpot } =
+    await import("../../../packages/shared/src/utils/lorebook-prompt-order.js");
+  const list = [...entries].sort(compareLorebookEntriesByPromptOrder);
+  // close-before-400 (index 1) hovered below template-after-100 (slot 4): the marker stays on itself (slot 1 = no move, so no bar).
+  assert.equal(clampLorebookEntryDropSlotToPromptSpot(list, 1, 4), 1);
+  // template-after-100 (index 3) hovered above everything: the marker sits at the top of the After run (slot 2).
+  assert.equal(clampLorebookEntryDropSlotToPromptSpot(list, 3, 0), 2);
+  // open-before-1 (index 0) hovered just below close-before-400 (slot 2) is a real move inside its run.
+  assert.equal(clampLorebookEntryDropSlotToPromptSpot(list, 0, 2), 2);
+}
+
+// Keyword test lists both fired and blocked matches in prompt order.
+{
+  const { runLorebookTestScan } = await import("../../../packages/server/src/services/lorebook/test-scan.js");
+  const { createLorebookEntrySchema } = await import("../../../packages/shared/src/schemas/lorebook.schema.js");
+  const keyed = (name: string, position: LorebookEntry["position"], order: number, blocked: boolean) =>
+    ({
+      ...createLorebookEntrySchema.parse({
+        lorebookId: "book",
+        name,
+        content: name,
+        keys: [blocked ? "alpha" : "beta"],
+        selective: blocked,
+        secondaryKeys: blocked ? ["never-present"] : [],
+        position,
+        order,
+      }),
+      id: name,
+      createdAt: "",
+      updatedAt: "",
+    }) as LorebookEntry;
+  const result = runLorebookTestScan({
+    lorebook: { id: "book", scanDepth: null, recursiveScanning: false, maxRecursionDepth: 1 } as never,
+    entries: [
+      keyed("fired-after-100", 1, 100, false),
+      keyed("fired-before-400", 0, 400, false),
+      keyed("blocked-after-100", 1, 100, true),
+      keyed("blocked-before-400", 0, 400, true),
+    ],
+    messages: [{ role: "user", content: "alpha beta" }],
+  });
+  assert.deepEqual(
+    result.activated.map((item) => item.entryId),
+    ["fired-before-400", "fired-after-100"],
+  );
+  assert.deepEqual(
+    result.blocked.map((item) => item.entryId),
+    ["blocked-before-400", "blocked-after-100"],
+  );
+}

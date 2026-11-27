@@ -9,6 +9,7 @@
 // the list. Inspired by SillyTavern's World Info layout.
 // ──────────────────────────────────────────────
 import {
+  clampLorebookEntryDropSlotToPromptSpot,
   clampLorebookEntryMoveToPromptSpot,
   compareLorebookEntriesByPromptOrder,
   estimateTextTokens,
@@ -233,9 +234,9 @@ const CATEGORY_OPTIONS: Array<{ value: LorebookCategory; label: string; icon: ty
 
 type EntrySortKey = "order" | "entries" | "name-asc" | "name-desc" | "tokens" | "keys" | "fired" | "newest" | "oldest";
 
-const SORT_OPTIONS: Array<{ value: EntrySortKey; label: string }> = [
+const SORT_OPTIONS: Array<{ value: EntrySortKey; label: string; labelKey?: string }> = [
   // Where entries land in the prompt: Before, After, depth, Outlets, with Order inside each.
-  { value: "order", label: "Prompt order" },
+  { value: "order", label: "Prompt order", labelKey: "lorebook.editor.sort.promptOrder" },
   { value: "entries", label: "Entries" },
   { value: "name-asc", label: "Name A→Z" },
   { value: "name-desc", label: "Name Z→A" },
@@ -2170,17 +2171,22 @@ export function LorebookEditor() {
                 const entry = folderEntries[eIdx]!;
                 const isDropTarget = dropTargetContainer === folder.id && draggingEntryIdx !== null;
                 const sameContainer = dragSourceContainer === folder.id;
+                // Show the slot the drop really lands in: a drag stays among entries at the same prompt spot.
+                const dropSlot =
+                  sameContainer && draggingEntryIdx !== null && entryDropIdx !== null
+                    ? clampLorebookEntryDropSlotToPromptSpot(folderEntries, draggingEntryIdx, entryDropIdx)
+                    : entryDropIdx;
                 const showDropBefore =
                   isDropTarget &&
                   sameContainer &&
-                  entryDropIdx === eIdx &&
+                  dropSlot === eIdx &&
                   draggingEntryIdx !== eIdx &&
                   draggingEntryIdx !== eIdx - 1;
                 const showDropAfter =
                   isDropTarget &&
                   sameContainer &&
                   eIdx === folderEntries.length - 1 &&
-                  entryDropIdx === folderEntries.length &&
+                  dropSlot === folderEntries.length &&
                   draggingEntryIdx !== eIdx;
                 return (
                   <div key={entry.id}>
@@ -3162,7 +3168,10 @@ export function LorebookEditor() {
                           onChange={(next) => setEntrySort(next as EntrySortKey)}
                           label={localizeUi("ui.lorebooks.lorebookeditor.sortEntries")}
                           className="mari-editor-field h-full py-2.5 pl-8 pr-6 text-xs [&>svg]:hidden"
-                          options={SORT_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                          options={SORT_OPTIONS.map((opt) => ({
+                            value: opt.value,
+                            label: opt.labelKey ? localizeUi(opt.labelKey) : opt.label,
+                          }))}
                           searchable={false}
                         />
                       </div>
@@ -3452,6 +3461,11 @@ export function LorebookEditor() {
                               const entry = rootList[idx]!;
                               const isDropTarget = dropTargetContainer === null && draggingEntryIdx !== null;
                               const sameContainer = dragSourceContainer === null;
+                              // Show the slot the drop really lands in: a drag stays among entries at the same prompt spot.
+                              const dropSlot =
+                                sameContainer && draggingEntryIdx !== null && entryDropIdx !== null
+                                  ? clampLorebookEntryDropSlotToPromptSpot(rootList, draggingEntryIdx, entryDropIdx)
+                                  : entryDropIdx;
                               // Same rule as inside folders: only show the position bar for
                               // same-container drops because cross-container moves preserve
                               // Order. The amber ring on the root drop zone (added for Issue
@@ -3459,14 +3473,14 @@ export function LorebookEditor() {
                               const showDropBefore =
                                 isDropTarget &&
                                 sameContainer &&
-                                entryDropIdx === idx &&
+                                dropSlot === idx &&
                                 draggingEntryIdx !== idx &&
                                 draggingEntryIdx !== idx - 1;
                               const showDropAfter =
                                 isDropTarget &&
                                 sameContainer &&
                                 idx === rootList.length - 1 &&
-                                entryDropIdx === rootList.length &&
+                                dropSlot === rootList.length &&
                                 draggingEntryIdx !== idx;
                               return (
                                 <div key={entry.id}>

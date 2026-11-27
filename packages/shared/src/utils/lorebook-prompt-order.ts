@@ -69,3 +69,16 @@ export function clampLorebookEntryMoveToPromptSpot(
   while (last + 1 < rest.length && sameLorebookPromptSpot(rest[last + 1]!, moved)) last++;
   return Math.min(Math.max(insertAt, first), last + 1);
 }
+
+/**
+ * The same clamp for a drop marker: `dropAt` counts slots in the list with the moved entry still in it
+ * (0 = above the first row, length = below the last). Returns the slot the move will really land in.
+ */
+export function clampLorebookEntryDropSlotToPromptSpot(
+  list: readonly PromptOrderableLorebookEntry[],
+  from: number,
+  dropAt: number,
+): number {
+  const insertAt = clampLorebookEntryMoveToPromptSpot(list, from, from < dropAt ? dropAt - 1 : dropAt);
+  return insertAt > from ? insertAt + 1 : insertAt;
+}

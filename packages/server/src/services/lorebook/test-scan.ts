@@ -162,6 +162,7 @@ export function runLorebookTestScan(input: LorebookTestScanInput): LorebookTestS
   const recursionText = recursive ? recursionSources.map((item) => item.entry.content).join("\n") : "";
   const groupsWon = new Set(activated.map((item) => item.entry.group).filter(Boolean));
   const blocked: LorebookTestBlockedEntry[] = [];
+  const blockedEntryById = new Map<string, LorebookEntry>();
   for (const rawEntry of input.entries) {
     const entry = defaultedById.get(rawEntry.id) ?? rawEntry;
     if (activatedIds.has(entry.id) || !entry.enabled || entry.constant) continue;
@@ -199,7 +200,14 @@ export function runLorebookTestScan(input: LorebookTestScanInput): LorebookTestS
     else if (entry.group && groupsWon.has(entry.group)) reason = "group";
     else reason = "conditions";
     blocked.push({ entryId: entry.id, name: entry.name, matchedKeys, reason });
+    blockedEntryById.set(entry.id, entry);
   }
+  // Blocked matches follow prompt order too, like the activated list.
+  blocked.sort((a, b) => {
+    const left = blockedEntryById.get(a.entryId);
+    const right = blockedEntryById.get(b.entryId);
+    return left && right ? compareLorebookEntriesByPromptOrder(left, right) : 0;
+  });
 
   return {
     activated: activatedResult,
