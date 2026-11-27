@@ -74,6 +74,7 @@ import {
   useDeleteKnowledgeSource,
 } from "../../hooks/use-knowledge-sources";
 import { cn } from "../../lib/utils";
+import { tabPlaceKey, useTabPlace } from "../../lib/tab-place";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Select } from "../ui/Select";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
@@ -865,8 +866,9 @@ export function AgentEditor() {
   const [localIncludePreGenInjections, setLocalIncludePreGenInjections] = useState(false);
   const [localIncludeParallelResults, setLocalIncludeParallelResults] = useState(false);
   const [localEnabledTools, setLocalEnabledTools] = useState<string[]>([]);
-  const [toolsSectionOpen, setToolsSectionOpen] = useState(false);
-  const [avatarSetupOpen, setAvatarSetupOpen] = useState(true);
+  // Folded sections stay as you left them while you are in another tab (lib/tab-place).
+  const [toolsSectionOpen, setToolsSectionOpen] = useTabPlace(tabPlaceKey("agent", agentDetailId), "toolsOpen", false);
+  const [avatarSetupOpen, setAvatarSetupOpen] = useTabPlace(tabPlaceKey("agent", agentDetailId), "avatarOpen", true);
   const [localLorebookWriteEnabled, setLocalLorebookWriteEnabled] = useState(false);
   const [localWritableLorebookId, setLocalWritableLorebookId] = useState("");
   const [localLorebookReadBehindMessages, setLocalLorebookReadBehindMessages] = useState(0);

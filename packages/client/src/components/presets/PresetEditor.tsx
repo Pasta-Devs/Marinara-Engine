@@ -95,6 +95,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { tabPlaceKey, useTabPlace } from "../../lib/tab-place";
 import { createPortal } from "react-dom";
 import { useOverhaulLook, useOverhaulMobile, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvEditorHead, OvSaveButton, OvSplitSubCrumbs } from "../overhaul/EditorChrome";
@@ -154,6 +155,16 @@ const TABS = [
   { id: "regex", label: "Regex", icon: Regex },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
+/** The new layout's preset pages (left column, above the Prompt order). */
+const OV_PAGES = ["overview", "prompts", "variables", "parameters", "regex"] as const;
+type OvPage = (typeof OV_PAGES)[number];
+/** The page a Prof. Mari field sits on (null: the header, always shown). */
+function presetFieldPage(path: string): OvPage | null {
+  const field = path.split(".")[0];
+  if (field === "conversationPrompt" || field === "gamePrompt") return "prompts";
+  if (field === "description" || field === "author" || field === "tags") return "overview";
+  return null;
+}
 
 const ROLE_COLORS: Record<string, string> = {
   system: "text-blue-400",
@@ -266,21 +277,39 @@ export function PresetEditor() {
   const overhaulActive = useOverhaulLook();
   const overhaulMobileShell = useOverhaulMobile();
   // Phones: the preset is a page of rows; each row opens as its own page.
-  const [ovmPage, setOvmPage] = useState<
+  const presetDetailId = useUIStore((s) => s.presetDetailId);
+  const presetDetailInitialTab = useUIStore((s) => s.presetDetailInitialTab) as TabId | null;
+  // Each preset tab keeps its page and open section while you are in another tab (lib/tab-place).
+  const placeKey = tabPlaceKey("preset", presetDetailId);
+  const openingPage = OV_PAGES.find((page) => page === presetDetailInitialTab);
+  const opening = openingPage ? { value: openingPage } : null;
+  const [ovmPage, setOvmPage] = useTabPlace<
     null | "order" | "overview" | "prompts" | "variables" | "parameters" | "regex"
-  >(null);
+  >(placeKey, "mobilePage", null, opening);
   // A page opens from its top (its crumb trail and title), not at the rows list's scroll position.
   const ovmTopRef = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     if (ovmPage) ovmTopRef.current?.scrollIntoView({ block: "start" });
   }, [ovmPage]);
-  const [ovPage, setOvPage] = useState<"overview" | "prompts" | "variables" | "parameters" | "regex">("overview");
-  const [ovSelected, setOvSelected] = useState<string | null>(null);
+  const [ovPage, setOvPage] = useTabPlace<OvPage>(placeKey, "page", "overview", opening);
+  const [ovSelected, setOvSelected] = useTabPlace<string | null>(placeKey, "section", null, opening && { value: null });
   const [ovResetKey, setOvResetKey] = useState(0);
+  // Prof. Mari showing a field: the tab may have kept another page, so go to the page that holds it first
+  // (in this render, so the field is there when her reveal looks for it).
+  const mariReveal = useUIStore((s) => s.mariRevealField);
+  const revealPage =
+    overhaulActive && mariReveal && mariReveal.entityId === presetDetailId ? presetFieldPage(mariReveal.path) : null;
+  if (revealPage) {
+    if (overhaulMobileShell) {
+      if (ovmPage !== revealPage) setOvmPage(revealPage);
+    } else if (ovPage !== revealPage || ovSelected) {
+      setOvPage(revealPage);
+      setOvSelected(null);
+      setOvResetKey((key) => key + 1);
+    }
+  }
   const [ovDetailEl, setOvDetailEl] = useState<HTMLElement | null>(null);
   const [ovVarsEl, setOvVarsEl] = useState<HTMLElement | null>(null);
-  const presetDetailId = useUIStore((s) => s.presetDetailId);
-  const presetDetailInitialTab = useUIStore((s) => s.presetDetailInitialTab) as TabId | null;
   const closePresetDetail = useUIStore((s) => s.closePresetDetail);
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -930,6 +959,7 @@ export function PresetEditor() {
       onReorderVariables={reorderVariables}
       hasLorebookMarker={sectionHasLorebookMarker}
       parentChatHasLorebook={parentChatHasLorebook}
+      placeKey={placeKey}
       {...(draftMutations ?? {})}
       {...extra}
     />
@@ -2120,7 +2150,10 @@ function SectionsTab({
   variablesTarget,
   selectionResetKey,
   onSelectionChange,
+  placeKey = null,
 }: {
+  /** The editor's tab: the open section (or the expanded ones) stay as they were when you come back to it. */
+  placeKey?: string | null;
   /** UI overhaul: the open section's editor renders here (master-detail), one at a time. */
   detailTarget?: HTMLElement | null;
   /** UI overhaul: where the preset variables render; null hides them. */
@@ -2148,7 +2181,11 @@ function SectionsTab({
   compact?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [expandedSections, setExpandedSections] = useTabPlace<Set<string>>(
+    placeKey,
+    compact ? "sections.open" : "sections.expanded",
+    () => new Set(),
+  );
   const [showAddMenu, setShowAddMenu] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const [showGroupsPanel, setShowGroupsPanel] = useState(false);
@@ -2265,10 +2302,14 @@ function SectionsTab({
       return next;
     });
   };
+  // A page picked above the list closes the open section. Only a change counts: back in the tab, the
+  // section that was open stays open.
+  const lastResetKey = useRef(selectionResetKey);
   useEffect(() => {
-    if (selectionResetKey === undefined) return;
+    if (selectionResetKey === undefined || lastResetKey.current === selectionResetKey) return;
+    lastResetKey.current = selectionResetKey;
     setExpandedSections(new Set());
-  }, [selectionResetKey]);
+  }, [selectionResetKey, setExpandedSections]);
   const ovDetail = (node: React.ReactNode) =>
     masterDetail ? (detailTarget ? createPortal(<div className="ov-pdetail">{node}</div>, detailTarget) : null) : node;
   const ovVariables = (node: React.ReactNode) =>

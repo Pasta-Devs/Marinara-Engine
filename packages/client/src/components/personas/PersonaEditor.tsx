@@ -106,6 +106,7 @@ import {
   normalizeAvatarCrop,
 } from "@marinara-engine/shared";
 import { cn, generateClientId, getAvatarCropStyle } from "../../lib/utils";
+import { tabPlaceKey, useTabPlace } from "../../lib/tab-place";
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
 import { dataImageUrlToFile } from "../../lib/data-image-file";
@@ -521,7 +522,11 @@ function PersonaGalleryTab({
   onSetAvatar: (image: PersonaGalleryImage) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const [mediaTab, setMediaTab] = useState<PersonaGalleryMediaTab>("images");
+  const [mediaTab, setMediaTab] = useTabPlace<PersonaGalleryMediaTab>(
+    tabPlaceKey("persona", personaId),
+    "galleryMedia",
+    "images",
+  );
   const { data: images, isLoading } = usePersonaGalleryImages(personaId);
   const upload = useUploadPersonaGalleryImage(personaId);
   const remove = useDeletePersonaGalleryImage(personaId);
@@ -1358,12 +1363,10 @@ export function PersonaEditor() {
   useEffect(() => {
     setActiveTab(personaInitialTab ?? (isOverhaulLook() ? "card" : "metadata"));
   }, [personaId, personaInitialTab]);
-  const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>([]);
-  const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
-  useEffect(() => {
-    setOverhaulAddedSections([]);
-    setOverhaulAddedFields([]);
-  }, [personaId]);
+  // Sections and fields you added to the page stay there while you are in another tab (lib/tab-place).
+  const placeKey = tabPlaceKey("persona", personaId);
+  const [overhaulAddedSections, setOverhaulAddedSections] = useTabPlace<string[]>(placeKey, "addedSections", []);
+  const [overhaulAddedFields, setOverhaulAddedFields] = useTabPlace<string[]>(placeKey, "addedFields", []);
   // ── Editor state machine ──
   // The draft and the authoritative baseline are each held in a ref *and* in
   // state, always written together through the commit helpers below. The refs are
@@ -2642,7 +2645,11 @@ function PersonaSpritesTab({
   const cleanupSavedSprites = useCleanupSavedSprites();
   const restoreSpriteCleanupBackup = useRestoreSpriteCleanupBackup();
   const queryClient = useQueryClient();
-  const [category, setCategory] = useState<SpriteCategory>("expressions");
+  const [category, setCategory] = useTabPlace<SpriteCategory>(
+    tabPlaceKey("persona", personaId),
+    "spriteCategory",
+    "expressions",
+  );
   const [newExpression, setNewExpression] = useState("");
   const [uploading, setUploading] = useState(false);
   const [exporting, setExporting] = useState(false);

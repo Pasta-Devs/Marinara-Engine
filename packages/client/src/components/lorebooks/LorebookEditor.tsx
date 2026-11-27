@@ -97,6 +97,7 @@ import {
 } from "lucide-react";
 import { Select } from "../ui/Select";
 import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
+import { tabPlaceKey, useTabPlace } from "../../lib/tab-place";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { CharacterSelect } from "../characters/CharacterSelect";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
@@ -477,7 +478,9 @@ export function LorebookEditor() {
   const [activeTab, setActiveTab] = useState<TabId>(
     () => (useUIStore.getState().lorebookDetailInitialTab as TabId | null) ?? "overview",
   );
-  const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
+  // Each lorebook tab keeps the entry, search, sort and panel it had open while you are in another tab (lib/tab-place).
+  const placeKey = tabPlaceKey("lorebook", lorebookId);
+  const [expandedEntryId, setExpandedEntryId] = useTabPlace<string | null>(placeKey, "entry", null);
   const newlyCreatedEntryRef = useRef<string | null>(null);
   // The entry just added stays open while the list catches up with it.
   const pendingNewEntryIdRef = useRef<string | null>(null);
@@ -495,7 +498,7 @@ export function LorebookEditor() {
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const [saving, setSaving] = useState(false);
 
-  const [entrySearch, setEntrySearch] = useState("");
+  const [entrySearch, setEntrySearch] = useTabPlace(placeKey, "search", "");
   // Rows are windowed, so a new entry may not be mounted: ask the lists to scroll to it first.
   const [scrollToEntryId, setScrollToEntryId] = useState<string | null>(null);
   const snapToEntryRef = useRef(true);
@@ -536,7 +539,7 @@ export function LorebookEditor() {
     frame = requestAnimationFrame(snap);
     return () => cancelAnimationFrame(frame);
   }, [scrollToEntryId, contentRef, scrollToElement]);
-  const [entrySort, setEntrySort] = useState<EntrySortKey>("order");
+  const [entrySort, setEntrySort] = useTabPlace<EntrySortKey>(placeKey, "sort", "order");
   // Keyword-test panel state. The panel is collapsed by default so it doesn't
   // crowd the editor for users who don't need it. We debounce the text input
   // so each keystroke doesn't re-run match computation against potentially
@@ -590,7 +593,7 @@ export function LorebookEditor() {
     () => new Map((activationStats ?? []).map((stat) => [stat.entryId, stat])),
     [activationStats],
   );
-  const [neverFiredOnly, setNeverFiredOnly] = useState(false);
+  const [neverFiredOnly, setNeverFiredOnly] = useTabPlace(placeKey, "neverFired", false);
   const [draggingEntryIdx, setDraggingEntryIdx] = useState<number | null>(null);
   const [entryDragReadyIdx, setEntryDragReadyIdx] = useState<number | null>(null);
   const [entryDropIdx, setEntryDropIdx] = useState<number | null>(null);
@@ -671,10 +674,10 @@ export function LorebookEditor() {
   const overhaulActive = useOverhaulLook();
   // Phones: the book page (tools and entries) and the open entry or tool are separate pages.
   const overhaulMobile = useOverhaulMobile();
-  const [ovmDetail, setOvmDetail] = useState(false);
-  const [ovBookOpen, setOvBookOpen] = useState(true);
+  const [ovmDetail, setOvmDetail] = useTabPlace(placeKey, "mobileDetail", false);
+  const [ovBookOpen, setOvBookOpen] = useTabPlace(placeKey, "bookOpen", true);
   // Overhaul viewer: which tool panel sits above the entry on the right, and where the entry editor renders.
-  const [ovPanel, setOvPanel] = useState<"book" | "check" | "keyword" | null>(null);
+  const [ovPanel, setOvPanel] = useTabPlace<"book" | "check" | "keyword" | null>(placeKey, "panel", null);
   // Phones: Safari's back and the left-edge swipe go from the open entry or tool back to the book (MOB1).
   useBackDismiss(overhaulMobile && ovmDetail, () => {
     setOvmDetail(false);

@@ -171,6 +171,7 @@ import {
 } from "../../lib/character-greetings";
 import { GreetingHeaderFields, GreetingListFilter, GreetingRow } from "./CharacterGreetingList";
 import { cn, copyToClipboard, generateClientId, getAvatarCropStyle } from "../../lib/utils";
+import { tabPlaceKey, useTabPlace } from "../../lib/tab-place";
 import {
   applyBakedGreetingImages,
   applyDescriptionSplit,
@@ -655,12 +656,20 @@ export function CharacterEditor() {
   );
   const [newTag, setNewTag] = useState("");
   const overhaulActive = useOverhaulLook();
-  const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>(initialOverhaulSections);
-  const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
+  // Sections and fields you added to the page stay there while you are in another tab (lib/tab-place).
+  const placeKey = tabPlaceKey("character", characterId);
+  const [overhaulAddedSections, setOverhaulAddedSections] = useTabPlace<string[]>(
+    placeKey,
+    "addedSections",
+    initialOverhaulSections,
+  );
+  const [overhaulAddedFields, setOverhaulAddedFields] = useTabPlace<string[]>(placeKey, "addedFields", []);
   useEffect(() => {
-    setOverhaulAddedSections(initialOverhaulSections());
-    setOverhaulAddedFields([]);
-  }, [characterId]);
+    // Opened at a section on purpose: it shows even when the tab already had its own list.
+    const opening = initialOverhaulSections();
+    if (opening.length)
+      setOverhaulAddedSections((prev) => [...prev, ...opening.filter((id) => !prev.includes(id))]);
+  }, [characterId, setOverhaulAddedSections]);
   const { data: overhaulSprites } = useCharacterSprites(overhaulActive ? characterId : null);
   const { data: overhaulGallery } = useCharacterGalleryImages(overhaulActive ? characterId : null);
 
@@ -3925,7 +3934,11 @@ function DialogueTab({
   // `first`, or an alternate's stable key (moving a greeting keeps its key).
   const [activeGreeting, setActiveGreeting] = useState<string | null>(null);
   const greetingList = formData.alternate_greetings.length + 1 >= GREETING_LIST_MIN;
-  const [openGreeting, setOpenGreeting] = useState<string | null>(null);
+  const [openGreeting, setOpenGreeting] = useTabPlace<string | null>(
+    tabPlaceKey("character", selfCharacterId),
+    "greeting",
+    null,
+  );
   const [rawGreeting, setRawGreeting] = useState(false);
   const [greetingQuery, setGreetingQuery] = useState("");
   const [greetingFilter, setGreetingFilter] = useState<string[]>([]);
@@ -4711,7 +4724,11 @@ function CharacterGalleryTab({
   onCreateCharacterSheet: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const [mediaTab, setMediaTab] = useState<CharacterGalleryMediaTab>("images");
+  const [mediaTab, setMediaTab] = useTabPlace<CharacterGalleryMediaTab>(
+    tabPlaceKey("character", characterId),
+    "galleryMedia",
+    "images",
+  );
   const { data: images, isLoading } = useCharacterGalleryImages(characterId);
   const upload = useUploadCharacterGalleryImage(characterId);
   const remove = useDeleteCharacterGalleryImage(characterId);
@@ -6008,7 +6025,11 @@ function SpritesTab({
   const cleanupSavedSprites = useCleanupSavedSprites();
   const restoreSpriteCleanupBackup = useRestoreSpriteCleanupBackup();
   const queryClient = useQueryClient();
-  const [category, setCategory] = useState<SpriteCategory>("expressions");
+  const [category, setCategory] = useTabPlace<SpriteCategory>(
+    tabPlaceKey("character", characterId),
+    "spriteCategory",
+    "expressions",
+  );
   const [addOpen, setAddOpen] = useState(false);
   const [cleanupOpen, setCleanupOpen] = useState(false);
   const [detailsExpression, setDetailsExpression] = useState<string | null>(null);

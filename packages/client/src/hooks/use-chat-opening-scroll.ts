@@ -1,4 +1,8 @@
-import { useCallback, useLayoutEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import { readTabPlace, tabPlaceKey, writeTabPlace } from "../lib/tab-place";
+
+/** Closer than this to the newest message counts as reading the bottom. */
+const AT_BOTTOM_PX = 150;
 
 /** Keep the opening position through late image/font/layout changes until the reader takes over. */
 export function useChatOpeningScroll(
@@ -8,6 +12,22 @@ export function useChatOpeningScroll(
 ) {
   const cleanupRef = useRef<(() => void) | null>(null);
   useLayoutEffect(() => () => cleanupRef.current?.(), [chatId]);
+  // Each chat tab keeps its place: how far above the newest message you were reading. Coming back to the
+  // tab (the computer layout opens the chat again after another tab's page) opens there, not at the bottom.
+  const restoringRef = useRef(false);
+  useEffect(() => {
+    const key = tabPlaceKey("chat", chatId);
+    if (!key) return;
+    // On the document: the message list can mount after this chat is picked.
+    const onScroll = (event: Event) => {
+      const element = scrollRef.current;
+      if (event.target !== element || !element || restoringRef.current || element.clientHeight === 0) return;
+      const fromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+      writeTabPlace(key, "fromBottom", fromBottom > AT_BOTTOM_PX ? fromBottom : 0);
+    };
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener("scroll", onScroll, { capture: true });
+  }, [chatId, scrollRef]);
 
   return useCallback(() => {
     cleanupRef.current?.();
@@ -15,8 +35,14 @@ export function useChatOpeningScroll(
     if (!chatId || !element) return;
 
     let following = true;
+    // Back in a chat you had scrolled up in: hold that place instead of the bottom (same rules otherwise).
+    const fromBottom = readTabPlace<number>(tabPlaceKey("chat", chatId), "fromBottom") ?? 0;
+    restoringRef.current = fromBottom > 0;
+    const atPlace = () => Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight - fromBottom) <= 1;
     const align = () => {
-      if (following && element.clientHeight > 0) scrollToBottom("auto");
+      if (!following || element.clientHeight <= 0) return;
+      if (fromBottom > 0) element.scrollTop = Math.max(0, element.scrollHeight - element.clientHeight - fromBottom);
+      else scrollToBottom("auto");
     };
     const observer = new ResizeObserver(align);
     // Opening mounts the newest rows first and older ones just after (use-staged-transcript.ts):
@@ -36,11 +62,12 @@ export function useChatOpeningScroll(
       if (!following || scrollFrame) return;
       scrollFrame = requestAnimationFrame(() => {
         scrollFrame = 0;
-        if (element.scrollHeight - element.scrollTop - element.clientHeight > 1) align();
+        if (fromBottom > 0 ? !atPlace() : element.scrollHeight - element.scrollTop - element.clientHeight > 1) align();
       });
     };
     const stop = () => {
       following = false;
+      restoringRef.current = false;
       if (scrollFrame) cancelAnimationFrame(scrollFrame);
       element.removeEventListener("scroll", onScroll);
       observer.disconnect();
