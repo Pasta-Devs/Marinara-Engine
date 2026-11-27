@@ -2427,6 +2427,11 @@
 [data-overhaul] .mari-editor-content-inner--wide:has(> :is(.ov-bk-head, .ov-edhead)) {
   max-width: none;
 }
+/* Connection and Custom tool pages fill the space beside their list, like Presets, Lorebooks and Regex do,
+   instead of a centered column with empty bands on both sides (Nov 27). */
+[data-overhaul] .mari-editor-content-inner--fill:not(#ov-x) {
+  max-width: none;
+}
 .ov-bk-head {
   margin-bottom: 0.75rem;
   padding-bottom: 0.75rem;
@@ -8272,16 +8277,13 @@ input.ov-edhead__title:focus {
 }
 
 /* ─── Character / Persona page: rail hugs the content (2026-11-04) ─── */
-/* On wide screens the portrait + glossary rail sat at the far left while the fields were centered,
-   leaving a gap between them. The rail and the content column now sit together as one centered group. */
-[data-overhaul] .ov-ed:has(> .ov-rail) {
-  justify-content: center;
-}
-[data-overhaul] .ov-ed:has(> .ov-rail) > .mari-editor-body {
-  max-width: calc(56rem + 4rem);
-}
+/* Character and Persona pages: the picture + glossary rail sits at the left and the fields fill the rest of
+   the page up to the right sidebar. (They used to be held to a centered 60rem group, which left an empty band
+   on both sides of a wide window, Nov 27.) */
 [data-overhaul] .ov-ed:has(> .ov-rail) .mari-editor-content-inner {
-  margin-inline: 0;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 /* "+ Personality" style add-field chips: tinted with the theme accent, close to the fields they extend. */

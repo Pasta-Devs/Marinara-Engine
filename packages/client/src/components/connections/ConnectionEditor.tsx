@@ -4684,7 +4684,7 @@ export function ConnectionEditor({
           ]}
         />
         <div className="mari-editor-content max-md:p-4">
-          <div className="mari-editor-content-inner">{fieldsBody}</div>
+          <div className="mari-editor-content-inner mari-editor-content-inner--fill">{fieldsBody}</div>
         </div>
       </div>
     );
