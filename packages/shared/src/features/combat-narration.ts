@@ -62,14 +62,21 @@ export function isKeyCombatBeat(beat: CombatNarrationBeat): boolean {
  * own. Every number on screen is the Engine's, so a line that invents one (a damage figure, a roll,
  * "2x") is dropped rather than shown beside the real one. Numbers inside a name ("Unit 7") are fine.
  */
+const QUOTES = `"'“”‘’`;
+
 export function cleanCombatNarrationLine(raw: unknown, beat: CombatNarrationBeat): string | null {
-  if (typeof raw !== "string") return null;
+  // A model's runaway reply is never one line: drop it before any pattern reads it.
+  if (typeof raw !== "string" || raw.length > 2000) return null;
   let line = raw
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/^(?:\d+[.):]\s*|[-*•]\s*)/, "")
-    .replace(/^["'“”‘’]+|["'“”‘’]+$/g, "")
-    .trim();
+    .replace(/^(?:\d+[.):]\s*|[-*•]\s*)/, "");
+  // Quotes around the line, peeled off by hand: a pattern for trailing quotes reads slowly on many of them.
+  let start = 0;
+  let end = line.length;
+  while (start < end && QUOTES.includes(line[start]!)) start += 1;
+  while (end > start && QUOTES.includes(line[end - 1]!)) end -= 1;
+  line = line.slice(start, end).trim();
   if (line.length < 8 || line.length > 320) return null;
   let named = line;
   for (const name of [beat.actor, beat.target, beat.move, beat.reaction, beat.element]) {

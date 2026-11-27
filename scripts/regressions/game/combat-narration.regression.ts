@@ -57,6 +57,8 @@ await runNamedCases([
         "Unit 7's antlers glow silver as Moonblast slams into Houndoom.",
       );
       assert.equal(cleanCombatNarrationLine("", moonblast), null);
+      assert.equal(cleanCombatNarrationLine('"Xerneas glows silver."', moonblast), "Xerneas glows silver.");
+      assert.equal(cleanCombatNarrationLine('"'.repeat(5000), moonblast), null);
       assert.equal(cleanCombatNarrationLine(42, moonblast), null);
     },
   },
