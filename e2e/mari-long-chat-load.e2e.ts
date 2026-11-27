@@ -177,7 +177,7 @@ test("a long Mari chat stays light under the RGB accent and while you type", asy
         for (const mutation of list) {
           record.mutations += 1;
           for (const node of [...mutation.addedNodes, ...mutation.removedNodes])
-            if ((node as Element).classList?.contains("docs-copy-button")) record.copyButtons += 1;
+            if ((node as Element).classList?.contains("docs-copy-dock")) record.copyButtons += 1;
         }
       }).observe(element, { subtree: true, childList: true, attributes: true, characterData: true });
     });
