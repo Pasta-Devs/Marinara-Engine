@@ -3404,7 +3404,11 @@ export function HomeProfessorMariChat({
             key={`delete-group:${first.id}`}
             id={`mari-workspace-review-${first.id}`}
             data-review-id={first.id}
-            className={cn("mari-inline-review", highlightedReviewId === first.id && "mari-inline-review--jump")}
+            data-review-ids={deletes.map(({ approval }) => approval.id).join(" ")}
+            className={cn(
+              "mari-inline-review",
+              deletes.some(({ approval }) => approval.id === highlightedReviewId) && "mari-inline-review--jump",
+            )}
           >
             <DeleteReviewCard
               approvals={deletes.map(({ approval }) => approval)}
@@ -3533,27 +3537,37 @@ export function HomeProfessorMariChat({
     ],
   );
 
+  // The review list on screen when the chat changes still belongs to the chat before; only a list fetched
+  // after the switch can say what this chat already had.
+  const staleReviewListRef = useRef<MariWorkspacePendingApproval[] | undefined>(undefined);
+  const workspaceStatusRef = useRef(workspaceStatus);
+  workspaceStatusRef.current = workspaceStatus;
   useLayoutEffect(() => {
     seenReviewIdsRef.current = new Set();
     reviewsPrimedRef.current = false;
+    staleReviewListRef.current = workspaceStatusRef.current?.pendingApprovals;
   }, [chatId]);
   // A new review that waits on you (a held change, a delete, an install) is brought into view once. An
   // applied change is not: its card is already in her reply at the bottom, and jumping to the first open
   // review took the reader to the oldest of a chat's open Undo copies, far up the conversation.
   useEffect(() => {
     const seen = seenReviewIdsRef.current;
-    const fresh = visiblePendingChangeReviews.filter((approval) => !seen.has(approval.id));
-    for (const approval of visiblePendingChangeReviews) seen.add(approval.id);
-    // The first list a chat loads is history, not news.
+    // The first list a chat loads is history, not news. It is read whole, even while a run hides the
+    // cards, so a review that was already there never counts as new when the run ends.
     if (!reviewsPrimedRef.current) {
-      if (visiblePendingChangeReviewKey || workspaceStatus) reviewsPrimedRef.current = true;
+      const loaded = workspaceStatus?.pendingApprovals;
+      if (!loaded || loaded === staleReviewListRef.current) return;
+      for (const approval of loaded) seen.add(approval.id);
+      reviewsPrimedRef.current = true;
       return;
     }
+    const fresh = visiblePendingChangeReviews.filter((approval) => !seen.has(approval.id));
+    for (const approval of visiblePendingChangeReviews) seen.add(approval.id);
     const waiting = fresh.filter(isMariReviewWaiting).at(-1);
     if (!waiting) return;
     setRequestedReviewId(waiting.id);
     setWorkspaceDestination("chat");
-  }, [visiblePendingChangeReviewKey, visiblePendingChangeReviews, workspaceStatus]);
+  }, [visiblePendingChangeReviews, workspaceStatus?.pendingApprovals]);
 
   // R14: the newest unresolved failure is one card at the end of the turn: what broke, Retry, Retry with
   // another model, and Dismiss. Older failures are one quiet "Failed · reason" line (runFailedLine).
@@ -3623,7 +3637,10 @@ export function HomeProfessorMariChat({
     const deadline = Date.now() + 3000;
     const tryFocus = () => {
       if (cancelled) return;
-      const review = document.getElementById(`mari-workspace-review-${targetId}`);
+      // A delete grouped with others is shown by the group's one card.
+      const review =
+        document.getElementById(`mari-workspace-review-${targetId}`) ??
+        document.querySelector<HTMLElement>(`[data-review-ids~="${CSS.escape(targetId)}"]`);
       if (!review) {
         if (Date.now() < deadline) rafId = window.requestAnimationFrame(tryFocus);
         return;

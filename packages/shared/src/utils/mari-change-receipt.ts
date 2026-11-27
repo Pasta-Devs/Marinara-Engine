@@ -175,7 +175,7 @@ function itemDetail(item: unknown, previous?: unknown): MariChangeListItem {
     .filter((key): key is string => typeof key === "string" && key.trim() !== "")
     .slice(0, MARI_RECEIPT_LIMITS.names)
     .map((key) => clip(key, MARI_RECEIPT_LIMITS.name));
-  const whole = content ? takeWholeText(content, edited ? oldContent : "") : false;
+  const whole = content || edited ? takeWholeText(content, edited ? oldContent : "") : false;
   // `full` marks text longer than an excerpt; short text is whole either way and keeps the older shape.
   const long = (...texts: string[]) => texts.some((text) => text.length > MARI_RECEIPT_LIMITS.entryText);
   if (edited && whole) {
@@ -401,7 +401,7 @@ export function buildMariChangeExcerpts(input: {
     else if (change.action === "delete") list.removed.push(name);
     else list.edited.push(name);
     if (change.action !== "delete")
-      list.items.push(itemDetail(row, change.action === "update" ? change.before : undefined));
+      list.items.push(itemDetail(row, change.action === "insert" ? undefined : change.before));
   }
   for (const [field, list] of lists) {
     const excerpt = listExcerpt(field, list.added, list.edited, list.removed, list.items);
@@ -422,6 +422,25 @@ export function mariReceiptReviewIds(result: Pick<MariWorkspaceActionResult, "re
   return result.reviewIds?.length ? result.reviewIds : result.reviewId ? [result.reviewId] : [];
 }
 
+/**
+ * One item per entry: an entry edited twice in a run shows once, from the text the run found to the text
+ * it left. An entry added earlier in the run (no old text) keeps the later item as it is.
+ */
+function mergeListItems(older: MariChangeListItem[], newer: MariChangeListItem[]): MariChangeListItem[] {
+  const byName = new Map(older.map((item) => [item.name, item]));
+  for (const next of newer) {
+    const prev = byName.get(next.name);
+    if (prev?.before === undefined || next.before === undefined) {
+      byName.set(next.name, next);
+      continue;
+    }
+    const { full: _full, ...rest } = next;
+    const long = [prev.before, next.text ?? ""].some((text) => text.length > MARI_RECEIPT_LIMITS.entryText);
+    byName.set(next.name, { ...rest, before: prev.before, ...(prev.full && next.full && long ? { full: true } : {}) });
+  }
+  return [...byName.values()];
+}
+
 function mergeExcerpts(older: MariChangeExcerpt[], newer: MariChangeExcerpt[]): MariChangeExcerpt[] {
   const merged = [...older];
   for (const next of newer) {
@@ -435,8 +454,7 @@ function mergeExcerpts(older: MariChangeExcerpt[], newer: MariChangeExcerpt[]): 
         added,
         [...prev.edited, ...next.edited].filter((name) => !added.includes(name)),
         [...prev.removed, ...next.removed],
-        // One item per entry: an entry edited twice in a run shows once, as the later edit left it.
-        [...new Map([...(prev.items ?? []), ...(next.items ?? [])].map((item) => [item.name, item])).values()],
+        mergeListItems(prev.items ?? [], next.items ?? []),
       );
       if (listed) {
         merged[index] = {

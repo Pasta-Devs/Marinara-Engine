@@ -744,4 +744,38 @@ assert.match(
   assert.equal(list.items![0]?.text, "Write about 500 words.");
 }
 
+// A replaced section keeps its old text too; a cleared one keeps all of it; an entry edited twice in one
+// run shows the text the run found, not the middle step.
+{
+  const section = (content: string): Record<string, unknown> => ({
+    id: "s1",
+    presetId: "p2",
+    name: "Word Count",
+    content,
+  });
+  const sectionRecord = (action: "update" | "replace", from: string, to: string, review: string) =>
+    buildMariWorkspaceActionResult(
+      "preset.update",
+      applied([{ table: "prompt_sections", id: "s1", action, before: section(from), after: section(to) }], review),
+    );
+  const itemOf = (record: MariWorkspaceActionResult | null | undefined) => {
+    const list = record?.changes?.find((change) => change.kind === "list");
+    assert.ok(list?.kind === "list" && list.items?.length, "the section is a list item");
+    return list.items![0]!;
+  };
+  assert.equal(itemOf(sectionRecord("replace", "Old words.", "New words.", "rev-r")).before, "Old words.");
+  const longOld = "word ".repeat(200).trim();
+  assert.equal(
+    itemOf(sectionRecord("update", longOld, "", "rev-c")).before,
+    longOld,
+    "a cleared section keeps its text",
+  );
+  const first = sectionRecord("update", "Write about 300 words.", "Write about 500 words.", "rev-a");
+  const second = sectionRecord("update", "Write about 500 words.", "Write about 700 words.", "rev-b");
+  const [merged] = mergeMariActionResults([first!, second!]);
+  const item = itemOf(merged);
+  assert.equal(item.before, "Write about 300 words.", "the merged card starts where the run found it");
+  assert.equal(item.text, "Write about 700 words.", "and ends where the run left it");
+}
+
 console.log("change-receipt regression passed");

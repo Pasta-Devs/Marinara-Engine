@@ -361,7 +361,12 @@ function ListBody({ change, folded }: { change: Extract<MariChangeExcerpt, { kin
                 />
               </div>
             ) : item.text ? (
-              <span className="mari-receipt__entry-text">{item.text}</span>
+              <>
+                <span className="mari-receipt__entry-text">{item.text}</span>
+                {!folded && !item.full && clipped(item.text) ? (
+                  <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.partialText")}</span>
+                ) : null}
+              </>
             ) : null}
           </div>
         ))}
@@ -440,6 +445,7 @@ function NestedBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "ne
 
 /** One changed field. A created record's switches are grouped by the caller, not shown here. */
 function FieldView({ change, folded }: { change: MariChangeExcerpt; folded?: boolean }) {
+  const { t } = useUiTranslation();
   const name = label(change.field);
   if (change.kind === "list") {
     return (
@@ -480,7 +486,12 @@ function FieldView({ change, folded }: { change: MariChangeExcerpt; folded?: boo
           partial={!change.full && clipped(change.before, change.after)}
         />
       ) : (
-        <TextBody change={change} />
+        <>
+          <TextBody change={change} />
+          {!folded && !change.full && clipped(change.before, change.after) ? (
+            <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.partialText")}</span>
+          ) : null}
+        </>
       )}
     </Field>
   );
