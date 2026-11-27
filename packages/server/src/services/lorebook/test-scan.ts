@@ -7,6 +7,7 @@
 // that a gate held back are reported separately with the reason.
 // ──────────────────────────────────────────────
 import {
+  compareLorebookEntriesByPromptOrder,
   LIMITS,
   collectEffectivelyDisabledFolderIds,
   testPrimaryKeys,
@@ -120,26 +121,29 @@ export function runLorebookTestScan(input: LorebookTestScanInput): LorebookTestS
     (item) => !item.entry.preventRecursion && !item.activationSources.includes("recursive"),
   );
 
-  const activatedResult = activated.map((item): LorebookTestActivatedEntry => {
-    const triggeredBy = item.activationSources.includes("recursive")
-      ? activated
-          .filter(
-            (source) =>
-              source.entry.id !== item.entry.id &&
-              !source.entry.preventRecursion &&
-              testPrimaryKeys(item.entry.keys, source.entry.content, matchOptions(item.entry)).matched,
-          )
-          .map((source) => source.entry.id)
-      : [];
-    return {
-      entryId: item.entry.id,
-      name: item.entry.name,
-      matchedKeys: item.matchedKeys,
-      activationSources: item.activationSources,
-      triggeredBy,
-      probability: normalizedProbability(item.entry),
-    };
-  });
+  // Listed in prompt order (Before, After, depth, Outlets; Order inside each), like the entry list.
+  const activatedResult = [...activated]
+    .sort((a, b) => compareLorebookEntriesByPromptOrder(a.entry, b.entry))
+    .map((item): LorebookTestActivatedEntry => {
+      const triggeredBy = item.activationSources.includes("recursive")
+        ? activated
+            .filter(
+              (source) =>
+                source.entry.id !== item.entry.id &&
+                !source.entry.preventRecursion &&
+                testPrimaryKeys(item.entry.keys, source.entry.content, matchOptions(item.entry)).matched,
+            )
+            .map((source) => source.entry.id)
+        : [];
+      return {
+        entryId: item.entry.id,
+        name: item.entry.name,
+        matchedKeys: item.matchedKeys,
+        activationSources: item.activationSources,
+        triggeredBy,
+        probability: normalizedProbability(item.entry),
+      };
+    });
 
   // Keys that matched but did not activate: report the first gate that held the entry back.
   // Each entry is checked against the window the scanner gave it: its own scan
