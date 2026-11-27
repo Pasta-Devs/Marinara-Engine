@@ -12,72 +12,22 @@ import { UserCog, Check, X, AlertCircle, RefreshCw } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { useAgentStore } from "../../stores/agent.store";
-import { useCharacter, useUpdateCharacter } from "../../hooks/use-characters";
-import { type CharacterCardFieldUpdate, type EditableCharacterCardField } from "@marinara-engine/shared";
+import { characterKeys, useCharacter, useUpdateCharacter } from "../../hooks/use-characters";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  applyCharacterCardFieldUpdates,
+  CARD_EVOLUTION_RUN_WITH_SUMMARIES_KEY,
+  isCharacterCardUpdateStale,
+  type CharacterCardFieldUpdate,
+} from "@marinara-engine/shared";
+import { useChat } from "../../hooks/use-chats";
+import { parseChatMetadata } from "../../lib/chat-display";
+import { api } from "../../lib/api-client";
+import { toast } from "sonner";
 import { useGenerate } from "../../hooks/use-generate";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "../ui/Spinner";
 import { showConfirmDialog } from "../../lib/app-dialogs";
-
-function getCharacterCardFieldValue(data: Record<string, unknown>, field: EditableCharacterCardField): string | null {
-  if (field === "backstory" || field === "appearance" || field === "aboutMe") {
-    const extensions = data.extensions;
-    const value =
-      extensions && typeof extensions === "object" ? (extensions as Record<string, unknown>)[field] : undefined;
-    if (typeof value === "string") return value;
-    // aboutMe is optional and often absent; treat missing as empty so About Me
-    // Keeper can populate a character's about-me from scratch. backstory/appearance
-    // keep returning null when absent (they always carry a "" default in practice).
-    return field === "aboutMe" ? "" : null;
-  }
-
-  const value = data[field];
-  return typeof value === "string" ? value : null;
-}
-
-function setCharacterCardFieldValue(
-  data: Record<string, unknown>,
-  field: EditableCharacterCardField,
-  value: string,
-): Record<string, unknown> {
-  if (field === "backstory" || field === "appearance" || field === "aboutMe") {
-    const extensions =
-      data.extensions && typeof data.extensions === "object" ? (data.extensions as Record<string, unknown>) : {};
-
-    return {
-      ...data,
-      extensions: {
-        ...extensions,
-        [field]: value,
-      },
-    };
-  }
-
-  return {
-    ...data,
-    [field]: value,
-  };
-}
-
-function appendStaleCardReplacement(base: string, replacement: string): string {
-  const trimmedReplacement = replacement.trim();
-  if (!trimmedReplacement) return base;
-  if (base.includes(trimmedReplacement)) return base;
-  const separator = base.trim().length > 0 ? "\n\n" : "";
-  return `${base.trimEnd()}${separator}${trimmedReplacement}`;
-}
-
-function bumpCharacterVersion(value: unknown): string {
-  const raw = typeof value === "string" ? value.trim() : "";
-  if (!raw) return "1.1";
-  const match = raw.match(/^(.*?)(\d+)(\D*)$/);
-  if (!match) return `${raw}.1`;
-  const prefix = match[1] ?? "";
-  const numberPart = match[2] ?? "0";
-  const suffix = match[3] ?? "";
-  const next = String(Number(numberPart) + 1).padStart(numberPart.length, "0");
-  return `${prefix}${next}${suffix}`;
-}
 
 interface Props {
   open: boolean;
@@ -103,6 +53,11 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
     refetch: refetchCharacter,
   } = useCharacter(entry?.characterId ?? null);
   const updateCharacter = useUpdateCharacter();
+  const queryClient = useQueryClient();
+  const { data: chat } = useChat(entry?.chatId ?? null);
+  const holdForSummaryTurn =
+    entry?.agentType === "card-evolution-auditor" &&
+    parseChatMetadata(chat?.metadata)[CARD_EVOLUTION_RUN_WITH_SUMMARIES_KEY] === true;
   const [error, setError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [draftUpdates, setDraftUpdates] = useState<CharacterCardFieldUpdate[]>([]);
@@ -140,16 +95,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
   // slice of a field that often contains multiple paragraphs.
   const updateStates = useMemo<CardUpdateState[]>(() => {
     if (!entry || !character) return [];
-    return draftUpdates.map((u) => {
-      const current = getCharacterCardFieldValue(parsedData, u.field);
-      // Populating a currently-empty field from scratch (oldText === "") is a valid
-      // insert, not a stale match — e.g. About Me Keeper filling a blank about-me.
-      const isEmptyInsert = u.oldText.length === 0 && current === "";
-      return {
-        update: u,
-        stale: !isEmptyInsert && !(typeof current === "string" && u.oldText.length > 0 && current.includes(u.oldText)),
-      };
-    });
+    return draftUpdates.map((update) => ({ update, stale: isCharacterCardUpdateStale(parsedData, update) }));
   }, [entry, character, draftUpdates, parsedData]);
   const applicableUpdates = useMemo(
     () => updateStates.filter((state) => !state.stale).map((state) => state.update),
@@ -194,33 +140,31 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
     // so stale oldText cannot delete unrelated card content.
     setBusyAction("approve");
     setError(null);
-    let nextData: Record<string, unknown> = { ...parsedData };
-    for (const u of overrideStale ? [...applicableUpdates, ...staleUpdates] : applicableUpdates) {
-      const base = getCharacterCardFieldValue(nextData, u.field);
-      if (typeof base !== "string") continue;
-      let nextValue: string;
-      if (u.oldText.length === 0 && base === "") {
-        // From-scratch insert into an empty field — set it directly.
-        nextValue = u.newText;
-      } else if (u.oldText.length > 0 && base.includes(u.oldText)) {
-        // Exact-match replace (guard against empty oldText, which base.includes()
-        // always matches and would prepend newText at index 0).
-        nextValue = base.replace(u.oldText, () => u.newText);
-      } else if (overrideStale) {
-        nextValue = appendStaleCardReplacement(base, u.newText);
-      } else {
-        nextValue = base;
-      }
-      nextData = setCharacterCardFieldValue(nextData, u.field, nextValue);
-    }
-    nextData.character_version = bumpCharacterVersion(nextData.character_version);
+    const approved = overrideStale ? [...applicableUpdates, ...staleUpdates] : applicableUpdates;
     try {
-      await updateCharacter.mutateAsync({
-        id: entry.characterId,
-        data: nextData,
-        versionSource: "agent",
-        versionReason: `${entry.agentName} card update`,
-      });
+      if (holdForSummaryTurn) {
+        // "Run with summaries": the server applies the edits now if this is the summary turn, else holds them
+        // until the next one, so the card changes on the same reply as everything else that breaks the cache.
+        const result = await api.post<{ status: "applied" | "held" }>(`/chats/${entry.chatId}/card-updates`, {
+          characterId: entry.characterId,
+          characterName: entry.characterName,
+          agentName: entry.agentName,
+          updates: approved,
+          overrideStale,
+        });
+        if (result.status === "held") {
+          toast.success(localizeUi("ui.modals.charactercardupdatemodal.heldForSummaryTurn"));
+        } else {
+          void queryClient.invalidateQueries({ queryKey: characterKeys.all });
+        }
+      } else {
+        await updateCharacter.mutateAsync({
+          id: entry.characterId,
+          data: applyCharacterCardFieldUpdates(parsedData, approved, overrideStale),
+          versionSource: "agent",
+          versionReason: `${entry.agentName} card update`,
+        });
+      }
       closeAndAdvance();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply character updates");

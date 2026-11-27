@@ -707,7 +707,11 @@ export function RoleplayAgentsSection({
                   )}
                 >
                   {renderAgentLorebookAttachment("card-evolution-auditor")}
-                  <CardEvolutionAuditorSettings closeForSurface={closeForSurface} />
+                  <CardEvolutionAuditorSettings
+                    closeForSurface={closeForSurface}
+                    chatId={chat.mode === "roleplay" ? chat.id : undefined}
+                    metadata={metadata}
+                  />
                 </AgentSettingsCard>
               )}
 

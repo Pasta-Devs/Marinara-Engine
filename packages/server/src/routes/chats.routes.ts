@@ -4,7 +4,21 @@
 import { readPeekPromptParts, type PeekPromptPart } from "../services/prompt/peek-injected-parts.js";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
-import { mergeBuiltInAgentSettings, parseLorebookWriterOrder, partialInput } from "@marinara-engine/shared";
+import {
+  EDITABLE_CHARACTER_CARD_FIELDS,
+  mergeBuiltInAgentSettings,
+  parseLorebookWriterOrder,
+  partialInput,
+  readHeldCardUpdates,
+  type CharacterCardFieldUpdate,
+  type HeldCardUpdate,
+} from "@marinara-engine/shared";
+import { randomUUID } from "node:crypto";
+import {
+  agentRunsWithSummaries,
+  applyCardUpdates,
+  summaryTurnIsNext,
+} from "../services/chat-summary/summary-paced-agents.js";
 import { chatResourceRequestOptions } from "./chat-request-validation.js";
 import { logger } from "../lib/logger.js";
 import { prepareJsonResponse } from "../middleware/compress-json.js";
@@ -1023,6 +1037,7 @@ type PeekPromptBody = { messageId?: unknown; current?: unknown };
 
 export async function chatsRoutes(app: FastifyInstance) {
   const storage = createChatsStorage(app.db);
+  const cardUpdateCharacters = createCharactersStorage(app.db);
   const messageTrashStore = createMessageTrashStorage(app.db);
   const appSettings = createAppSettingsStorage(app.db);
 
@@ -1892,6 +1907,61 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
     const updated = await storage.touch(req.params.id);
     return updated ? normalizeChatForResponse(updated) : updated;
+  });
+
+  // Approved Card Evolution Auditor edits in a chat set to "Run with summaries": applied now when the next reply is
+  // the summary turn (or summaries don't pace this chat), otherwise held in the chat until its next summary turn.
+  app.post<{ Params: { id: string } }>("/:id/card-updates", async (req, reply) => {
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return notFound(reply, "Chat not found");
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const characterId = typeof body.characterId === "string" ? body.characterId : "";
+    if (!characterId || !resolveChatCharacterIds(chat.characterIds).includes(characterId)) {
+      return reply.status(400).send({ error: "That character is not in this chat" });
+    }
+    const editableFields = new Set<string>(EDITABLE_CHARACTER_CARD_FIELDS);
+    const updates = (Array.isArray(body.updates) ? body.updates : []).flatMap((item): CharacterCardFieldUpdate[] => {
+      if (!item || typeof item !== "object") return [];
+      const { field, oldText, newText, reason } = item as Record<string, unknown>;
+      if (typeof field !== "string" || !editableFields.has(field)) return [];
+      if (typeof oldText !== "string" || typeof newText !== "string") return [];
+      return [
+        {
+          characterId,
+          action: "update",
+          field: field as CharacterCardFieldUpdate["field"],
+          oldText,
+          newText,
+          reason: typeof reason === "string" ? reason : "",
+        },
+      ];
+    });
+    if (updates.length === 0) return reply.status(400).send({ error: "No card edits to apply" });
+    const agentName = typeof body.agentName === "string" && body.agentName.trim() ? body.agentName.trim() : "Agent";
+    const characterName = typeof body.characterName === "string" ? body.characterName : "";
+    const overrideStale = body.overrideStale === true;
+    const metadata = parseExtra(chat.metadata) as Record<string, unknown>;
+    const hold =
+      agentRunsWithSummaries("card-evolution-auditor", metadata, chat.mode) &&
+      !summaryTurnIsNext(metadata, await storage.listMessages(chat.id));
+    if (!hold) {
+      const found = await applyCardUpdates(cardUpdateCharacters, characterId, agentName, updates, overrideStale);
+      if (!found) return notFound(reply, "Character not found");
+      return { status: "applied" as const };
+    }
+    const held: HeldCardUpdate = {
+      id: randomUUID(),
+      characterId,
+      characterName,
+      agentName,
+      updates,
+      overrideStale,
+      approvedAt: new Date().toISOString(),
+    };
+    await storage.patchMetadata(chat.id, (current) => ({
+      heldCardUpdates: [...readHeldCardUpdates(current), held],
+    }));
+    return { status: "held" as const };
   });
 
   // Update chat metadata (partial merge)
