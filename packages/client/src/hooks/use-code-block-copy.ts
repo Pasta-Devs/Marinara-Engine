@@ -31,8 +31,11 @@ export function useCodeBlockCopy(container: HTMLElement | null, rendered: ReactN
       if (dock.style.getPropertyValue("--code-copy-pad-right") !== style.paddingRight)
         dock.style.setProperty("--code-copy-pad-right", style.paddingRight);
     };
-    // A theme switch changes the padding without a re-render; it also changes the block's size, so this hears it.
-    const resized = new ResizeObserver((entries) => entries.forEach((entry) => fitDock(entry.target)));
+    // A theme switch changes the padding without a re-render. Padding moves the content box of a block whose
+    // height is capped, and the border box of one that isn't, so both are watched.
+    const onResize: ResizeObserverCallback = (entries) => entries.forEach((entry) => fitDock(entry.target));
+    const resized = new ResizeObserver(onResize);
+    const resizedOuter = new ResizeObserver(onResize);
     container.querySelectorAll<HTMLPreElement>("pre.mari-md-codeblock").forEach((block) => {
       // A re-render runs this again, so a block keeps the button it has. A new button in its place
       // would lose a focus, tap or key press that is still under way.
@@ -65,7 +68,11 @@ export function useCodeBlockCopy(container: HTMLElement | null, rendered: ReactN
       label(button);
       fitDock(block);
       resized.observe(block);
+      resizedOuter.observe(block, { box: "border-box" });
     });
-    return () => resized.disconnect();
+    return () => {
+      resized.disconnect();
+      resizedOuter.disconnect();
+    };
   }, [container, rendered, i18n, t]);
 }
