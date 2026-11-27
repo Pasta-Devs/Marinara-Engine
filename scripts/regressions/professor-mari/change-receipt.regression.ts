@@ -778,4 +778,45 @@ assert.match(
   assert.equal(item.text, "Write about 700 words.", "and ends where the run left it");
 }
 
+// A keys-only edit later in the run keeps the text the run found; a merged run keeps the record allowance.
+{
+  const entry = (id: string, content: string, keys: string[]): Record<string, unknown> => ({
+    id,
+    presetId: "p3",
+    name: `Entry ${id}`,
+    content,
+    keys,
+  });
+  const run = (id: string, before: Record<string, unknown>, after: Record<string, unknown>, review: string) =>
+    buildMariWorkspaceActionResult(
+      "preset.update",
+      applied([{ table: "prompt_sections", id, action: "update", before, after }], review),
+    )!;
+  const items = (record: MariWorkspaceActionResult | undefined) => {
+    const list = record?.changes?.find((change) => change.kind === "list");
+    assert.ok(list?.kind === "list" && list.items?.length, "entries are list items");
+    return list.items!;
+  };
+  const textEdit = run("e1", entry("e1", "Original.", ["a"]), entry("e1", "Revised.", ["a"]), "rev-k1");
+  const keysEdit = run("e1", entry("e1", "Revised.", ["a"]), entry("e1", "Revised.", ["a", "b"]), "rev-k2");
+  const [keys] = mergeMariActionResults([textEdit, keysEdit]);
+  assert.equal(items(keys)[0]?.before, "Original.", "a keys-only edit keeps the run's old text");
+  assert.deepEqual(items(keys)[0]?.keys, ["a", "b"]);
+
+  const big = (seed: string) => `${seed} `.repeat(1500);
+  const runs = ["x1", "x2", "x3"].map((id, index) =>
+    run(id, entry(id, big(`old${index}`), []), entry(id, big(`new${index}`), []), `rev-${id}`),
+  );
+  const [merged] = mergeMariActionResults(runs);
+  const whole = items(merged).reduce(
+    (sum, item) => sum + (item.full ? (item.before ?? "").length + (item.text ?? "").length : 0),
+    0,
+  );
+  assert.ok(whole <= MARI_RECEIPT_LIMITS.recordText, `a merged run keeps the allowance (${whole})`);
+  assert.ok(
+    items(merged).some((item) => !item.full && (item.text ?? "").length <= MARI_RECEIPT_LIMITS.entryText + 2),
+    "past the allowance an entry falls back to an excerpt",
+  );
+}
+
 console.log("change-receipt regression passed");

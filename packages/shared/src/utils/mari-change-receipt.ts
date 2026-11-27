@@ -430,15 +430,47 @@ function mergeListItems(older: MariChangeListItem[], newer: MariChangeListItem[]
   const byName = new Map(older.map((item) => [item.name, item]));
   for (const next of newer) {
     const prev = byName.get(next.name);
-    if (prev?.before === undefined || next.before === undefined) {
+    // Without old text from earlier in the run (an entry added in it), the later item stands as it is. A later
+    // keys-only edit has no old text of its own; the entry still starts from where the run found it.
+    if (prev?.before === undefined) {
       byName.set(next.name, next);
       continue;
     }
-    const { full: _full, ...rest } = next;
+    const { full: _full, before: _before, ...rest } = next;
     const long = [prev.before, next.text ?? ""].some((text) => text.length > MARI_RECEIPT_LIMITS.entryText);
     byName.set(next.name, { ...rest, before: prev.before, ...(prev.full && next.full && long ? { full: true } : {}) });
   }
   return [...byName.values()];
+}
+
+/**
+ * A merged record holds the whole text of every command in its run; it keeps the same allowance as one
+ * command's record. Past it, the later fields and entries fall back to excerpts.
+ */
+function fitWholeText(changes: MariChangeExcerpt[]): MariChangeExcerpt[] {
+  let left = MARI_RECEIPT_LIMITS.recordText;
+  const fits = (...texts: string[]) => {
+    const size = texts.reduce((sum, text) => sum + text.length, 0);
+    if (size > left) return false;
+    left -= size;
+    return true;
+  };
+  return changes.map((change) => {
+    if (change.kind === "text" && change.full) {
+      if (fits(change.before, change.after)) return change;
+      const { full: _full, ...rest } = change;
+      return { ...rest, ...excerptTextPair(change.before, change.after) };
+    }
+    if (change.kind !== "list" || !change.items?.some((item) => item.full)) return change;
+    const items = change.items.map((item): MariChangeListItem => {
+      if (!item.full || fits(item.before ?? "", item.text ?? "")) return item;
+      const { full: _full, ...rest } = item;
+      if (item.before === undefined) return { ...rest, text: clip(item.text ?? "", MARI_RECEIPT_LIMITS.entryText) };
+      const pair = excerptTextPair(item.before, item.text ?? "", MARI_RECEIPT_LIMITS.entryText);
+      return { ...rest, text: pair.after, before: pair.before };
+    });
+    return { ...change, items };
+  });
 }
 
 function mergeExcerpts(older: MariChangeExcerpt[], newer: MariChangeExcerpt[]): MariChangeExcerpt[] {
@@ -497,7 +529,9 @@ export function mergeMariActionResults(results: readonly MariWorkspaceActionResu
     const reviewIds = [...new Set([...mariReceiptReviewIds(prev), ...mariReceiptReviewIds(result)])];
     const changes =
       prev.changes || result.changes ? mergeExcerpts(prev.changes ?? [], result.changes ?? []) : undefined;
-    const capped = changes ? capChanges(changes, (prev.moreChanges ?? 0) + (result.moreChanges ?? 0)) : null;
+    const capped = changes
+      ? capChanges(fitWholeText(changes), (prev.moreChanges ?? 0) + (result.moreChanges ?? 0))
+      : null;
     const undoUntil = [prev.undoUntil, result.undoUntil].filter((value): value is string => !!value).sort()[0];
     const { outcome: _outcome, moreChanges: _more, ...base } = prev;
     const merged: MariWorkspaceActionResult = {
