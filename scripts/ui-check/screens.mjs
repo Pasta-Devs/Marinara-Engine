@@ -602,6 +602,15 @@ export function screenList(ids) {
       id: "professor-mari-folded",
       run: open.mari(true),
     },
+    {
+      // Phones and tablets: All Tabs, whose footer has "+" (Search) and the Prompt viewer beside it.
+      id: "all-tabs",
+      run: hook(() => {
+        const h = window.__marinaraUiCheck;
+        if (h.overhaul.getState().desktop) return;
+        h.overhaul.getState().setAllTabsOpen(true);
+      }),
+    },
     // Prompt viewer (kolache's AIO, built in): its own page with a preset and the long-named lorebook picked, so the
     // simulated prompt and the entry list are full; then Inspect, Summaries and Settings, the views inside it.
     ...[null, "inspect", "summaries", "settings"].map((view) => ({
