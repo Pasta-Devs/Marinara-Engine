@@ -22,6 +22,7 @@ import {
   GraduationCap,
   Layers,
   Link,
+  Pencil,
   Regex,
   Search,
   Settings2,
@@ -574,15 +575,27 @@ export function TabPresence({ tab, chats, dotOnly = false }: { tab: OverhaulTab;
   );
 }
 
-/** An editor tab with unsaved changes (open now, or waiting as a draft) shows a small dot. */
-export function TabDraftDot({ tab, current }: { tab: OverhaulTab; current: boolean }) {
-  const { t: localizeUi } = useUiTranslation();
+/** True for an editor tab with unsaved changes: open now, or waiting as a draft. */
+function useTabUnsaved(tab: OverhaulTab, current: boolean): boolean {
   const editorKey = editorLeaveKeyForTab(tab);
   const parked = useParkedDraftsStore((s) => (editorKey ? s.keys.includes(editorKey) : false));
   const openDirty = useUIStore((s) => current && s.editorDirty);
-  if (!editorKey || !(parked || openDirty)) return null;
+  return Boolean(editorKey) && (parked || openDirty);
+}
+
+/**
+ * An editor tab with unsaved changes shows a small pencil after its name, in the tab's own text colour. It was a
+ * ring before, which read as the Conversation online dot in themes with a green accent.
+ */
+export function TabDraftDot({ tab, current }: { tab: OverhaulTab; current: boolean }) {
+  const { t: localizeUi } = useUiTranslation();
+  if (!useTabUnsaved(tab, current)) return null;
   const label = localizeUi("editor.draft.tabUnsaved");
-  return <i className="ov-tab__draft" role="img" aria-label={label} title={label} />;
+  return (
+    <span className="ov-tab__draft" role="img" aria-label={label} title={label}>
+      <Pencil size={11} aria-hidden="true" />
+    </span>
+  );
 }
 
 /** Game chats: show or hide the right game pane (Party, Inventory, Journal, Map, Sessions). */

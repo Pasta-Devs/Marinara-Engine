@@ -428,8 +428,12 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+/* A row, so the unsaved-changes pencil after a long name stays in view and the name gives way (it was pushed
+   past the card's edge). */
 .ovm-tabcard__label {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   padding: 0 0.25rem;
   font-size: 0.875rem;
@@ -443,6 +447,10 @@
   align-items: center;
   gap: 0.25rem;
   max-width: 100%;
+}
+.ovm-tabcard__label .ov-tab__label:not(.ov-tab__label--split, :has(> svg)) {
+  display: block;
+  min-width: 0;
 }
 .ovm-tabcard__close {
   position: absolute;

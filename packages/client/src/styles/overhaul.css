@@ -5782,18 +5782,20 @@ input.ov-edhead__title:focus {
   border-radius: 50%;
   background: currentColor;
 }
-/* An editor tab with unsaved changes: a small accent ring after its name (like an unsaved file in an editor). */
+/* An editor tab with unsaved changes: a small pencil after its name, in the tab's own text colour, so it never reads
+   as the Conversation online dot (a green accent ring did). */
 .ov-tab__draft {
-  display: inline-block;
+  display: inline-grid;
   flex: none;
+  place-items: center;
   vertical-align: middle;
-  width: 0.5rem;
-  height: 0.5rem;
   margin-left: 0.3125rem;
-  border-radius: 50%;
-  /* A ring, so it never reads as the filled mode dot (Roleplay is pink too) (keyboard QC round 2, PN23). */
-  background: transparent;
-  box-shadow: inset 0 0 0 0.125rem var(--ov-accent-text);
+  color: currentColor;
+  opacity: 0.75;
+  line-height: 0;
+}
+.ov-tab__draft svg {
+  display: block;
 }
 .ov-tab__presence.is-idle {
   color: #e0b04a;
