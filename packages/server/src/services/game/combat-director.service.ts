@@ -2155,6 +2155,11 @@ function effect(s: CombatDirectorState, p: Pending) {
                 skill: a.skillName ?? "",
                 target: get(s, a.defenderId)?.name ?? a.defenderId,
                 amount: `${a.isHeal ? "+" : "−"}${a.finalDamage}`,
+                // What battle narration tells of the blow; the line itself never prints these.
+                outcome: a.isHeal ? "heal" : a.isMiss ? "miss" : a.isCritical ? "critical" : "hit",
+                ...(a.isKo ? { ko: 1 } : {}),
+                ...(a.element ? { element: a.element } : {}),
+                ...(a.reaction ? { reaction: a.reaction.reaction, multiplier: a.reaction.damageMultiplier } : {}),
               },
             },
           );

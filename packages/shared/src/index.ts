@@ -304,6 +304,7 @@ export * from "./features/marinara-bestiary-threat.js";
 export * from "./features/marinara-party.js";
 export * from "./features/marinara-loot.js";
 export * from "./features/combat-director.js";
+export * from "./features/combat-narration.js";
 
 export * from "./features/combat-conditions.js";
 export * from "./features/rulesets/builder-draft.js";

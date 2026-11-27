@@ -20,6 +20,7 @@ import { rulesetEffectPhrase } from "./RulesetItemPicker";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { rulesetKindLine } from "./RulesetTurnOrder";
+import { useRulesetLineNarration } from "../../lib/ruleset-combat-narration";
 
 export function RulesetCombatStatus({
   definition,
@@ -61,6 +62,7 @@ export function RulesetCombatStatus({
     return () => wide.removeEventListener("change", follow);
   }, []);
   const logBox = useRef<HTMLElement>(null);
+  const told = useRulesetLineNarration();
   const newest = lines.at(-1)?.seq;
   useEffect(() => {
     // The box's own scroll position, never `scrollIntoView`, which would move the page under a
@@ -343,7 +345,14 @@ export function RulesetCombatStatus({
       >
         <ol aria-live="polite" className="space-y-1 text-xs text-[var(--muted-foreground)]">
           {lines.map((line) => (
-            <li key={line.seq}>{line.text}</li>
+            <li key={line.seq}>
+              {told.get(line.seq) && (
+                <span data-combat-narration="" className="block text-[var(--foreground)]">
+                  {told.get(line.seq)}
+                </span>
+              )}
+              <span>{line.text}</span>
+            </li>
           ))}
         </ol>
       </section>

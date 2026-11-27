@@ -1,5 +1,5 @@
 import { CombatWeatherSummary } from "./CombatWeatherSummary";
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { ApiError } from "../../lib/api-client";
 import type {
   CombatDecisionOption,
@@ -23,6 +23,7 @@ import type { RulesetCellChoice } from "../../lib/ruleset-combat-board";
 import { TacticalCombatUI } from "./TacticalCombatUI";
 import { CombatAiControls } from "./CombatAiControls";
 import { MarinaraFightPanel } from "./MarinaraFightPanel";
+import { RulesetNarrationContext, useRulesetFightNarration } from "../../lib/ruleset-combat-narration";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
@@ -90,6 +91,8 @@ export function DirectedCombatUI(props: Props) {
     () => (s?.ruleset ? translateRulesetView(s.ruleset, rulesetText) : undefined),
     [s?.ruleset, rulesetText],
   );
+  // Each blow of a ruleset fight told as prose above its roll, held here so the log's tab can close.
+  const rulesetNarration = useRulesetFightNarration(definition ? shown : undefined);
   // The kinds a zone strikes, named in the menu as it is cast (1.753), sent with that option once.
   // Every hook comes before the loading return, so the screen asks for the same hooks every time.
   const namedKinds = useRef<{ optionId: string; kinds: string[] } | null>(null);
@@ -173,6 +176,13 @@ export function DirectedCombatUI(props: Props) {
     } else send({ type: "flee" });
   };
   const canAct = s.stage === "action" && !s.window && !busy;
+  const logLine = (e: (typeof s.log)[number]) =>
+    `${e.message ? t(e.message.key, { ...e.message.params, defaultValue: e.text }) : e.text}${
+      e.message?.suffixKey ? ` ${t(e.message.suffixKey)}` : ""
+    }${e.source === "fallback" ? ` (${t("game.combat.director.fallbackUsed")})` : ""}`;
+  const classicLog = s.log
+    .filter((e) => e.kind !== "marinara:reasoning")
+    .map((e) => ({ id: e.id, kind: e.kind, text: logLine(e), params: e.message?.params }));
   // A ruleset fight only reads as one when the rules it was started on can still be read here, which
   // is exactly when the server sends its view. Without either, the shell is the Classic one.
   const fight = s.style === "ruleset" && definition ? shown : undefined;
@@ -226,7 +236,7 @@ export function DirectedCombatUI(props: Props) {
   // nothing of the bottom strip the other styles keep.
   if (board && definition) {
     return (
-      <RulesetKindsContext.Provider value={nameKinds}>
+      <RulesetFightContexts kinds={nameKinds} narration={rulesetNarration}>
         <RulesetTextContext.Provider value={rulesetText}>
           <RulesetCombatScreen
             definition={definition}
@@ -288,11 +298,11 @@ export function DirectedCombatUI(props: Props) {
             ended={!!s.outcome}
           />
         </RulesetTextContext.Provider>
-      </RulesetKindsContext.Provider>
+      </RulesetFightContexts>
     );
   }
   return (
-    <RulesetKindsContext.Provider value={nameKinds}>
+    <RulesetFightContexts kinds={nameKinds} narration={rulesetNarration}>
       <RulesetTextContext.Provider value={rulesetText}>
         <div className="flex h-full min-h-0 flex-col">
           <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -340,6 +350,8 @@ export function DirectedCombatUI(props: Props) {
                   outcome: s.outcome,
                   onAction: (action) => send(action.type === "flee" ? { type: "flee" } : { type: "classic", action }),
                   onControl: (unitId, controller) => send({ type: "control", unitId, controller }),
+                  // A Classic fight's log is its combat log; a ruleset fight keeps its own beside the menu.
+                  ...(fight ? {} : { log: classicLog }),
                   onOrders: (unitId, orders) => send({ type: "orders", unitId, orders }),
                   ...(fight
                     ? {
@@ -545,11 +557,7 @@ export function DirectedCombatUI(props: Props) {
                     .filter((e) => debugMode || e.kind !== "marinara:reasoning")
                     .slice(debugMode ? -24 : -12)
                     .map((e) => (
-                      <li key={e.id}>
-                        {e.message ? t(e.message.key, { ...e.message.params, defaultValue: e.text }) : e.text}
-                        {e.message?.suffixKey && ` ${t(e.message.suffixKey)}`}
-                        {e.source === "fallback" && ` (${t("game.combat.director.fallbackUsed")})`}
-                      </li>
+                      <li key={e.id}>{logLine(e)}</li>
                     ))}
                 </ol>
               </details>
@@ -565,6 +573,23 @@ export function DirectedCombatUI(props: Props) {
           </section>
         </div>
       </RulesetTextContext.Provider>
-    </RulesetKindsContext.Provider>
+    </RulesetFightContexts>
+  );
+}
+
+/** The contexts a fight's screens read: the kinds a zone strikes, and each blow's prose. */
+function RulesetFightContexts({
+  kinds,
+  narration,
+  children,
+}: {
+  kinds: (optionId: string, kinds: string[]) => void;
+  narration: ReadonlyMap<number, string>;
+  children: ReactNode;
+}) {
+  return (
+    <RulesetNarrationContext.Provider value={narration}>
+      <RulesetKindsContext.Provider value={kinds}>{children}</RulesetKindsContext.Provider>
+    </RulesetNarrationContext.Provider>
   );
 }
