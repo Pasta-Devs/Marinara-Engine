@@ -14,6 +14,7 @@ import {
   buildCombatNarrationPrompt,
   parseCombatNarration,
 } from "../../../packages/server/src/services/game/combat-narration.service.js";
+import { marinaraBlow } from "../../../packages/server/src/services/game/marinara-director.service.js";
 import { runNamedCases } from "../fixtures/named-cases.js";
 
 const moonblast: CombatNarrationBeat = {
@@ -73,6 +74,11 @@ await runNamedCases([
         "Xerneas glows silver and blasts Houndoom.",
         null,
       ]);
+      // A reply that skips a beat keeps the next one in its own place.
+      assert.deepEqual(parseCombatNarration("2. Houndoom snaps at empty air.", [moonblast, miss]), [
+        null,
+        "Houndoom snaps at empty air.",
+      ]);
     },
   },
   {
@@ -91,6 +97,34 @@ await runNamedCases([
       assert.equal(gameRouteCombatNarrateBodySchema.safeParse(body).success, false);
       const parsed = gameRouteCombatNarrateBodySchema.parse({ chatId: "c", beats: [{ ...moonblast, amount: 24 }] });
       assert.equal("amount" in parsed.beats[0]!, false);
+    },
+  },
+  {
+    name: "a Classic Marinara hit is a blow with its outcome, weakness and the target's fall; regen is not",
+    run() {
+      const state = {
+        fighters: [
+          { id: "x", name: "Xerneas", skills: [{ id: "moon", label: "Moonblast" }] },
+          { id: "h", name: "Houndoom", skills: [] },
+        ],
+      } as unknown as Parameters<typeof marinaraBlow>[0];
+      const events = [
+        { kind: "hit", actorId: "x", targetId: "h", skillId: "moon", amount: 24, crit: true, affinity: "weak" },
+        { kind: "down", actorId: "x", targetId: "h" },
+        { kind: "miss", actorId: "h", targetId: "x" },
+        { kind: "heal", actorId: "x", targetId: "x", amount: 5, status: "regen" },
+      ] as Parameters<typeof marinaraBlow>[1];
+      assert.deepEqual(marinaraBlow(state, events, 0), {
+        actor: "Xerneas",
+        target: "Houndoom",
+        skill: "Moonblast",
+        outcome: "critical",
+        amount: "−24",
+        ko: 1,
+        effect: "strong",
+      });
+      assert.deepEqual(marinaraBlow(state, events, 2), { actor: "Houndoom", target: "Xerneas", outcome: "miss" });
+      assert.equal(marinaraBlow(state, events, 3), undefined);
     },
   },
   {

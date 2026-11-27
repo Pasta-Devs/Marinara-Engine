@@ -16,10 +16,20 @@ export function useRulesetLineNarration(): ReadonlyMap<number, string> {
  * Tells each new blow of a ruleset fight. A fight read back tells only its current round again, so a
  * reload never sends the whole fight.
  */
-export function useRulesetFightNarration(view: DirectedRulesetView | undefined): ReadonlyMap<number, string> {
-  const { prose, narrate } = useCombatNarration();
+export function useRulesetFightNarration(
+  view: DirectedRulesetView | undefined,
+  /** The fight's own identity: a restored or branched fight under the same screen starts over. */
+  fightKey: string | undefined,
+): ReadonlyMap<number, string> {
+  const { prose, narrate, reset } = useCombatNarration();
   const toldUpTo = useRef<number | null>(null);
+  const toldFight = useRef(fightKey);
   useEffect(() => {
+    if (toldFight.current !== fightKey) {
+      toldFight.current = fightKey;
+      toldUpTo.current = null;
+      reset();
+    }
     if (!view) return;
     const newest = view.events.at(-1)?.seq ?? 0;
     if (toldUpTo.current === null) {
@@ -37,7 +47,7 @@ export function useRulesetFightNarration(view: DirectedRulesetView | undefined):
       names,
     );
     if (beats.length) narrate(beats);
-  }, [view, narrate]);
+  }, [view, fightKey, narrate, reset]);
   return useMemo(() => {
     const bySeq = new Map<number, string>();
     for (const [id, text] of prose) if (id.startsWith("s")) bySeq.set(Number(id.slice(1)), text);
