@@ -352,6 +352,7 @@ export function DirectedCombatUI(props: Props) {
                 inventoryItems={s.inventory}
                 onCombatEnd={finish}
                 directed={{
+                  instanceId: s.instanceId ?? s.id,
                   actorId: s.actorId,
                   canAct,
                   round: s.round,
