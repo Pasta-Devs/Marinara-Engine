@@ -626,7 +626,8 @@ export function screenList(ids) {
         const pick = async (index, text) => {
           const input = page.locator(".kaio-combo-input").nth(index);
           if (!(await input.count())) return;
-          await input.click();
+          // Focus, not a click: a toast ("an update is ready") can lie over the column on a short window.
+          await input.focus();
           await input.fill(text);
           await input.press("Enter");
           await page.waitForTimeout(600);
@@ -634,7 +635,7 @@ export function screenList(ids) {
         await pick(0, "Universal");
         await pick(1, "Ridiculously");
         if (view) {
-          await page.locator(`.kaio-titlebar [data-action="${view}"]`).first().click();
+          await page.locator(`.kaio-titlebar [data-action="${view}"]`).first().dispatchEvent("click");
           await page.waitForTimeout(1200);
         }
       },
