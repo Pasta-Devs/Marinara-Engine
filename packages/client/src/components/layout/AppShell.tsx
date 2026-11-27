@@ -18,6 +18,7 @@ import {
   getTrackerPanelWidthForProfile,
   isMobileShellViewport,
   MOBILE_SHELL_MEDIA_QUERY,
+  OPEN_SHORTCUTS_PAGE_EVENT,
   OVERHAUL_MOBILE_SHELL_MEDIA_QUERY,
   RIGHT_PANEL_WIDTH_MAX,
   RIGHT_PANEL_WIDTH_MIN,
@@ -87,6 +88,9 @@ import { isOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store"
 import { loadOverhaulStyles, overhaulStylesReady, type OverhaulShell } from "../../lib/overhaul-styles";
 import { preloadChatSurface } from "../chat/chat-surface-preload";
 import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
+import { watchPlaceHistory } from "../overhaul/place-history";
+import { openShortcutsPage } from "../overhaul/shortcuts-page";
+import { installEdgeSwipeBack } from "../../lib/edge-swipe-back";
 import { SPLIT_PANE } from "../../lib/split-view-env";
 import { SPLIT_DIVIDER, SPLIT_MIN_ROOM, clampSplitSize, useSplitRoom } from "../overhaul/split-view";
 import { LIBRARY_SECTIONS, openLibrarySection } from "../overhaul/library-navigation";
@@ -364,6 +368,15 @@ export function AppShell({
 }) {
   // A11Y19: a page change never leaves keyboard focus on <body>.
   useKeepFocusOnPage();
+  // Back and Forward between visited places (the top bar's arrows, Alt+← / Alt+→, the mouse's side buttons).
+  useEffect(() => (SPLIT_PANE ? undefined : watchPlaceHistory()), []);
+  // The installed iPhone / iPad app has no back swipe of its own: the left edge steps back like Safari's.
+  useEffect(() => (SPLIT_PANE ? undefined : installEdgeSwipeBack()), []);
+  useEffect(() => {
+    const open = () => openShortcutsPage();
+    window.addEventListener(OPEN_SHORTCUTS_PAGE_EVENT, open);
+    return () => window.removeEventListener(OPEN_SHORTCUTS_PAGE_EVENT, open);
+  }, []);
   // The chat view and the Library landing page are what a first tap most likely opens: they come right after
   // the first paint (tier 0). The right panel, Library pages and Settings wait until the first tap has settled
   // (tier 1, lib/background-preload.ts), so they never compete with it (QC panel 3, speed H1).

@@ -48,10 +48,16 @@ import {
   TextSearch,
   Activity,
   MoreHorizontal,
+  RefreshCw,
+  ArrowDown,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePullToRefresh } from "../../hooks/use-pull-to-refresh";
 import { openActivityOverview, openGlobalSearch } from "../../lib/chat-insights";
 import { normalizeChatTags } from "../../lib/chat-tags";
 import {
+  chatKeys,
+  conversationStatusKeys,
   useBulkExportChats,
   useChats,
   useChatRowPreviews,
@@ -71,6 +77,7 @@ import {
   useDeleteFolder,
   useReorderFolders,
   useMoveChat,
+  folderKeys,
 } from "../../hooks/use-chat-folders";
 import { useCharacterSummaries } from "../../hooks/use-characters";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
@@ -374,6 +381,23 @@ export function ChatSidebar() {
   const inputDrafts = useChatStore((s) => s.inputDrafts);
   const chatNotifications = useChatStore((s) => s.chatNotifications);
   const chatListRef = useRef<HTMLDivElement>(null);
+  // The list loads chats from other devices only when it is told to: pull it down on a touch screen, or press
+  // Refresh (the computer's header, the phone's ⋯ menu).
+  const queryClient = useQueryClient();
+  const [listRefreshing, setListRefreshing] = useState(false);
+  const refreshChatList = useCallback(async () => {
+    setListRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: chatKeys.list() }),
+        queryClient.refetchQueries({ queryKey: folderKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: conversationStatusKeys.all }),
+      ]);
+    } finally {
+      setListRefreshing(false);
+    }
+  }, [queryClient]);
+  const listPull = usePullToRefresh(chatListRef, { enabled: overhaulTouch, onRefresh: refreshChatList });
   // One interval for the whole list: a 60s-cadence clock so schedule/override-derived
   // status dots refresh when time alone changes them, without per-row timers.
   const presenceNow = usePresenceClock();
@@ -2073,6 +2097,15 @@ export function ChatSidebar() {
                 </button>
               ) : null}
               <button
+                onClick={() => void refreshChatList()}
+                disabled={listRefreshing}
+                className="ov-icon-btn ov-icon-btn--sm"
+                title={localizeUi("chatList.refresh")}
+                aria-label={localizeUi("chatList.refresh")}
+              >
+                <RefreshCw size="0.8125rem" className={cn(listRefreshing && "animate-spin")} />
+              </button>
+              <button
                 onClick={() => (multiSelectMode ? exitMultiSelect() : setMultiSelectMode(true))}
                 disabled={displayChats.length === 0}
                 aria-pressed={multiSelectMode}
@@ -2398,6 +2431,18 @@ export function ChatSidebar() {
                   <button
                     type="button"
                     role="menuitem"
+                    disabled={listRefreshing}
+                    onClick={() => {
+                      setOvmListMenuOpen(false);
+                      void refreshChatList();
+                    }}
+                  >
+                    <RefreshCw size={18} />
+                    {localizeUi("chatList.refresh")}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
                     disabled={isImportingChat}
                     onClick={() => {
                       setOvmListMenuOpen(false);
@@ -2524,6 +2569,24 @@ export function ChatSidebar() {
           setIsRootDropTarget(false);
         }}
       >
+        {listPull.distance > 0 || listPull.refreshing ? (
+          <div
+            className="ov-pull-refresh"
+            style={{ height: listPull.distance }}
+            data-armed={listPull.armed ? "true" : undefined}
+            data-refreshing={listPull.refreshing ? "true" : undefined}
+            role={listPull.refreshing ? "status" : undefined}
+            aria-label={listPull.refreshing ? localizeUi("chatList.refreshing") : undefined}
+          >
+            <span className="ov-pull-refresh__dot">
+              {listPull.refreshing ? (
+                <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <ArrowDown size={16} aria-hidden="true" />
+              )}
+            </span>
+          </div>
+        ) : null}
         <ChatRowPeek containerRef={chatListRef} activeChatId={activeChatId} disabled={multiSelectMode} />
         {isLoading && <PanelListSkeleton />}
 

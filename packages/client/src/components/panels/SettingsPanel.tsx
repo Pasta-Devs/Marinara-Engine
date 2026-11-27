@@ -39,6 +39,7 @@ import { HomeWidgetsSettings } from "./settings/HomeWidgetsSettings";
 import { OmnibarSettingsInline } from "../layout/omnibar/OmnibarSettingsMenu";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { MessageButtonsSettings } from "../overhaul/MessageButtonsSettings";
+import { KeyboardShortcutsSection, TouchGesturesSection } from "../overhaul/ShortcutsSettings";
 import { goHome } from "../overhaul/OverhaulTopBar";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
 import { LanguagePicker } from "../ui/LanguagePicker";
@@ -2160,8 +2161,6 @@ function GeneralSettings() {
   const setIntuitiveSwipeNavigation = useUIStore((s) => s.setIntuitiveSwipeNavigation);
   const intuitiveSwipeRerollLatest = useUIStore((s) => s.intuitiveSwipeRerollLatest);
   const setIntuitiveSwipeRerollLatest = useUIStore((s) => s.setIntuitiveSwipeRerollLatest);
-  const swipeGestures = useUIStore((s) => s.swipeGestures);
-  const setSwipeGestures = useUIStore((s) => s.setSwipeGestures);
   // Phones in the new layout have no keyboard arrows or double-click: those rows only confused (panel 3, PP11).
   const keyboardRowsHidden = useOverhaulMobile();
   const editLastMessageOnArrowUp = useUIStore((s) => s.editLastMessageOnArrowUp);
@@ -2560,13 +2559,6 @@ function GeneralSettings() {
               />
             </>
           )}
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("phone-swipe-gestures")}
-            label={localizeUi("settings.controls.phoneSwipeGestures.label")}
-            checked={swipeGestures}
-            onChange={setSwipeGestures}
-            help={localizeUi("settings.controls.phoneSwipeGestures.help")}
-          />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("guide-generations")}
             label={localizeUi("settings.controls.guideGenerations.label")}
@@ -9718,6 +9710,8 @@ function AdvancedSettings({ withMessageSections = true }: { withMessageSections?
 // ──────────────────────────────────────────────
 /** Shown by MessageDisplaySettings, not the Advanced group, in the new layout. */
 const MESSAGE_DISPLAY_SECTIONS = new Set<SettingsSectionId>(["message-tools", "message-buttons"]);
+/** New layout only: Settings › Shortcuts (components/overhaul/ShortcutsSettings.tsx). */
+const SHORTCUT_SECTIONS = new Set<SettingsSectionId>(["keyboard-shortcuts", "touch-gestures"]);
 
 export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly SettingsSectionId[] }) {
   // Each part renders once, in the order its first section appears in the tab, so the
@@ -9731,8 +9725,9 @@ export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly 
     if (id === "theme-library" && cssThemesAfterTheme) continue;
     const meta = SETTINGS_SECTIONS.find((section) => section.id === id);
     if (!meta) continue;
-    const part =
-      meta.tab === "appearance"
+    const part = SHORTCUT_SECTIONS.has(id)
+      ? "shortcuts"
+      : meta.tab === "appearance"
         ? `appearance:${appearanceGroupForSection(id)}`
         : MESSAGE_DISPLAY_SECTIONS.has(id)
           ? "messages"
@@ -9773,6 +9768,16 @@ export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly 
         return <AdvancedSettings withMessageSections={false} />;
       case "messages":
         return <MessageDisplaySettings />;
+      case "shortcuts":
+        return (
+          <>
+            <KeyboardShortcutsSection anchorId={getSettingsSectionAnchorId("keyboard-shortcuts")} />
+            <TouchGesturesSection
+              anchorId={getSettingsSectionAnchorId("touch-gestures")}
+              toggleAnchorId={getSettingsControlAnchorId("phone-swipe-gestures")}
+            />
+          </>
+        );
       default:
         return null;
     }

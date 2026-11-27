@@ -237,6 +237,7 @@ const open = {
 const SETTINGS_TABS = [
   "general",
   "chatting",
+  "shortcuts",
   "appearance",
   "conversation",
   "roleplay",

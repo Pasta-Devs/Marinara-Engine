@@ -87,7 +87,15 @@ const DIR_ORDER = [
  * sort alphabetically after the listed ones.
  */
 const DOC_ORDER: Record<string, string[]> = {
-  home: ["welcome.md", "ai-basics.md", "tutorial.md", "tabs-and-drafts.md", "professor-mari.md", "achievements.md"],
+  home: [
+    "welcome.md",
+    "ai-basics.md",
+    "tutorial.md",
+    "tabs-and-drafts.md",
+    "shortcuts-and-gestures.md",
+    "professor-mari.md",
+    "achievements.md",
+  ],
   installation: ["windows.md", "macos-linux.md", "containers.md", "android-termux.md", "ios-pwa.md"],
   connections: [
     "connecting-to-a-provider.md",
