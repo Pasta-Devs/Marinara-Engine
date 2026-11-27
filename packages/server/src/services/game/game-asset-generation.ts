@@ -37,11 +37,14 @@ import {
   GAME_SCENE_ILLUSTRATION,
 } from "../prompt-overrides/index.js";
 import {
+  backgroundTimeOfDay,
+  backgroundTimeOfDayFromWords,
+  backgroundVersionInstruction,
+  backgroundVersionStem,
   backgroundWeatherVersion,
-  backgroundWeatherVersionInstruction,
-  backgroundWeatherVersionStem,
   inferImageSource,
   parseBackgroundWeatherVersionName,
+  type BackgroundTimeOfDay,
   type BackgroundWeatherVersionKey,
   type SceneShelter,
   type ImageGenerationDefaultsProfile,
@@ -1410,7 +1413,13 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
       tags: chatBackgroundTags(req, baseSlug),
     };
     writeChatBackgroundMeta(meta);
-    rememberChatBackgroundScene(filename, req.sceneDescription, backgroundWeatherVersion(req.currentWeather), replaced);
+    rememberChatBackgroundScene(
+      filename,
+      req.sceneDescription,
+      backgroundWeatherVersion(req.currentWeather),
+      replaced,
+      backgroundTimeOfDay(req.currentTimeOfDay),
+    );
     if (replaced.length > 0) {
       // The new file takes over the replaced file's folder and star, as a rename does.
       let organization = readBackgroundLibraryOrganization(CHAT_BACKGROUND_DIR);
@@ -1435,12 +1444,16 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
   }
 }
 
-// ── Weather versions of chat backgrounds ──
+// ── Weather and time of day versions of chat backgrounds ──
 //
-// "the-inn.png" in the rain is "the-inn--wx-rain.png": the same picture repainted by the image
-// model from the original as its canvas. Made once per picture and weather, then reused for free.
+// "the-inn.png" in the rain is "the-inn--wx-rain.png", at night "the-inn--tod-night.png", and in the
+// rain at night "the-inn--wx-rain--tod-night.png": the same picture repainted by the image model
+// from the original as its canvas. Made once per picture, weather and time, then reused for free.
 
-type ChatBackgroundScenes = Record<string, { prompt: string; weather: BackgroundWeatherVersionKey | "" }>;
+type ChatBackgroundScenes = Record<
+  string,
+  { prompt: string; weather: BackgroundWeatherVersionKey | ""; time?: BackgroundTimeOfDay | "" }
+>;
 
 function readChatBackgroundScenes(): ChatBackgroundScenes {
   if (!existsSync(CHAT_BACKGROUND_SCENES_PATH)) return {};
@@ -1457,11 +1470,12 @@ function rememberChatBackgroundScene(
   prompt: string,
   weather: BackgroundWeatherVersionKey | "",
   removed: string[] = [],
+  time: BackgroundTimeOfDay | "" = "",
 ): void {
   try {
     const scenes = readChatBackgroundScenes();
     for (const name of removed) delete scenes[name];
-    scenes[filename] = { prompt: prompt.trim().slice(0, 4_000), weather };
+    scenes[filename] = { prompt: prompt.trim().slice(0, 4_000), weather, ...(time ? { time } : {}) };
     writeFileAtomicSync(CHAT_BACKGROUND_SCENES_PATH, JSON.stringify(scenes, null, 2));
   } catch (err) {
     logger.warn(err, '[background-weather] Could not remember the scene of "%s"', filename);
@@ -1559,9 +1573,25 @@ export type ChatBackgroundWeatherPlan =
   | {
       kind: "generate";
       baseFilename: string;
-      version: BackgroundWeatherVersionKey;
+      /** The weather part ("" when only the time of day changes). */
+      version: BackgroundWeatherVersionKey | "";
+      /** The time of day part ("" when only the weather changes). */
+      time: BackgroundTimeOfDay | "";
       scenePrompt: string;
     };
+
+/**
+ * The time of day a plain picture shows: what Illustrator painted it at, else a time word in its
+ * name or tags ("tavern-night.png", #sunset), else day (most pictures are painted in daylight).
+ */
+function chatBackgroundPaintedTime(baseFilename: string, scenes: ChatBackgroundScenes): BackgroundTimeOfDay {
+  const recorded = scenes[baseFilename]?.time;
+  if (recorded) return recorded;
+  const gallery = galleryBackground(baseFilename);
+  const name = gallery ? basename(gallery.path) : baseFilename;
+  const words = [basename(name, extname(name)), ...(readChatBackgroundMeta()[baseFilename]?.tags ?? [])];
+  return backgroundTimeOfDayFromWords(words) || "day";
+}
 
 /**
  * What the chat background should be for the story's weather now: keep it, switch to a picture
@@ -1572,51 +1602,78 @@ export function planChatBackgroundWeather(
   currentBackground: string | null | undefined,
   weather: string | null | undefined,
 ): ChatBackgroundWeatherPlan {
+  return planChatBackgroundVersion(currentBackground, { weather });
+}
+
+/**
+ * What the chat background should be for the story's weather and time of day now. A part that is
+ * left out (or blank) keeps what the current picture shows, so a weather change at night stays a
+ * night picture and the other way round. Each part is compared with what the plain picture already
+ * shows: a picture painted at night needs no night version, a dry one no clear version.
+ */
+export function planChatBackgroundVersion(
+  currentBackground: string | null | undefined,
+  wanted: { weather?: string | null; time?: string | null },
+): ChatBackgroundWeatherPlan {
   // A gallery picture (pinned place) is its own plain picture; its versions sit in the library.
   const gallery = galleryBackground(currentBackground);
   const current = gallery?.url ?? chatBackgroundFile(currentBackground);
   if (!current) return { kind: "keep" };
   const parsed = gallery ? null : parseBackgroundWeatherVersionName(current);
-  const baseFilename = parsed?.version
-    ? (chatBackgroundFileForStem(parsed.baseStem, parsed.ext) ?? galleryBackgroundForStem(parsed.baseStem)?.url ?? null)
+  const isVersion = !!parsed && (parsed.version !== "" || parsed.time !== "");
+  const baseFilename = isVersion
+    ? (chatBackgroundFileForStem(parsed!.baseStem, parsed!.ext) ??
+      galleryBackgroundForStem(parsed!.baseStem)?.url ??
+      null)
     : current;
   // The plain picture was renamed or deleted: leave the version alone.
   if (!baseFilename) return { kind: "keep" };
   const scenes = readChatBackgroundScenes();
-  const baseWeather = scenes[baseFilename]?.weather ?? "";
-  const wanted = backgroundWeatherVersion(weather);
-  // The plain picture already shows this weather (or both are dry).
-  if (wanted === baseWeather)
+
+  let weatherPart: BackgroundWeatherVersionKey | "" = parsed?.version ?? "";
+  if (wanted.weather?.trim()) {
+    const baseWeather = scenes[baseFilename]?.weather ?? "";
+    const wantedWeather = backgroundWeatherVersion(wanted.weather);
+    // The plain picture already shows this weather (or both are dry).
+    weatherPart = wantedWeather === baseWeather ? "" : wantedWeather || "clear";
+  }
+  let timePart: BackgroundTimeOfDay | "" = parsed?.time ?? "";
+  const wantedTime = backgroundTimeOfDay(wanted.time);
+  if (wantedTime) timePart = wantedTime === chatBackgroundPaintedTime(baseFilename, scenes) ? "" : wantedTime;
+
+  if (!weatherPart && !timePart) {
     return current === baseFilename ? { kind: "keep" } : { kind: "switch", filename: baseFilename };
-  const versionKey: BackgroundWeatherVersionKey = wanted || "clear";
+  }
   const baseGallery = galleryBackground(baseFilename);
   const baseStem = baseGallery?.stem ?? basename(baseFilename, extname(baseFilename));
   const existing = chatBackgroundFileForStem(
-    backgroundWeatherVersionStem(baseStem, versionKey),
+    backgroundVersionStem(baseStem, weatherPart, timePart),
     baseGallery?.ext ?? extname(baseFilename).slice(1),
   );
   if (existing) return existing === current ? { kind: "keep" } : { kind: "switch", filename: existing };
   return {
     kind: "generate",
     baseFilename,
-    version: versionKey,
+    version: weatherPart,
+    time: timePart,
     scenePrompt: scenes[baseFilename]?.prompt ?? "",
   };
 }
 
-/** The plain picture a weather version was made from, when it is still in the library. */
+/** The plain picture a weather or time of day version was made from, when it is still in the library. */
 export function chatBackgroundPlainPicture(filename: string): string | null {
   const gallery = galleryBackground(filename);
   if (gallery) return gallery.url;
   const parsed = parseBackgroundWeatherVersionName(filename);
-  return parsed.version
+  return parsed.version || parsed.time
     ? (chatBackgroundFileForStem(parsed.baseStem, parsed.ext) ?? galleryBackgroundForStem(parsed.baseStem)?.url ?? null)
     : chatBackgroundFile(filename);
 }
 
-/** Weather versions never take part in picking a background; they follow their plain picture. */
+/** Weather and time of day versions never take part in picking a background; they follow their plain picture. */
 export function isChatBackgroundWeatherVersion(filename: string): boolean {
-  return parseBackgroundWeatherVersionName(filename).version !== "";
+  const parsed = parseBackgroundWeatherVersionName(filename);
+  return parsed.version !== "" || parsed.time !== "";
 }
 
 /**
@@ -1651,7 +1708,10 @@ async function weatherVersionSize(
 export async function generateChatBackgroundWeatherVersion(
   req: ChatBackgroundGenRequest & {
     baseFilename: string;
-    version: BackgroundWeatherVersionKey;
+    /** The weather to paint ("" for a time of day version only). */
+    version: BackgroundWeatherVersionKey | "";
+    /** The time of day to paint ("" or left out for a weather version only). */
+    time?: BackgroundTimeOfDay | "";
     shelter: SceneShelter;
     scenePrompt: string;
     /** Optional: a decision model that reads pictures checks the version shows the weather. */
@@ -1662,8 +1722,11 @@ export async function generateChatBackgroundWeatherVersion(
   if (!source) return null;
   const baseFilename = source.gallery?.url ?? basename(source.path);
   if (source.gallery) rememberGalleryBackgroundLink(source.gallery);
-  const stem = backgroundWeatherVersionStem(source.stem, req.version);
-  const instruction = backgroundWeatherVersionInstruction(req.version, req.shelter);
+  const time = req.time ?? "";
+  if (!req.version && !time) return null;
+  const stem = backgroundVersionStem(source.stem, req.version, time);
+  const instruction = backgroundVersionInstruction(req.version, time, req.shelter);
+  const versionLabel = [req.version, time].filter(Boolean).join(", ");
   const scene = req.scenePrompt.trim() || req.sceneDescription.trim();
   const compiled = await buildBackgroundProviderPrompt({
     ...req,
@@ -1674,7 +1737,7 @@ export async function generateChatBackgroundWeatherVersion(
   req.debugLog?.(
     "[debug/background-weather/image-generation] base=%s version=%s shelter=%s prompt:\n%s",
     baseFilename,
-    req.version,
+    versionLabel,
     req.shelter || "unknown",
     compiled.prompt,
   );
@@ -1701,7 +1764,7 @@ export async function generateChatBackgroundWeatherVersion(
       mode: req.pictureCheck?.mode ?? "off",
       backend: req.pictureCheck?.backend ?? null,
       lines: req.pictureCheck?.lines ?? [],
-      label: `Weather version (${req.version})`,
+      label: `${req.version ? "Weather" : "Time of day"} version (${versionLabel})`,
       toDataUrl: (made) => pictureDataUrl(made.base64, made.ext),
       generate: drawVersion,
     });
@@ -1713,15 +1776,21 @@ export async function generateChatBackgroundWeatherVersion(
     for (const removed of replaced) delete meta[removed];
     const baseTags = meta[baseFilename]?.tags ?? [];
     meta[filename] = {
-      tags: Array.from(new Set([...baseTags, "weather version", req.version])).slice(0, 24),
+      tags: Array.from(
+        new Set([
+          ...baseTags,
+          ...(req.version ? ["weather version", req.version] : []),
+          ...(time ? ["time version", time] : []),
+        ]),
+      ).slice(0, 24),
     };
     writeChatBackgroundMeta(meta);
-    rememberChatBackgroundScene(filename, scene, req.version, replaced);
+    rememberChatBackgroundScene(filename, scene, req.version, replaced, time);
     buildAssetManifest();
-    logger.info('[background-weather] Made "%s" (%s version of "%s")', filename, req.version, baseFilename);
+    logger.info('[background-weather] Made "%s" (%s version of "%s")', filename, versionLabel, baseFilename);
     return filename;
   } catch (err) {
-    logger.warn(err, '[background-weather] Failed to make the %s version of "%s"', req.version, baseFilename);
+    logger.warn(err, '[background-weather] Failed to make the %s version of "%s"', versionLabel, baseFilename);
     return null;
   }
 }

@@ -1677,10 +1677,15 @@ export function ChatSettingsDrawer({
     hasDecisionModel,
     illustratorDecisionLocationCheck,
     illustratorDecisionWeatherCheck,
+    illustratorTimeBackgroundsEnabled,
+    illustratorDecisionTimeCheck,
     shownWeatherVersion,
+    shownTimeVersion,
+    shownVersionLabel,
     remakingWeatherArt,
     remakeWeatherArt,
     toggleIllustratorWeatherBackgrounds,
+    toggleIllustratorTimeBackgrounds,
     gameImageUseAvatarReferences,
     gameImageIncludeCharacterAppearance,
     gameImageAutoGenerationEnabled,
@@ -1863,21 +1868,40 @@ export function ChatSettingsDrawer({
     />
   );
   const renderIllustratorDecisionChecks = () => {
-    if (!illustratorAutoBackgroundsEnabled && !illustratorWeatherBackgroundsEnabled) return null;
-    const value =
-      illustratorDecisionLocationCheck && illustratorDecisionWeatherCheck
-        ? "both"
-        : illustratorDecisionLocationCheck
-          ? "location"
-          : illustratorDecisionWeatherCheck
-            ? "weather"
-            : "off";
-    const options = [
-      "off",
-      ...(illustratorAutoBackgroundsEnabled ? ["location"] : []),
-      ...(illustratorWeatherBackgroundsEnabled ? ["weather"] : []),
-      ...(illustratorAutoBackgroundsEnabled && illustratorWeatherBackgroundsEnabled ? ["both"] : []),
+    if (
+      !illustratorAutoBackgroundsEnabled &&
+      !illustratorWeatherBackgroundsEnabled &&
+      !illustratorTimeBackgroundsEnabled
+    )
+      return null;
+    // Each check is one part of the value ("location+time"); only the parts whose feature is on are offered.
+    const parts = [
+      ...(illustratorAutoBackgroundsEnabled ? (["location"] as const) : []),
+      ...(illustratorWeatherBackgroundsEnabled ? (["weather"] as const) : []),
+      ...(illustratorTimeBackgroundsEnabled ? (["time"] as const) : []),
     ];
+    const valueOf = (on: { location: boolean; weather: boolean; time: boolean }) =>
+      (["location", "weather", "time"] as const).filter((part) => on[part]).join("+") || "off";
+    const value = valueOf({
+      location: illustratorDecisionLocationCheck,
+      weather: illustratorDecisionWeatherCheck,
+      time: illustratorDecisionTimeCheck,
+    });
+    const every = parts.join("+");
+    const options = Array.from(new Set(["off", ...parts, ...(parts.length > 1 ? [every] : []), value]));
+    const optionLabel = (option: string) =>
+      localizeUi(
+        `ui.chat.chatsettingsdrawer.illustratorDecisionChecks.${
+          (
+            {
+              "location+weather": "both",
+              "location+time": "locationTime",
+              "weather+time": "weatherTime",
+              "location+weather+time": "all",
+            } as Record<string, string>
+          )[option] ?? option
+        }`,
+      );
     return (
       <label className="flex flex-col gap-1">
         <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
@@ -1893,18 +1917,20 @@ export function ChatSettingsDrawer({
         <select
           value={value}
           disabled={!hasDecisionModel && value === "off"}
-          onChange={(e) =>
+          onChange={(e) => {
+            const picked = e.target.value.split("+");
             updateMeta.mutate({
               id: chat.id,
-              illustratorDecisionLocationCheck: e.target.value === "location" || e.target.value === "both",
-              illustratorDecisionWeatherCheck: e.target.value === "weather" || e.target.value === "both",
-            })
-          }
+              illustratorDecisionLocationCheck: picked.includes("location"),
+              illustratorDecisionWeatherCheck: picked.includes("weather"),
+              illustratorDecisionTimeCheck: picked.includes("time"),
+            });
+          }}
           className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50 disabled:opacity-60"
         >
           {options.map((option) => (
             <option key={option} value={option}>
-              {localizeUi(`ui.chat.chatsettingsdrawer.illustratorDecisionChecks.${option}`)}
+              {optionLabel(option)}
             </option>
           ))}
         </select>
@@ -4287,15 +4313,24 @@ export function ChatSettingsDrawer({
                               enabled={illustratorWeatherBackgroundsEnabled}
                               onToggle={toggleIllustratorWeatherBackgrounds}
                             />
-                            {illustratorWeatherBackgroundsEnabled && shownWeatherVersion && (
+                            <AgentSettingsToggle
+                              label={localizeUi("ui.chat.chatsettingsdrawer.timeVersionsOfBackgrounds")}
+                              description={localizeUi("ui.chat.chatsettingsdrawer.timeVersionsOfBackgroundsHelp")}
+                              enabled={illustratorTimeBackgroundsEnabled}
+                              onToggle={toggleIllustratorTimeBackgrounds}
+                            />
+                            {(shownWeatherVersion || shownTimeVersion) && (
                               <div className="flex flex-col gap-1">
                                 <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                                   {localizeUi("ui.chat.chatsettingsdrawer.weatherArtTitle", {
-                                    weather: shownWeatherVersion.replace(/-/gu, " "),
+                                    weather: shownVersionLabel,
                                   })}
                                 </span>
                                 <div className="flex gap-1.5">
-                                  {(["picture", "stencil", "no-stencil"] as const).map((part) => (
+                                  {(shownWeatherVersion
+                                    ? (["picture", "stencil", "no-stencil"] as const)
+                                    : (["picture"] as const)
+                                  ).map((part) => (
                                     <button
                                       key={part}
                                       type="button"
@@ -4310,7 +4345,11 @@ export function ChatSettingsDrawer({
                                   ))}
                                 </div>
                                 <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-                                  {localizeUi("ui.chat.chatsettingsdrawer.weatherArtHelp")}
+                                  {localizeUi(
+                                    shownWeatherVersion
+                                      ? "ui.chat.chatsettingsdrawer.weatherArtHelp"
+                                      : "ui.chat.chatsettingsdrawer.timeArtHelp",
+                                  )}
                                 </span>
                               </div>
                             )}

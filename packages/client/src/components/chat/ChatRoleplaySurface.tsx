@@ -64,6 +64,7 @@ import {
 import { useChatStore } from "../../stores/chat.store";
 import {
   backgroundFileName,
+  backgroundShowsTimeOfDay,
   backgroundShowsWeather,
   readChatBackground,
   useSceneShelter,
@@ -288,6 +289,7 @@ function WeatherEffectsConnected({ paused, backgroundBlurPx }: { paused: boolean
   const shownBackground = useUIStore((s) => s.chatBackground);
   const shownFile = backgroundFileName(shownBackground) ?? readChatBackground(chatMetadata);
   const paintedWeather = backgroundShowsWeather(shownFile, weather);
+  const paintedTime = backgroundShowsTimeOfDay(shownFile, timeOfDay);
   const blurStyle = getBackgroundBlurStyle(backgroundBlurPx);
   const maskScale = blurStyle.transform ? Math.min(1.08, 1 + backgroundBlurPx * 0.0025) : 1;
   const windowMask = useMemo(
@@ -305,6 +307,7 @@ function WeatherEffectsConnected({ paused, backgroundBlurPx }: { paused: boolean
         paused={paused}
         shelter={shelter}
         paintedWeather={paintedWeather}
+        paintedTime={paintedTime}
         windowMask={windowMask}
       />
     </Suspense>

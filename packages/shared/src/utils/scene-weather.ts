@@ -121,28 +121,108 @@ export function backgroundWeatherVersion(weather: string | null | undefined): Ba
 }
 
 const VERSION_SUFFIX = /--wx-([a-z]+(?:-[a-z]+){0,2})$/u;
+const TIME_SUFFIX = /--tod-(dawn|day|sunset|night)$/u;
 
-/** Split a background file name into its plain picture's stem and its weather version. */
+/**
+ * Split a background file name into its plain picture's stem, its weather version and its time of
+ * day version. `inn--wx-rain--tod-night.png` is the inn in the rain at night; either part may be "".
+ */
 export function parseBackgroundWeatherVersionName(filename: string): {
   baseStem: string;
   ext: string;
   version: BackgroundWeatherVersionKey | "";
+  time: BackgroundTimeOfDay | "";
 } {
   const dot = filename.lastIndexOf(".");
-  const stem = dot > 0 ? filename.slice(0, dot) : filename;
+  let stem = dot > 0 ? filename.slice(0, dot) : filename;
   const ext = dot > 0 ? filename.slice(dot + 1) : "";
+  let time: BackgroundTimeOfDay | "" = "";
+  const timeMatch = TIME_SUFFIX.exec(stem);
+  if (timeMatch) {
+    time = timeMatch[1] as BackgroundTimeOfDay;
+    stem = stem.slice(0, timeMatch.index);
+  }
   const match = VERSION_SUFFIX.exec(stem);
-  if (!match || match[1]!.length > 32) return { baseStem: stem, ext, version: "" };
-  return { baseStem: stem.slice(0, match.index), ext, version: match[1]! };
+  if (!match || match[1]!.length > 32) return { baseStem: stem, ext, version: "", time };
+  return { baseStem: stem.slice(0, match.index), ext, version: match[1]!, time };
 }
 
 /** File stem of a weather version: `<plain stem>--wx-<weather>`. */
 export function backgroundWeatherVersionStem(baseStem: string, version: BackgroundWeatherVersionKey): string {
-  return `${baseStem}--wx-${version}`;
+  return backgroundVersionStem(baseStem, version, "");
 }
 
+/**
+ * File stem of a version in some weather and/or at some time of day:
+ * `<plain stem>--wx-<weather>`, `<plain stem>--tod-<time>` or `<plain stem>--wx-<weather>--tod-<time>`.
+ */
+export function backgroundVersionStem(
+  baseStem: string,
+  version: BackgroundWeatherVersionKey | "",
+  time: BackgroundTimeOfDay | "",
+): string {
+  return `${baseStem}${version ? `--wx-${version}` : ""}${time ? `--tod-${time}` : ""}`;
+}
+
+/** A weather version, a time of day version, or both (anything but a plain picture). */
 export function isBackgroundWeatherVersionName(filename: string): boolean {
-  return parseBackgroundWeatherVersionName(filename).version !== "";
+  const parsed = parseBackgroundWeatherVersionName(filename);
+  return parsed.version !== "" || parsed.time !== "";
+}
+
+// ── Time of day ──
+
+/**
+ * Times of day a background is repainted for. Four on purpose: each is a visibly different light
+ * (and a separate picture to make), and the drawn sky tint covers the hours in between.
+ */
+export const BACKGROUND_TIME_VERSIONS = ["dawn", "day", "sunset", "night"] as const;
+export type BackgroundTimeOfDay = (typeof BACKGROUND_TIME_VERSIONS)[number];
+
+function timeOfDayFromPhrase(text: string): BackgroundTimeOfDay | "" {
+  if (/\b(midnight|night|nighttime|witching hour|moonlit|moonlight|small hours|wee hours|late evening)\b/u.test(text))
+    return "night";
+  if (/\b(dawn|daybreak|sunrise|first light|early morning|predawn|pre-dawn)\b/u.test(text)) return "dawn";
+  if (/\b(sunset|sundown|dusk|twilight|evening|golden hour|nightfall)\b/u.test(text)) return "sunset";
+  if (/\b(morning|noon|midday|afternoon|daytime|daylight|day)\b/u.test(text)) return "day";
+  return "";
+}
+
+/** The time of day of an hour on a 24-hour clock. */
+function timeOfDayFromHour(hour: number): BackgroundTimeOfDay {
+  if (hour >= 5 && hour < 7) return "dawn";
+  if (hour >= 7 && hour < 17) return "day";
+  if (hour >= 17 && hour < 20) return "sunset";
+  return "night";
+}
+
+/**
+ * The story's time (World State "Time": "7:40 PM", "21:15", "late evening") as one of
+ * BACKGROUND_TIME_VERSIONS, or "" when it can't tell. A clock reading wins over words.
+ */
+export function backgroundTimeOfDay(time: string | null | undefined): BackgroundTimeOfDay | "" {
+  const text = (time ?? "").toLowerCase().trim();
+  if (!text) return "";
+  const meridiem = /\b(1[0-2]|0?\d)(?:[:.h]([0-5]\d))?\s*([ap])\.?m\b\.?/u.exec(text);
+  if (meridiem) {
+    const hour = Number(meridiem[1]) % 12;
+    return timeOfDayFromHour(meridiem[3] === "p" ? hour + 12 : hour);
+  }
+  const clock = /\b([01]?\d|2[0-3])[:.h]([0-5]\d)\b/u.exec(text);
+  if (clock) return timeOfDayFromHour(Number(clock[1]));
+  return timeOfDayFromPhrase(text);
+}
+
+/**
+ * The time of day a picture's name or tags say it shows ("tavern-night.png", #sunset), or "".
+ * Used for pictures Illustrator didn't paint, whose time isn't on record.
+ */
+export function backgroundTimeOfDayFromWords(words: readonly string[]): BackgroundTimeOfDay | "" {
+  for (const word of words) {
+    const found = timeOfDayFromPhrase(word.toLowerCase().replace(/[-_]+/gu, " "));
+    if (found) return found;
+  }
+  return "";
 }
 
 export type SceneShelter = "indoors" | "outdoors" | "";
@@ -212,6 +292,27 @@ function weatherVersionWords(version: BackgroundWeatherVersionKey): string {
   return WEATHER_VERSION_WORDS[version] ?? `this weather: ${version.replace(/-/gu, " ")}`;
 }
 
+const TIME_VERSION_WORDS: Record<BackgroundTimeOfDay, { light: string; indoors: string }> = {
+  dawn: {
+    light: "dawn: the sun just rising, a pale pink and gold sky, soft low light and long cool shadows",
+    indoors: "pale pink and gold dawn light coming through the windows, the room still dim and cool",
+  },
+  day: {
+    light: "full daylight: a bright sky and clear, neutral light",
+    indoors: "bright daylight coming through the windows and lighting the room",
+  },
+  sunset: {
+    light: "sunset: a low sun, a glowing orange and pink sky, warm golden light and long shadows",
+    indoors: "warm orange sunset light slanting through the windows, with long shadows across the room",
+  },
+  night: {
+    light:
+      "night: a dark sky with moonlight and stars, deep blue shadows, and any lamps, lanterns, windows or fires in the scene lit",
+    indoors:
+      "night: a dark sky outside the windows, the room lit by its own lamps, candles or fire where it has them, with deep shadows elsewhere",
+  },
+};
+
 /**
  * The instruction that turns a background into its weather version. Indoors the weather is only
  * seen through windows and openings; outdoors it falls across the scene.
@@ -220,17 +321,55 @@ export function backgroundWeatherVersionInstruction(
   version: BackgroundWeatherVersionKey,
   shelter: SceneShelter,
 ): string {
-  const weather = weatherVersionWords(version);
-  const where =
-    shelter === "indoors"
-      ? `The scene is indoors: show the ${weather} only through the windows, doorways and other openings (streaks or flakes on the glass, a darker or greyer sky outside, wet or dusty sills where it fits), with the room itself dry and the indoor light adjusted to match.`
-      : shelter === "outdoors"
-        ? `The scene is outdoors: show ${weather} falling across the whole scene, with the ground, surfaces and light changed to match.`
-        : `Show ${weather}: through the windows if the place is indoors, or across the whole scene if it is outdoors, with the light changed to match.`;
-  return [
-    "Repaint the reference image as the same place in different weather.",
-    "Keep the exact same location, composition, camera angle, layout, furniture, architecture, colours and art style; change only the weather and the light it brings.",
-    where,
-    "No characters, no people, no text.",
-  ].join(" ");
+  return backgroundVersionInstruction(version, "", shelter);
+}
+
+/**
+ * The instruction that repaints a background in other weather, at another time of day, or both, in
+ * one picture. The place and its composition stay; only the weather and the light change.
+ */
+export function backgroundVersionInstruction(
+  version: BackgroundWeatherVersionKey | "",
+  time: BackgroundTimeOfDay | "",
+  shelter: SceneShelter,
+): string {
+  const parts: string[] = [];
+  if (version && time) {
+    parts.push("Repaint the reference image as the same place in different weather and at a different time of day.");
+  } else if (time) {
+    parts.push("Repaint the reference image as the same place at a different time of day.");
+  } else {
+    parts.push("Repaint the reference image as the same place in different weather.");
+  }
+  parts.push(
+    `Keep the exact same location, composition, camera angle, layout, furniture, ${time ? "architecture and art style" : "architecture, colours and art style"}; change only ${
+      version && time
+        ? "the weather, the time of day and the light they bring"
+        : time
+          ? "the time of day and its light"
+          : "the weather and the light it brings"
+    }.`,
+  );
+  if (version) {
+    const weather = weatherVersionWords(version);
+    parts.push(
+      shelter === "indoors"
+        ? `The scene is indoors: show the ${weather} only through the windows, doorways and other openings (streaks or flakes on the glass, a darker or greyer sky outside, wet or dusty sills where it fits), with the room itself dry and the indoor light adjusted to match.`
+        : shelter === "outdoors"
+          ? `The scene is outdoors: show ${weather} falling across the whole scene, with the ground, surfaces and light changed to match.`
+          : `Show ${weather}: through the windows if the place is indoors, or across the whole scene if it is outdoors, with the light changed to match.`,
+    );
+  }
+  if (time) {
+    const words = TIME_VERSION_WORDS[time];
+    parts.push(
+      shelter === "indoors"
+        ? `${version ? "Also show" : "The scene is indoors: show"} ${words.indoors}.`
+        : shelter === "outdoors"
+          ? `The time of day is ${words.light}.`
+          : `The time of day is ${words.light}. If the place is indoors, show it through the windows and in the room's own light.`,
+    );
+  }
+  parts.push("No characters, no people, no text.");
+  return parts.join(" ");
 }

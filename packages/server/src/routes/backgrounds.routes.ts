@@ -622,7 +622,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     };
   });
 
-  // Remake the open chat's weather art when the user doesn't like it: the weather version itself
+  // Remake the open chat's weather art when the user doesn't like it: the weather or time of day version itself
   // (repainted from its plain picture), its window stencil, or no stencil at all.
   const remakeWeatherArtSchema = z.object({
     chatId: z.string().min(1).max(200),
@@ -643,9 +643,11 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       turnOffChatBackgroundWindowMask(plain);
       return { success: true, filename: background };
     }
-    const version = parseBackgroundWeatherVersionName(background).version;
-    if (input.part === "picture" && !version) {
-      return reply.status(400).send({ error: "The background is the plain picture, not a weather version." });
+    const { version, time } = parseBackgroundWeatherVersionName(background);
+    if (input.part === "picture" && !version && !time) {
+      return reply
+        .status(400)
+        .send({ error: "The background is the plain picture, not a weather or time of day version." });
     }
     const mode = String(chat.mode ?? "");
     const connections = createConnectionsStorage(app.db);
@@ -691,6 +693,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       ...request,
       baseFilename: plain,
       version,
+      time,
       shelter: sceneShelter(gameState?.location ?? null),
       scenePrompt: chatBackgroundScenePrompt(plain),
     });

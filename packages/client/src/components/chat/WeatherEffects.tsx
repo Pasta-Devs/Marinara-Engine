@@ -44,6 +44,11 @@ interface WeatherEffectsProps {
   /** The chat background is a weather version of this weather, so the picture already shows it. */
   paintedWeather?: boolean;
   /**
+   * The chat background is a time of day version of this time (the night picture at night), so the
+   * picture already has its sky and light: no tint, sun, moon or stars are drawn over it.
+   */
+  paintedTime?: boolean;
+  /**
    * The window stencil of the painted background (an alpha PNG address on this server) and the
    * background's own zoom. With it, the weather is drawn in full but shows only through the glass.
    */
@@ -82,6 +87,7 @@ export function WeatherEffects({
   paused: pausedByCaller = false,
   shelter = "",
   paintedWeather = false,
+  paintedTime = false,
   windowMask = null,
 }: WeatherEffectsProps) {
   const reduceAmbientEffects = useReducedAmbientEffects();
@@ -126,10 +132,13 @@ export function WeatherEffects({
         ? stillPaintedSky(resolved)
         : { ...resolved, count: Math.min(400, resolved.count * 3) };
     }
-    return paintedWeather
+    const shown = paintedWeather
       ? paintedWeatherRenderConfig(resolved, shelter)
       : shelterWeatherRenderConfig(resolved, shelter);
-  }, [weather, timeOfDay, shelter, paintedWeather, masked]);
+    return paintedTime
+      ? { ...shown, tint: "", celestial: "none" as const, addStars: false, sunRays: false, sunsetGlow: false }
+      : shown;
+  }, [weather, timeOfDay, shelter, paintedWeather, paintedTime, masked]);
 
   // Weather-aware theme art: `<html data-mari-weather="rain" data-mari-sky="night">` while this chat's weather
   // shows. Both are words from a fixed list (never the story's own text), so a theme can match its backdrop.

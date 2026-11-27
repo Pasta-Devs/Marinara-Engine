@@ -476,6 +476,12 @@ export interface ChatMetadata {
   illustratorDecisionWeatherCheck?: boolean;
   /** The weather the Decision model last picked, for chats without a World State weather. */
   illustratorDecisionWeather?: string | null;
+  /** Whether Illustrator repaints the active library background for the story's time of day (dawn, day, sunset, night; made once per picture and time, then reused). */
+  illustratorTimeBackgroundsEnabled?: boolean;
+  /** Decision model reads every Roleplay reply for "the time of day changes" (needs time of day versions). */
+  illustratorDecisionTimeCheck?: boolean;
+  /** The time of day the Decision model last picked, for chats without a World State time. */
+  illustratorDecisionTime?: string | null;
   /**
    * A decision model that reads pictures checks each Illustrator picture, selfie and weather version:
    * "retry" makes another when it does not match, "best_of_two" always makes two and keeps the better.

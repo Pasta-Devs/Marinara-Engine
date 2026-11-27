@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import {
   backgroundWeatherVersion,
+  backgroundTimeOfDay,
   parseBackgroundWeatherVersionName,
   sceneShelter,
   type SceneShelter,
@@ -64,6 +65,16 @@ export function backgroundShowsWeather(background: string | null, weather: strin
   const version = parseBackgroundWeatherVersionName(background).version;
   if (!version || version === "clear") return false;
   return version === backgroundWeatherVersion(weather);
+}
+
+/**
+ * Whether the background is a time of day version of the story's time (`inn--tod-night.png` at
+ * 11 PM), so the picture already has its sky and light and the drawn tint, sun and moon step back.
+ */
+export function backgroundShowsTimeOfDay(background: string | null, time: string | null | undefined): boolean {
+  if (!background) return false;
+  const shown = parseBackgroundWeatherVersionName(background).time;
+  return !!shown && shown === backgroundTimeOfDay(time);
 }
 
 /** The file name of a shown background (`/api/backgrounds/file/inn--wx-rain.png` -> `inn--wx-rain.png`). */

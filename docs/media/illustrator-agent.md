@@ -130,7 +130,8 @@ Illustrator also paints backgrounds. On the Illustrator card in **Chat Settings 
 
 - **Generate Scene Backgrounds** paints a background when the story reaches a new place, unless you already have a picture for it.
 - **Weather Versions of Backgrounds** repaints the current background in the story's weather, with the moving rain or snow drawn only on the room's windows.
-- **Decision Model Checks** has a Decision model check every reply for a new place or new weather, so backgrounds don't wait for the run interval.
+- **Time of Day Versions of Backgrounds** repaints the current background at dawn, day, sunset or night when the story's time of day changes.
+- **Decision Model Checks** has a Decision model check every reply for a new place, new weather or a new time of day, so backgrounds don't wait for the run interval.
 
 All three are off by default. See [Backgrounds Made by Illustrator](scene-backgrounds.md).
 

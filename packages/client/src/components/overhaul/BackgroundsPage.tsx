@@ -15,6 +15,7 @@ import {
   Download,
   FolderInput,
   FolderPlus,
+  Layers,
   Pencil,
   Pin,
   Search,
@@ -27,7 +28,11 @@ import {
 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useBackSteps } from "../../hooks/use-back-steps";
-import { BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH } from "@marinara-engine/shared";
+import {
+  BACKGROUND_THUMBNAIL_WIDTH,
+  CHAT_IMAGE_PREVIEW_WIDTH,
+  parseBackgroundWeatherVersionName,
+} from "@marinara-engine/shared";
 import { DEFAULT_ROLEPLAY_BACKGROUND_URL, useUIStore } from "../../stores/ui.store";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -133,8 +138,14 @@ export function BackgroundsPage() {
   });
   const searching = !!searchQuery.trim() || pickedTags.length > 0 || favoritesOnly;
   const tagCounts = useMemo(() => countItemTags(backgrounds), [backgrounds]);
+  // Weather and time of day versions (`inn--wx-rain.png`, `inn--tod-night.png`) sit under their plain picture,
+  // not in the grid: the plain picture's card counts them and its strip shows them.
+  const versionGroups = useMemo(() => backgroundVersionGroups(backgrounds), [backgrounds]);
   const shown = visibleBackgrounds.filter(
-    (background) => matchesPickedTags(background.tags, pickedTags) && (!favoritesOnly || background.favorite),
+    (background) =>
+      !versionGroups.baseOf.has(background.id) &&
+      matchesPickedTags(background.tags, pickedTags) &&
+      (!favoritesOnly || background.favorite),
   );
   // At the top level the folders are tiles and only the unfiled pictures show beside them; a search or a
   // filter reaches into every folder instead.
@@ -284,6 +295,17 @@ export function BackgroundsPage() {
           ) : null}
           {isDefault ? (
             <span className="ov-bglib__badge">{t("ui.panels.backgroundpicker.roleplayDefaultShort")}</span>
+          ) : null}
+          {versionGroups.versions.get(background.id)?.length ? (
+            <span
+              className="ov-bglib__versions-badge"
+              title={t("library.backgrounds.versionCount", {
+                count: versionGroups.versions.get(background.id)!.length,
+              })}
+            >
+              <Layers size={11} aria-hidden="true" />
+              {versionGroups.versions.get(background.id)!.length}
+            </span>
           ) : null}
         </button>
         <KitMoreButton
@@ -473,6 +495,9 @@ export function BackgroundsPage() {
           key={pickedItem.id}
           library={library}
           background={pickedItem}
+          versions={versionGroups.versions.get(pickedItem.id) ?? []}
+          versionOf={findById(versionGroups.baseOf.get(pickedItem.id) ?? "")}
+          onOpen={(id) => setPicked({ kind: "library", id })}
           isDefault={defaultRoleplayBackground === pickedItem.url}
           onDefault={(on) => setDefaultRoleplayBackground(on ? pickedItem.url : DEFAULT_ROLEPLAY_BACKGROUND_URL)}
           onClose={() => setPicked(null)}
@@ -752,15 +777,60 @@ function BackgroundTable({
 }
 
 /** The open picture, in place above the grid: preview, name, tags and what it is used for. */
+/** What a version shows, in words: "Rain", "Night", "Rain at sunset". */
+function backgroundVersionLabel(filename: string): string {
+  const { version, time } = parseBackgroundWeatherVersionName(filename);
+  const weather = version.replace(/-/gu, " ");
+  const label = weather && time ? `${weather} ${time === "day" ? "by day" : `at ${time}`}` : weather || time;
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : filename;
+}
+
+/**
+ * Library pictures grouped by plain picture: `versions` maps a plain picture's id to its weather and
+ * time of day versions, `baseOf` a version's id to its plain picture's id. A version whose plain
+ * picture was renamed or deleted stays a picture of its own.
+ */
+function backgroundVersionGroups(backgrounds: readonly BackgroundLibraryItem[]) {
+  const versions = new Map<string, BackgroundLibraryItem[]>();
+  const baseOf = new Map<string, string>();
+  const byStem = new Map<string, BackgroundLibraryItem>();
+  for (const background of backgrounds) {
+    if (background.source === "game_asset") continue;
+    const parsed = parseBackgroundWeatherVersionName(background.filename);
+    if (!parsed.version && !parsed.time) byStem.set(parsed.baseStem, background);
+  }
+  for (const background of backgrounds) {
+    if (background.source === "game_asset") continue;
+    const parsed = parseBackgroundWeatherVersionName(background.filename);
+    if (!parsed.version && !parsed.time) continue;
+    const base = byStem.get(parsed.baseStem);
+    if (!base) continue;
+    baseOf.set(background.id, base.id);
+    versions.set(base.id, [...(versions.get(base.id) ?? []), background]);
+  }
+  for (const list of versions.values()) {
+    list.sort((a, b) => backgroundVersionLabel(a.filename).localeCompare(backgroundVersionLabel(b.filename)));
+  }
+  return { versions, baseOf };
+}
+
 function BackgroundDetail({
   library,
   background,
+  versions,
+  versionOf,
+  onOpen,
   isDefault,
   onDefault,
   onClose,
 }: {
   library: BackgroundLibrary;
   background: BackgroundLibraryItem;
+  /** This picture's weather and time of day versions. */
+  versions: readonly BackgroundLibraryItem[];
+  /** The plain picture, when this is one of its versions. */
+  versionOf: BackgroundLibraryItem | null;
+  onOpen: (id: string) => void;
   isDefault: boolean;
   onDefault: (on: boolean) => void;
   onClose: () => void;
@@ -861,6 +931,39 @@ function BackgroundDetail({
           </div>
         ) : background.tags.length ? (
           <p className="ov-bglib__meta">{background.tags.map((each) => `#${each}`).join(" ")}</p>
+        ) : null}
+        {versionOf ? (
+          <p className="ov-bglib__meta">
+            {t("library.backgrounds.versionOf", { version: backgroundVersionLabel(background.filename) })}{" "}
+            <button type="button" className="ov-bglib__link" onClick={() => onOpen(versionOf.id)}>
+              {getBackgroundLibraryTitle(versionOf)}
+            </button>
+          </p>
+        ) : null}
+        {versions.length ? (
+          <div className="ov-bglib__versions" role="group" aria-label={t("library.backgrounds.versions")}>
+            <span className="ov-bglib__versions-label">{t("library.backgrounds.versions")}</span>
+            <div className="ov-bglib__versions-row">
+              {versions.map((version) => (
+                <button
+                  key={version.id}
+                  type="button"
+                  className="ov-bglib__version"
+                  onClick={() => onOpen(version.id)}
+                  title={backgroundVersionLabel(version.filename)}
+                >
+                  <img
+                    src={`${version.url}?w=${BACKGROUND_THUMBNAIL_WIDTH}`}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                  />
+                  <span>{backgroundVersionLabel(version.filename)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         ) : null}
         <div className="ov-bglib__actions">
           <button

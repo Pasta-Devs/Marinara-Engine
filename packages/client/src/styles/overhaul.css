@@ -16825,6 +16825,79 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-bglib__gap {
   flex: 1;
 }
+.ov-bglib__versions-badge {
+  position: absolute;
+  top: 0.375rem;
+  left: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.25rem;
+  padding: 0 0.4375rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.ov-bglib__versions {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.ov-bglib__versions-label {
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.ov-bglib__versions-row {
+  display: flex;
+  min-width: 0;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.125rem;
+}
+.ov-bglib__version {
+  display: flex;
+  flex: 0 0 auto;
+  width: 6.5rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ov-text);
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+.ov-bglib__version img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 0.375rem;
+  object-fit: cover;
+  background: var(--secondary);
+}
+.ov-bglib__version span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-bglib__version:hover img,
+.ov-bglib__version:focus-visible img {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: 1px;
+}
+.ov-bglib__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ov-accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
 .ov-bglib__close {
   position: absolute;
   top: 0.625rem;

@@ -21,7 +21,7 @@ import {
 } from "@marinara-engine/shared";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
-import { isChatBackgroundWeatherVersion, planChatBackgroundWeather } from "../game/game-asset-generation.js";
+import { isChatBackgroundWeatherVersion, planChatBackgroundVersion } from "../game/game-asset-generation.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { logger } from "../../lib/logger.js";
 
@@ -98,6 +98,9 @@ export function pinnedSceneBackground(args: {
   speakerName?: string | null;
   weather?: string | null;
   weatherVersions?: boolean;
+  /** The story's time (World State), shown through a time of day version when timeVersions is on. */
+  time?: string | null;
+  timeVersions?: boolean;
   /** Background pictures from the chat's characters' and persona's galleries (loadGalleryBackgroundPins). */
   galleryPins?: readonly LocationBackgroundPin[];
 }): PinnedSceneBackground | null {
@@ -114,12 +117,7 @@ export function pinnedSceneBackground(args: {
     speakerName: args.speakerName,
   });
   if (!match) return null;
-  let filename = match.pin.background;
-  if (args.weatherVersions && args.weather?.trim()) {
-    const plan = planChatBackgroundWeather(filename, args.weather);
-    if (plan.kind === "switch") filename = plan.filename;
-  }
-  return { match, filename };
+  return { match, filename: existingVersionFor(match.pin.background, args) };
 }
 
 /** Metadata patch that shows a pin and remembers it was shown (a manual pick then lasts until the place changes). */
@@ -246,7 +244,7 @@ export type ExistingSceneBackground = {
  * 2. a library picture whose file name (or a multi-word tag) is found in the location text,
  *    so "generated-guest-bedroom.png" serves "Smith House, guest bedroom";
  * 3. otherwise null (paint a new one).
- * The weather version is swapped in when weatherVersions is on and that version exists.
+ * The weather / time of day version is swapped in when its setting is on and that version exists.
  */
 export function findExistingSceneBackground(
   args: Parameters<typeof pinnedSceneBackground>[0],
@@ -257,10 +255,17 @@ export function findExistingSceneBackground(
   const location = args.location || args.projection?.breadcrumb.at(-1)?.name || "";
   const found = matchLibraryBackgroundForLocation(location, readChatBackgroundLibrary());
   if (!found) return null;
-  let filename = found;
-  if (args.weatherVersions && args.weather?.trim()) {
-    const plan = planChatBackgroundWeather(found, args.weather);
-    if (plan.kind === "switch") filename = plan.filename;
-  }
-  return { filename, source: "library" };
+  return { filename: existingVersionFor(found, args), source: "library" };
+}
+
+/** The picture's weather and/or time of day version when the library already has it, else the picture. */
+function existingVersionFor(
+  filename: string,
+  args: { weather?: string | null; weatherVersions?: boolean; time?: string | null; timeVersions?: boolean },
+): string {
+  const weather = args.weatherVersions && args.weather?.trim() ? args.weather : null;
+  const time = args.timeVersions && args.time?.trim() ? args.time : null;
+  if (!weather && !time) return filename;
+  const plan = planChatBackgroundVersion(filename, { weather, time });
+  return plan.kind === "switch" ? plan.filename : filename;
 }

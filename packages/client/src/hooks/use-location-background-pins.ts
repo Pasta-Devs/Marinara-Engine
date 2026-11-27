@@ -4,8 +4,9 @@ import { create } from "zustand";
 import {
   LOCATION_BACKGROUND_PIN_SHOWN_KEY,
   LOCATION_BACKGROUND_PINS_KEY,
+  backgroundTimeOfDay,
+  backgroundVersionStem,
   backgroundWeatherVersion,
-  backgroundWeatherVersionStem,
   normalizeLocationBackgroundPins,
   resolveLocationBackgroundPin,
   type LocationBackgroundMatch,
@@ -69,27 +70,40 @@ export function chatUsesWorldMaps(metadata: unknown): boolean {
 }
 
 /**
- * The picture to show for a pin in the story's weather: its weather version when the
- * library already has one (made by the Illustrator), else the pinned picture itself.
+ * The picture to show for a pin in the story's weather and time of day: its version when the
+ * library already has one (made by the Illustrator), else the pinned picture itself. When the exact
+ * mix is missing, the weather version, then the time of day version stand in until it is made.
  */
 export function pinnedBackgroundForWeather(
   background: string,
   weather: string | null | undefined,
   library: readonly BackgroundListItem[] | undefined,
   weatherVersions: boolean,
+  time?: string | null,
+  timeVersions = false,
 ): string {
-  if (!weatherVersions || !library?.length) return background;
-  const wanted = backgroundWeatherVersion(weather);
-  if (!wanted) return background;
+  if ((!weatherVersions && !timeVersions) || !library?.length) return background;
+  const wantedWeather = weatherVersions ? backgroundWeatherVersion(weather) : "";
+  const wantedTime = timeVersions ? backgroundTimeOfDay(time) : "";
+  if (!wantedWeather && !wantedTime) return background;
   const dot = background.lastIndexOf(".");
   if (dot <= 0 || background.includes("/") || background.includes(":")) return background;
   const stem = background.slice(0, dot);
-  const versionStem = backgroundWeatherVersionStem(stem, wanted);
   const names = new Set(library.map((item) => item.filename));
-  const sameExt = `${versionStem}${background.slice(dot)}`;
-  if (names.has(sameExt)) return sameExt;
-  const other = library.find((item) => item.filename.startsWith(`${versionStem}.`));
-  return other?.filename ?? background;
+  const tries: Array<[typeof wantedWeather, typeof wantedTime]> = [
+    [wantedWeather, wantedTime],
+    [wantedWeather, ""],
+    ["", wantedTime],
+  ];
+  for (const [weatherPart, timePart] of tries) {
+    if (!weatherPart && !timePart) continue;
+    const versionStem = backgroundVersionStem(stem, weatherPart, timePart);
+    const sameExt = `${versionStem}${background.slice(dot)}`;
+    if (names.has(sameExt)) return sameExt;
+    const other = library.find((item) => item.filename.startsWith(`${versionStem}.`));
+    if (other) return other.filename;
+  }
+  return background;
 }
 
 /**
@@ -122,11 +136,13 @@ export function useLocationBackgroundPinFollower(args: {
   const shownPinId =
     typeof meta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] === "string" ? meta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] : null;
   const weatherVersions = meta.illustratorWeatherBackgroundsEnabled === true;
+  const timeVersions = meta.illustratorTimeBackgroundsEnabled === true;
 
   const gameState = useGameStateStore((state) => state.current);
   const stateKnown = !!gameState && gameState.chatId === chatId;
   const location = stateKnown ? (gameState?.location ?? null) : null;
   const weather = stateKnown ? (gameState?.weather ?? null) : null;
+  const time = stateKnown ? (gameState?.time ?? null) : null;
 
   const mapsActive = isRoleplay && chatUsesWorldMaps(chatMetadata);
   const tracksLocation = chatUsesAgent(chatMetadata, "world-state");
@@ -166,7 +182,7 @@ export function useLocationBackgroundPinFollower(args: {
   const { data: library } = useQuery({
     queryKey: ["backgrounds"],
     queryFn: () => api.get<BackgroundListItem[]>("/backgrounds"),
-    enabled: isRoleplay && pins.length > 0 && weatherVersions,
+    enabled: isRoleplay && pins.length > 0 && (weatherVersions || timeVersions),
     staleTime: 60_000,
   });
 
@@ -188,7 +204,7 @@ export function useLocationBackgroundPinFollower(args: {
       return;
     }
     if (shownPinId === matchPinId) return;
-    const filename = pinnedBackgroundForWeather(matchBackground, weather, library, weatherVersions);
+    const filename = pinnedBackgroundForWeather(matchBackground, weather, library, weatherVersions, time, timeVersions);
     const url = chatBackgroundMetadataToUrl(filename);
     if (url) useUIStore.getState().setChatBackground(url);
     updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: matchPinId });

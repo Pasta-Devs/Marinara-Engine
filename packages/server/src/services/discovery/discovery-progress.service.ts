@@ -235,7 +235,10 @@ export function createDiscoveryProgressService(db: DB) {
     mark(
       "KR2",
       anyMeta(
-        (meta) => meta.illustratorDecisionLocationCheck === true || meta.illustratorDecisionWeatherCheck === true,
+        (meta) =>
+          meta.illustratorDecisionLocationCheck === true ||
+          meta.illustratorDecisionWeatherCheck === true ||
+          meta.illustratorDecisionTimeCheck === true,
       ),
     );
     mark(

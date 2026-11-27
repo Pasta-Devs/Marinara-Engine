@@ -12,10 +12,10 @@ Image generation is not required for any of this. Without an image model, you pi
 | The picture to change with the scene | The **Background** agent | [Let the Background agent pick](#let-the-background-agent-pick) |
 | A place to always look the same | A pinned place | [Pin a background to a place](#pin-a-background-to-a-place) |
 | A character's room in every chat they are in | A gallery background | [Backgrounds that follow a character](#backgrounds-that-follow-a-character) |
-| New pictures painted for new places and weather | The **Illustrator** agent | [Backgrounds Made by Illustrator](../media/scene-backgrounds.md) |
+| New pictures painted for new places, weather and time of day | The **Illustrator** agent | [Backgrounds Made by Illustrator](../media/scene-backgrounds.md) |
 | To upload, tag and sort your pictures, or blur them | The Background Library | [Background Library](../appearance/chat-backgrounds.md) |
 
-When the story arrives somewhere, Marinara decides in this order: a pin for that place in this chat, then a gallery background that names the place, then the Background agent's pick. Illustrator paints a new picture only when none of these fits. Whichever picture wins, its weather version is shown when the story's weather has one.
+When the story arrives somewhere, Marinara decides in this order: a pin for that place in this chat, then a gallery background that names the place, then the Background agent's pick. Illustrator paints a new picture only when none of these fits. Whichever picture wins, its weather or time of day version is shown when the library has one for the story's weather and time.
 
 ## Set a background for one chat
 
@@ -61,7 +61,7 @@ Pins need to know where the story is, so they use the **World State** agent's lo
 ### What a pin changes
 
 - The picture shows once on arrival. If you pick a different background by hand while you are there, yours stays until the story moves on.
-- In a pinned place, the Background agent can't switch the picture, and Illustrator doesn't paint a new background for it. With **Weather Versions of Backgrounds** on, the pinned picture still gets its rain, snow or fog version.
+- In a pinned place, the Background agent can't switch the picture, and Illustrator doesn't paint a new background for it. With **Weather Versions of Backgrounds** or **Time of Day Versions of Backgrounds** on, the pinned picture still gets its rain, snow, fog or night version.
 
 If it did not work: check that **Story is at** under the list shows the place, and that one of the pin's names appears in it word for word.
 
@@ -89,7 +89,7 @@ Gallery backgrounds get weather versions too. The rain or snow version is saved 
 
 ## Related guides
 
-- [Backgrounds Made by Illustrator](../media/scene-backgrounds.md): painting new places, weather versions and window stencils.
+- [Backgrounds Made by Illustrator](../media/scene-backgrounds.md): painting new places, weather and time of day versions, and window stencils.
 - [Background Library](../appearance/chat-backgrounds.md): uploading, tags, folders and blur.
 - [Character and Persona Galleries](../characters/galleries.md)
 - [Roleplay Mode: Getting Started](getting-started.md)
