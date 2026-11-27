@@ -113,7 +113,14 @@ export function keepMarinaraReasons(
   return text;
 }
 
-export type MarinaraLog = (text: string, kind: string, actorId?: string, source?: string) => void;
+export type MarinaraLog = (
+  text: string,
+  kind: string,
+  actorId?: string,
+  source?: string,
+  /** What battle narration tells of a blow; the line itself never prints these. */
+  blow?: Record<string, string | number>,
+) => void;
 
 const living = (fighters: readonly MarinaraFighter[]) => fighters.filter((f) => f.hp > 0);
 
@@ -598,6 +605,47 @@ function boonGroupText(state: MarinaraDirectorState, group: readonly MarinaraEve
   return `${actor} uses ${skill} on their side: ${list}.`;
 }
 
+/** A hit, miss or heal from one fighter to another, as battle narration tells it. Regen and drain are not
+ *  blows. The target fell to it when its fall comes before anything else lands on it. */
+export function marinaraBlow(
+  state: MarinaraDirectorState,
+  events: MarinaraEvent[],
+  index: number,
+): Record<string, string | number> | undefined {
+  const event = events[index]!;
+  if (!event.targetId || !["hit", "miss", "evade", "heal"].includes(event.kind)) return undefined;
+  if (event.kind === "heal" && (event.status === "regen" || event.notes?.includes("drain"))) return undefined;
+  const skill = skillLabel(marinaraFighter(state, event.actorId), event.skillId);
+  let fell = false;
+  if (event.kind === "hit")
+    for (const next of events.slice(index + 1)) {
+      if (next.targetId !== event.targetId) continue;
+      if (next.kind === "down") fell = true;
+      if (next.kind === "down" || next.kind === "hit") break;
+    }
+  const outcome = event.kind === "heal" ? "heal" : event.kind === "hit" ? (event.crit ? "critical" : "hit") : "miss";
+  const effect =
+    event.affinity === "weak"
+      ? "strong"
+      : event.affinity === "resist"
+        ? "weak"
+        : event.affinity === "immune" || event.affinity === "absorb"
+          ? "immune"
+          : undefined;
+  return {
+    actor: nameOf(state, event.actorId),
+    target: nameOf(state, event.targetId),
+    ...(skill ? { skill } : {}),
+    outcome,
+    ...(event.amount !== undefined && outcome !== "miss"
+      ? { amount: `${outcome === "heal" ? "+" : "−"}${event.amount}` }
+      : {}),
+    ...(fell ? { ko: 1 } : {}),
+    ...(event.type ? { element: event.type } : {}),
+    ...(effect ? { effect } : {}),
+  };
+}
+
 function record(state: MarinaraDirectorState, ctx: MarinaraFightContext, log: MarinaraLog, source?: string) {
   let grouped = 0;
   for (const [index, event] of ctx.events.entries()) {
@@ -614,7 +662,14 @@ function record(state: MarinaraDirectorState, ctx: MarinaraFightContext, log: Ma
         grouped = group.length - 1;
         log(boonGroupText(state, group), `marinara:${event.kind}`, event.actorId, source);
       } else log(marinaraEventText(state, event), `marinara:${event.kind}`, event.actorId, source);
-    } else log(marinaraEventText(state, event), `marinara:${event.kind}`, event.actorId, source);
+    } else
+      log(
+        marinaraEventText(state, event),
+        `marinara:${event.kind}`,
+        event.actorId,
+        source,
+        marinaraBlow(state, ctx.events, index),
+      );
     if (state.eventTap) state.eventTap.push({ ...event });
     const credit = (state.credit[event.actorId] ??= { damage: 0, support: 0, foes: [] });
     const target = event.targetId ? marinaraFighter(state, event.targetId) : undefined;

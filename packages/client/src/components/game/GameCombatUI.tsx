@@ -82,6 +82,9 @@ import {
 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { TokenPicture } from "./TokenPicture";
+import { useCombatNarration } from "../../lib/combat-narration";
+import { COMBAT_NARRATION_MAX_BEATS, type CombatNarrationBeat } from "@marinara-engine/shared";
+import type { TFunction } from "i18next";
 import { Spinner } from "../ui/Spinner";
 
 // `combatant.sprite` is populated either from a real avatar URL (player party,
@@ -446,6 +449,10 @@ interface CombatLogEntry {
   id: string;
   text: string;
   tone?: "system" | "action" | "status";
+  /** The blow this line tells, for battle narration: its prose replaces `text` once it arrives. */
+  beat?: string;
+  /** The blow's numbers, shown after its prose ("24 damage!"). */
+  tail?: string;
 }
 
 type CombatImpactTone = "hit" | "critical" | "miss" | "heal" | "reaction";
@@ -500,6 +507,8 @@ interface GameCombatUIProps {
   /** The game's elements (worldgen W6c), whose own colours mark an aura. */
   elements?: WorldElementSet;
   directed?: {
+    /** The fight's own identity: a restored or branched fight under the same screen is told afresh. */
+    instanceId?: string;
     actorId?: string;
     canAct: boolean;
     /** The fight waits on a choice shown beside it (sparing yielded foes): no "resolving" spinner. */
@@ -508,6 +517,8 @@ interface GameCombatUIProps {
     outcome?: "victory" | "defeat" | "flee";
     onAction: (action: CombatPlayerAction) => void;
     onControl: (id: string, controller: "manual" | "ai") => void;
+    /** The director's log, its lines already in the player's language: what the combat log shows. */
+    log?: Array<{ id: number; kind: string; text: string; params?: Record<string, string | number> }>;
     /** A companion's standing orders, or null to go back to its default. */
     onOrders?: (id: string, orders: CombatOrders | null) => void;
     /** Present only for a fight the game's own ruleset resolves. The stage above is unchanged (the
@@ -886,13 +897,89 @@ export function GameCombatUI({
   }, [eastWest, eastWestBox, enemies, party]);
   const [openDrawer, setOpenDrawer] = useState<MobileDrawerKind>(null);
 
-  const appendCombatLog = useCallback((text: string, tone: CombatLogEntry["tone"] = "action") => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    setCombatLogEntries((prev) =>
-      [...prev, { id: `combat-log-${++combatLogCounter.current}`, text: trimmed, tone }].slice(-80),
-    );
-  }, []);
+  const appendCombatLog = useCallback(
+    (text: string, tone: CombatLogEntry["tone"] = "action", told?: { beat: string; tail: string }) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      setCombatLogEntries((prev) =>
+        [...prev, { id: `combat-log-${++combatLogCounter.current}`, text: trimmed, tone, ...told }].slice(-80),
+      );
+    },
+    [],
+  );
+  const { prose: narrated, narrate, reset: resetNarration } = useCombatNarration();
+
+  // A directed fight's own log, new lines only, each blow told as prose. What was on the log when the
+  // fight opened (a fight read back) is shown as it was, never sent for narration again.
+  const directedLog = directed?.log;
+  const directedLogSeen = useRef<number | null>(null);
+  // Blows wait here until the player's next choice, the round's end or the fight's end, so one request
+  // tells them all even when the director stops between them (a GM decision, a reaction).
+  const directedPending = useRef<{ round: number; beats: CombatNarrationBeat[] }>({ round: 0, beats: [] });
+  const flushDirected = useCallback(() => {
+    const { beats } = directedPending.current;
+    if (beats.length === 0) return;
+    directedPending.current = { round: directedPending.current.round, beats: [] };
+    narrate(beats);
+  }, [narrate]);
+  const [directedBlow, setDirectedBlow] = useState<CombatLogEntry | null>(null);
+  const directedInstance = useRef(directed?.instanceId);
+  useEffect(() => {
+    if (directedInstance.current !== directed?.instanceId) {
+      // Another fight took this screen: its log starts over, and nothing of the last one is told.
+      directedInstance.current = directed?.instanceId;
+      directedLogSeen.current = null;
+      directedPending.current = { round: 0, beats: [] };
+      resetNarration();
+    }
+    if (!directedLog) return;
+    const first = directedLogSeen.current === null;
+    const fresh = directedLog.filter((entry) => entry.id > (directedLogSeen.current ?? -1));
+    if (fresh.length === 0) {
+      directedLogSeen.current ??= -1;
+      return;
+    }
+    directedLogSeen.current = fresh.at(-1)!.id;
+    const beats: CombatNarrationBeat[] = [];
+    let blow: CombatLogEntry | null = null;
+    for (const entry of first ? fresh.slice(-12) : fresh) {
+      const beat = entry.kind === "action" ? directedLogBeat(entry) : null;
+      if (beat && !first) {
+        beats.push(beat);
+        blow = { id: beat.id, text: entry.text, beat: beat.id, tail: directedLogTail(entry.params!, beat, localizeUi) };
+      }
+      appendCombatLog(
+        entry.text,
+        entry.kind === "action" ? "action" : entry.kind === "status" ? "status" : "system",
+        beat ? { beat: beat.id, tail: directedLogTail(entry.params!, beat, localizeUi) } : undefined,
+      );
+    }
+    if (beats.length) {
+      const round = directed?.round ?? 0;
+      if (round !== directedPending.current.round) flushDirected();
+      directedPending.current = { round, beats: [...directedPending.current.beats, ...beats] };
+      if (directedPending.current.beats.length >= COMBAT_NARRATION_MAX_BEATS) flushDirected();
+    }
+    if (blow) setDirectedBlow(blow);
+  }, [directedLog, directed?.round, directed?.instanceId, appendCombatLog, flushDirected, resetNarration, localizeUi]);
+  const directedWaits = !!(directed?.canAct || directed?.outcome || directed?.paused);
+  useEffect(() => {
+    if (directedWaits) {
+      flushDirected();
+      return;
+    }
+    // A fight the player never steps into (every fighter on AI) still gets told, a little later.
+    if (directedPending.current.beats.length === 0) return;
+    const timer = setTimeout(flushDirected, 15_000);
+    return () => clearTimeout(timer);
+  }, [directedWaits, directedLog, flushDirected]);
+  // The newest blow stays up a while, longer once its prose is in, then makes way for the stage.
+  const directedBlowTold = directedBlow?.beat ? narrated.has(directedBlow.beat) : false;
+  useEffect(() => {
+    if (!directedBlow) return;
+    const timer = setTimeout(() => setDirectedBlow(null), directedBlowTold ? 7000 : 12000);
+    return () => clearTimeout(timer);
+  }, [directedBlow, directedBlowTold]);
 
   useEffect(() => {
     if (combatLogEntries.length === 0 && narration) {
@@ -1654,7 +1741,14 @@ export function GameCombatUI({
 
         const action = result.actions[actionIdx]!;
         setAnimatingActionIndex(actionIdx);
-        appendCombatLog(formatCombatActionNarration(action, combatantsForLog), "action");
+        const beat = classicBeatId(result, actionIdx);
+        appendCombatLog(
+          formatCombatActionNarration(action, combatantsForLog),
+          "action",
+          action.note
+            ? undefined
+            : { beat, tail: classicActionTail(action, combatantsForLog, localizeUi as unknown as TFunction) },
+        );
 
         if (action.isMiss) playSfx(COMBAT_SFX.miss);
         else if (action.isCritical) playSfx(COMBAT_SFX.criticalHit);
@@ -1689,7 +1783,7 @@ export function GameCombatUI({
 
       setTimeout(playNextAction, COMBAT_ACTION_START_DELAY_MS);
     },
-    [allCombatants, appendCombatLog, playSfx, spawnDamage, applyRoundEnd, updateCombatantHp],
+    [allCombatants, appendCombatLog, playSfx, spawnDamage, applyRoundEnd, updateCombatantHp, localizeUi],
   );
 
   // ── Resolve a combat round on the server ──
@@ -1756,6 +1850,11 @@ export function GameCombatUI({
             }
             setRoundResult(result);
             setTurnOrder(result.initiative.map((e) => ({ id: e.id, name: e.name })));
+            narrate(
+              result.actions.flatMap((action, index) =>
+                action.note ? [] : [classicActionBeat(action, allCombatants, classicBeatId(result, index))],
+              ),
+            );
             animateRoundResults(result, updatedCombatants);
           },
           onError: () => setPhase("player-turn"),
@@ -1776,6 +1875,7 @@ export function GameCombatUI({
       party,
       enemies,
       onCombatantsChange,
+      narrate,
     ],
   );
 
@@ -2051,7 +2151,27 @@ export function GameCombatUI({
                 "pointer-events-none absolute inset-x-2 top-2 z-10 rounded-lg border border-white/10 bg-black/75 px-3 py-2 backdrop-blur-md",
               )}
             >
-              <ActionNarration action={roundResult.actions[animatingActionIndex]!} allCombatants={allCombatants} />
+              <ActionNarration
+                action={roundResult.actions[animatingActionIndex]!}
+                allCombatants={allCombatants}
+                told={narrated.get(classicBeatId(roundResult, animatingActionIndex))}
+              />
+            </div>
+          )}
+          {directedBlow && phase !== "resolving" && (
+            // A phone keeps the log in a drawer, so a directed fight's newest blow is shown at the foot of the
+            // stage, clear of the floating buttons along its top.
+            <div
+              data-game-section="combat-banner"
+              className={cn(
+                GAME_SECTION_CLASS,
+                "pointer-events-none absolute inset-x-2 bottom-2 z-10 rounded-lg border border-white/10 bg-black/75 px-3 py-2 text-sm leading-snug text-white/85 backdrop-blur-md",
+              )}
+            >
+              <CombatLogLine
+                entry={directedBlow}
+                told={directedBlow.beat ? narrated.get(directedBlow.beat) : undefined}
+              />
             </div>
           )}
           {phase === "resolving" && !directed?.paused && (
@@ -2774,7 +2894,7 @@ export function GameCombatUI({
                           (!entry.tone || entry.tone === "action") && "border-white/5 bg-black/20 text-white/75",
                         )}
                       >
-                        {entry.text}
+                        <CombatLogLine entry={entry} told={entry.beat ? narrated.get(entry.beat) : undefined} />
                       </div>
                     ))
                   )}
@@ -3043,7 +3163,11 @@ export function GameCombatUI({
               </div>
             )}
             {phase === "animating" && roundResult && animatingActionIndex >= 0 && (
-              <ActionNarration action={roundResult.actions[animatingActionIndex]!} allCombatants={allCombatants} />
+              <ActionNarration
+                action={roundResult.actions[animatingActionIndex]!}
+                allCombatants={allCombatants}
+                told={narrated.get(classicBeatId(roundResult, animatingActionIndex))}
+              />
             )}
           </div>
         )}
@@ -3471,7 +3595,7 @@ export function GameCombatUI({
                     (!entry.tone || entry.tone === "action") && "border-white/5 bg-black/20 text-white/70",
                   )}
                 >
-                  {entry.text}
+                  <CombatLogLine entry={entry} told={entry.beat ? narrated.get(entry.beat) : undefined} />
                 </div>
               ))}
               <div ref={combatLogEndRef} />
@@ -3982,6 +4106,114 @@ function DamageNumber({ popup }: { popup: DamagePopup }) {
   );
 }
 
+/** A Classic round's blow, keyed by its round and place in it. */
+function classicBeatId(result: CombatRoundResult, index: number): string {
+  return `r${result.round}:${index}`;
+}
+
+function classicActionBeat(action: CombatAttackResult, allCombatants: Combatant[], id: string): CombatNarrationBeat {
+  const name = (combatantId: string) => allCombatants.find((c) => c.id === combatantId)?.name ?? "???";
+  return {
+    id,
+    actor: name(action.attackerId),
+    target: name(action.defenderId),
+    ...(action.skillName ? { move: action.skillName } : {}),
+    outcome: action.isHeal ? "heal" : action.isMiss ? "miss" : action.isCritical ? "critical" : "hit",
+    ...(action.isKo ? { ko: true } : {}),
+    ...(action.element ? { element: action.element } : {}),
+    ...(action.reaction ? { reaction: action.reaction.reaction } : {}),
+  };
+}
+
+/** The numbers that follow a blow's prose: "Critical hit! 24 damage! Houndoom is defeated!" */
+function narrationTail(
+  t: TFunction,
+  told: { outcome: CombatNarrationBeat["outcome"]; amount: string | number; target?: string; ko?: boolean },
+  reaction?: { name: string; multiplier: string | number },
+): string {
+  const parts = [
+    told.outcome === "miss"
+      ? t("game.combat.narration.tail.miss")
+      : told.outcome === "heal"
+        ? t("game.combat.narration.tail.heal", { amount: told.amount })
+        : reaction
+          ? t("game.combat.narration.tail.reaction", {
+              reaction: reaction.name,
+              amount: told.amount,
+              multiplier: reaction.multiplier,
+            })
+          : told.outcome === "critical"
+            ? t("game.combat.narration.tail.critical", { amount: told.amount })
+            : t("game.combat.narration.tail.damage", { amount: told.amount }),
+  ];
+  if (told.ko && told.outcome !== "heal" && told.outcome !== "miss")
+    parts.push(t("game.combat.narration.tail.ko", { target: told.target ?? "" }));
+  return parts.join(" ");
+}
+
+function classicActionTail(action: CombatAttackResult, allCombatants: Combatant[], t: TFunction): string {
+  return narrationTail(
+    t,
+    {
+      outcome: action.isHeal ? "heal" : action.isMiss ? "miss" : action.isCritical ? "critical" : "hit",
+      amount: action.finalDamage,
+      target: allCombatants.find((c) => c.id === action.defenderId)?.name,
+      ko: action.isKo,
+    },
+    action.reaction ? { name: action.reaction.reaction, multiplier: action.reaction.damageMultiplier } : undefined,
+  );
+}
+
+const NARRATION_OUTCOMES = ["hit", "critical", "miss", "heal"] as const;
+
+/** A director's "action" line as a blow. Lines saved before the director named outcomes read as a
+ *  hit, or a heal when they gave health. */
+function directedLogBeat(entry: { id: number; params?: Record<string, string | number> }): CombatNarrationBeat | null {
+  const params = entry.params;
+  if (!params || typeof params.actor !== "string" || !params.actor) return null;
+  const outcome =
+    NARRATION_OUTCOMES.find((one) => one === params.outcome) ??
+    (String(params.amount).startsWith("+") ? "heal" : "hit");
+  const effect = params.effect;
+  return {
+    id: `d${entry.id}`,
+    actor: params.actor,
+    ...(typeof params.target === "string" && params.target ? { target: params.target } : {}),
+    ...(typeof params.skill === "string" && params.skill ? { move: params.skill } : {}),
+    outcome,
+    ...(params.ko ? { ko: true } : {}),
+    ...(typeof params.element === "string" && params.element ? { element: params.element } : {}),
+    ...(typeof params.reaction === "string" && params.reaction ? { reaction: params.reaction } : {}),
+    ...(effect === "strong" || effect === "weak" || effect === "immune" ? { effect } : {}),
+  };
+}
+
+function directedLogTail(params: Record<string, string | number>, beat: CombatNarrationBeat, t: TFunction): string {
+  return narrationTail(
+    t,
+    {
+      outcome: beat.outcome,
+      amount: String(params.amount ?? "").replace(/^[+−-]/, ""),
+      target: beat.target,
+      ko: beat.ko,
+    },
+    beat.reaction && params.multiplier !== undefined
+      ? { name: beat.reaction, multiplier: params.multiplier }
+      : undefined,
+  );
+}
+
+/** A log line: the blow's prose and its numbers once told, its plain line until then. */
+function CombatLogLine({ entry, told }: { entry: CombatLogEntry; told?: string }) {
+  if (!told) return <>{entry.text}</>;
+  return (
+    <span data-combat-narration="">
+      {told}
+      {entry.tail && <strong className="ml-1 font-semibold text-white/90">{entry.tail}</strong>}
+    </span>
+  );
+}
+
 function formatCombatActionNarration(action: CombatAttackResult, allCombatants: Combatant[]): string {
   const attacker = allCombatants.find((c) => c.id === action.attackerId);
   const defender = allCombatants.find((c) => c.id === action.defenderId);
@@ -4029,8 +4261,20 @@ function getCombatImpactTone(action: CombatAttackResult): CombatImpactTone {
 }
 
 /** Narration text for an individual combat action. */
-function ActionNarration({ action, allCombatants }: { action: CombatAttackResult; allCombatants: Combatant[] }) {
-  const text = formatCombatActionNarration(action, allCombatants);
+function ActionNarration({
+  action,
+  allCombatants,
+  told,
+}: {
+  action: CombatAttackResult;
+  allCombatants: Combatant[];
+  /** The blow's prose, once battle narration has told it. */
+  told?: string;
+}) {
+  const { t } = useUiTranslation();
+  const text = told
+    ? `${told} ${classicActionTail(action, allCombatants, t as unknown as TFunction)}`
+    : formatCombatActionNarration(action, allCombatants);
   const tone = getCombatImpactTone(action);
 
   return (
