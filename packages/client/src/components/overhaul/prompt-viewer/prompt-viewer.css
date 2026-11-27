@@ -1,0 +1,3220 @@
+/* ──────────────────────────────────────────────
+ * Prompt viewer (kolache's AIO Prompt Viewer and Editor, built in).
+ * The extension's stylesheet, kept close to the original so fixes can move
+ * between the two; the block at the end fits it into the new layout's pages.
+ * All classes are prefixed kaio-.
+ * ────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────
+ * kolache's AIO Prompt Viewer and Editor
+ * All classes are prefixed kaio- to avoid collisions
+ * ─────────────────────────────────────────────*/
+
+/* The HTML `hidden` attribute must win even on our flex/grid elements (the UA
+   `[hidden]{display:none}` rule loses to an author `display:flex`). Several
+   features toggle visibility via `.hidden` (search bar, entry-filter rows). */
+.kaio-overlay [hidden] {
+  display: none !important;
+}
+
+/* ─── Overlay ───────────────────────────────── */
+.kaio-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: none;
+  align-items: stretch;
+  justify-content: stretch;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  font-family: inherit;
+  color: var(--foreground);
+}
+.kaio-overlay[data-open="true"] {
+  display: flex;
+}
+
+.kaio-shell {
+  position: relative;
+  margin: auto;
+  width: min(1400px, 96vw);
+  height: min(900px, 92vh);
+  background: var(--card, #0f0f15);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.75rem;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+
+.kaio-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  background: var(--card, #0f0f15);
+  border-bottom: 1px solid var(--border, #27272a);
+  /* As a grid item this defaults to min-width:auto, which lets the bar grow past
+     the shell and carry the ✕ off screen. Pin it so the title ellipsizes instead. */
+  min-width: 0;
+  overflow: hidden;
+}
+.kaio-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  /* Shrink and ellipsize before the controls do — the ✕ must never be pushed
+     out of reach on a narrow window. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.kaio-title-emoji {
+  font-size: 1rem;
+  margin-right: 0.125rem;
+}
+.kaio-subtitle {
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+.kaio-spacer {
+  flex: 1;
+}
+.kaio-iconbtn {
+  background: transparent;
+  border: 0;
+  color: var(--muted-foreground);
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.15s;
+  /* Never let a control be squeezed until its label wraps under its icon. */
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.kaio-title-emoji,
+.kaio-title-tip {
+  flex-shrink: 0;
+}
+.kaio-iconbtn:hover {
+  background: var(--accent, #1c1c25);
+  color: var(--foreground);
+}
+
+/* ─── Three columns ─────────────────────────── */
+.kaio-body {
+  display: grid;
+  grid-template-columns: 280px 1fr 360px;
+  min-height: 0;
+}
+
+.kaio-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.kaio-col-left {
+  border-right: 1px solid var(--border, #27272a);
+}
+.kaio-col-right {
+  border-left: 1px solid var(--border, #27272a);
+}
+
+.kaio-col-header {
+  flex: 0 0 auto;
+  padding: 0.625rem 0.875rem 0.5rem;
+  border-bottom: 1px solid var(--border, #27272a);
+  background: var(--card, #0f0f15);
+}
+.kaio-col-header h3 {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+}
+.kaio-col-header p {
+  margin: 0.25rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  opacity: 0.8;
+}
+.kaio-col-header-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+.kaio-col-header-row > .kaio-col-header-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.kaio-col-header-actions {
+  display: flex;
+  gap: 0.375rem;
+  flex: 0 0 auto;
+}
+.kaio-col-header-btn {
+  padding: 0.3125rem 0.625rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border, #27272a);
+  background: var(--secondary, #1c1c25);
+  color: var(--foreground);
+  font-size: 0.6875rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  white-space: nowrap;
+}
+.kaio-col-header-btn:hover {
+  background: var(--accent, #25252e);
+  border-color: var(--primary, #a78bfa);
+  color: var(--primary, #a78bfa);
+}
+.kaio-col-header-btn[data-state="errors"] {
+  border-color: #fb923c;
+  color: #fdba74;
+  background: rgba(251, 146, 60, 0.08);
+}
+.kaio-col-header-btn[data-state="ok"] {
+  border-color: #34d399;
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.08);
+}
+
+/* Token gauge — rough estimate readout + usage bar in the Simulated Prompt header. */
+.kaio-token-gauge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4375rem;
+}
+.kaio-token-gauge[data-empty="true"] {
+  display: none;
+}
+.kaio-token-gauge-count {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.kaio-token-gauge-bar {
+  flex: 1 1 auto;
+  min-width: 36px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--secondary, #1c1c25);
+  overflow: hidden;
+}
+.kaio-token-gauge-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #34d399;
+  transition: width 0.2s ease;
+}
+.kaio-token-gauge-bar[data-level="warn"] .kaio-token-gauge-fill {
+  background: #fbbf24;
+}
+.kaio-token-gauge-bar[data-level="over"] .kaio-token-gauge-fill {
+  background: #f87171;
+}
+.kaio-token-gauge-pct {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.kaio-token-gauge-pct[data-level="warn"] {
+  color: #fbbf24;
+}
+.kaio-token-gauge-pct[data-level="over"] {
+  color: #f87171;
+}
+.kaio-token-gauge-info {
+  font-size: 0.625rem;
+  color: var(--muted-foreground);
+  opacity: 0.6;
+  cursor: help;
+}
+
+/* Simulated Prompt filter bar. */
+.kaio-middle-search {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  background: var(--background, #0a0a0f);
+}
+.kaio-middle-search:focus-within {
+  border-color: var(--primary, #a78bfa);
+}
+.kaio-middle-search-icon {
+  font-size: 0.6875rem;
+  opacity: 0.6;
+  flex: 0 0 auto;
+}
+.kaio-middle-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: 0.6875rem;
+  padding: 0.125rem 0;
+}
+.kaio-middle-search-input:focus {
+  outline: none;
+}
+.kaio-middle-search-input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+/* Hide the native search clear control — we render our own. */
+.kaio-middle-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.kaio-middle-search-clear {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+.kaio-middle-search-clear:hover {
+  color: var(--foreground);
+  background: var(--accent, #25252e);
+}
+.kaio-col-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+/* ─── Left: source pickers ──────────────────── */
+.kaio-source {
+  margin-bottom: 1rem;
+}
+.kaio-source-label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+  margin-bottom: 0.375rem;
+}
+.kaio-source-icon {
+  font-size: 0.8125rem;
+}
+/* "+" create button at the right edge of a Sources section header. Borderless
+   to match the ✏️/⚙️ header actions (kaio-folder-edit-btn) so they read as one
+   set rather than a heavy filled pill next to bare glyphs. */
+.kaio-source-create-btn {
+  margin-left: auto;
+  flex: 0 0 auto;
+  padding: 0.0625rem 0.1875rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.kaio-source-create-btn:hover {
+  color: var(--primary, #a78bfa);
+}
+.kaio-source-select-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.kaio-source-select-row .kaio-select {
+  flex: 1;
+  min-width: 0;
+}
+.kaio-source-select-row .kaio-folder-edit-btn {
+  font-size: 0.875rem;
+  padding: 0.25rem;
+}
+.kaio-select {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  background: var(--secondary, #1c1c25);
+  color: var(--foreground);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.kaio-select:focus {
+  border-color: var(--primary, #a78bfa);
+}
+
+/* multi-lorebook rows */
+.kaio-lb-row {
+  margin-bottom: 0.5rem;
+}
+.kaio-lb-row[data-active="true"] .kaio-select {
+  border-color: var(--primary, #a78bfa);
+  box-shadow: 0 0 0 1px var(--primary, #a78bfa);
+}
+.kaio-lb-rowhead {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.kaio-lb-rowhead .kaio-select {
+  flex: 1;
+  min-width: 0;
+}
+.kaio-lb-rowhead .kaio-folder-edit-btn {
+  font-size: 0.875rem;
+  padding: 0.25rem;
+}
+
+/* ── Searchable combobox (replaces native <select> in Sources) ── */
+.kaio-combo {
+  position: relative;
+  width: 100%;
+}
+.kaio-source-select-row .kaio-combo,
+.kaio-lb-rowhead .kaio-combo {
+  flex: 1;
+  min-width: 0;
+}
+.kaio-combo-field {
+  display: flex;
+  align-items: center;
+  background: var(--secondary, #1c1c25);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.5rem;
+}
+.kaio-combo[data-open="true"] .kaio-combo-field,
+.kaio-combo-field:focus-within {
+  border-color: var(--primary, #a78bfa);
+}
+.kaio-lb-row[data-active="true"] .kaio-combo-field {
+  border-color: var(--primary, #a78bfa);
+  box-shadow: 0 0 0 1px var(--primary, #a78bfa);
+}
+.kaio-combo-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.5rem 0.25rem 0.5rem 0.625rem;
+  background: transparent;
+  color: var(--foreground);
+  border: none;
+  outline: none;
+  font-size: 0.75rem;
+  font-family: inherit;
+}
+.kaio-combo-input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.85;
+}
+.kaio-combo-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.kaio-combo-caret {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.625rem;
+  line-height: 1;
+  padding: 0 0.5rem;
+}
+.kaio-combo[data-open="true"] .kaio-combo-caret {
+  transform: rotate(180deg);
+}
+.kaio-combo-list {
+  display: none;
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 0.25rem;
+  background: var(--card, #0f0f15);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.5rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.kaio-combo[data-open="true"] .kaio-combo-list {
+  display: block;
+}
+/* Flip the dropdown above the field when there's more room above (set by JS). */
+.kaio-combo[data-drop="up"] .kaio-combo-list {
+  top: auto;
+  bottom: calc(100% + 2px);
+}
+.kaio-combo-opt {
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--foreground);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kaio-combo-opt:hover,
+.kaio-combo-opt[data-highlight="true"] {
+  background: var(--accent, #25252e);
+}
+.kaio-combo-opt[data-selected="true"] {
+  color: var(--primary, #a78bfa);
+  font-weight: 600;
+}
+.kaio-combo-opt[data-blank="true"] {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.kaio-combo-empty {
+  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+/* ── Entry search box (toggled by 🔍 in the lorebook row header) ── */
+.kaio-entry-search-btn[data-active="true"] {
+  background: var(--accent, #25252e);
+  border-radius: 0.375rem;
+}
+.kaio-entry-search {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.5rem;
+  background: var(--background, #0a0a0f);
+}
+.kaio-entry-search:focus-within {
+  border-color: var(--primary, #a78bfa);
+}
+.kaio-entry-search-icon {
+  font-size: 0.6875rem;
+  opacity: 0.6;
+  flex: 0 0 auto;
+}
+.kaio-entry-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: 0.6875rem;
+  padding: 0.125rem 0;
+}
+.kaio-entry-search-input:focus {
+  outline: none;
+}
+.kaio-entry-search-input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+.kaio-entry-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* lorebook entry checklist */
+.kaio-entrylist {
+  margin-top: 0.5rem;
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.5rem;
+  background: var(--secondary, #1c1c25);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.kaio-entrylist-empty {
+  padding: 0.625rem;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+.kaio-entry-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.5625rem;
+  border-bottom: 1px solid var(--border, #27272a);
+  font-size: 0.6875rem;
+  cursor: pointer;
+  user-select: none;
+}
+.kaio-entry-item:last-child {
+  border-bottom: 0;
+}
+.kaio-entry-item:hover {
+  background: var(--accent, #25252e);
+}
+.kaio-entry-item input[type="checkbox"] {
+  margin-top: 0.125rem;
+  accent-color: var(--primary, #a78bfa);
+}
+.kaio-entry-meta {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  margin-top: 0.125rem;
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+}
+.kaio-entry-name {
+  font-weight: 500;
+  color: var(--foreground);
+  word-break: break-word;
+}
+.kaio-entry-position {
+  background: rgba(167, 139, 250, 0.15);
+  color: var(--primary, #a78bfa);
+  padding: 0 0.3125rem;
+  border-radius: 999px;
+  font-size: 0.5625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.kaio-entry-folder-tag {
+  font-size: 0.5625rem;
+  opacity: 0.7;
+}
+
+/* ─── Folder items in entry checklist ─────────── */
+.kaio-lb-content {
+  margin-top: 0.5rem;
+}
+.kaio-folder-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.5625rem;
+  /* Nested folders are indented by --kaio-depth (set in JS). */
+  padding-left: calc(0.5625rem + var(--kaio-depth, 0) * 1.05rem);
+  border-bottom: 1px solid var(--border, #27272a);
+  font-size: 0.6875rem;
+  user-select: none;
+}
+/* Subtle guide line on nested folder rows. */
+.kaio-folder-item[style*="--kaio-depth"] {
+  box-shadow: inset 1px 0 0 var(--border, #27272a);
+}
+.kaio-folder-item:first-child {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+}
+.kaio-folder-item:hover {
+  background: var(--accent, #25252e);
+}
+.kaio-folder-item input[type="checkbox"] {
+  accent-color: var(--primary, #a78bfa);
+  cursor: pointer;
+}
+.kaio-folder-icon {
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.kaio-folder-name {
+  font-weight: 600;
+  color: var(--foreground);
+  word-break: break-word;
+  flex: 1;
+  min-width: 0;
+}
+.kaio-folder-count {
+  font-size: 0.5625rem;
+  color: var(--muted-foreground);
+  background: rgba(148, 163, 184, 0.15);
+  padding: 0 0.3125rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.kaio-folder-edit-btn {
+  background: transparent;
+  border: 0;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  padding: 0.0625rem 0.1875rem;
+  font-size: 0.75rem;
+  border-radius: 0.25rem;
+  flex-shrink: 0;
+  transition: color 0.15s;
+  line-height: 1;
+}
+.kaio-folder-edit-btn:hover {
+  color: var(--primary, #a78bfa);
+}
+.kaio-entrylist-divider {
+  height: 0;
+  border: 0;
+  border-top: 1px dashed var(--border, #27272a);
+  opacity: 0.6;
+}
+
+/* ─── Create buttons (+ Folder / + Entry) ────── */
+.kaio-create-actions {
+  display: flex;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+.kaio-create-btn {
+  flex: 1;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--secondary, #1c1c25);
+  color: var(--muted-foreground);
+  border: 1px dashed var(--border, #27272a);
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.kaio-create-btn:hover {
+  color: var(--primary, #a78bfa);
+  border-color: var(--primary, #a78bfa);
+  background: var(--accent, #25252e);
+}
+.kaio-add-section-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin-top: 0.25rem;
+  background: var(--card, #0f0f15);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.5rem;
+  padding: 0.25rem 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  max-height: 18rem;
+  overflow-y: auto;
+}
+.kaio-add-section-item {
+  display: block;
+  width: 100%;
+  padding: 0.4375rem 0.75rem;
+  font-size: 0.6875rem;
+  font-family: inherit;
+  color: var(--foreground);
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.kaio-add-section-item:hover {
+  background: var(--accent, #25252e);
+}
+.kaio-add-section-divider {
+  padding: 0.375rem 0.75rem 0.25rem;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary, #a78bfa);
+  pointer-events: none;
+}
+
+/* ─── Folder entries list (inspector) ─────────── */
+.kaio-folder-entries {
+  margin-top: 0.375rem;
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  background: var(--secondary, #1c1c25);
+}
+.kaio-folder-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--border, #27272a);
+  font-size: 0.6875rem;
+}
+.kaio-folder-entry-row:last-child {
+  border-bottom: 0;
+}
+.kaio-folder-entry-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--foreground);
+}
+.kaio-folder-entry-remove {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.625rem;
+  font-family: inherit;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  transition: all 0.15s;
+}
+.kaio-folder-entry-remove:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+/* ─── Batch-add entries to folder (inspector) ─── */
+.kaio-batch-toggle {
+  margin-bottom: 0.375rem;
+  font-size: 0.6875rem;
+}
+.kaio-batch-list {
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  background: var(--secondary, #1c1c25);
+  max-height: 180px;
+  overflow-y: auto;
+}
+.kaio-batch-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3125rem 0.5rem;
+  border-bottom: 1px solid var(--border, #27272a);
+  font-size: 0.6875rem;
+  cursor: pointer;
+  user-select: none;
+}
+.kaio-batch-item:last-child {
+  border-bottom: 0;
+}
+.kaio-batch-item:hover {
+  background: var(--accent, #25252e);
+}
+.kaio-batch-item input[type="checkbox"] {
+  accent-color: var(--primary, #a78bfa);
+  flex-shrink: 0;
+}
+.kaio-batch-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--foreground);
+}
+.kaio-batch-nested {
+  opacity: 0.45;
+  cursor: default;
+}
+.kaio-batch-nested:hover {
+  background: transparent;
+}
+.kaio-batch-nested-name {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.kaio-batch-nested-folder {
+  flex: 0 0 auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.5625rem;
+  color: var(--muted-foreground);
+  text-align: right;
+}
+.kaio-batch-empty {
+  padding: 0.5rem;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+  font-style: italic;
+}
+.kaio-batch-add-btn {
+  margin-top: 0.375rem;
+  width: 100%;
+  font-size: 0.6875rem;
+}
+
+/* ─── Delete & Danger buttons ────────────────── */
+.kaio-btn-delete {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted-foreground);
+}
+.kaio-btn-delete:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+.kaio-btn-danger {
+  background: #dc2626;
+  color: #fff;
+  border-color: transparent;
+  font-weight: 600;
+}
+.kaio-btn-danger:hover {
+  background: #ef4444;
+}
+
+/* ─── Middle: simulated prompt ──────────────── */
+.kaio-middle-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  padding: 2rem;
+  gap: 0.75rem;
+}
+.kaio-middle-empty .emoji {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+.kaio-block {
+  background: var(--secondary, #1c1c25);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.kaio-block:hover {
+  border-color: var(--primary, #a78bfa);
+  background: var(--accent, #25252e);
+}
+.kaio-block[data-selected="true"] {
+  border-color: var(--primary, #a78bfa);
+  box-shadow: 0 0 0 1px var(--primary, #a78bfa);
+}
+.kaio-block[data-readonly="true"] {
+  opacity: 0.65;
+  cursor: default;
+  border-style: dashed;
+}
+.kaio-block[data-readonly="true"]:hover {
+  border-color: var(--border, #27272a);
+  background: var(--secondary, #1c1c25);
+}
+
+.kaio-block-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+  font-size: 0.6875rem;
+}
+.kaio-block-tag {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.5625rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: var(--accent, #25252e);
+  color: var(--muted-foreground);
+}
+.kaio-block-tag[data-kind="section"] {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+}
+.kaio-block-tag[data-kind="lorebook-entry"] {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+.kaio-block-tag[data-kind="character"] {
+  background: rgba(244, 114, 182, 0.2);
+  color: #f472b6;
+}
+.kaio-block-tag[data-kind="persona"] {
+  background: rgba(52, 211, 153, 0.2);
+  color: #34d399;
+}
+.kaio-block-tag[data-kind="chat-history"] {
+  background: rgba(96, 165, 250, 0.2);
+  color: #60a5fa;
+}
+.kaio-block-tag[data-kind="marker"] {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.kaio-block-name {
+  font-weight: 600;
+  color: var(--foreground);
+  font-size: 0.75rem;
+}
+.kaio-block-role {
+  margin-left: auto;
+  font-size: 0.625rem;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.kaio-block-content {
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+  max-height: 4.5em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.kaio-block-content[data-empty="true"] {
+  font-style: italic;
+  opacity: 0.6;
+}
+
+/* Compact blocks: marker / chat-history / empty entries that fold their hint
+   text into the head row so the block doesn't waste two extra lines of height. */
+.kaio-block[data-compact="true"] .kaio-block-head,
+.kaio-subblock[data-compact="true"] .kaio-block-head {
+  margin-bottom: 0;
+}
+.kaio-block-head-hint {
+  font-size: 0.625rem;
+  color: var(--muted-foreground);
+  font-style: italic;
+  opacity: 0.85;
+  margin-left: 0.125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.kaio-block[data-compact="true"][data-readonly="true"] {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+/* depth-injected sub-blocks (inside chat history) */
+.kaio-block-substack {
+  margin-top: 0.5rem;
+  padding-left: 0.625rem;
+  border-left: 2px solid var(--border, #27272a);
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.kaio-subblock {
+  background: var(--card, #0f0f15);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.5625rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.kaio-subblock:hover {
+  border-color: var(--primary, #a78bfa);
+}
+.kaio-subblock[data-selected="true"] {
+  border-color: var(--primary, #a78bfa);
+  box-shadow: 0 0 0 1px var(--primary, #a78bfa);
+}
+
+/* ─── Right: inspector / editor ─────────────── */
+.kaio-right-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.kaio-field {
+  margin-bottom: 0.5rem;
+}
+.kaio-field-label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+  margin-bottom: 0.1875rem;
+}
+
+/* ─── Tooltip help icon ─────────────────────── */
+.kaio-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(167, 139, 250, 0.15);
+  color: var(--primary, #a78bfa);
+  font-size: 0.5rem;
+  font-weight: 700;
+  cursor: default;
+  flex-shrink: 0;
+  line-height: 1;
+}
+/* The info tip in the titlebar sits next to the subtitle/title */
+.kaio-title-tip {
+  align-self: center;
+  margin-left: 0.125rem;
+}
+.kaio-tooltip-popup {
+  position: fixed;
+  width: 210px;
+  /* Solid fallbacks — inline styles from JS override these with live theme values */
+  background: var(--popover, var(--card, #0f0f15));
+  border: 1px solid var(--border, #27272a);
+  color: var(--popover-foreground, var(--foreground, #f4f4f5));
+  font-size: 0.6875rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.375rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 9999;
+  line-height: 1.4;
+  white-space: normal;
+}
+.kaio-input,
+.kaio-textarea {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  background: var(--secondary, #1c1c25);
+  color: var(--foreground);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+.kaio-textarea {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  resize: vertical;
+  min-height: 8rem;
+  line-height: 1.45;
+}
+.kaio-input:focus,
+.kaio-textarea:focus {
+  border-color: var(--primary, #a78bfa);
+}
+.kaio-input[disabled],
+.kaio-textarea[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.kaio-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+/* section headers inside the inspector */
+.kaio-section-header {
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--primary, #a78bfa);
+  padding-bottom: 0.1875rem;
+  border-bottom: 1px solid var(--border, #27272a);
+}
+.kaio-section-header:first-child {
+  margin-top: 0;
+}
+
+/* multi-select list (e.g. additionalMatchingSources) */
+.kaio-multilist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: var(--secondary, #1c1c25);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.625rem;
+}
+.kaio-multi-item {
+  margin-bottom: 0;
+  font-size: 0.6875rem;
+}
+
+.kaio-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--foreground);
+  margin-bottom: 0.25rem;
+}
+
+/* ─── Matching mode 3-state orb selector ────── */
+.kaio-match-mode {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+.kaio-match-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  border: 1px solid var(--border, #27272a);
+  background: var(--secondary, #1c1c25);
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.kaio-match-btn:hover {
+  background: var(--accent, #25252e);
+  color: var(--foreground);
+}
+.kaio-match-btn[data-active="true"] {
+  color: var(--foreground);
+}
+.kaio-match-btn[data-mode="normal"][data-active="true"] {
+  border-color: #64748b;
+  background: rgba(100, 116, 139, 0.15);
+}
+.kaio-match-btn[data-mode="selective"][data-active="true"] {
+  border-color: var(--primary, #a78bfa);
+  background: rgba(167, 139, 250, 0.15);
+  color: var(--primary, #a78bfa);
+}
+.kaio-match-btn[data-mode="constant"][data-active="true"] {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+.kaio-match-orb {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.kaio-match-orb[data-mode="normal"] {
+  background: #64748b;
+}
+.kaio-match-orb[data-mode="selective"] {
+  background: var(--primary, #a78bfa);
+}
+.kaio-match-orb[data-mode="constant"] {
+  background: #fbbf24;
+}
+.kaio-checkbox input {
+  accent-color: var(--primary, #a78bfa);
+}
+
+.kaio-field-help {
+  font-size: 0.625rem;
+  color: var(--muted-foreground);
+  margin-top: 0.25rem;
+}
+
+/* footer with save/revert */
+.kaio-right-footer {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--border, #27272a);
+  padding: 0.625rem 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--card, #0f0f15);
+}
+.kaio-dirty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #fbbf24;
+  display: none;
+}
+.kaio-dirty-dot[data-dirty="true"] {
+  display: block;
+}
+.kaio-btn {
+  padding: 0.4375rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border, #27272a);
+  background: var(--secondary, #1c1c25);
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.kaio-btn:hover {
+  background: var(--accent, #25252e);
+}
+.kaio-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.kaio-btn-primary {
+  background: var(--primary, #a78bfa);
+  color: var(--primary-foreground, #0f0f15);
+  border-color: transparent;
+  font-weight: 600;
+}
+.kaio-btn-primary:hover {
+  filter: brightness(1.1);
+}
+.kaio-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted-foreground);
+}
+.kaio-btn-ghost:hover {
+  background: var(--accent, #25252e);
+  color: var(--foreground);
+}
+
+/* ─── Confirm dialog (dirty-state guard) ────── */
+.kaio-confirm-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+.kaio-confirm {
+  background: var(--card, #0f0f15);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.625rem;
+  padding: 1.125rem 1.25rem;
+  width: min(420px, 90%);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+}
+.kaio-confirm-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.kaio-confirm-msg {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+.kaio-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* ─── Variables panel (visual preview only) ──── */
+.kaio-vars-panel {
+  margin-bottom: 0.875rem;
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid var(--border, #27272a);
+}
+.kaio-vars-panel .kaio-field {
+  margin-bottom: 0.5rem;
+}
+.kaio-vars-panel .kaio-field-label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.kaio-vars-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  width: 100%;
+  padding: 0.375rem 0.125rem 0.5rem;
+  margin-bottom: 0.375rem;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border, #27272a);
+  color: var(--primary, #a78bfa);
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.kaio-vars-header:hover {
+  color: var(--foreground);
+}
+.kaio-vars-caret {
+  display: inline-block;
+  transition: transform 0.15s;
+  font-size: 0.6875rem;
+}
+.kaio-vars-panel[data-collapsed="true"] .kaio-vars-caret {
+  transform: rotate(-90deg);
+}
+.kaio-vars-title {
+  flex: 1;
+}
+.kaio-vars-count {
+  background: rgba(167, 139, 250, 0.15);
+  color: var(--primary, #a78bfa);
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  font-size: 0.5625rem;
+  font-weight: 700;
+}
+.kaio-vars-panel[data-collapsed="true"] .kaio-vars-body {
+  display: none;
+}
+.kaio-vars-panel[data-collapsed="true"] {
+  padding-bottom: 0;
+  border-bottom: 0;
+  margin-bottom: 0.5rem;
+}
+
+.kaio-vars-edit {
+  margin-top: 0.375rem;
+  min-height: 4.5rem;
+}
+.kaio-vars-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+}
+.kaio-vars-actions .kaio-btn {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.6875rem;
+}
+
+/* ─── Toast — bottom-right, fades in/out, color-coded ─── */
+.kaio-toast {
+  position: absolute;
+  right: 1rem;
+  bottom: 4rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--card, #0f0f15);
+  color: var(--foreground);
+  border: 1px solid var(--border, #27272a);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  z-index: 10;
+  max-width: 18rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+.kaio-toast[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+.kaio-toast[data-kind="success"] {
+  background: #16321f;
+  color: #4ade80;
+  border-color: #22683a;
+}
+.kaio-toast[data-kind="error"] {
+  background: #3a1c1c;
+  color: #f87171;
+  border-color: #7a2a2a;
+}
+.kaio-toast[data-kind="info"] {
+  background: #1a2742;
+  color: #60a5fa;
+  border-color: #2d4d85;
+}
+
+/* highlighted in-preview variable substitution */
+.kaio-var-preview {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+  padding: 0 0.1875rem;
+  border-radius: 0.1875rem;
+  border-bottom: 1px dashed rgba(251, 191, 36, 0.45);
+}
+
+/* ─── Block: order indicator + overlap state + expand toggle ─── */
+.kaio-block {
+  position: relative;
+}
+.kaio-subblock {
+  position: relative;
+}
+
+.kaio-block-order {
+  margin-left: auto;
+  font-size: 0.5625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.18);
+  color: #60a5fa;
+  white-space: nowrap;
+}
+/* When the order badge is present, the role label that follows should not
+   try to grab the right edge for itself — order already pushed the pair right. */
+.kaio-block-order + .kaio-block-role {
+  margin-left: 0.375rem;
+}
+
+.kaio-block-order[data-overlap="true"] {
+  background: rgba(248, 113, 113, 0.22);
+  color: #fca5a5;
+  font-weight: 700;
+}
+
+/* Rough per-block token estimate — a quiet grey pill beside the block name. */
+.kaio-block-tokens {
+  font-size: 0.5625rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  cursor: help;
+}
+
+.kaio-block[data-overlap="true"],
+.kaio-subblock[data-overlap="true"] {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px #ef4444;
+  background: rgba(239, 68, 68, 0.06);
+}
+.kaio-block[data-overlap="true"]:hover,
+.kaio-subblock[data-overlap="true"]:hover {
+  border-color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+}
+.kaio-block[data-overlap="true"][data-selected="true"],
+.kaio-subblock[data-overlap="true"][data-selected="true"] {
+  box-shadow: 0 0 0 2px #ef4444;
+}
+
+/* Expanded body removes the line clamp */
+.kaio-block-content[data-expanded="true"] {
+  max-height: none;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: vertical;
+  display: block;
+  overflow: visible;
+}
+
+.kaio-expand-toggle {
+  position: absolute;
+  bottom: 0.375rem;
+  right: 0.5rem;
+  padding: 0.125rem 0.4375rem;
+  font-size: 0.5625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--card, #0f0f15);
+  color: var(--muted-foreground);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  opacity: 0.75;
+}
+.kaio-expand-toggle:hover {
+  opacity: 1;
+  color: var(--primary, #a78bfa);
+  border-color: var(--primary, #a78bfa);
+}
+/* Reserve space for the expand/compress toggle only when there is one. */
+.kaio-block-content[data-has-toggle="true"] {
+  padding-bottom: 1.25rem;
+}
+
+/* ─── Validation errors (XML / macro problems) ─── */
+.kaio-block[data-validate-error="true"],
+.kaio-subblock[data-validate-error="true"] {
+  border-color: #fb923c;
+  box-shadow: 0 0 0 1px #fb923c;
+  background: rgba(251, 146, 60, 0.06);
+}
+.kaio-block[data-validate-error="true"]:hover,
+.kaio-subblock[data-validate-error="true"]:hover {
+  border-color: #fdba74;
+  background: rgba(251, 146, 60, 0.1);
+}
+.kaio-block[data-validate-error="true"][data-selected="true"],
+.kaio-subblock[data-validate-error="true"][data-selected="true"] {
+  box-shadow: 0 0 0 2px #fb923c;
+}
+.kaio-block-validate {
+  margin-top: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.375rem;
+  background: rgba(251, 146, 60, 0.1);
+  border: 1px solid rgba(251, 146, 60, 0.4);
+  font-size: 0.625rem;
+  color: #fdba74;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1875rem;
+}
+.kaio-block-validate-line code {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0 0.25rem;
+  border-radius: 0.1875rem;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: #fed7aa;
+}
+
+/* ─── Collapsible containers ────────────────── */
+.kaio-collapsible {
+  margin-bottom: 0.625rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--border, #27272a);
+}
+.kaio-collapsible-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  width: 100%;
+  padding: 0.375rem 0.125rem 0.5rem;
+  margin-bottom: 0.375rem;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border, #27272a);
+  color: var(--primary, #a78bfa);
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.kaio-collapsible-header:hover {
+  color: var(--foreground);
+}
+.kaio-collapsible-caret {
+  display: inline-block;
+  transition: transform 0.15s;
+  font-size: 0.6875rem;
+}
+.kaio-collapsible[data-collapsed="true"] .kaio-collapsible-caret {
+  transform: rotate(-90deg);
+}
+.kaio-collapsible-title {
+  flex: 1;
+}
+.kaio-collapsible-count {
+  background: rgba(167, 139, 250, 0.15);
+  color: var(--primary, #a78bfa);
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  font-size: 0.5625rem;
+  font-weight: 700;
+}
+.kaio-collapsible-body {
+  padding: 0;
+}
+.kaio-collapsible[data-collapsed="true"] .kaio-collapsible-body {
+  display: none;
+}
+.kaio-collapsible[data-collapsed="true"] {
+  padding-bottom: 0;
+  border-bottom: 0;
+  margin-bottom: 0.5rem;
+}
+
+/* ─── Preset editor panel ──────────────────── */
+.kaio-preset-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.kaio-preset-stats {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.kaio-preset-stat {
+  flex: 1;
+  text-align: center;
+  padding: 0.625rem;
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.5rem;
+  background: var(--card, #0f0f15);
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+.kaio-preset-stat strong {
+  display: block;
+  font-size: 1.125rem;
+  color: var(--foreground);
+  margin-bottom: 0.125rem;
+}
+.kaio-wrap-btn[data-active="true"] {
+  border-color: var(--primary, #a78bfa);
+  background: rgba(167, 139, 250, 0.15);
+  color: var(--primary, #a78bfa);
+}
+.kaio-wrap-icon {
+  font-size: 0.625rem;
+  font-weight: 700;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* ─── Group badge (simulated prompt + section list) ─── */
+.kaio-group-badge {
+  font-size: 0.5625rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.18);
+  color: #34d399;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+/* In block heads, push the group badge to the far right (same position as order) */
+.kaio-block-head .kaio-group-badge {
+  margin-left: auto;
+}
+/* When order or role follows the group badge, they no longer need their own auto margin */
+.kaio-block-head .kaio-group-badge ~ .kaio-block-order {
+  margin-left: 0.375rem;
+}
+.kaio-block-head .kaio-group-badge ~ .kaio-block-role {
+  margin-left: 0.375rem;
+}
+
+/* ─── Folder badge (lorebook entries nested in a folder) ─── */
+.kaio-folder-badge {
+  font-size: 0.5625rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.kaio-block-head .kaio-folder-badge {
+  margin-left: auto;
+}
+.kaio-block-head .kaio-group-badge ~ .kaio-folder-badge {
+  margin-left: 0.375rem;
+}
+.kaio-block-head .kaio-folder-badge ~ .kaio-block-order {
+  margin-left: 0.375rem;
+}
+.kaio-block-head .kaio-folder-badge ~ .kaio-block-role {
+  margin-left: 0.375rem;
+}
+
+/* ─── Disabled badge (disabled lorebook entries) ─── */
+.kaio-disabled-badge {
+  font-size: 0.5625rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: rgba(161, 161, 170, 0.18);
+  color: #a1a1aa;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+/* Disabled badge sits left of the role — push right if it's the first badge */
+.kaio-block-head .kaio-disabled-badge {
+  margin-left: auto;
+}
+.kaio-block-head .kaio-group-badge ~ .kaio-disabled-badge,
+.kaio-block-head .kaio-folder-badge ~ .kaio-disabled-badge,
+.kaio-block-head .kaio-block-order ~ .kaio-disabled-badge {
+  margin-left: 0.375rem;
+}
+/* When role follows disabled, collapse the role's auto margin */
+.kaio-block-head .kaio-disabled-badge ~ .kaio-block-role {
+  margin-left: 0.375rem;
+}
+
+/* ─── Disabled entries: grayed out appearance ─── */
+.kaio-block[data-disabled="true"],
+.kaio-subblock[data-disabled="true"] {
+  opacity: 0.5;
+  border-style: dashed;
+}
+.kaio-block[data-disabled="true"]:hover,
+.kaio-subblock[data-disabled="true"]:hover {
+  opacity: 0.65;
+}
+
+/* ─── Preset section list (in Sections collapsible) ─── */
+.kaio-preset-section-list {
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  background: var(--card, #0f0f15);
+  margin-top: 0.375rem;
+}
+.kaio-preset-section-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--border, #27272a);
+  font-size: 0.6875rem;
+  cursor: grab;
+  transition: background 0.15s;
+  user-select: none;
+}
+.kaio-preset-section-row:last-child {
+  border-bottom: 0;
+}
+.kaio-preset-section-row:hover {
+  background: var(--accent, #25252e);
+}
+.kaio-preset-section-row[data-dragging="true"] {
+  opacity: 0.4;
+}
+.kaio-preset-section-row[data-dragover="true"] {
+  border-top: 2px solid var(--primary, #a78bfa);
+}
+.kaio-drag-handle {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  cursor: grab;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.kaio-preset-section-row:hover .kaio-drag-handle {
+  opacity: 1;
+}
+.kaio-preset-section-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--foreground);
+  font-weight: 500;
+}
+.kaio-preset-section-role {
+  font-size: 0.5625rem;
+  color: var(--muted-foreground);
+  font-style: italic;
+  flex-shrink: 0;
+}
+.kaio-preset-section-delete {
+  background: transparent;
+  border: 0;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0.0625rem 0.25rem;
+  border-radius: 0.25rem;
+  flex-shrink: 0;
+  transition: color 0.15s;
+  line-height: 1;
+  opacity: 0.5;
+}
+.kaio-preset-section-delete:hover {
+  color: #f87171;
+  opacity: 1;
+}
+
+/* ─── Preset group rows (in Sections collapsible) ─── */
+.kaio-preset-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.375rem;
+}
+.kaio-preset-group-row {
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  background: var(--card, #0f0f15);
+  overflow: hidden;
+}
+.kaio-preset-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.6875rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.kaio-preset-group-header:hover {
+  background: var(--accent, #25252e);
+}
+.kaio-group-caret {
+  font-size: 0.625rem;
+  flex-shrink: 0;
+}
+.kaio-group-name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.1875rem 0.375rem;
+  font-size: 0.6875rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  color: var(--foreground);
+  font-weight: 600;
+  font-family: inherit;
+}
+.kaio-group-name-input:focus {
+  background: var(--secondary, #1c1c25);
+  border-color: var(--primary, #a78bfa);
+  outline: none;
+}
+.kaio-group-batch-body {
+  padding: 0.5rem;
+  border-top: 1px solid var(--border, #27272a);
+}
+
+/* ─── Preset variable rows (in Variables collapsible) ─── */
+.kaio-preset-var-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.kaio-preset-var-row {
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  background: var(--card, #0f0f15);
+  overflow: hidden;
+}
+.kaio-preset-var-header {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4375rem 0.5rem;
+  font-size: 0.6875rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.kaio-preset-var-header:hover {
+  background: var(--accent, #25252e);
+}
+.kaio-preset-var-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fbbf24;
+  flex-shrink: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.kaio-preset-var-name {
+  font-weight: 600;
+  color: var(--foreground);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kaio-preset-var-macro {
+  font-size: 0.5625rem;
+  color: var(--muted-foreground);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  flex-shrink: 0;
+}
+.kaio-preset-var-body {
+  padding: 0.625rem 0.75rem 0.75rem;
+  border-top: 1px solid var(--border, #27272a);
+}
+.kaio-preset-var-body .kaio-field {
+  margin-bottom: 0.375rem;
+}
+.kaio-preset-var-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.kaio-preset-var-opt-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 0.25rem;
+  align-items: center;
+}
+.kaio-preset-var-opt-row .kaio-input {
+  padding: 0.3125rem 0.5rem;
+  font-size: 0.6875rem;
+}
+.kaio-preset-var-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border, #27272a);
+}
+
+/* ─── Drag-and-drop in simulated prompt ────── */
+.kaio-block[data-dragging="true"] {
+  opacity: 0.35;
+}
+.kaio-block[data-dragover="true"] {
+  border-top: 2px solid var(--primary, #a78bfa);
+  margin-top: -1px;
+}
+.kaio-block[draggable="true"] {
+  cursor: grab;
+}
+.kaio-block[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* ─── Mobile tab bar (hidden on desktop) ───── */
+.kaio-mobile-tabs {
+  display: none;
+}
+
+/* ─── Responsive: phones & small tablets ───── */
+@container kaio (max-width: 900px) {
+  .kaio-tab-btn {
+    display: none;
+  }
+  .kaio-shell {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    border: 0;
+  }
+
+  .kaio-mobile-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border, #27272a);
+    background: var(--card, #0f0f15);
+    flex: 0 0 auto;
+  }
+  .kaio-mobile-tab {
+    flex: 1;
+    padding: 0.5rem 0.25rem;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
+  }
+  .kaio-mobile-tab:hover {
+    color: var(--foreground);
+  }
+  .kaio-mobile-tab[data-active="true"] {
+    color: var(--primary, #a78bfa);
+    border-bottom-color: var(--primary, #a78bfa);
+  }
+
+  .kaio-shell {
+    grid-template-rows: auto auto 1fr;
+  }
+
+  .kaio-body {
+    grid-template-columns: 1fr;
+  }
+
+  .kaio-col {
+    display: none;
+  }
+  .kaio-body[data-active-tab="left"] .kaio-col[data-col="left"],
+  .kaio-body[data-active-tab="middle"] .kaio-col[data-col="middle"],
+  .kaio-body[data-active-tab="right"] .kaio-col[data-col="right"] {
+    display: flex;
+  }
+
+  .kaio-col-left {
+    border-right: 0;
+  }
+  .kaio-col-right {
+    border-left: 0;
+  }
+
+  .kaio-subtitle {
+    display: none;
+  }
+
+  /* Drop the button labels to emoji-only and tighten the gap, so five controls
+     plus the ✕ always fit. The labels survive as the buttons' title tooltips. */
+  .kaio-btn-text {
+    display: none;
+  }
+  .kaio-titlebar {
+    gap: 0.375rem;
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+  }
+
+  /* Block head: allow wrapping so tag + name don't fight order/role */
+  .kaio-block-head {
+    flex-wrap: wrap;
+    gap: 0.3125rem;
+  }
+  .kaio-block-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 0;
+  }
+  .kaio-block-role {
+    display: none;
+  }
+  .kaio-block-order {
+    margin-left: auto;
+  }
+  .kaio-block-head .kaio-group-badge {
+    margin-left: auto;
+  }
+  .kaio-block-head .kaio-folder-badge {
+    margin-left: auto;
+  }
+}
+
+/* ─── Prompt Inspector modal ─────────────────── */
+.kaio-pi-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8;
+  padding: 1.5rem;
+}
+.kaio-pi-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(920px, 100%);
+  height: min(86%, 100%);
+  background: var(--card, #0f0f15);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.75rem;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+.kaio-pi-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border, #27272a);
+  background: var(--card, #0f0f15);
+}
+.kaio-pi-head .kaio-spacer {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.kaio-pi-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.kaio-pi-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.kaio-pi-badge {
+  font-size: 0.625rem;
+  color: var(--muted-foreground);
+  padding: 0.125rem 0.4375rem;
+  border: 1px solid var(--border, #27272a);
+  border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42%;
+}
+.kaio-pi-badge[data-mode="live"] {
+  color: var(--primary, #a78bfa);
+  border-color: var(--primary, #a78bfa);
+}
+.kaio-pi-head .kaio-btn[data-active="true"] {
+  background: var(--primary, #a78bfa);
+  color: var(--primary-foreground, #0f0f15);
+  border-color: transparent;
+}
+.kaio-pi-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.kaio-pi-empty {
+  margin: auto;
+  max-width: 26rem;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.kaio-pi-error-title {
+  color: #f87171;
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+.kaio-pi-error-msg {
+  margin: 0 0 0.625rem;
+  padding: 0.5rem 0.625rem;
+  text-align: left;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--foreground);
+  background: var(--background, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.kaio-pi-error-hint {
+  text-align: left;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.kaio-pi-note {
+  flex-shrink: 0;
+  margin-bottom: 0.25rem;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 0.375rem;
+}
+
+/* ─── Settings dialog ─────────────────────────── */
+.kaio-settings {
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  background: var(--card, #0f0f15);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.625rem;
+  width: min(440px, 92%);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.kaio-settings-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border, #27272a);
+}
+.kaio-settings-head .kaio-spacer {
+  flex: 1;
+}
+.kaio-settings-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.kaio-settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.kaio-set-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.kaio-set-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.kaio-set-input {
+  width: 7rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--foreground);
+  background: var(--background, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+}
+.kaio-set-input:focus {
+  outline: none;
+  border-color: var(--primary, #a78bfa);
+}
+.kaio-set-select {
+  width: auto;
+  min-width: 9.5rem;
+  cursor: pointer;
+}
+.kaio-set-checkrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.kaio-set-checkrow input {
+  accent-color: var(--primary, #a78bfa);
+}
+.kaio-set-checkrow .kaio-set-label {
+  font-weight: 500;
+}
+.kaio-set-colorrow {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.kaio-set-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.kaio-set-color input[type="color"] {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+}
+.kaio-set-divider {
+  height: 1px;
+  background: var(--border, #27272a);
+  margin: 0.25rem 0;
+}
+.kaio-set-group-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary, #a78bfa);
+}
+.kaio-set-hint {
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+.kaio-pi-msg {
+  flex-shrink: 0; /* don't let short blocks squish — the body scrolls instead */
+  border: 1px solid var(--border, #27272a);
+  border-left-width: var(--pi-border-width, 3px);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: var(--background, rgba(0, 0, 0, 0.2));
+}
+.kaio-pi-msg[data-role="system"] {
+  border-left-color: var(--pi-system, #22d3ee);
+}
+.kaio-pi-msg[data-role="user"] {
+  border-left-color: var(--pi-user, #facc15);
+}
+.kaio-pi-msg[data-role="assistant"] {
+  border-left-color: var(--pi-assistant, #e879f9);
+}
+.kaio-pi-msg[data-depth="true"] {
+  border-left-style: dashed;
+}
+.kaio-pi-msg[data-placeholder="true"] {
+  border-style: dashed;
+  opacity: 0.85;
+}
+.kaio-pi-msg-role {
+  display: none; /* hidden by default — the coloured left border conveys role */
+  font-size: 0.5625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+  padding: 0.3125rem 0.625rem;
+  border-bottom: 1px solid var(--border, #27272a);
+  background: var(--card, #0f0f15);
+}
+.kaio-pi-modal[data-role-labels="true"] .kaio-pi-msg-role {
+  display: block;
+}
+.kaio-pi-pre {
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--foreground);
+}
+.kaio-pi-msg[data-placeholder="true"] .kaio-pi-pre {
+  color: var(--muted-foreground);
+}
+/* JSON view: line-breaks toggle is irrelevant (content is escaped); hide it. */
+.kaio-pi-modal[data-view="json"] [data-pi="breaks"] {
+  display: none;
+}
+.kaio-pi-json-bracket {
+  flex-shrink: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  padding: 0 0.25rem;
+}
+
+@container kaio (max-width: 900px) {
+  .kaio-pi-bg {
+    padding: 0;
+  }
+  .kaio-pi-modal {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+  /* Row 1: title fills the line and the ✕ pins to the far right.
+     Row 2: the action buttons (Line breaks / Copy / Copy JSON) wrap together.
+     Row 3: the badge spans the full width. */
+  .kaio-pi-head .kaio-spacer {
+    display: none;
+  }
+  .kaio-pi-title {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .kaio-pi-head [data-pi="close"] {
+    order: 2;
+  }
+  .kaio-pi-actions {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .kaio-pi-badge {
+    order: 4;
+    max-width: 100%;
+    flex-basis: 100%;
+  }
+
+  /* Settings: full-screen window on mobile, matching the Inspector. Scoped to
+     .kaio-settings-bg so the plain confirm dialogs (.kaio-confirm-bg only)
+     stay small centered popups. */
+  .kaio-settings-bg {
+    padding: 0;
+    z-index: 8;
+  }
+  .kaio-settings-bg .kaio-settings {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+  }
+}
+
+/* ─── Group chat (multi-character sources + settings + preview) ─── */
+.kaio-char-row .kaio-folder-edit-btn {
+  font-size: 0.75rem;
+}
+.kaio-primary-badge {
+  flex: 0 0 auto;
+}
+
+/* Notes: the "defer to live chat" hint, and the group settings summary. */
+.kaio-group-note {
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+  background: var(--secondary, #1c1c25);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  margin-top: 0.5rem;
+}
+.kaio-group-note strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.kaio-group-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.kaio-group-settings-link {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--primary, #a78bfa);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.6875rem;
+  padding: 0;
+  white-space: nowrap;
+}
+.kaio-group-settings-link:hover {
+  text-decoration: underline;
+}
+
+/* The group banner block above the character cards. */
+.kaio-group-info .kaio-group-note {
+  margin-top: 0.375rem;
+}
+.kaio-group-focus {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+.kaio-group-focus > span {
+  flex: 0 0 auto;
+}
+.kaio-group-focus .kaio-select {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Mode badge on the banner: reuse the green group badge for Merged, amber for
+   Individual (matching the folder-badge accent). */
+.kaio-group-badge[data-mode="individual"] {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+}
+
+/* Segmented pill controls (pillField): fill the active pill like the matching-
+   mode / wrap-format pills, which pillField's base .kaio-match-btn class alone
+   would leave with only a text-color change. */
+.kaio-match-btn.kaio-pill-btn[data-active="true"] {
+  border-color: var(--primary, #a78bfa);
+  background: rgba(167, 139, 250, 0.15);
+  color: var(--primary, #a78bfa);
+}
+
+/* Colour-code the new block tags so they don't render as plain gray next to the
+   colour-coded Character / Persona / Section tags. */
+.kaio-block-tag[data-kind="group-info"] {
+  background: rgba(45, 212, 191, 0.2);
+  color: #2dd4bf;
+}
+.kaio-block-tag[data-kind="group-scenario"] {
+  background: rgba(251, 146, 60, 0.2);
+  color: #fb923c;
+}
+
+/* ─── Character editor: auto-growing textareas, sliders, array rows ─── */
+.kaio-textarea.kaio-autogrow {
+  resize: none;
+  overflow-y: hidden; /* JS sets height + toggles overflow at the 5-line cap */
+  min-height: 2.5rem;
+}
+/* Override .kaio-expand-toggle's absolute positioning (meant for the simulated-
+   prompt block, which is position:relative) so the toggle sits in normal flow
+   under its textarea instead of anchoring to the console shell corner. */
+.kaio-autogrow-toggle {
+  position: static;
+  display: inline-block;
+  margin-top: 0.25rem;
+}
+
+/* Talkativeness slider + readout */
+.kaio-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.kaio-slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--primary, #a78bfa);
+  cursor: pointer;
+}
+.kaio-slider-val {
+  flex: 0 0 auto;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+  min-width: 2.25rem;
+  text-align: right;
+}
+
+/* Compact rows for alternate greetings / RPG attributes / pools */
+.kaio-array-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+}
+.kaio-array-row .kaio-textarea {
+  flex: 1;
+  min-width: 0;
+}
+.kaio-array-row .kaio-input {
+  min-width: 0;
+}
+.kaio-array-row .kaio-input[type="text"] {
+  flex: 1;
+}
+.kaio-array-row .kaio-input[type="number"] {
+  flex: 0 0 4.5rem;
+}
+.kaio-array-row .kaio-folder-edit-btn {
+  align-self: center;
+  font-size: 0.8125rem;
+}
+/* RPG pool: a two-line card (name+remove, then current/max/color) so the name
+   field stays readable in the narrow editor rather than collapsing to one glyph. */
+.kaio-pool-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  background: var(--secondary, #1c1c25);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.5rem;
+}
+.kaio-pool-line {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.kaio-pool-line .kaio-input {
+  flex: 1;
+  min-width: 0;
+}
+.kaio-pool-line .kaio-pool-name {
+  flex: 1;
+}
+
+/* Linked-lorebook rows in the character editor's Lorebook section */
+.kaio-linked-lb {
+  align-items: center;
+  background: var(--secondary, #1c1c25);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.5rem;
+}
+.kaio-linked-lb-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kaio-linked-lb .kaio-embedded-badge {
+  flex: 0 0 auto;
+  background: rgba(45, 212, 191, 0.18);
+  color: #2dd4bf;
+}
+.kaio-embed-btn {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  color: var(--muted-foreground);
+  font-family: inherit;
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kaio-embed-btn:hover {
+  color: var(--primary, #a78bfa);
+  border-color: var(--primary, #a78bfa);
+}
+
+/* Color fields (Colors section): swatch preview + overlaid native picker + text */
+.kaio-color-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.kaio-color-row .kaio-input {
+  flex: 1;
+  min-width: 0;
+}
+.kaio-color-swatch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 1.875rem;
+  height: 1.875rem;
+  border: 1px solid var(--border, #27272a);
+  border-radius: 0.375rem;
+  overflow: hidden;
+  cursor: pointer;
+}
+/* Checkerboard when no color is set */
+.kaio-color-swatch[data-empty="true"] {
+  background-image:
+    linear-gradient(45deg, var(--border, #3a3a44) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--border, #3a3a44) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--border, #3a3a44) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--border, #3a3a44) 75%);
+  background-size: 10px 10px;
+  background-position:
+    0 0,
+    0 5px,
+    5px -5px,
+    -5px 0;
+}
+.kaio-color-picker {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Read-only informational note (embedded-lorebook summary, RPG pool hint, etc.) */
+.kaio-readonly-note {
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+  background: var(--secondary, #1c1c25);
+  border: 1px dashed var(--border, #27272a);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ══════════════════════════════════════════════
+ * In the new layout: a page, not a window
+ * The console fills its tab like any other page: no backdrop, no frame, the
+ * app's own lines and hovers, column labels like the Library viewers'.
+ * ══════════════════════════════════════════════ */
+.ov-prompt-viewer {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  container: kaio / inline-size;
+}
+.ov-prompt-viewer .kaio-overlay {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  background: none;
+  backdrop-filter: none;
+  color: var(--ov-text, var(--foreground));
+}
+.ov-prompt-viewer .kaio-shell {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.ov-prompt-viewer .kaio-ico {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  flex-shrink: 0;
+  vertical-align: -0.15em;
+}
+.ov-prompt-viewer .kaio-titlebar {
+  gap: 0.25rem;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.75rem 0.375rem 1rem;
+  border-bottom: 1px solid var(--ov-line, var(--border));
+  background: none;
+}
+.ov-prompt-viewer .kaio-title-icon {
+  display: inline-flex;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.ov-prompt-viewer .kaio-title {
+  margin-left: 0.25rem;
+  font-family: var(--ov-serif, inherit);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.ov-prompt-viewer .kaio-subtitle {
+  margin-left: 0.5rem;
+  overflow: hidden;
+  color: var(--ov-muted, var(--muted-foreground));
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-prompt-viewer .kaio-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
+  color: var(--ov-text, var(--foreground));
+  font-size: 0.8125rem;
+}
+@media (hover: hover) {
+  .ov-prompt-viewer .kaio-iconbtn:hover {
+    background: var(--ov-hover, var(--accent));
+    color: var(--ov-accent-text, var(--primary));
+  }
+}
+.ov-prompt-viewer .kaio-body {
+  grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr) minmax(19rem, 23rem);
+}
+.ov-prompt-viewer .kaio-col-left {
+  border-right-color: var(--ov-line, var(--border));
+}
+.ov-prompt-viewer .kaio-col-right {
+  border-left-color: var(--ov-line, var(--border));
+}
+.ov-prompt-viewer .kaio-col-header {
+  padding: 0.875rem 1rem 0.5rem;
+  border-bottom: 0;
+  background: none;
+}
+.ov-prompt-viewer .kaio-col-header h3 {
+  color: var(--ov-accent-text, var(--primary));
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+}
+.ov-prompt-viewer .kaio-col-header p {
+  color: var(--ov-dim, var(--muted-foreground));
+  font-size: 0.75rem;
+  opacity: 1;
+}
+.ov-prompt-viewer .kaio-right-footer {
+  border-top-color: var(--ov-line, var(--border));
+  background: none;
+}
+
+/* Inspect, Summaries and Settings: views inside the page, under its title bar, with Back. */
+.ov-prompt-viewer .kaio-pi-bg,
+.ov-prompt-viewer .kaio-settings-bg {
+  position: absolute;
+  inset: var(--kaio-titlebar-h, 2.75rem) 0 0 0;
+  z-index: 8;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+  background: var(--ov-page-bg, var(--background));
+}
+.ov-prompt-viewer .kaio-pi-modal,
+.ov-prompt-viewer .kaio-settings-bg .kaio-settings {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.ov-prompt-viewer .kaio-pi-head,
+.ov-prompt-viewer .kaio-settings-head {
+  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+  border-bottom: 1px solid var(--ov-line, var(--border));
+  background: none;
+}
+.ov-prompt-viewer .kaio-back {
+  order: -1;
+}
+.ov-prompt-viewer .kaio-pi-head [data-pi="close"] {
+  order: -1;
+}
+.ov-prompt-viewer .kaio-settings-body {
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+}
+.ov-prompt-viewer .kaio-pi-body {
+  padding: 0.75rem 1rem 2rem;
+}
+.ov-prompt-viewer .kaio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.ov-prompt-viewer .kaio-source-icon,
+.ov-prompt-viewer .kaio-middle-search-icon {
+  display: inline-flex;
+  color: var(--ov-muted, var(--muted-foreground));
+}
+.ov-prompt-viewer .kaio-middle-empty .emoji {
+  display: inline-flex;
+  color: var(--ov-accent-text, var(--primary));
+}
+.ov-prompt-viewer .kaio-middle-empty .emoji .kaio-ico {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* Narrow pages (phones, tablets held upright, split view): one column at a time. */
+@container kaio (max-width: 900px) {
+  .ov-prompt-viewer .kaio-body {
+    grid-template-columns: 1fr;
+  }
+  .ov-prompt-viewer .kaio-titlebar {
+    padding-left: 0.75rem;
+  }
+  .ov-prompt-viewer .kaio-title {
+    flex: 1 1 auto;
+  }
+  .ov-prompt-viewer .kaio-spacer {
+    display: none;
+  }
+  .ov-prompt-viewer .kaio-pi-head [data-pi="close"] {
+    order: 0;
+  }
+}
+
+/* ── Fields, labels and buttons like the Library editors' ── */
+.ov-prompt-viewer .kaio-field-label,
+.ov-prompt-viewer .kaio-set-label {
+  color: var(--ov-muted, var(--muted-foreground));
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ov-prompt-viewer .kaio-source-label {
+  color: var(--ov-text, var(--foreground));
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ov-prompt-viewer .kaio-input,
+.ov-prompt-viewer .kaio-select,
+.ov-prompt-viewer .kaio-textarea,
+.ov-prompt-viewer .kaio-set-input,
+.ov-prompt-viewer .kaio-combo-field,
+.ov-prompt-viewer .kaio-middle-search,
+.ov-prompt-viewer .kaio-entry-search {
+  border: 1px solid var(--ov-line, var(--border));
+  border-radius: 0.375rem;
+  /* The Lorebook editor's fields. */
+  background: color-mix(in srgb, var(--background) 70%, transparent);
+  color: var(--ov-text, var(--foreground));
+  font-size: 0.8125rem;
+}
+.ov-prompt-viewer .kaio-input,
+.ov-prompt-viewer .kaio-select,
+.ov-prompt-viewer .kaio-set-input {
+  min-height: 1.875rem;
+  padding: 0.25rem 0.5rem;
+}
+.ov-prompt-viewer .kaio-textarea {
+  padding: 0.5rem 0.625rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.ov-prompt-viewer .kaio-combo-input,
+.ov-prompt-viewer .kaio-middle-search-input,
+.ov-prompt-viewer .kaio-entry-search-input {
+  padding-top: 0.3125rem;
+  padding-bottom: 0.3125rem;
+  font-size: 0.8125rem;
+}
+.ov-prompt-viewer .kaio-input:focus,
+.ov-prompt-viewer .kaio-select:focus,
+.ov-prompt-viewer .kaio-textarea:focus,
+.ov-prompt-viewer .kaio-set-input:focus,
+.ov-prompt-viewer .kaio-combo-field:focus-within {
+  border-color: var(--ov-accent, var(--primary));
+  box-shadow: none;
+}
+.ov-prompt-viewer .kaio-combo-list {
+  border-color: var(--ov-line, var(--border));
+  background: var(--ov-solid-popover, var(--popover));
+}
+.ov-prompt-viewer .kaio-btn,
+.ov-prompt-viewer .kaio-col-header-btn {
+  min-height: 1.875rem;
+  border: 1px solid var(--ov-line, var(--border));
+  border-radius: 999px;
+  background: none;
+  color: var(--ov-text, var(--foreground));
+  font-size: 0.8125rem;
+}
+@media (hover: hover) {
+  .ov-prompt-viewer .kaio-btn:hover,
+  .ov-prompt-viewer .kaio-col-header-btn:hover {
+    background: var(--ov-hover, var(--accent));
+  }
+}
+.ov-prompt-viewer .kaio-btn-primary {
+  border-color: transparent;
+  background: var(--ov-accent, var(--primary));
+  color: var(--primary-foreground);
+}
+.ov-prompt-viewer .kaio-btn-ghost {
+  border-color: transparent;
+}
+.ov-prompt-viewer .kaio-collapsible-header {
+  border-bottom-color: var(--ov-line, var(--border));
+  color: var(--ov-accent-text, var(--primary));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* ── Lists: flat rows, a hairline between, the open one marked on its left (no boxed cards) ── */
+.ov-prompt-viewer .kaio-entrylist {
+  border: 0;
+  border-top: 1px solid var(--ov-line, var(--border));
+  border-bottom: 1px solid var(--ov-line, var(--border));
+  border-radius: 0;
+  background: none;
+}
+.ov-prompt-viewer .kaio-entry-item {
+  border-bottom-color: var(--ov-line, var(--border));
+  font-size: 0.8125rem;
+}
+@media (hover: hover) {
+  .ov-prompt-viewer .kaio-entry-item:hover {
+    background: var(--ov-hover, var(--accent));
+  }
+}
+.ov-prompt-viewer .kaio-block {
+  margin: 0;
+  padding: 0.625rem 0.75rem 0.625rem 0.875rem;
+  border: 0;
+  border-bottom: 1px solid var(--ov-line, var(--border));
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+}
+@media (hover: hover) {
+  .ov-prompt-viewer .kaio-block:hover {
+    background: var(--ov-hover, var(--accent));
+  }
+}
+.ov-prompt-viewer .kaio-block[data-selected="true"],
+.ov-prompt-viewer .kaio-subblock[data-selected="true"] {
+  border-left-color: var(--ov-accent, var(--primary));
+  background: color-mix(in srgb, var(--ov-text, var(--foreground)) 7%, transparent);
+  box-shadow: none;
+}
+.ov-prompt-viewer .kaio-block[data-readonly="true"] {
+  border-style: solid;
+  border-left-color: transparent;
+}
+@media (hover: hover) {
+  .ov-prompt-viewer .kaio-block[data-readonly="true"]:hover {
+    border-color: var(--ov-line, var(--border));
+    border-left-color: transparent;
+    background: none;
+  }
+}
+.ov-prompt-viewer .kaio-block[data-overlap="true"],
+.ov-prompt-viewer .kaio-subblock[data-overlap="true"] {
+  border-left-color: #ef4444;
+  box-shadow: none;
+  background: rgba(239, 68, 68, 0.08);
+}
+.ov-prompt-viewer .kaio-subblock {
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+}
+@media (hover: hover) {
+  .ov-prompt-viewer .kaio-subblock:hover {
+    background: var(--ov-hover, var(--accent));
+  }
+}
+.ov-prompt-viewer .kaio-block-name {
+  font-size: 0.875rem;
+}
+.ov-prompt-viewer .kaio-block-content {
+  color: var(--ov-muted, var(--muted-foreground));
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.ov-prompt-viewer .kaio-block-role {
+  font-size: 0.75rem;
+}
+/* What a block is (section, lorebook entry, character...) keeps its colour as text on a plain outlined tag. */
+.ov-prompt-viewer .kaio-block-tag {
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  background: none;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.ov-prompt-viewer .kaio-block-tag[data-kind] {
+  background: none;
+}
+.ov-prompt-viewer .kaio-block-tag[data-kind="section"] {
+  color: color-mix(in srgb, #a78bfa 75%, var(--ov-text, var(--foreground)));
+}
+.ov-prompt-viewer .kaio-block-tag[data-kind="lorebook-entry"] {
+  color: color-mix(in srgb, #f59e0b 75%, var(--ov-text, var(--foreground)));
+}
+.ov-prompt-viewer .kaio-block-tag[data-kind="character"] {
+  color: color-mix(in srgb, #ec4899 75%, var(--ov-text, var(--foreground)));
+}
+.ov-prompt-viewer .kaio-block-tag[data-kind="persona"] {
+  color: color-mix(in srgb, #10b981 75%, var(--ov-text, var(--foreground)));
+}
+.ov-prompt-viewer .kaio-block-tag[data-kind="chat-history"] {
+  color: color-mix(in srgb, #3b82f6 75%, var(--ov-text, var(--foreground)));
+}
+.ov-prompt-viewer .kaio-block-tag[data-kind="marker"] {
+  color: var(--ov-muted, var(--muted-foreground));
+}
+.ov-prompt-viewer .kaio-textarea {
+  font-family: inherit;
+}
+.ov-prompt-viewer .kaio-entry-position {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Narrow pages: the Sources / Prompt / Editor switch is the app's own (like Chats | Library); the bar above
+   already names the page, so its title steps aside for the buttons. */
+@container kaio (max-width: 900px) {
+  .ov-prompt-viewer .kaio-mobile-tabs.ov-sideswitch {
+    margin: 0.5rem 0.5rem 0.25rem;
+    border: 1px solid var(--ov-line);
+    background: none;
+  }
+  .ov-prompt-viewer .kaio-mobile-tab.ov-sideswitch__btn {
+    padding: 0;
+    border: 0;
+    border-radius: 0.4375rem;
+    color: var(--ov-muted);
+    font-size: 0.8125rem;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .ov-prompt-viewer .kaio-mobile-tab.ov-sideswitch__btn.is-on {
+    border: 0;
+    background: var(--ov-active-bg);
+    color: var(--ov-accent-text);
+  }
+  .ov-prompt-viewer .kaio-title-icon,
+  .ov-prompt-viewer .kaio-title {
+    display: none;
+  }
+  .ov-prompt-viewer .kaio-titlebar {
+    justify-content: flex-end;
+    min-height: 2.75rem;
+  }
+  .ov-prompt-viewer .kaio-titlebar .kaio-btn-text {
+    display: inline;
+  }
+  .ov-prompt-viewer .kaio-col-header h3 {
+    display: none;
+  }
+  .ov-prompt-viewer .kaio-col-header p {
+    margin-top: 0;
+  }
+}
+@container kaio (max-width: 480px) {
+  .ov-prompt-viewer .kaio-titlebar {
+    justify-content: space-between;
+    padding-right: 0.5rem;
+    padding-left: 0.5rem;
+  }
+  .ov-prompt-viewer .kaio-iconbtn {
+    padding-right: 0.5rem;
+    padding-left: 0.5rem;
+  }
+}
+@media (pointer: coarse) {
+  .ov-prompt-viewer .kaio-iconbtn,
+  .ov-prompt-viewer .kaio-btn {
+    min-height: 2.5rem;
+  }
+}
+
+/* "+ Folder" / "+ Entry": text buttons like the Lorebook editor's "+ New entry". */
+.ov-prompt-viewer .kaio-create-btn {
+  flex: none;
+  padding: 0.25rem 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--ov-accent-text, var(--primary));
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+@media (hover: hover) {
+  .ov-prompt-viewer .kaio-create-btn:hover {
+    background: none;
+    text-decoration: underline;
+  }
+}

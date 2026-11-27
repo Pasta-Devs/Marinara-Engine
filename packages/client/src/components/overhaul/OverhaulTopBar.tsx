@@ -84,6 +84,8 @@ import { ChatModeIcon } from "../chat/ChatModeIcon";
 import { goBackPlace, goForwardPlace, usePlaceHistory } from "./place-history";
 import { isApplePlatform } from "../../lib/command-center";
 import { useNavigationKeys } from "./use-navigation-keys";
+import { requestPromptViewerTabClose } from "./prompt-viewer/close-guard";
+import { PancakeIcon } from "../../lib/pancake-icon";
 // Its own chunk, so the app shell stays under the bundle budget.
 const DesktopTabStrip = lazy(() => import("./DesktopTabStrip").then((module) => ({ default: module.DesktopTabStrip })));
 
@@ -98,6 +100,7 @@ const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library" | "app">, Lu
   docs: CircleHelp,
   mari: GraduationCap,
   schedules: CalendarDays,
+  "prompt-viewer": PancakeIcon,
 };
 
 const MODE_DOT: Record<string, string> = {
@@ -124,12 +127,14 @@ type CurrentTabInputs = {
   activeDocsTab: string | null;
   activeMari: boolean;
   activeSchedules: boolean;
+  activePromptViewer: boolean;
   activeApp: string | null;
 };
 
 function currentTabFrom(v: CurrentTabInputs): OverhaulTab | null {
   const real = (id: string | null | undefined) => (id && id !== "__new__" ? id : null);
   if (v.activeSchedules) return { kind: "schedules", id: "main" };
+  if (v.activePromptViewer) return { kind: "prompt-viewer", id: "main" };
   if (v.activeMari) return { kind: "mari", id: "main" };
   if (v.activeDocsTab) return { kind: "docs", id: v.activeDocsTab };
   // Regex scripts, Connections and Agents open in one viewer per section, so they share its Library tab.
@@ -174,6 +179,7 @@ export function currentTabNow(): OverhaulTab | null {
     activeDocsTab: overhaul.activeDocsTab,
     activeMari: overhaul.activeMari,
     activeSchedules: overhaul.activeSchedules,
+    activePromptViewer: overhaul.activePromptViewer,
     activeApp: overhaul.activeApp,
   });
 }
@@ -197,6 +203,7 @@ export function useCurrentTab(): OverhaulTab | null {
   const activeDocsTab = useOverhaulStore((s) => s.activeDocsTab);
   const activeMari = useOverhaulStore((s) => s.activeMari);
   const activeSchedules = useOverhaulStore((s) => s.activeSchedules);
+  const activePromptViewer = useOverhaulStore((s) => s.activePromptViewer);
   const activeApp = useOverhaulStore((s) => s.activeApp);
   return useMemo(
     () =>
@@ -218,6 +225,7 @@ export function useCurrentTab(): OverhaulTab | null {
         activeDocsTab,
         activeMari,
         activeSchedules,
+        activePromptViewer,
         activeApp,
       }),
     [
@@ -226,6 +234,7 @@ export function useCurrentTab(): OverhaulTab | null {
       activeDocsTab,
       activeMari,
       activeSchedules,
+      activePromptViewer,
       agentCatalogOpen,
       agentDetailId,
       cardLibraryKind,
@@ -243,6 +252,14 @@ export function useCurrentTab(): OverhaulTab | null {
   );
 }
 
+/** Open the Prompt viewer (kolache's AIO) in its tab: from the top bar, Search, or Chat settings on a phone. */
+export function openPromptViewerTab() {
+  const overhaul = useOverhaulStore.getState();
+  useUIStore.getState().closeAllDetails();
+  if (overhaul.allTabsOpen) overhaul.setAllTabsOpen(false);
+  overhaul.openPromptViewer();
+}
+
 export function goHome() {
   window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
   useOverhaulStore.getState().leaveDocs();
@@ -257,7 +274,13 @@ export function activateTab(tab: OverhaulTab) {
   const overhaul = useOverhaulStore.getState();
   if (tab.kind === "docs") {
     ui.closeAllDetails();
-    useOverhaulStore.setState({ activeDocsTab: tab.id, activeMari: false, libraryPage: null });
+    useOverhaulStore.setState({
+      activeDocsTab: tab.id,
+      activeMari: false,
+      activeSchedules: false,
+      activePromptViewer: false,
+      libraryPage: null,
+    });
     return;
   }
   if (tab.kind === "mari") {
@@ -268,6 +291,11 @@ export function activateTab(tab: OverhaulTab) {
   if (tab.kind === "schedules") {
     ui.closeAllDetails();
     overhaul.openSchedules();
+    return;
+  }
+  if (tab.kind === "prompt-viewer") {
+    ui.closeAllDetails();
+    overhaul.openPromptViewer();
     return;
   }
   if (tab.kind === "app") {
@@ -541,6 +569,7 @@ export function useTabLabelText(tab: OverhaulTab, chats: Chat[]): string {
   else if (tab.kind === "regex") label = localize("Regex script");
   else if (tab.kind === "mari") label = localize("Professor Mari");
   else if (tab.kind === "schedules") label = localize("Character schedules");
+  else if (tab.kind === "prompt-viewer") label = localize("Prompt viewer");
   else if (tab.kind === "app") label = homeApps.apps.find((app) => app.id === tab.id)?.label ?? tab.id;
   else if (tab.kind === "docs") {
     const title = docsTitle(docsPath);
@@ -759,6 +788,8 @@ export function closeTabAndMove(tab: OverhaulTab, tabs: OverhaulTab[], currentKe
     if (next) activateTab(next);
     else goHome();
   };
+  // The Prompt viewer keeps unsaved edits while you switch tabs; closing its tab asks first.
+  if (tab.kind === "prompt-viewer" && requestPromptViewerTabClose(close)) return;
   const editorKey = editorLeaveKeyForTab(tab);
   const offer = useEditorDraftOfferStore.getState().offer;
   if (editorKey && key === currentKey && offer?.key === editorKey && offer.state === "found") {
@@ -1029,6 +1060,17 @@ export function OverhaulTopBar() {
           aria-label={localize("Search or open anything")}
         >
           <Search size={15} />
+        </button>
+        <button
+          type="button"
+          className={cn("ov-icon-btn", current?.kind === "prompt-viewer" && "is-on")}
+          aria-pressed={current?.kind === "prompt-viewer"}
+          onClick={() => openPromptViewerTab()}
+          data-tour="prompt-viewer-button"
+          title={localize("Prompt viewer")}
+          aria-label={localize("Prompt viewer")}
+        >
+          <PancakeIcon size={15} />
         </button>
         <div className="ov-topbar__right">
           <MariTopbarStatus state={mariEdgeGlow} />

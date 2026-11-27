@@ -43,7 +43,8 @@ export type ProfessorMariNavigationTarget =
         | "lorebook-library"
         | "agent-catalog"
         | "game-assets"
-        | "schedules";
+        | "schedules"
+        | "prompt-viewer";
     }
   | {
       kind: "window";

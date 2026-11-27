@@ -27,6 +27,7 @@ export type OverhaulTabKind =
   | "docs"
   | "mari"
   | "schedules"
+  | "prompt-viewer"
   | "app";
 
 /** `group` is the tab group (Vivaldi-style stack) the tab belongs to, if any. */
@@ -155,6 +156,9 @@ interface OverhaulState {
   /** The character the schedules page should show next (set by openSchedules, read once by the page). */
   schedulesCharacterId: string | null;
   setSchedulesCharacterId: (id: string | null) => void;
+  /** The Prompt viewer (kolache's AIO) is the page on screen (its tab). */
+  activePromptViewer: boolean;
+  openPromptViewer: () => void;
   setLibraryPage: (section: LibrarySection | null) => void;
   /** Docs tabs: tab id -> open guide path (null = guide index). */
   docsTabs: Record<string, string | null>;
@@ -376,6 +380,7 @@ export const useOverhaulStore = create<OverhaulState>()(
         set({
           activeMari: true,
           activeSchedules: false,
+          activePromptViewer: false,
           activeDocsTab: null,
           libraryPage: null,
           activeApp: null,
@@ -387,6 +392,7 @@ export const useOverhaulStore = create<OverhaulState>()(
           activeApp,
           activeMari: false,
           activeSchedules: false,
+          activePromptViewer: false,
           activeDocsTab: null,
           libraryPage: null,
           libraryHubReturn: false,
@@ -395,6 +401,7 @@ export const useOverhaulStore = create<OverhaulState>()(
       openSchedules: (characterId) =>
         set({
           activeSchedules: true,
+          activePromptViewer: false,
           schedulesCharacterId: characterId ?? null,
           activeMari: false,
           activeDocsTab: null,
@@ -404,10 +411,28 @@ export const useOverhaulStore = create<OverhaulState>()(
         }),
       schedulesCharacterId: null,
       setSchedulesCharacterId: (schedulesCharacterId) => set({ schedulesCharacterId }),
+      activePromptViewer: false,
+      openPromptViewer: () =>
+        set({
+          activePromptViewer: true,
+          activeSchedules: false,
+          activeMari: false,
+          activeDocsTab: null,
+          libraryPage: null,
+          activeApp: null,
+          libraryHubReturn: false,
+        }),
       setLibraryPage: (libraryPage) =>
         set(
           libraryPage
-            ? { libraryPage, activeDocsTab: null, activeMari: false, activeSchedules: false, activeApp: null }
+            ? {
+                libraryPage,
+                activeDocsTab: null,
+                activeMari: false,
+                activeSchedules: false,
+                activePromptViewer: false,
+                activeApp: null,
+              }
             : { libraryPage },
         ),
       docsTabs: {},
@@ -420,13 +445,21 @@ export const useOverhaulStore = create<OverhaulState>()(
             activeDocsTab: tabId,
             activeMari: false,
             activeSchedules: false,
+            activePromptViewer: false,
             activeApp: null,
             libraryPage: null,
             libraryHubReturn: false,
           };
         }),
       setDocsPath: (tabId, path) => set((state) => ({ docsTabs: { ...state.docsTabs, [tabId]: path } })),
-      leaveDocs: () => set({ activeDocsTab: null, activeMari: false, activeSchedules: false, activeApp: null }),
+      leaveDocs: () =>
+        set({
+          activeDocsTab: null,
+          activeMari: false,
+          activeSchedules: false,
+          activePromptViewer: false,
+          activeApp: null,
+        }),
       chatSettingsLayouts: {},
       setChatSettingsLayout: (mode, layout) =>
         set((state) => {

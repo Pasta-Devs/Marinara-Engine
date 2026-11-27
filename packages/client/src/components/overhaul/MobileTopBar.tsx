@@ -10,6 +10,7 @@ import { toggleChatSettings as toggleChatSettingsWindow } from "../../lib/chat-s
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, Check, ChevronLeft, Home, Layers, Plus, Search, Settings2, X } from "lucide-react";
+import { PancakeIcon } from "../../lib/pancake-icon";
 import type { Chat } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -29,6 +30,7 @@ import {
   activateTab,
   closeTabAndMove,
   goHome,
+  openPromptViewerTab,
   useCurrentTab,
   useTabBookkeeping,
   usePublishTopBarHeight,
@@ -109,9 +111,11 @@ function TabCard({
                     ? "Professor Mari"
                     : tab.kind === "schedules"
                       ? "Schedules"
-                      : tab.kind === "app"
-                        ? "App"
-                        : "Library",
+                      : tab.kind === "prompt-viewer"
+                        ? "Prompt viewer"
+                        : tab.kind === "app"
+                          ? "App"
+                          : "Library",
       )
     : localize("Home");
   return (
@@ -235,6 +239,20 @@ function AllTabsViewer({ chats, current }: { chats: Chat[]; current: OverhaulTab
           }}
         >
           <Plus size={24} />
+        </button>
+        {/* Beside "new tab", like the desktop's Prompt viewer button beside Search. */}
+        <button
+          type="button"
+          className={cn("ovm-round", currentKey === "prompt-viewer:main" && "is-on")}
+          aria-label={localize("Prompt viewer")}
+          title={localize("Prompt viewer")}
+          onClick={() => {
+            setOpen(false);
+            closeMobilePanels();
+            openPromptViewerTab();
+          }}
+        >
+          <PancakeIcon size={22} />
         </button>
         <label className="ovm-alltabs__search">
           <Search size={18} aria-hidden="true" />

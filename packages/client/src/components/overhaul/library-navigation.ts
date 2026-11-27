@@ -79,7 +79,14 @@ export function libraryPageShowing(section: LibrarySection, next: PageLeaveState
   const ui = (next.ui ?? useUIStore.getState()) as Record<string, unknown>;
   const overhaul = (next.overhaul ?? useOverhaulStore.getState()) as Record<string, unknown>;
   if (overhaul.libraryPage !== section) return false;
-  if (overhaul.activeSchedules || overhaul.activeMari || overhaul.activeDocsTab || overhaul.activeApp) return false;
+  if (
+    overhaul.activeSchedules ||
+    overhaul.activePromptViewer ||
+    overhaul.activeMari ||
+    overhaul.activeDocsTab ||
+    overhaul.activeApp
+  )
+    return false;
   if (ui.characterLibraryOpen || ui.agentCatalogOpen) return false;
   return !Object.keys(CLOSED_EDITORS).some((field) => ui[field]);
 }

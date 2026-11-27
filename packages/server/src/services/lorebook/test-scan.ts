@@ -7,6 +7,7 @@
 // that a gate held back are reported separately with the reason.
 // ──────────────────────────────────────────────
 import {
+  compareLorebookEntriesByPromptOrder,
   LIMITS,
   collectEffectivelyDisabledFolderIds,
   testPrimaryKeys,
@@ -120,26 +121,29 @@ export function runLorebookTestScan(input: LorebookTestScanInput): LorebookTestS
     (item) => !item.entry.preventRecursion && !item.activationSources.includes("recursive"),
   );
 
-  const activatedResult = activated.map((item): LorebookTestActivatedEntry => {
-    const triggeredBy = item.activationSources.includes("recursive")
-      ? activated
-          .filter(
-            (source) =>
-              source.entry.id !== item.entry.id &&
-              !source.entry.preventRecursion &&
-              testPrimaryKeys(item.entry.keys, source.entry.content, matchOptions(item.entry)).matched,
-          )
-          .map((source) => source.entry.id)
-      : [];
-    return {
-      entryId: item.entry.id,
-      name: item.entry.name,
-      matchedKeys: item.matchedKeys,
-      activationSources: item.activationSources,
-      triggeredBy,
-      probability: normalizedProbability(item.entry),
-    };
-  });
+  // Listed in prompt order (Before, After, depth, Outlets; Order inside each), like the entry list.
+  const activatedResult = [...activated]
+    .sort((a, b) => compareLorebookEntriesByPromptOrder(a.entry, b.entry))
+    .map((item): LorebookTestActivatedEntry => {
+      const triggeredBy = item.activationSources.includes("recursive")
+        ? activated
+            .filter(
+              (source) =>
+                source.entry.id !== item.entry.id &&
+                !source.entry.preventRecursion &&
+                testPrimaryKeys(item.entry.keys, source.entry.content, matchOptions(item.entry)).matched,
+            )
+            .map((source) => source.entry.id)
+        : [];
+      return {
+        entryId: item.entry.id,
+        name: item.entry.name,
+        matchedKeys: item.matchedKeys,
+        activationSources: item.activationSources,
+        triggeredBy,
+        probability: normalizedProbability(item.entry),
+      };
+    });
 
   // Keys that matched but did not activate: report the first gate that held the entry back.
   // Each entry is checked against the window the scanner gave it: its own scan
@@ -158,6 +162,7 @@ export function runLorebookTestScan(input: LorebookTestScanInput): LorebookTestS
   const recursionText = recursive ? recursionSources.map((item) => item.entry.content).join("\n") : "";
   const groupsWon = new Set(activated.map((item) => item.entry.group).filter(Boolean));
   const blocked: LorebookTestBlockedEntry[] = [];
+  const blockedEntryById = new Map<string, LorebookEntry>();
   for (const rawEntry of input.entries) {
     const entry = defaultedById.get(rawEntry.id) ?? rawEntry;
     if (activatedIds.has(entry.id) || !entry.enabled || entry.constant) continue;
@@ -195,7 +200,14 @@ export function runLorebookTestScan(input: LorebookTestScanInput): LorebookTestS
     else if (entry.group && groupsWon.has(entry.group)) reason = "group";
     else reason = "conditions";
     blocked.push({ entryId: entry.id, name: entry.name, matchedKeys, reason });
+    blockedEntryById.set(entry.id, entry);
   }
+  // Blocked matches follow prompt order too, like the activated list.
+  blocked.sort((a, b) => {
+    const left = blockedEntryById.get(a.entryId);
+    const right = blockedEntryById.get(b.entryId);
+    return left && right ? compareLorebookEntriesByPromptOrder(left, right) : 0;
+  });
 
   return {
     activated: activatedResult,

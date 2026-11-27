@@ -4,8 +4,15 @@
 // layout breakage: content cut off with nothing to scroll, popups out of the window, giant pictures, rows that are
 // mostly empty space, buttons covered by something else, a page that scrolls sideways.
 // ──────────────────────────────────────────────
-//   pnpm ui:check                      fresh test server + data, every size, every starter theme on the core screens
-//   pnpm ui:check --quick              no themes (about a third of the time)
+//   pnpm ui:check                      only what the change could affect: the screens, sizes and themes that run
+//                                      the changed code or have what a changed CSS rule styles (affected.mjs). It
+//                                      prints what it chose and why. Goes broad by itself for shared files.
+//   pnpm ui:check:full  (--full)       everything: every screen, every size, every starter theme on the core
+//                                      screens, Vivaldi, WebKit; also rebuilds the screen map (screen-map.json)
+//   --base <branch>                    compare with this branch (default: the nearest one this branch grew from)
+//   --dry-run                          only print what it would check, and why
+//   --update-map                       rebuild the screen map only (every screen and size, Chromium, no themes)
+//   pnpm ui:check --quick              no themes, no Vivaldi/WebKit
 //   pnpm ui:check --url http://127.0.0.1:7860   check an Engine that is already running (no test data is added
 //                                      unless --seed; screens that need data it lacks are skipped)
 //   --sizes desktop,phone   --screens home,characters   --themes dewglass,quiet-iris|none|all   --out dir
@@ -16,7 +23,7 @@
 //
 // Writes <out>/report.html (every finding with a marked screenshot), findings.json and, with --webkit, the tap
 // timings. Exit code 1 when anything is found. Known, intended exceptions go in scripts/ui-check/allow.json.
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -24,6 +31,8 @@ import { fileURLToPath } from "node:url";
 import { chromium, devices } from "@playwright/test";
 import { detectLayoutProblems } from "./detectors.mjs";
 import { screenList, seedFixtures } from "./screens.mjs";
+import { DESKTOP_FAMILY, chooseChecks, themeTouches } from "./affected.mjs";
+import { collectDomTokens, collectDomTokensArg, readScreenMap, startCoverage, writeScreenMap } from "./screen-map.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const args = process.argv.slice(2);
@@ -46,7 +55,12 @@ export const SIZES = {
 const out = resolve(option("out", join(repoRoot, ".tmp/ui-check")));
 const sizes = option("sizes", Object.keys(SIZES).join(",")).split(",");
 const onlyScreens = option("screens", "").split(",").filter(Boolean);
-const themeArg = flag("quick") ? "none" : option("themes", "all");
+const updateMapOnly = flag("update-map");
+const themeArg = flag("quick") || updateMapOnly ? "none" : option("themes", "all");
+const MAP_FILE = join(repoRoot, "scripts/ui-check/screen-map.json");
+/** --screens / --sizes pick by hand; --full / --update-map run everything; otherwise only what the diff affects. */
+const pickedByHand = onlyScreens.length > 0 || option("sizes", "") !== "";
+const wantsEverything = flag("full") || updateMapOnly;
 const themeSizes = option("theme-sizes", "desktop,phone").split(",");
 const concurrency = Number(option("jobs", "3"));
 const allow = JSON.parse(readFileSync(join(repoRoot, "scripts/ui-check/allow.json"), "utf8"));
@@ -291,9 +305,16 @@ async function check(page, label) {
   return findings.map((f) => ({ ...f, at: label }));
 }
 
-async function runScreen(browser, base, sizeName, screen, theme, results) {
+async function runScreen(browser, base, sizeName, screen, theme, results, mapResults = null) {
   const context = await newContext(browser, sizeName);
   const page = await context.newPage();
+  // Building the screen map: which code ran and which elements showed, on this screen at this size.
+  const coverage = mapResults ? await startCoverage(context, page, repoRoot) : null;
+  const tokens = new Set();
+  const noteTokens = async () => {
+    if (!coverage) return;
+    for (const t of await page.evaluate(collectDomTokens, collectDomTokensArg).catch(() => [])) tokens.add(t);
+  };
   // Keep this page off UI settings saved on the server (a finished tutorial, an accent from another run).
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   const errors = [];
@@ -337,6 +358,7 @@ async function runScreen(browser, base, sizeName, screen, theme, results) {
       if (typeof skip === "string") entry.skipped = skip;
       await settle(page);
     }
+    await noteTokens();
     if (entry.skipped) throw Object.assign(new Error("skipped"), { skipped: true });
     const steps = [{ label: "page", findings: await check(page, "page") }];
     if (screen.walkTabs !== false) {
@@ -351,6 +373,7 @@ async function runScreen(browser, base, sizeName, screen, theme, results) {
         if (!(await tab.isVisible())) continue;
         await tab.click({ timeout: 3000 }).catch(() => undefined);
         await settle(page);
+        await noteTokens();
         steps.push({ label: `tab "${name}"`, findings: await check(page, `tab "${name}"`) });
       }
     }
@@ -368,6 +391,10 @@ async function runScreen(browser, base, sizeName, screen, theme, results) {
   } catch (error) {
     if (!error.skipped) entry.failed = String(error.message ?? error).split("\n")[0];
   } finally {
+    if (coverage) {
+      const files = await coverage.stop().catch(() => new Set());
+      mapResults.push({ screen: screen.id, size: sizeName, files, tokens });
+    }
     await context.close();
   }
   results.push(entry);
@@ -388,6 +415,12 @@ async function pool(jobs, size) {
       while (next < jobs.length) await jobs[next++]();
     }),
   );
+}
+
+function planHtml(plan, esc) {
+  if (!plan) return "";
+  const rows = (plan.notes ?? []).map((n) => `<li><code>${esc(n.path)}</code> ${esc(n.what)}</li>`).join("");
+  return `<section><h2>What was checked and why</h2><p>${esc(plan.summary)}</p>${rows ? `<ul>${rows}</ul>` : ""}</section>`;
 }
 
 function writeReport(results, extra) {
@@ -412,17 +445,75 @@ ${r.shots.map((s) => `<img loading="lazy" src="${esc(s.slice(out.length + 1))}">
 <style>body{font:14px system-ui;margin:24px;max-width:1200px}section{border-top:1px solid #ccc;padding:12px 0}img{max-width:100%;border:1px solid #ccc}code{font-size:12px}.fail{color:#c00}</style>
 <h1>UI check: ${total} problem(s) on ${withProblems.length} of ${results.length} screens</h1>
 <p>${esc(new Date().toISOString())} · sizes ${esc(sizes.join(", "))} · themes ${esc(extra.themes.join(", ") || "default")}${extra.vivaldi ? ` · Vivaldi ${esc(extra.vivaldi)}` : ""}</p>
-${timings}${rows || "<p>Nothing found.</p>"}`,
+${planHtml(extra.plan, esc)}${timings}${rows || "<p>Nothing found.</p>"}`,
   );
   return { total, withProblems: withProblems.length };
 }
 
 /** What has been checked so far, written out even when the run dies half way. */
-const partial = { results: [], themes: [] };
+const partial = { results: [], themes: [], plan: null };
+
+const TOUCH_SIZES = new Set(["phone", "tablet-portrait", "tablet-landscape"]);
+
+/** Decides what this run checks. Returns { everything, jobs: Map(screen → Set(size)) | null, plan, why }. */
+function decide(allScreens) {
+  if (wantsEverything)
+    return { everything: true, plan: { summary: flag("full") ? "--full: everything" : "--update-map", notes: [] } };
+  if (pickedByHand)
+    return {
+      everything: false,
+      byHand: true,
+      plan: { summary: "screens/sizes picked by hand (--screens/--sizes)", notes: [] },
+    };
+  const choice = chooseChecks({
+    repoRoot,
+    map: readScreenMap(MAP_FILE),
+    sizes: SIZES,
+    screens: allScreens,
+    base: option("base", ""),
+  });
+  if (choice.full)
+    return {
+      everything: true,
+      plan: {
+        summary: `Everything, because ${choice.why}.${choice.base ? ` Compared with ${choice.base}.` : ""}`,
+        notes: choice.notes,
+      },
+    };
+  const pairs = [...choice.jobs.values()].reduce((n, set) => n + set.size, 0);
+  return {
+    everything: false,
+    jobs: choice.jobs,
+    themes: choice.themes,
+    plan: {
+      summary: `Only what the change can affect: ${choice.jobs.size} of ${allScreens.length} screens (${pairs} screen-size pairs). Compared with ${choice.base}; ${choice.changed.length} changed file(s).`,
+      notes: choice.notes,
+    },
+  };
+}
+
+function printPlan(plan, decision) {
+  log(plan.summary);
+  for (const note of plan.notes ?? []) log(`  ${note.path}: ${note.what}`);
+  if (decision.jobs?.size) {
+    for (const [screen, set] of [...decision.jobs].sort(([a], [b]) => a.localeCompare(b)))
+      log(`  check ${screen}: ${[...set].join(", ")}`);
+  }
+}
 
 async function main() {
   mkdirSync(out, { recursive: true });
   rmSync(join(out, "shots"), { recursive: true, force: true });
+  // What to check is decided from the diff before anything starts (screen ids don't depend on the test data).
+  const decision = decide(screenList({}));
+  partial.plan = decision.plan;
+  printPlan(decision.plan, decision);
+  if (flag("dry-run")) return;
+  if (!decision.everything && !decision.byHand && !decision.jobs.size) {
+    log("Nothing the change touches is on a checked screen: nothing to check.");
+    writeReport([], { themes: [], tapTimings: null, plan: decision.plan });
+    return;
+  }
   const external = option("url", "");
   const server = external ? { url: external.replace(/\/$/, ""), stop: () => {} } : await startServer();
   try {
@@ -437,45 +528,121 @@ async function main() {
         (!onlyScreens.length || onlyScreens.includes(screen.id)) &&
         !(screen.run?.[2] === "needs-data" && screen.run[1] === undefined),
     );
+    /** Sizes to check this screen at. */
+    const sizesFor = (screen) =>
+      decision.jobs ? sizes.filter((size) => decision.jobs.get(screen.id)?.has(size)) : sizes;
+    // Every screen at every size with seeded data: the run that keeps the screen map up to date.
+    const recordMap = decision.everything && !pickedByHand && !external && sizes.length === Object.keys(SIZES).length;
+    const mapResults = recordMap ? [] : null;
     const browser = await chromium.launch({ args: ["--disable-audio-output", "--mute-audio"] });
     const results = partial.results;
-    // 1. Every screen, every size, the app's own look.
+    // 1. The chosen screens at the chosen sizes, the app's own look.
     await pool(
       sizes.flatMap((size) =>
-        screens.map((screen) => () => runScreen(browser, server.url, size, screen, null, results)),
+        screens
+          .filter((screen) => sizesFor(screen).includes(size))
+          .map((screen) => () => runScreen(browser, server.url, size, screen, null, results, mapResults)),
       ),
       concurrency,
     );
-    // 2. Every starter theme on the core screens (themes restyle the same pages; desktop + phone catch most).
+    if (mapResults) {
+      let commit = null;
+      try {
+        commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).trim();
+      } catch {
+        /* not a git checkout */
+      }
+      writeScreenMap(MAP_FILE, mapResults, { commit, sizes: Object.keys(SIZES) });
+      log(`screen map updated: ${MAP_FILE} (${mapResults.length} screen-size pairs)`);
+    }
+    // 2. Starter themes on the core screens (themes restyle the same pages; desktop + phone catch most). Only the
+    //    themes whose CSS styles something the change touched, unless shared styles or the theme engine changed.
+    const coreScreens = screens.filter((s) => s.group === "core");
+    /** Theme pass sizes for a screen: desktop when any computer-shell size was chosen, phone for the phone shell. */
+    const themeSizesFor = (screen) => {
+      if (!decision.jobs) return themeSizes;
+      const chosen = decision.jobs.get(screen.id) ?? new Set();
+      return themeSizes.filter((size) =>
+        DESKTOP_FAMILY.has(size)
+          ? [...chosen].some((c) => DESKTOP_FAMILY.has(c))
+          : [...chosen].some((c) => !DESKTOP_FAMILY.has(c)),
+      );
+    };
+    const themeJobs = coreScreens.flatMap((screen) =>
+      themeSizesFor(screen)
+        .filter((size) => SIZES[size])
+        .map((size) => [screen, size]),
+    );
     let themes = [];
-    if (themeArg !== "none") {
+    if (themeArg !== "none" && !themeJobs.length) log("themes: no core screen affected, so no theme pass");
+    if (themeArg !== "none" && themeJobs.length) {
       const gallery = (await api.get("/api/themes/gallery")).themes.map((t) => t.id);
-      themes = themeArg === "all" ? gallery : themeArg.split(",").filter((id) => gallery.includes(id));
-      partial.themes = themes;
+      const candidates = themeArg === "all" ? gallery : themeArg.split(",").filter((id) => gallery.includes(id));
+      const choosy = decision.themes && !decision.themes.all && themeArg === "all";
       const previous = await api.get("/api/themes/active").catch(() => null);
-      for (const theme of themes) {
-        const installed = await api.post(`/api/themes/gallery/${encodeURIComponent(theme)}`);
-        await api.put("/api/themes/active", { id: installed.id });
+      const skippedThemes = [];
+      const installed = [];
+      for (const theme of candidates)
+        installed.push({ theme, row: await api.post(`/api/themes/gallery/${encodeURIComponent(theme)}`) });
+      let chosen = installed;
+      let canary = null;
+      if (choosy) {
+        chosen = installed.filter(({ row }) => themeTouches(row.css, decision.themes.words));
+        // Nothing on the changed lines is styled by a theme: still run one theme that styles the changed files,
+        // so a theme pass always happens on an affected core screen.
+        if (!chosen.length) {
+          canary =
+            installed.find(({ row }) => themeTouches(row.css, decision.themes.canaryWords)) ?? installed[0] ?? null;
+          chosen = canary ? [canary] : [];
+        }
+        for (const { theme } of installed) if (!chosen.some((c) => c.theme === theme)) skippedThemes.push(theme);
+      }
+      for (const { theme, row } of chosen) {
+        themes.push(theme);
+        partial.themes = themes;
+        await api.put("/api/themes/active", { id: row.id });
         await pool(
-          themeSizes
-            .filter((size) => SIZES[size])
-            .flatMap((size) =>
-              screens
-                .filter((s) => s.group === "core")
-                .map((screen) => () => runScreen(browser, server.url, size, screen, theme, results)),
-            ),
+          themeJobs.map(
+            ([screen, size]) =>
+              () =>
+                runScreen(browser, server.url, size, screen, theme, results),
+          ),
           concurrency,
         );
       }
       await api.put("/api/themes/active", { id: previous?.id ?? null }).catch(() => undefined);
+      if (choosy) {
+        const line = `themes: ${themes.length ? themes.join(", ") : "none"} (${canary ? "no theme styles the changed lines; one canary theme" : "they style what changed"})${skippedThemes.length ? `; skipped ${skippedThemes.length} that don't: ${skippedThemes.join(", ")}` : ""}`;
+        log(line);
+        decision.plan.notes.push({ path: "(themes)", what: line.replace(/^themes: /, "") });
+      }
     }
     await browser.close();
     let tapTimings = null;
     let vivaldi = null;
-    // 3. Real Vivaldi (kolache's browser) at 100% and 110% zoom, and 4. real WebKit (Safari) as an iPhone and an iPad.
-    if (flag("vivaldi") || (!flag("quick") && !flag("no-vivaldi"))) {
+    // 3. Real Vivaldi (kolache's browser) at 100% and 110% zoom on the core screens chosen at a computer size, and
+    // 4. real WebKit (Safari) as an iPhone and an iPad, with Show tap timings on, whenever a phone or tablet size is
+    //    checked (the tap timings are taken even when no core screen is in the run).
+    const vivaldiScreens = decision.jobs
+      ? screens.filter((s) =>
+          [...(decision.jobs.get(s.id) ?? [])].some((size) => DESKTOP_FAMILY.has(size) && !SIZES[size].touch),
+        )
+      : screens;
+    const touchChosen = decision.jobs
+      ? [...decision.jobs.values()].some((set) =>
+          [...set].some((size) => TOUCH_SIZES.has(size) && sizes.includes(size)),
+        )
+      : sizes.some((size) => TOUCH_SIZES.has(size));
+    const webkitScreens = decision.jobs
+      ? screens.filter((s) => [...(decision.jobs.get(s.id) ?? [])].some((size) => TOUCH_SIZES.has(size)))
+      : screens;
+    const wantVivaldi = flag("vivaldi") || (!flag("quick") && !updateMapOnly && !flag("no-vivaldi"));
+    const wantWebKit = flag("webkit") || (!flag("quick") && !updateMapOnly && !flag("no-webkit"));
+    if (wantVivaldi && !vivaldiScreens.some((s) => s.group === "core"))
+      log("Vivaldi: no core screen chosen at a computer size, so no Vivaldi pass");
+    if (wantVivaldi && vivaldiScreens.some((s) => s.group === "core")) {
       const { runVivaldi } = await import("./vivaldi.mjs");
-      vivaldi = await runVivaldi(server.url, allow, results, out, screens).catch((error) => {
+      vivaldi = await runVivaldi(server.url, allow, results, out, vivaldiScreens).catch((error) => {
         results.push({
           key: "vivaldi",
           theme: "default",
@@ -489,9 +656,10 @@ async function main() {
         return null;
       });
     }
-    if (flag("webkit") || (!flag("quick") && !flag("no-webkit"))) {
+    if (wantWebKit && !touchChosen) log("WebKit: no phone or tablet size chosen, so no WebKit pass");
+    if (wantWebKit && touchChosen) {
       const { runWebKit } = await import("./webkit.mjs");
-      tapTimings = await runWebKit(server.url, allow, results, out, screens).catch((error) => {
+      tapTimings = await runWebKit(server.url, allow, results, out, webkitScreens).catch((error) => {
         results.push({
           key: "webkit",
           theme: "default",
@@ -506,7 +674,7 @@ async function main() {
       });
     }
     results.sort((a, b) => a.key.localeCompare(b.key));
-    const { total, withProblems } = writeReport(results, { themes, tapTimings, vivaldi });
+    const { total, withProblems } = writeReport(results, { themes, tapTimings, vivaldi, plan: decision.plan });
     log(`${total} problem(s) on ${withProblems} of ${results.length} screens. Report: ${join(out, "report.html")}`);
     process.exitCode = total || results.some((r) => r.failed) ? 1 : 0;
   } finally {
@@ -517,7 +685,8 @@ async function main() {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const die = (error) => {
     console.error(error);
-    if (partial.results.length) writeReport(partial.results, { themes: partial.themes, tapTimings: null });
+    if (partial.results.length)
+      writeReport(partial.results, { themes: partial.themes, tapTimings: null, plan: partial.plan });
     process.exit(2);
   };
   process.on("uncaughtException", die);

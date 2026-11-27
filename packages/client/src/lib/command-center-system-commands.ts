@@ -223,6 +223,16 @@ export function createResourceCommandDefinitions(source: CommandCenterTitleSourc
       action: { kind: "navigate", target: { kind: "surface", surface: "schedules" } },
     }),
     defineCommand({
+      id: "prompt-viewer",
+      title: title.promptViewer,
+      kind: "navigation",
+      icon: "prompt",
+      aliases: ["aio", "kolache's aio", "prompt inspector", "inspect prompt", "assembled prompt", "prompt editor"],
+      keywords: ["see the prompt", "what the model sees", "prompt order", "summaries export"],
+      availability: AVAILABLE,
+      action: { kind: "navigate", target: { kind: "surface", surface: "prompt-viewer" } },
+    }),
+    defineCommand({
       id: "lorebook-library",
       title: title.lorebookLibrary,
       kind: "resource",

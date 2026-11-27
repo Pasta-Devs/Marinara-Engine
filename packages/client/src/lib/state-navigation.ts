@@ -129,7 +129,14 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
     else if (target.surface === "persona-library") ui.openPersonaLibrary();
     else if (target.surface === "lorebook-library") ui.openLorebookLibrary();
     else if (target.surface === "agent-catalog") ui.openAgentCatalog();
-    else if (target.surface === "schedules") {
+    else if (target.surface === "prompt-viewer") {
+      // The Prompt viewer (kolache's AIO) is a page of the new layout.
+      if (isOverhaulLook()) {
+        ui.closeAllDetails();
+        useOverhaulStore.getState().openPromptViewer();
+        if (isOverhaulMobile()) ui.setSidebarOpen(false);
+      }
+    } else if (target.surface === "schedules") {
       // The Schedules page is part of the new layout; the classic layout keeps it in the Chats footer.
       if (isOverhaulLook()) {
         ui.closeAllDetails();

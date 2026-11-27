@@ -246,6 +246,7 @@ export * from "./utils/agent-output.js";
 export * from "./utils/generation-guide.js";
 export * from "./utils/lorebook-keyword-matching.js";
 export * from "./utils/lorebook-lint.js";
+export * from "./utils/lorebook-prompt-order.js";
 export * from "./utils/lorebook-bulk-edit.js";
 export * from "./utils/lorebook-text-format.js";
 export * from "./utils/regex-safety.js";

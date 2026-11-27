@@ -136,6 +136,9 @@ const RightPanel = preloadedLazy(() => import("./RightPanel").then((module) => m
 const OverhaulSchedulesPage = preloadedLazy(() =>
   import("../chat/CharacterScheduleManagerModal").then((module) => module.OverhaulSchedulesPage),
 );
+const OverhaulPromptViewerPage = lazy(() =>
+  import("../overhaul/prompt-viewer/PromptViewerPage").then((module) => ({ default: module.PromptViewerPage })),
+);
 const OverhaulMariPage = preloadedLazy(() => import("../overhaul/MariPage").then((module) => module.OverhaulMariPage));
 const OverhaulDocsPage = preloadedLazy(() => import("../overhaul/DocsPage").then((module) => module.OverhaulDocsPage));
 const OvRegexViewer = preloadedLazy(() => import("../overhaul/LibraryViewers").then((module) => module.OvRegexViewer));
@@ -800,6 +803,7 @@ export function AppShell({
   const overhaulDocsTab = useOverhaulStore((s) => s.activeDocsTab);
   const overhaulMari = useOverhaulStore((s) => s.activeMari);
   const overhaulSchedules = useOverhaulStore((s) => s.activeSchedules);
+  const overhaulPromptViewer = useOverhaulStore((s) => s.activePromptViewer);
   const overhaulActive = overhaulEnabled && !shellOverlayMode;
   const overhaulMobile = overhaulEnabled && shellOverlayMode;
   const homeBrowserFullscreen = useUIStore((s) => s.homeBrowserFullscreen);
@@ -1016,6 +1020,7 @@ export function AppShell({
         !overhaul.activeDocsTab &&
         !overhaul.activeMari &&
         !overhaul.activeSchedules &&
+        !overhaul.activePromptViewer &&
         !overhaul.activeApp &&
         !overhaul.libraryPage &&
         !useChatStore.getState().activeChatId &&
@@ -1529,6 +1534,8 @@ export function AppShell({
   const detailView =
     overhaulPages && overhaulSchedules ? (
       <OverhaulSchedulesPage />
+    ) : overhaulPages && overhaulPromptViewer ? (
+      <OverhaulPromptViewerPage />
     ) : mariPageActive ? null : overhaulPages && overhaulDocsTab ? (
       <OverhaulDocsPage key={overhaulDocsTab} tabId={overhaulDocsTab} />
     ) : ovViewer === "regex" ? (

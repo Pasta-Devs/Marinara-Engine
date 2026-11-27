@@ -3836,6 +3836,36 @@
   color: var(--ov-dim);
   font-size: 0.75rem;
 }
+/* Where the entry lands in the prompt + its Order; only the side-by-side list shows it (the table has columns). */
+.ov-lrow__spot {
+  display: none;
+}
+.ov-lv__left .ov-lrow__spot {
+  display: inline-flex;
+  grid-area: spot;
+  align-items: baseline;
+  gap: 0.3125rem;
+  padding-left: 0.5rem;
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+.ov-lv__left .ov-lrow__spot small {
+  min-width: 1.5rem;
+  color: var(--ov-muted);
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+/* A thin label above the first entry of each prompt spot when a list mixes them (Prompt order sort). */
+.ov-lsec {
+  margin: 0.625rem 0 0.125rem;
+  padding: 0 0.5rem;
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 .ov-lrow__pos {
   flex: 0 0 4.75rem;
   color: var(--ov-muted);
@@ -7142,8 +7172,8 @@ input.ov-edhead__title:focus {
 }
 .ov-lv__left .ov-lrow {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  grid-template-areas: "grip switch name" "grip . keys";
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "grip switch name name" "grip . keys spot";
   row-gap: 0;
   column-gap: 0.375rem;
   padding: 0.25rem 0.5rem;

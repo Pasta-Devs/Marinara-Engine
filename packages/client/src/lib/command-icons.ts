@@ -27,6 +27,7 @@ import {
   ArchiveRestore,
   type LucideIcon,
 } from "lucide-react";
+import { PancakeIcon } from "./pancake-icon";
 import type { ChatMode } from "@marinara-engine/shared";
 import { CHAT_MODE_ICON_COMPONENTS } from "../components/chat/ChatModeIcon";
 import type { CommandIcon, CommandKind } from "./command-center";
@@ -113,6 +114,7 @@ export const COMMAND_ICONS = {
   backups: ArchiveRestore,
   speech: Volume2,
   calendar: CalendarDays,
+  prompt: PancakeIcon,
 } satisfies Record<CommandIcon, LucideIcon>;
 
 export const DEFAULT_COMMAND_ICON_BY_KIND = {
