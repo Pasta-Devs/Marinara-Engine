@@ -664,4 +664,159 @@ assert.match(
   assert.match(summary, /marichangereceipt\.entryCount\{"count":3\}/u, "entries are counted on their own");
 }
 
+// ── Whole text: a long field keeps both sides whole, so the card can show every word that changed ──
+{
+  const longOld = `${"The preset writes its own XML tags and keeps the lore in reach. ".repeat(30)}End.`;
+  const longNew = longOld.replace("keeps the lore in reach", "keeps the lore and cards in reach");
+  const record = buildMariWorkspaceActionResult(
+    "preset.update",
+    applied(
+      [
+        {
+          table: "prompt_presets",
+          id: "p1",
+          action: "update",
+          before: { id: "p1", name: "Sim", description: longOld },
+          after: { id: "p1", name: "Sim", description: longNew },
+        },
+      ],
+      "rev-long",
+    ),
+  );
+  const description = record?.changes?.find((change) => change.field === "description");
+  assert.ok(description?.kind === "text" && description.full, "a long description is kept whole");
+  assert.equal(description.before, longOld);
+  assert.equal(description.after, longNew);
+}
+
+// The whole-text allowance is per record: past it, later fields fall back to excerpts around the change.
+{
+  const page = `${"word ".repeat(1500)}`; // 7500 characters, under the per-side cap
+  const before: Record<string, unknown> = { id: "big2", data: {} };
+  const after: Record<string, unknown> = { id: "big2", data: {} };
+  for (let index = 0; index < 4; index += 1) {
+    (before.data as Record<string, unknown>)[`field_${index}`] = `${page}old`;
+    (after.data as Record<string, unknown>)[`field_${index}`] = `${page}new`;
+  }
+  const record = buildMariWorkspaceActionResult(
+    "character.update",
+    applied([{ table: "characters", id: "big2", action: "update", before, after }], "rev-big2"),
+  );
+  const texts = (record?.changes ?? []).filter((change) => change.kind === "text");
+  assert.equal(texts.length, 4);
+  const whole = texts.filter((change) => change.kind === "text" && change.full).length;
+  assert.ok(whole >= 1 && whole < 4, `the allowance keeps some fields whole, not all (${whole})`);
+  for (const change of texts) {
+    if (change.kind !== "text" || change.full) continue;
+    assert.ok(change.after.endsWith("new"), "an excerpt still shows the change");
+    assert.ok(change.after.length <= MARI_RECEIPT_LIMITS.text + 2);
+  }
+  const bytes = Buffer.byteLength(JSON.stringify(record));
+  assert.ok(bytes < 70000, `whole text stays inside the record's allowance (${bytes} bytes)`);
+}
+
+// An edited preset section keeps its old text, so the card can show what changed inside it.
+{
+  const section = (content: string): Record<string, unknown> => ({
+    id: "s1",
+    presetId: "p2",
+    name: "Word Count",
+    content,
+  });
+  const record = buildMariWorkspaceActionResult(
+    "preset.update",
+    applied(
+      [
+        {
+          table: "prompt_sections",
+          id: "s1",
+          action: "update",
+          before: section("Write about 300 words."),
+          after: section("Write about 500 words."),
+        },
+      ],
+      "rev-section",
+    ),
+  );
+  const list = record?.changes?.find((change) => change.kind === "list");
+  assert.ok(list?.kind === "list" && list.items?.length, "the section edit is a list item");
+  assert.equal(list.items![0]?.before, "Write about 300 words.", "the section's old text is kept");
+  assert.equal(list.items![0]?.text, "Write about 500 words.");
+}
+
+// A replaced section keeps its old text too; a cleared one keeps all of it; an entry edited twice in one
+// run shows the text the run found, not the middle step.
+{
+  const section = (content: string): Record<string, unknown> => ({
+    id: "s1",
+    presetId: "p2",
+    name: "Word Count",
+    content,
+  });
+  const sectionRecord = (action: "update" | "replace", from: string, to: string, review: string) =>
+    buildMariWorkspaceActionResult(
+      "preset.update",
+      applied([{ table: "prompt_sections", id: "s1", action, before: section(from), after: section(to) }], review),
+    );
+  const itemOf = (record: MariWorkspaceActionResult | null | undefined) => {
+    const list = record?.changes?.find((change) => change.kind === "list");
+    assert.ok(list?.kind === "list" && list.items?.length, "the section is a list item");
+    return list.items![0]!;
+  };
+  assert.equal(itemOf(sectionRecord("replace", "Old words.", "New words.", "rev-r")).before, "Old words.");
+  const longOld = "word ".repeat(200).trim();
+  assert.equal(
+    itemOf(sectionRecord("update", longOld, "", "rev-c")).before,
+    longOld,
+    "a cleared section keeps its text",
+  );
+  const first = sectionRecord("update", "Write about 300 words.", "Write about 500 words.", "rev-a");
+  const second = sectionRecord("update", "Write about 500 words.", "Write about 700 words.", "rev-b");
+  const [merged] = mergeMariActionResults([first!, second!]);
+  const item = itemOf(merged);
+  assert.equal(item.before, "Write about 300 words.", "the merged card starts where the run found it");
+  assert.equal(item.text, "Write about 700 words.", "and ends where the run left it");
+}
+
+// A keys-only edit later in the run keeps the text the run found; a merged run keeps the record allowance.
+{
+  const entry = (id: string, content: string, keys: string[]): Record<string, unknown> => ({
+    id,
+    presetId: "p3",
+    name: `Entry ${id}`,
+    content,
+    keys,
+  });
+  const run = (id: string, before: Record<string, unknown>, after: Record<string, unknown>, review: string) =>
+    buildMariWorkspaceActionResult(
+      "preset.update",
+      applied([{ table: "prompt_sections", id, action: "update", before, after }], review),
+    )!;
+  const items = (record: MariWorkspaceActionResult | undefined) => {
+    const list = record?.changes?.find((change) => change.kind === "list");
+    assert.ok(list?.kind === "list" && list.items?.length, "entries are list items");
+    return list.items!;
+  };
+  const textEdit = run("e1", entry("e1", "Original.", ["a"]), entry("e1", "Revised.", ["a"]), "rev-k1");
+  const keysEdit = run("e1", entry("e1", "Revised.", ["a"]), entry("e1", "Revised.", ["a", "b"]), "rev-k2");
+  const [keys] = mergeMariActionResults([textEdit, keysEdit]);
+  assert.equal(items(keys)[0]?.before, "Original.", "a keys-only edit keeps the run's old text");
+  assert.deepEqual(items(keys)[0]?.keys, ["a", "b"]);
+
+  const big = (seed: string) => `${seed} `.repeat(1500);
+  const runs = ["x1", "x2", "x3"].map((id, index) =>
+    run(id, entry(id, big(`old${index}`), []), entry(id, big(`new${index}`), []), `rev-${id}`),
+  );
+  const [merged] = mergeMariActionResults(runs);
+  const whole = items(merged).reduce(
+    (sum, item) => sum + (item.full ? (item.before ?? "").length + (item.text ?? "").length : 0),
+    0,
+  );
+  assert.ok(whole <= MARI_RECEIPT_LIMITS.recordText, `a merged run keeps the allowance (${whole})`);
+  assert.ok(
+    items(merged).some((item) => !item.full && (item.text ?? "").length <= MARI_RECEIPT_LIMITS.entryText + 2),
+    "past the allowance an entry falls back to an excerpt",
+  );
+}
+
 console.log("change-receipt regression passed");

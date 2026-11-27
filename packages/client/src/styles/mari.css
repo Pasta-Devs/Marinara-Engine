@@ -3893,9 +3893,80 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 .mari-receipt__field--folded .mari-receipt__box,
 .mari-receipt__field--folded .mari-receipt__entries {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Clipping happens at the padding edge, so a clamped box's bottom padding showed the top of its next line.
+   A transparent border is outside that edge: the same space, painted with the box's background, never text. */
+.mari-receipt__field--folded .mari-receipt__box {
+  padding-bottom: 0;
+  border-bottom: 0.45rem solid transparent;
+}
+
+/* "Changes / Full text" over a long text change: two small toggles, the pressed one filled. */
+.mari-receipt__views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.mari-receipt__view {
+  min-height: 2rem;
+  border-radius: 999px;
+  padding: 0 0.7rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
+.mari-receipt__view:hover {
+  background: var(--mari-hover);
+  color: var(--foreground);
+}
+
+.mari-receipt__view[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+}
+
+.mari-receipt__view:focus-visible,
+.mari-receipt__gap:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* A folded unchanged stretch: a quiet pill in the text's flow; pressing it shows the words in place. */
+.mari-receipt__gap {
+  display: inline;
+  margin: 0 0.15em;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.mari-receipt__gap:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 12%, transparent);
+  color: var(--foreground);
+}
+
+.mari-receipt__gap:disabled {
+  cursor: inherit;
+}
+
+.mari-receipt__entry-diff {
+  display: grid;
+  min-width: 0;
+  gap: 0.3rem;
+}
+
+.mari-receipt__entry-diff .mari-receipt__box {
+  background: color-mix(in srgb, var(--foreground) 3%, transparent);
 }
 
 .mari-receipt__box {
@@ -4156,6 +4227,8 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 .mari-receipt__entry-text {
   color: color-mix(in srgb, var(--foreground) 88%, transparent);
   line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* Folded: an entry's text is one line; opening the card shows the whole entry list. */
@@ -5726,5 +5799,63 @@ html[data-mari-software-keyboard-open]
   from {
     opacity: 0;
     transform: translateY(1.5rem);
+  }
+}
+
+/* Her Changes page: two groups of rows, each row's Undo and Keep at its end. */
+.mari-changes__group + .mari-changes__group {
+  margin-top: 1rem;
+}
+
+.mari-changes__heading {
+  margin: 0.25rem 0 0.4rem;
+  padding: 0 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mari-changes__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.mari-changes__actions svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-right: 0.25rem;
+}
+
+[dir="rtl"] .mari-changes__actions svg {
+  margin-right: 0;
+  margin-left: 0.25rem;
+}
+
+.mari-changes__show {
+  flex: none;
+}
+
+.mari-changes__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+}
+
+/* A phone row is too narrow for its text and two buttons side by side: the buttons go under the text. */
+@container (width < 26rem) {
+  [data-component="MariChangesPanel"] .mari-row {
+    flex-wrap: wrap;
+  }
+
+  [data-component="MariChangesPanel"] .mari-changes__actions,
+  [data-component="MariChangesPanel"] .mari-changes__show {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
