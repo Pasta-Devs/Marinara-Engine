@@ -19,16 +19,37 @@ export function useCodeBlockCopy(container: HTMLElement | null, rendered: ReactN
       if (button.textContent !== text) button.textContent = text;
       if (button.getAttribute("aria-label") !== name) button.setAttribute("aria-label", name);
     };
+    // The strip that carries Copy reaches through the block's bottom and right padding to the corner
+    // (globals.css), and themes set their own padding, so the strip reads the block's padding as it is.
+    const fitDock = (block: Element) => {
+      const dock = block.querySelector<HTMLElement>(":scope > .docs-copy-dock");
+      if (!dock) return;
+      const style = getComputedStyle(block);
+      // Only a change is written, so a steady block causes no style mutations.
+      if (dock.style.getPropertyValue("--code-copy-pad") !== style.paddingBottom)
+        dock.style.setProperty("--code-copy-pad", style.paddingBottom);
+      if (dock.style.getPropertyValue("--code-copy-pad-right") !== style.paddingRight)
+        dock.style.setProperty("--code-copy-pad-right", style.paddingRight);
+    };
+    // A theme switch changes the padding without a re-render. Padding moves the content box of a block whose
+    // height is capped, and the border box of one that isn't, so both are watched.
+    const onResize: ResizeObserverCallback = (entries) => entries.forEach((entry) => fitDock(entry.target));
+    const resized = new ResizeObserver(onResize);
+    const resizedOuter = new ResizeObserver(onResize);
     container.querySelectorAll<HTMLPreElement>("pre.mari-md-codeblock").forEach((block) => {
       // A re-render runs this again, so a block keeps the button it has. A new button in its place
       // would lose a focus, tap or key press that is still under way.
-      let button = block.querySelector<HTMLButtonElement>(":scope > .docs-copy-button");
+      let button = block.querySelector<HTMLButtonElement>(":scope > .docs-copy-dock > .docs-copy-button");
       if (!button) {
+        // The button rides in a zero-height strip at the end of the block that sticks to the bottom of the
+        // block's visible area (globals.css), so Copy stays in the corner while a tall block scrolls.
+        const dock = document.createElement("div");
+        dock.className = "docs-copy-dock";
         const created = document.createElement("button");
         created.type = "button";
         created.setAttribute("aria-live", "polite");
         created.className =
-          "docs-copy-button absolute bottom-1.5 right-1.5 min-h-8 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 font-sans text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)]";
+          "docs-copy-button min-h-8 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 font-sans text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)]";
         let resetTimer: ReturnType<typeof setTimeout> | undefined;
         created.addEventListener("click", async () => {
           const copied = await copyToClipboard(block.querySelector("code")?.textContent ?? "");
@@ -40,10 +61,18 @@ export function useCodeBlockCopy(container: HTMLElement | null, rendered: ReactN
             label(created);
           }, 1500);
         });
-        block.appendChild(created);
+        dock.appendChild(created);
+        block.appendChild(dock);
         button = created;
       }
       label(button);
+      fitDock(block);
+      resized.observe(block);
+      resizedOuter.observe(block, { box: "border-box" });
     });
+    return () => {
+      resized.disconnect();
+      resizedOuter.disconnect();
+    };
   }, [container, rendered, i18n, t]);
 }
