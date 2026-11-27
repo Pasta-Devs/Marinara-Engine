@@ -286,7 +286,14 @@ export interface MariWorkspaceActionResult {
 }
 
 export type MariChangeExcerpt =
-  | { field: string; kind: "text"; before: string; after: string }
+  | {
+      field: string;
+      kind: "text";
+      before: string;
+      after: string;
+      /** Both sides are the whole text, not a window around the change (older messages lack it). */
+      full?: true;
+    }
   | { field: string; kind: "value"; before: string; after: string }
   | {
       field: string;
@@ -313,6 +320,10 @@ export interface MariChangeListItem {
   name: string;
   keys?: string[];
   text?: string;
+  /** An edited entry's old text, so the card can show what changed in it. */
+  before?: string;
+  /** `text` (and `before`) are the whole text, not clipped. */
+  full?: true;
 }
 
 export type MariWorkspaceToolName =

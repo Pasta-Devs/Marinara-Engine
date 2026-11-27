@@ -664,4 +664,84 @@ assert.match(
   assert.match(summary, /marichangereceipt\.entryCount\{"count":3\}/u, "entries are counted on their own");
 }
 
+// ── Whole text: a long field keeps both sides whole, so the card can show every word that changed ──
+{
+  const longOld = `${"The preset writes its own XML tags and keeps the lore in reach. ".repeat(30)}End.`;
+  const longNew = longOld.replace("keeps the lore in reach", "keeps the lore and cards in reach");
+  const record = buildMariWorkspaceActionResult(
+    "preset.update",
+    applied(
+      [
+        {
+          table: "prompt_presets",
+          id: "p1",
+          action: "update",
+          before: { id: "p1", name: "Sim", description: longOld },
+          after: { id: "p1", name: "Sim", description: longNew },
+        },
+      ],
+      "rev-long",
+    ),
+  );
+  const description = record?.changes?.find((change) => change.field === "description");
+  assert.ok(description?.kind === "text" && description.full, "a long description is kept whole");
+  assert.equal(description.before, longOld);
+  assert.equal(description.after, longNew);
+}
+
+// The whole-text allowance is per record: past it, later fields fall back to excerpts around the change.
+{
+  const page = `${"word ".repeat(1500)}`; // 7500 characters, under the per-side cap
+  const before: Record<string, unknown> = { id: "big2", data: {} };
+  const after: Record<string, unknown> = { id: "big2", data: {} };
+  for (let index = 0; index < 4; index += 1) {
+    (before.data as Record<string, unknown>)[`field_${index}`] = `${page}old`;
+    (after.data as Record<string, unknown>)[`field_${index}`] = `${page}new`;
+  }
+  const record = buildMariWorkspaceActionResult(
+    "character.update",
+    applied([{ table: "characters", id: "big2", action: "update", before, after }], "rev-big2"),
+  );
+  const texts = (record?.changes ?? []).filter((change) => change.kind === "text");
+  assert.equal(texts.length, 4);
+  const whole = texts.filter((change) => change.kind === "text" && change.full).length;
+  assert.ok(whole >= 1 && whole < 4, `the allowance keeps some fields whole, not all (${whole})`);
+  for (const change of texts) {
+    if (change.kind !== "text" || change.full) continue;
+    assert.ok(change.after.endsWith("new"), "an excerpt still shows the change");
+    assert.ok(change.after.length <= MARI_RECEIPT_LIMITS.text + 2);
+  }
+  const bytes = Buffer.byteLength(JSON.stringify(record));
+  assert.ok(bytes < 70000, `whole text stays inside the record's allowance (${bytes} bytes)`);
+}
+
+// An edited preset section keeps its old text, so the card can show what changed inside it.
+{
+  const section = (content: string): Record<string, unknown> => ({
+    id: "s1",
+    presetId: "p2",
+    name: "Word Count",
+    content,
+  });
+  const record = buildMariWorkspaceActionResult(
+    "preset.update",
+    applied(
+      [
+        {
+          table: "prompt_sections",
+          id: "s1",
+          action: "update",
+          before: section("Write about 300 words."),
+          after: section("Write about 500 words."),
+        },
+      ],
+      "rev-section",
+    ),
+  );
+  const list = record?.changes?.find((change) => change.kind === "list");
+  assert.ok(list?.kind === "list" && list.items?.length, "the section edit is a list item");
+  assert.equal(list.items![0]?.before, "Write about 300 words.", "the section's old text is kept");
+  assert.equal(list.items![0]?.text, "Write about 500 words.");
+}
+
 console.log("change-receipt regression passed");

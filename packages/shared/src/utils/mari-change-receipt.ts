@@ -15,8 +15,12 @@ export const MARI_RECEIPT_LIMITS = {
   // ponytail: per-record caps keep a message extra under ~60 KB per record; raise if users hit them.
   /** Fields per record. */
   changes: 40,
-  /** Characters per side of a text excerpt. */
+  /** Characters per side of a text excerpt, when the whole text is not kept. */
   text: 600,
+  /** Characters per side kept whole, so the card can show the full old and new text. */
+  fullText: 8000,
+  /** Characters of whole text (both sides, every field and entry) one record keeps; past it, excerpts. */
+  recordText: 24000,
   /** Characters of a switch, enum or number. */
   value: 40,
   /** Names per list group (added / edited / removed), and entries per list's items. */
@@ -25,7 +29,7 @@ export const MARI_RECEIPT_LIMITS = {
   nestedKeys: 12,
   /** Characters per list name. */
   name: 60,
-  /** Characters of a lorebook entry's text, shown under its name. */
+  /** Characters of a lorebook entry's text, shown under its name, when the whole text is not kept. */
   entryText: 300,
   /** Records per message. */
   records: 12,
@@ -95,6 +99,18 @@ export function excerptTextPair(before: string, after: string, max: number = MAR
   return { before: cut(before), after: cut(after) };
 }
 
+// The whole-text allowance of the record being built. buildMariChangeExcerpts is synchronous and sets it
+// for its own call, so one record's long fields cannot crowd out another's.
+let wholeTextLeft = 0;
+
+/** Keep both sides whole when they fit the record's allowance; `false` means use excerpts. */
+function takeWholeText(...texts: string[]): boolean {
+  const size = texts.reduce((sum, text) => sum + text.length, 0);
+  if (texts.some((text) => text.length > MARI_RECEIPT_LIMITS.fullText) || size > wholeTextLeft) return false;
+  wholeTextLeft -= size;
+  return true;
+}
+
 function isJsonText(value: string): boolean {
   if (!/^\s*[[{]/u.test(value)) return false;
   try {
@@ -144,17 +160,44 @@ function listExcerpt(
   };
 }
 
-/** A lorebook entry's keys and text, so the card shows what the entry does, not only its name. */
-function itemDetail(item: unknown): MariChangeListItem {
+/**
+ * A lorebook entry's (or preset section's) keys and text, so the card shows what the entry does, not only
+ * its name. An edited entry also keeps its old text, so the card can show what changed in it.
+ */
+function itemDetail(item: unknown, previous?: unknown): MariChangeListItem {
   const name = itemName(item);
   if (!isRecord(item)) return { name };
+  const content = typeof item.content === "string" ? item.content : "";
+  const oldContent = isRecord(previous) && typeof previous.content === "string" ? previous.content : undefined;
+  const edited = oldContent !== undefined && oldContent !== content;
   const rawKeys = Array.isArray(item.keys) ? item.keys : Array.isArray(item.key) ? item.key : [];
   const keys = rawKeys
     .filter((key): key is string => typeof key === "string" && key.trim() !== "")
     .slice(0, MARI_RECEIPT_LIMITS.names)
     .map((key) => clip(key, MARI_RECEIPT_LIMITS.name));
-  const text = typeof item.content === "string" ? clip(item.content, MARI_RECEIPT_LIMITS.entryText) : "";
-  return { name, ...(keys.length ? { keys } : {}), ...(text ? { text } : {}) };
+  const whole = content ? takeWholeText(content, edited ? oldContent : "") : false;
+  // `full` marks text longer than an excerpt; short text is whole either way and keeps the older shape.
+  const long = (...texts: string[]) => texts.some((text) => text.length > MARI_RECEIPT_LIMITS.entryText);
+  if (edited && whole) {
+    return {
+      name,
+      ...(keys.length ? { keys } : {}),
+      text: content,
+      before: oldContent,
+      ...(long(content, oldContent) ? { full: true as const } : {}),
+    };
+  }
+  if (edited) {
+    const pair = excerptTextPair(oldContent, content, MARI_RECEIPT_LIMITS.entryText);
+    return { name, ...(keys.length ? { keys } : {}), ...(pair.after ? { text: pair.after } : {}), before: pair.before };
+  }
+  const text = whole && long(content) ? content : content ? clip(content, MARI_RECEIPT_LIMITS.entryText) : "";
+  return {
+    name,
+    ...(keys.length ? { keys } : {}),
+    ...(text ? { text } : {}),
+    ...(whole && long(content) ? { full: true as const } : {}),
+  };
 }
 
 function diffList(field: string, before: unknown[], after: unknown[]) {
@@ -168,7 +211,7 @@ function diffList(field: string, before: unknown[], after: unknown[]) {
     if (!old.has(key)) added.push(itemName(item));
     else if (JSON.stringify(old.get(key)) !== JSON.stringify(item)) edited.push(itemName(item));
     else continue;
-    items.push(itemDetail(item));
+    items.push(itemDetail(item, old.get(key)));
   }
   for (const [key, item] of old) if (!now.has(key)) removed.push(itemName(item));
   return listExcerpt(field, added, edited, removed, items);
@@ -189,6 +232,12 @@ function primitiveExcerpt(field: string, before: unknown, after: unknown): MariC
   if (typeof before === "string" || typeof after === "string") {
     const oldText = typeof before === "string" ? before : before == null ? "" : String(before);
     const newText = typeof after === "string" ? after : after == null ? "" : String(after);
+    const long = oldText.length > MARI_RECEIPT_LIMITS.text || newText.length > MARI_RECEIPT_LIMITS.text;
+    // Text that fits an excerpt is whole either way and keeps the older shape; longer text is kept whole
+    // while the record's allowance lasts.
+    if (long && takeWholeText(oldText, newText)) {
+      return { field, kind: "text", before: oldText, after: newText, full: true };
+    }
     return { field, kind: "text", ...excerptTextPair(oldText, newText) };
   }
   const show = (value: unknown) => clip(value == null ? "" : String(value), MARI_RECEIPT_LIMITS.value);
@@ -316,6 +365,7 @@ export function buildMariChangeExcerpts(input: {
   direct?: MariDbRowChange | null;
   children?: ReadonlyArray<{ field: string; change: MariDbRowChange }>;
 }): { changes: MariChangeExcerpt[]; moreChanges: number } {
+  wholeTextLeft = MARI_RECEIPT_LIMITS.recordText;
   const changes: MariChangeExcerpt[] = [];
   let unshown = 0;
   const direct = input.direct;
@@ -350,7 +400,8 @@ export function buildMariChangeExcerpts(input: {
     if (change.action === "insert") list.added.push(name);
     else if (change.action === "delete") list.removed.push(name);
     else list.edited.push(name);
-    if (change.action !== "delete") list.items.push(itemDetail(row));
+    if (change.action !== "delete")
+      list.items.push(itemDetail(row, change.action === "update" ? change.before : undefined));
   }
   for (const [field, list] of lists) {
     const excerpt = listExcerpt(field, list.added, list.edited, list.removed, list.items);
@@ -404,7 +455,9 @@ function mergeExcerpts(older: MariChangeExcerpt[], newer: MariChangeExcerpt[]): 
       merged[index] = { ...next, keys, count: Math.max(prev.count, next.count, keys.length) };
     } else if (prev.kind !== "list" && prev.kind !== "nested" && next.kind !== "list" && next.kind !== "nested") {
       // First before, last after: the field from where the run found it to where it left it.
-      merged[index] = { ...prev, after: next.after };
+      const { full: _full, ...rest } = prev as Extract<MariChangeExcerpt, { kind: "text" }>;
+      const whole = prev.kind === "text" && next.kind === "text" && prev.full && next.full;
+      merged[index] = { ...rest, after: next.after, ...(whole ? { full: true } : {}) } as MariChangeExcerpt;
     }
   }
   return merged;

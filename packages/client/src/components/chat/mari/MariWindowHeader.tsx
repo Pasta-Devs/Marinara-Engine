@@ -1,5 +1,5 @@
 import { ProfessorMariAskContext, MariInstructionDetail, MariWorkspacePendingApproval } from "@marinara-engine/shared";
-import { Sparkles, BookOpen, ArrowDown, Brain, ShieldAlert, Plus, X } from "lucide-react";
+import { Sparkles, BookOpen, ArrowDown, Brain, ShieldAlert, Plus, X, History } from "lucide-react";
 import { Dispatch, SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 import { useMariAppearancePack } from "../../../hooks/use-mari-appearance-pack";
@@ -8,6 +8,7 @@ import { CharacterPreviewModel } from "../../../lib/character-preview";
 import { LorebookPreviewModel } from "../../../lib/lorebook-preview";
 import { mariImgLoading, MARI_ASSET_TIER } from "../../../lib/mari-work-animations";
 import { cn } from "../../../lib/utils";
+import { countBlockingReviews } from "../../../lib/professor-mari-presentation";
 import { ProfessorMariContextControl } from "../ProfessorMariContextControl";
 
 /** The floating window's header (hidden in the omnibar, which has its own): name, destinations, review count, New and Close. */
@@ -29,6 +30,9 @@ type MariWindowHeaderProps = {
   memoriesMenuOpen: boolean;
   omnibarMode: boolean;
   openPendingApprovals: (reviewId?: string | null) => void;
+  /** Her Changes page: every open change of this chat, with Undo and Keep. */
+  changesOpen: boolean;
+  toggleChangesPage: () => void;
   runRestart: () => Promise<void>;
   setConnectionMenuOpen: Dispatch<SetStateAction<boolean>>;
   setHandoffContext: Dispatch<SetStateAction<ProfessorMariAskContext | null>>;
@@ -57,6 +61,8 @@ export function MariWindowHeader({
   memoriesMenuOpen,
   omnibarMode,
   openPendingApprovals,
+  changesOpen,
+  toggleChangesPage,
   runRestart,
   setConnectionMenuOpen,
   setHandoffContext,
@@ -70,6 +76,8 @@ export function MariWindowHeader({
   const appearance = useMariAppearancePack();
   const { t: localizeUi } = useTranslation();
   const { t } = useTranslation();
+  // Only a change that waits on an answer "needs you"; a saved change with its Undo open is on the Changes page.
+  const waitingCount = countBlockingReviews(visiblePendingChangeReviews);
   return (
     <div
       className={cn(
@@ -171,18 +179,32 @@ export function MariWindowHeader({
           onRemoveFocus={() => setHandoffContext(null)}
           onViewAttachedContext={() => void handleOpenContextViewer()}
         />
-        {visiblePendingChangeReviews.length > 0 ? (
+        <button
+          type="button"
+          onClick={toggleChangesPage}
+          className={cn(
+            "mari-chrome-control mari-chrome-control--compact",
+            "mari-chrome-accent-text-muted mari-accent-animated hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
+          )}
+          title={localizeUi("ui.chat.marichangespanel.open")}
+          aria-expanded={changesOpen}
+        >
+          <History size="0.75rem" />
+          <span>{localizeUi("ui.chat.marichangespanel.title")}</span>
+          {visiblePendingChangeReviews.length > 0 && (
+            <span className="mari-chrome-muted-badge px-1.5 py-0.5 text-[0.56rem]">
+              {visiblePendingChangeReviews.length}
+            </span>
+          )}
+        </button>
+        {waitingCount > 0 ? (
           <button
             type="button"
             onClick={() => openPendingApprovals()}
             className="mari-chrome-control mari-chrome-control--compact font-semibold"
           >
             <ShieldAlert size="0.75rem" />
-            <span>
-              {localizeUi("ui.chat.homeprofessormarichat.pendingApprovals", {
-                count: visiblePendingChangeReviews.length,
-              })}
-            </span>
+            <span>{localizeUi("mari.needsYou.headerStatus", { count: waitingCount })}</span>
           </button>
         ) : null}
         <button
