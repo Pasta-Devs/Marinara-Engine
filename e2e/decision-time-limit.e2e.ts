@@ -57,7 +57,9 @@ test("a Decision connection's time limit saves, and Test reports an answer slowe
       await part.getByRole("button", { name: "Save", exact: true }).click();
       // The part's Save button goes away once the edit is stored.
       await expect(part.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
-      await page.keyboard.press("Escape");
+      // The window keeps Escape and its close button off until the save settles, a render or two later.
+      await page.getByRole("button", { name: "Close Decision settings", exact: true }).click();
+      await expect(part).toHaveCount(0);
       return limit;
     };
     const openWindow = async () => {

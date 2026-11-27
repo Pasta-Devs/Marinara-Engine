@@ -47,5 +47,19 @@ assert.deepEqual(chooseMariThread({ threads, contextKey: "lorebook:eldoria" }), 
   kind: "ask",
   recentChatId: "from-editor",
 });
+// #9821: a screen with no thread of its own asks in the thread you had open, not the newest by its last message.
+assert.deepEqual(chooseMariThread({ threads: switched, contextKey: "lorebook:eldoria" }), {
+  kind: "ask",
+  recentChatId: "old-general",
+});
+// A thread you started with "+" and left empty is not one to continue: her most recent conversation is.
+const emptyActive = [
+  ...none,
+  readMariThread(chat("empty", null, { professorMariActive: true, professorMariArchived: false })),
+];
+assert.deepEqual(chooseMariThread({ threads: emptyActive, contextKey: "lorebook:eldoria" }), {
+  kind: "ask",
+  recentChatId: "from-editor",
+});
 assert.deepEqual(chooseMariThread({ threads: [], contextKey: "general" }), { kind: "new" });
 console.log("mari-arrival-thread: ok");

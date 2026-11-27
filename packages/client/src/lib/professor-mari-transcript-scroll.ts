@@ -75,33 +75,78 @@ export function landProfessorMariTranscript(
  * change of its content, not only when state changes. Content that grows smoothly (Mari's live reply
  * animates its height) then pushes the older lines up smoothly too, instead of sliding out of view.
  * `onGrown` reports whether newer output now sits below the fold of a reader who is not following.
- * Returns the cleanup.
+ * Returns `stop`, the cleanup, and `unpin`, which a send calls when it stops following.
  */
 export function followTranscriptGrowth(
   scroller: HTMLElement,
   stack: HTMLElement,
   isFollowing: () => boolean,
   onGrown?: (newerBelow: boolean) => void,
-): () => void {
+): { stop: () => void; unpin: () => void } {
   // A hidden window has no height and loses its scroll position, so the first layout after she is shown
   // pins to the newest line for a reader who was following, whatever position the hidden scroll left.
   let shown = scroller.clientHeight > 0;
+  let height = scroller.scrollHeight;
+  // Growth the reader causes - a disclosure in her reply they open (her steps, her reasoning, "Why", "Show
+  // all") - lands in the frame after their click, and they read it from where they opened it. The
+  // before-the-growth test below skips that frame, so a long one does not scroll its start away. A frame
+  // runs its animation callbacks before its ResizeObserver, so the flag clears in the frame after. Only a
+  // disclosure counts: a click on her reply text just before a picture loads must not stop the follow.
+  let readerClicked = false;
+  const noteReaderClick = (event: Event) => {
+    if (!stack.contains((event.target as Element).closest("summary, [aria-expanded]"))) return;
+    readerClicked = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => (readerClicked = false)));
+  };
+  stack.addEventListener("click", noteReaderClick, true);
+  // The scroll event of a pin arrives a frame later. When a second picture grew in between, the scroll handler
+  // finds the reader far from the new bottom and clears "following". A transcript still where the last pin left
+  // it has not been moved by the reader, as in landProfessorMariTranscript. Any scroll to another position (the
+  // reader, her landing, a send) ends that, whenever its event comes. A send stops following on purpose and calls
+  // `unpin`: in an empty chat its question stays at the top, where the pin on Enter left it, so nothing scrolls.
+  let pinnedTop: number | null = null;
+  const notePinLeft = () => {
+    if (scroller.scrollTop !== pinnedTop) pinnedTop = null;
+  };
+  scroller.addEventListener("scroll", notePinLeft, { passive: true });
   const observer = new ResizeObserver(() => {
     const revealed = !shown && scroller.clientHeight > 0;
     shown = scroller.clientHeight > 0;
-    const following = isFollowing();
+    const following = isFollowing() || scroller.scrollTop === pinnedTop;
+    // #9821: a picture in one of her replies loads after she landed and grows the transcript by its whole
+    // height at once, so the reader is never "near the bottom" of the new height. Where they were is measured
+    // against the height before this growth, at the live scroll position, so a reader who scrolled away still
+    // stays where they are.
+    const wasNearBottom = isProfessorMariTranscriptNearBottom({
+      clientHeight: scroller.clientHeight,
+      scrollHeight: height,
+      scrollTop: scroller.scrollTop,
+    });
+    height = scroller.scrollHeight;
     const { scrollTo } = transcriptScrollAction({
       event: "grow",
-      nearBottom: revealed || isProfessorMariTranscriptNearBottom(scroller),
+      nearBottom: revealed || (wasNearBottom && !readerClicked) || isProfessorMariTranscriptNearBottom(scroller),
       following,
     });
-    if (scrollTo === "bottom") scrollProfessorMariTranscriptToBottom(scroller);
+    if (scrollTo === "bottom") {
+      scrollProfessorMariTranscriptToBottom(scroller);
+      pinnedTop = scroller.scrollTop;
+    }
     // Slice 67: output that grew past the fold while the reader is not following gets the jump arrow,
     // not only after they scroll by hand - otherwise her answer can end hidden under the composer.
     onGrown?.(!following && !isProfessorMariTranscriptNearBottom(scroller));
   });
   observer.observe(stack);
-  return () => observer.disconnect();
+  return {
+    stop: () => {
+      observer.disconnect();
+      stack.removeEventListener("click", noteReaderClick, true);
+      scroller.removeEventListener("scroll", notePinLeft);
+    },
+    unpin: () => {
+      pinnedTop = null;
+    },
+  };
 }
 
 export type ProfessorMariTranscriptScrollEvent = "send" | "grow" | "complete" | "user-scroll";

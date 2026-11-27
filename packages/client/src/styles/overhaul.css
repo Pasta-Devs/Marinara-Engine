@@ -17391,6 +17391,24 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-gsp__folderadd {
   margin-top: 0.375rem;
 }
+/* "Import character" under the party picker: a card the game needs may not be in the library yet. */
+.ov-gsp__import {
+  margin: 0.375rem 0 0;
+  font-size: 0.75rem;
+}
+.ov-gsp__import .ov-setup__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  text-decoration: none;
+}
+.ov-gsp__import .ov-setup__link:hover {
+  text-decoration: underline;
+}
+.ov-gsp__import .ov-setup__link:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
 .ov-gsp__notice {
   display: flex;
   align-items: flex-start;

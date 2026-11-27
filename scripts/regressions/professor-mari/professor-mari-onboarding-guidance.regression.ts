@@ -31,6 +31,7 @@ type Command = {
   action?: string;
   patch?: Record<string, unknown>;
   onboarding?: unknown;
+  questionOps?: unknown;
 };
 // The example is protocol-neutral: one app_data argument object per line, in response order.
 const commands = body
@@ -39,7 +40,7 @@ const commands = body
   .filter((line) => line.startsWith('{"action"'))
   .map((line) => JSON.parse(line) as Command);
 
-const write = commands.find((command) => command.action === "character.onboarding.update");
+const write = commands.find((command) => command.action === "character.onboarding.update" && !command.questionOps);
 assert.ok(write, "there is a character.onboarding.update worked example");
 const cardEdit = commands.find((command) => command.action === "character.update");
 assert.ok(cardEdit, "the example also writes the character question's {{name}} into the card");
@@ -52,6 +53,17 @@ const { onboarding, warnings } = buildOnboardingUpdate({ name: "Queen Ayrene", .
 assert.equal(onboarding.enabled, true, "the example turns onboarding on");
 assert.ok(onboarding.cardVariables.length > 0, "the example shows a character question");
 assert.deepEqual(warnings, [], "every question in the example is used");
+
+const targeted = commands.find((command) => command.questionOps);
+assert.ok(targeted, "the skill demonstrates targeted question operations");
+const targetedResult = buildOnboardingUpdate(
+  { ...cardEdit.patch, extensions: { onboarding } },
+  targeted.onboarding,
+  targeted.questionOps,
+);
+assert.equal(targetedResult.onboarding.variables.length, onboarding.variables.length + 1);
+assert.deepEqual(targetedResult.warnings, []);
+assert.deepEqual(targetedResult.counts, { added: 1, updated: 0, removed: 0 });
 
 // A JSON string cut by an unescaped quote arrives as garbage keys; name that failure, not just the keys.
 assert.throws(

@@ -505,15 +505,31 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
       if (!new URL(route.request().url()).searchParams.has("sort")) return route.continue();
       const response = await route.fetch();
       const data = await response.json();
-      await route.fulfill({
-        response,
-        json: { ...data, items: data.items.filter((card: { id: string }) => card.id !== selectedId), hasMore: true },
-      });
+      const items = data.items.filter((card: { id: string }) => card.id !== selectedId);
+      // The next page starts at offset + items.length: count the hidden card, or that page repeats a card and the
+      // library shows it twice.
+      const offset = data.offset + data.items.length - items.length;
+      await route.fulfill({ response, json: { ...data, items, offset, hasMore: true } });
     });
     await widget.locator(`[data-card-library-card="${selectedId}"]`).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
+    // How far an opened card's top is from the bottom of the sticky header (the library's first child). Where the whole
+    // library scrolls (phones), the card lands right at the header's bottom unless the library is at its end; where it
+    // does not (desktop), the card only must not be under the header.
+    const cardOffHeader = (id: string) =>
+      library.evaluate((root, cardId) => {
+        const header = root.firstElementChild;
+        const card = root.querySelector(`[data-card-library-card="${CSS.escape(cardId)}"]`);
+        // A row the list has not mounted yet keeps the poll going.
+        if (!header || !card) return Number.POSITIVE_INFINITY;
+        const gap = card.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
+        const rootScrolls = getComputedStyle(root).overflowY !== "hidden";
+        const atEnd = root.scrollTop >= root.scrollHeight - root.clientHeight - 1;
+        return rootScrolls && !atEnd ? Math.abs(gap) : Math.max(-gap, 0);
+      }, id);
     await expect(library).toBeVisible();
     await expect(library.locator(`[data-card-library-card="${selectedId}"]`)).toBeInViewport();
+    await expect.poll(() => cardOffHeader(selectedId)).toBeLessThanOrEqual(1);
     await expect
       .poll(() =>
         page.evaluate(async () => {
@@ -533,11 +549,14 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
         return useUIStore.getState().characterLibraryInitialId;
       });
       const nextId = await library.locator("[data-card-library-card]").evaluateAll((cards, current) => {
+        // A card behind the sticky header is out of sight too.
+        const header = cards[0]!.closest('[data-component="CharacterLibraryView"]')!.firstElementChild!;
+        const top = header.getBoundingClientRect().bottom;
         const offscreen = cards.find((card) => {
           const bounds = card.getBoundingClientRect();
           return (
             card.getAttribute("data-card-library-card") !== current &&
-            (bounds.bottom < 0 || bounds.top >= window.innerHeight)
+            (bounds.bottom <= top || bounds.top >= window.innerHeight)
           );
         });
         return offscreen?.getAttribute("data-card-library-card");
@@ -548,6 +567,7 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
         useUIStore.getState().openCharacterLibrary(id!);
       }, nextId);
       await expect(library.locator(`[data-card-library-card="${nextId}"]`)).toBeInViewport();
+      await expect.poll(() => cardOffHeader(nextId!)).toBeLessThanOrEqual(1);
     }
     await page.setViewportSize(viewport);
     await page.evaluate(async () => {

@@ -971,7 +971,13 @@ test("gallery regeneration preserves structured prompts and can revise, generate
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       if (visualTheme === "default") {
         await expect(page.locator("html")).not.toHaveAttribute("data-visual-theme");
-        backgrounds.push(await prompt.evaluate((field) => getComputedStyle(field).backgroundColor));
+        // The field fades between themes, so read the color it settles on.
+        backgrounds.push(
+          await prompt.evaluate(async (field) => {
+            await Promise.all(field.getAnimations().map((fade) => fade.finished));
+            return getComputedStyle(field).backgroundColor;
+          }),
+        );
       } else {
         await expect(page.locator("html")).toHaveAttribute("data-visual-theme", visualTheme);
       }
