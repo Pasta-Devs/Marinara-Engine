@@ -1442,6 +1442,9 @@ export async function charactersRoutes(app: FastifyInstance) {
       favoriteFilter?: string;
       tag?: string | string[];
       excludeTag?: string | string[];
+      tagMatch?: string;
+      untagged?: string;
+      searchIn?: string;
       folder?: string;
       view?: string;
     };
@@ -1458,12 +1461,19 @@ export async function charactersRoutes(app: FastifyInstance) {
       favoriteFilter: page.favoriteFilter,
       tags: list(req.query.tag),
       excludeTags: list(req.query.excludeTag),
+      tagMatch: req.query.tagMatch === "all" ? "all" : "any",
+      untagged: req.query.untagged === "true",
+      searchIn: req.query.searchIn === "names" ? "names" : "all",
       folder: typeof req.query.folder === "string" ? req.query.folder : undefined,
     });
   });
 
   app.get<{ Querystring: { includeBuiltIn?: string } }>("/catalog/tags", async (req) =>
     catalog.tags(req.query.includeBuiltIn === "true"),
+  );
+
+  app.get<{ Querystring: { includeBuiltIn?: string } }>("/catalog/tag-counts", async (req) =>
+    catalog.tagCounts(req.query.includeBuiltIn === "true"),
   );
 
   app.post<{ Body: { ids?: unknown } }>("/summaries", async (req) => {

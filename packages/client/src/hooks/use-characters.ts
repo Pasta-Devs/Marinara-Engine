@@ -37,6 +37,7 @@ import {
   GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
   type CharacterData,
   type CharacterCatalogPage,
+  type CharacterCatalogTagCounts,
   type CharacterCatalogSummaryEntry,
   type CharacterCatalogSummaryPage,
   type CharacterCardVersion,
@@ -72,7 +73,14 @@ export const characterKeys = {
     search: string,
     sort: string,
     favoriteFilter: string,
-    filters: { tags?: string[]; excludeTags?: string[]; folder?: string } = {},
+    filters: {
+      tags?: string[];
+      excludeTags?: string[];
+      folder?: string;
+      tagMatch?: "all";
+      untagged?: boolean;
+      searchIn?: "names";
+    } = {},
   ) => [...characterKeys.list(), "page", includeBuiltIn, search, sort, favoriteFilter, filters] as const,
   summariesRoot: () => [...characterKeys.all, "summaries"] as const,
   summaries: (idsKey: string) => [...characterKeys.all, "summaries", idsKey] as const,
@@ -139,6 +147,12 @@ export function useCharacterPages(options: {
   excludeTags?: string[];
   /** A folder id, or "none" for cards that are in no folder. */
   folder?: string;
+  /** "all": cards need every tag in `tags` (default: any of them). */
+  tagMatch?: "all";
+  /** Only cards without tags. */
+  untagged?: boolean;
+  /** "names": the search looks at names, other names and tags only (not the card text). */
+  searchIn?: "names";
 }) {
   const enabled = options.enabled ?? true;
   const includeBuiltIn = options.includeBuiltIn === true;
@@ -151,6 +165,9 @@ export function useCharacterPages(options: {
       tags: options.tags,
       excludeTags: options.excludeTags,
       folder: options.folder,
+      tagMatch: options.tagMatch,
+      untagged: options.untagged,
+      searchIn: options.searchIn,
     }),
     initialPageParam: 0,
     queryFn: ({ pageParam, signal }) => {
@@ -165,6 +182,9 @@ export function useCharacterPages(options: {
       for (const tag of options.tags ?? []) params.append("tag", tag);
       for (const tag of options.excludeTags ?? []) params.append("excludeTag", tag);
       if (options.folder) params.set("folder", options.folder);
+      if (options.tagMatch) params.set("tagMatch", options.tagMatch);
+      if (options.untagged) params.set("untagged", "true");
+      if (search && options.searchIn) params.set("searchIn", options.searchIn);
       return api.get<CharacterCatalogPage>(`/characters/catalog?${params.toString()}`, { signal });
     },
     getNextPageParam: getNextPageOffset,
@@ -270,6 +290,16 @@ export function useCharacterCatalogTags() {
   return useQuery({
     queryKey: [...characterKeys.list(), "catalog", "tags"] as const,
     queryFn: ({ signal }) => api.get<string[]>("/characters/catalog/tags", { signal }),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Every tag with its card count, and the untagged and favourite counts, for a tag selector over the whole library. */
+export function useCharacterCatalogTagCounts(enabled = true) {
+  return useQuery({
+    queryKey: [...characterKeys.list(), "catalog", "tag-counts"] as const,
+    queryFn: ({ signal }) => api.get<CharacterCatalogTagCounts>("/characters/catalog/tag-counts", { signal }),
+    enabled,
     staleTime: 5 * 60_000,
   });
 }

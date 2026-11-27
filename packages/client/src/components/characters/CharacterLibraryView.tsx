@@ -39,7 +39,9 @@ import { useUIStore, type CardLibraryKind, type UIState } from "../../stores/ui.
 import { useSetLorebooksEnabled } from "../../hooks/use-lorebooks";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { openLibrarySection } from "../overhaul/library-navigation";
-import { CardGallery } from "../overhaul/CardGallery";
+import { CardGallery, EMPTY_GALLERY_FILTERS, type GalleryFilters } from "../overhaul/CardGallery";
+import { UNTAGGED } from "../overhaul/TagFilter";
+import { useCharacterCatalogTagCounts } from "../../hooks/use-characters";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { Select } from "../ui/Select";
 import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
@@ -50,6 +52,7 @@ import {
   useLorebookLibrarySource,
   usePersonaLibrarySource,
   type LibraryCard,
+  type CharacterServerFilters,
 } from "./card-library-sources";
 
 const libraryToolbarButtonClass =
@@ -335,7 +338,27 @@ export function CharacterLibraryView() {
 
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
-  const serverSearch = useMemo(() => parseCardLibrarySearchQuery(deferredSearch).text, [deferredSearch]);
+  const classicSearch = useMemo(() => parseCardLibrarySearchQuery(deferredSearch).text, [deferredSearch]);
+  // The overhaul gallery keeps its own search box and tag selector; its filters go to the server, so a search
+  // finds every matching card, not only the loaded pages.
+  const [galleryFilters, setGalleryFilters] = useState<GalleryFilters>(EMPTY_GALLERY_FILTERS);
+  const deferredGalleryFilters = useDeferredValue(galleryFilters);
+  const gallerySearch = deferredGalleryFilters.search.trim();
+  const galleryPickedTags = deferredGalleryFilters.tags;
+  const characterServerFilters = useMemo<CharacterServerFilters | undefined>(
+    () =>
+      overhaulActive
+        ? {
+            namesOnly: true,
+            untagged: galleryPickedTags.includes(UNTAGGED),
+            tags: galleryPickedTags.includes(UNTAGGED) ? [] : galleryPickedTags,
+            favoritesOnly: deferredGalleryFilters.favoritesOnly,
+          }
+        : undefined,
+    [deferredGalleryFilters.favoritesOnly, galleryPickedTags, overhaulActive],
+  );
+  const serverSearch = overhaulActive ? gallerySearch : classicSearch;
+  const galleryTagCounts = useCharacterCatalogTagCounts(overhaulActive && kind === "characters");
   // Every kind's source runs; only the shown one is enabled, so hook order never changes with the kind.
   const sources = {
     characters: useCharacterLibrarySource({
@@ -343,9 +366,11 @@ export function CharacterLibraryView() {
       search: serverSearch,
       sort: kind === "characters" ? sort : "",
       initialId: initialCharacterId,
+      filters: characterServerFilters,
     }),
     personas: usePersonaLibrarySource({
       enabled: kind === "personas",
+      // Persona search on the server reads the whole card; the gallery narrows that to names and tags.
       search: serverSearch,
       sort: kind === "personas" ? sort : "",
     }),
@@ -590,6 +615,7 @@ export function CharacterLibraryView() {
         cards={filteredCards.map((card) => ({
           id: card.id,
           name: card.name,
+          aliases: card.aliases,
           avatarPath: card.avatarPath,
           avatarStyle: getAvatarCropStyle(card.avatarCrop),
           tags: card.tags,
@@ -620,6 +646,10 @@ export function CharacterLibraryView() {
         onBrowse={isPersonaLibrary ? undefined : () => useUIStore.getState().openBotBrowser()}
         serverSort={sort}
         onServerSort={handleSortChange}
+        onFiltersChange={setGalleryFilters}
+        libraryTagCounts={!isPersonaLibrary ? galleryTagCounts.data : undefined}
+        // Persona filters run on loaded cards, so a filter loads every persona first.
+        loadAllWhenFiltering={isPersonaLibrary}
       />
     );
   }

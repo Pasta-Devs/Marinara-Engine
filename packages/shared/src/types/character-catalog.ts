@@ -53,3 +53,12 @@ export type CharacterCatalogSummaryEntry = Omit<
 export type CharacterCatalogSummaryPage = Omit<CharacterCatalogPage, "items"> & {
   items: CharacterCatalogSummaryEntry[];
 };
+
+/** Every tag with its card count, plus the untagged and favourite counts (`/characters/catalog/tag-counts`). */
+export type CharacterCatalogTagCounts = {
+  tags: Array<{ tag: string; count: number }>;
+  untagged: number;
+  favorites: number;
+  /** Cards in the library (Professor Mari left out unless built-ins are asked for). */
+  total: number;
+};

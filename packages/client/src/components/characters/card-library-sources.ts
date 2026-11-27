@@ -73,6 +73,16 @@ interface SourceOptions {
   sort: string;
 }
 
+/** The overhaul Characters page's filters, applied by the server so they reach cards that are not loaded yet. */
+export interface CharacterServerFilters {
+  /** Search names, other names and tags only (the page's own matching), not the card text. */
+  namesOnly?: boolean;
+  /** Cards need every one of these tags. */
+  tags?: string[];
+  untagged?: boolean;
+  favoritesOnly?: boolean;
+}
+
 /** Load the remaining pages one after another (each waits for the last), stopping on an error. */
 async function fetchAllPages(pages: {
   hasNextPage?: boolean;
@@ -175,8 +185,18 @@ export function useCharacterLibrarySource({
   search,
   sort,
   initialId,
-}: SourceOptions & { initialId: string | null }): CardLibrarySource {
-  const pages = useCharacterPages({ enabled, search, sort });
+  filters,
+}: SourceOptions & { initialId: string | null; filters?: CharacterServerFilters }): CardLibrarySource {
+  const pages = useCharacterPages({
+    enabled,
+    search,
+    sort,
+    searchIn: filters?.namesOnly ? "names" : undefined,
+    tags: filters?.tags?.length ? filters.tags : undefined,
+    tagMatch: filters?.tags?.length ? "all" : undefined,
+    untagged: filters?.untagged || undefined,
+    favoriteFilter: filters?.favoritesOnly ? "favorites" : undefined,
+  });
   const initialCharacter = useCharacter(enabled ? initialId : null);
   const cards = useMemo(() => {
     if (!enabled) return [];

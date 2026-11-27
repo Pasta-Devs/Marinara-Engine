@@ -12,6 +12,7 @@ import {
   type CharacterCatalogEntry,
   type CharacterCatalogPage,
   type CharacterCatalogSummaryEntry,
+  type CharacterCatalogTagCounts,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { characterGroups, characters } from "../../db/schema/index.js";
@@ -29,6 +30,12 @@ type CatalogOptions = {
   favoriteFilter?: string;
   /** Any of these tags (case-insensitive); more matches rank first. */
   tags?: string[];
+  /** "all": a card needs every tag in `tags` (the overhaul's tag selector). */
+  tagMatch?: "any" | "all";
+  /** Only cards without tags. */
+  untagged?: boolean;
+  /** "names": search only the name, other names and tags (the overhaul's Characters page), not the card text. */
+  searchIn?: "all" | "names";
   excludeTags?: string[];
   /** A folder id, "none" for cards in no folder, or "any" for cards in some folder. */
   folder?: string;
@@ -162,6 +169,22 @@ export function toCharacterCatalogSummary(item: CachedCharacterCatalogEntry): Ch
   return { ...summary, summary: (summary.summary.trim() || "No creator notes yet.").slice(0, 200) };
 }
 
+/**
+ * The overhaul Characters page search: name, other names or a tag contains the text, and "tag:" searches tags only.
+ * Case and width are ignored (normalizeTextForMatch), the same as the page's own filter on loaded cards.
+ */
+function matchesCatalogNameSearch(item: CachedCharacterCatalogEntry, query: string) {
+  const tags = item.tags.map(normalizeTextForMatch);
+  if (query.startsWith("tag:")) {
+    const tagQuery = query.slice(4).trim();
+    return tags.some((tag) => tag.includes(tagQuery));
+  }
+  return (
+    [item.name, ...item.nameAliases].some((name) => normalizeTextForMatch(name).includes(query)) ||
+    tags.some((tag) => tag.includes(query))
+  );
+}
+
 function sortEntries(entries: CachedCharacterCatalogEntry[], sort: string) {
   return [...entries].sort((a, b) => {
     if (sort === "favorites") {
@@ -210,12 +233,15 @@ export function createCharacterCatalog(db: DB) {
       let entries = catalog.entries;
       if (!options.includeBuiltIn) entries = entries.filter((item) => item.id !== PROFESSOR_MARI_ID);
       const query = normalizeTextForMatch(options.search);
-      if (query) {
+      if (query && options.searchIn === "names") {
+        entries = entries.filter((item) => matchesCatalogNameSearch(item, query));
+      } else if (query) {
         const tagTerms = parseCardTagSearchTerms(query);
         entries = entries.filter(
           (item) => item.searchText.includes(query) || matchesAllCardSearchTags(item.tags, tagTerms),
         );
       }
+      if (options.untagged) entries = entries.filter((item) => !item.tags.some((tag) => tag.trim()));
       if (options.favoriteFilter === "favorites") entries = entries.filter((item) => item.favorite);
       if (options.favoriteFilter === "non-favorites") entries = entries.filter((item) => !item.favorite);
       const lowerTags = (item: CachedCharacterCatalogEntry) => item.tags.map(normalizeTextForMatch);
@@ -225,7 +251,8 @@ export function createCharacterCatalog(db: DB) {
       const matchCount = new Map<string, number>();
       if (included.size > 0) {
         for (const item of entries) matchCount.set(item.id, lowerTags(item).filter((tag) => included.has(tag)).length);
-        entries = entries.filter((item) => matchCount.get(item.id)! > 0);
+        const needed = options.tagMatch === "all" ? included.size : 1;
+        entries = entries.filter((item) => matchCount.get(item.id)! >= needed);
       }
       entries = sortEntries(entries, options.sort ?? "");
       // Same order as the panel: favourites first when sorted by favourite, then most matching tags.
@@ -283,6 +310,34 @@ export function createCharacterCatalog(db: DB) {
       for (const item of entries)
         if (includeBuiltIn || item.id !== PROFESSOR_MARI_ID) for (const tag of item.tags) tags.add(tag);
       return [...tags].sort((a, b) => a.localeCompare(b));
+    },
+    /** Every tag with how many cards carry it, plus the untagged and favourite counts, for the overhaul's tag selector. */
+    async tagCounts(includeBuiltIn: boolean): Promise<CharacterCatalogTagCounts> {
+      const { entries } = await getEntries();
+      const counts = new Map<string, { tag: string; count: number }>();
+      let untagged = 0;
+      let favorites = 0;
+      for (const item of entries) {
+        if (!includeBuiltIn && item.id === PROFESSOR_MARI_ID) continue;
+        if (item.favorite) favorites += 1;
+        const seen = new Set<string>();
+        for (const raw of item.tags) {
+          const tag = raw.trim();
+          const key = tag.toLowerCase();
+          if (!tag || seen.has(key)) continue;
+          seen.add(key);
+          const found = counts.get(key);
+          if (found) found.count += 1;
+          else counts.set(key, { tag, count: 1 });
+        }
+        if (!seen.size) untagged += 1;
+      }
+      return {
+        tags: [...counts.values()].sort((a, b) => a.tag.localeCompare(b.tag)),
+        untagged,
+        favorites,
+        total: entries.filter((item) => includeBuiltIn || item.id !== PROFESSOR_MARI_ID).length,
+      };
     },
   };
 }
