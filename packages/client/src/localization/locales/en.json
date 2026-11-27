@@ -6997,6 +6997,7 @@
   "lorebook.editor.scanTest.why.keys": "Key: {{keys}}",
   "lorebook.editor.scanTest.why.recursive": "Recursion, key: {{keys}}",
   "lorebook.editor.scanTest.why.recursiveFrom": "Recursion from {{names}}, key: {{keys}}",
+  "lorebook.editor.sort.promptOrder": "Prompt order",
   "lorebook.editor.sortEntries": "Sort entries",
   "lorebook.editor.stats.firedShort": "{{count}}×",
   "lorebook.editor.stats.firedTitle_one": "Fired in {{count}} generation, last on {{date}}",
