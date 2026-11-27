@@ -204,6 +204,7 @@ const DOC_ORDER: Record<string, string[]> = {
     "conditional-prompts.md",
     "generation-parameters.md",
     "prompt-overrides.md",
+    "prompt-viewer.md",
   ],
   appearance: [
     "appearance-settings.md",
