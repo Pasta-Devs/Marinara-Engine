@@ -67,6 +67,7 @@ export type CommandCenterTitleKey =
   | "diagnostics"
   | "backups"
   | "schedules"
+  | "promptViewer"
   | "presetsPage"
   | "profilesPage"
   | "regexPage"
@@ -115,6 +116,7 @@ export const DEFAULT_COMMAND_CENTER_LABELS: CommandCenterLabels = {
   diagnostics: "Support diagnostics",
   backups: "Backups and export",
   schedules: "Schedules",
+  promptViewer: "Prompt viewer",
   presetsPage: "Presets",
   profilesPage: "Settings profiles",
   regexPage: "Regex scripts",

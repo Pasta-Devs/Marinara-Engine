@@ -32,7 +32,8 @@ export type CommandIcon =
   | "diagnostics"
   | "backups"
   | "speech"
-  | "calendar";
+  | "calendar"
+  | "prompt";
 
 export type CommandCenterCategoryFilter =
   | "all"

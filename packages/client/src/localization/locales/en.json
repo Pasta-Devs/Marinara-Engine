@@ -1913,6 +1913,7 @@
   "commandCenter.system.personaLibrary": "Persona library",
   "commandCenter.system.presetsPage": "Presets",
   "commandCenter.system.profilesPage": "Settings profiles",
+  "commandCenter.system.promptViewer": "Prompt viewer",
   "commandCenter.system.regexPage": "Regex scripts",
   "commandCenter.system.rulesetsPage": "Rulesets",
   "commandCenter.system.schedules": "Schedules",

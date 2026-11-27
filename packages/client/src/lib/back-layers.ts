@@ -138,6 +138,7 @@ function phonePageLayers(layers: BackLayer[]) {
     !!overhaul.activeDocsTab ||
     overhaul.activeMari ||
     overhaul.activeSchedules ||
+    overhaul.activePromptViewer ||
     !!overhaul.activeApp;
   if (awayFromHome)
     layers.push({

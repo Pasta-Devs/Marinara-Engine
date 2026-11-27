@@ -602,6 +602,34 @@ export function screenList(ids) {
       id: "professor-mari-folded",
       run: open.mari(true),
     },
+    // Prompt viewer (kolache's AIO, built in): its own page with a preset and the long-named lorebook picked, so the
+    // simulated prompt and the entry list are full; then Inspect, Summaries and Settings, the views inside it.
+    ...[null, "inspect", "summaries", "settings"].map((view) => ({
+      id: view ? `prompt-viewer-${view}` : "prompt-viewer",
+      group: view ? undefined : "core",
+      run: hook(() => {
+        const h = window.__marinaraUiCheck;
+        h.overhaul.getState().openPromptViewer();
+        h.overhaul.getState().setMobileSidePageOpen(false);
+      }),
+      ready: ".kaio-combo-input",
+      then: async (page) => {
+        const pick = async (index, text) => {
+          const input = page.locator(".kaio-combo-input").nth(index);
+          if (!(await input.count())) return;
+          await input.click();
+          await input.fill(text);
+          await input.press("Enter");
+          await page.waitForTimeout(600);
+        };
+        await pick(0, "Universal");
+        await pick(1, "Ridiculously");
+        if (view) {
+          await page.locator(`.kaio-titlebar [data-action="${view}"]`).first().click();
+          await page.waitForTimeout(1200);
+        }
+      },
+    })),
     // New-chat setup, the page in the new chat's own tab (last: each one leaves a draft chat behind).
     ...["roleplay", "conversation"].map((mode) => ({
       id: `new-${mode}-setup`,

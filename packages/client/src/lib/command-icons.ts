@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  ScanText,
   BookOpen,
   BookOpenText,
   Boxes,
@@ -113,6 +114,7 @@ export const COMMAND_ICONS = {
   backups: ArchiveRestore,
   speech: Volume2,
   calendar: CalendarDays,
+  prompt: ScanText,
 } satisfies Record<CommandIcon, LucideIcon>;
 
 export const DEFAULT_COMMAND_ICON_BY_KIND = {
