@@ -40,7 +40,9 @@ export function CombatNarrationFrame({
 /** After a request finds no model, or fails, this many ms go by on the free pool before asking again. */
 const NO_MODEL_PAUSE_MS = 60_000;
 const FAILED_PAUSE_MS = 20_000;
-let askAgainAt = 0;
+/** When each game may ask a model again, by chat: one game's missing model never pauses another's. */
+const askAgainAt = new Map<string, number>();
+const NO_PROSE: ReadonlyMap<string, string> = new Map();
 
 const POOL_SIZES = { hit: 5, critical: 4, miss: 4, heal: 3, ko: 3 } as const;
 
@@ -109,7 +111,7 @@ export function useCombatNarration() {
         list.map((beat): [string, string] => [beat.id, combatNarrationPoolLine(beat, t)]);
       setLines(poolLines(fromPool));
       if (toModel.length === 0) return;
-      if (Date.now() < askAgainAt) {
+      if (Date.now() < (askAgainAt.get(chatId) ?? 0)) {
         setLines(poolLines(toModel));
         return;
       }
@@ -131,8 +133,10 @@ export function useCombatNarration() {
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted) return;
-          askAgainAt =
-            Date.now() + (error instanceof ApiError && error.status === 503 ? NO_MODEL_PAUSE_MS : FAILED_PAUSE_MS);
+          askAgainAt.set(
+            chatId,
+            Date.now() + (error instanceof ApiError && error.status === 503 ? NO_MODEL_PAUSE_MS : FAILED_PAUSE_MS),
+          );
           setLines(poolLines(toModel));
         })
         .finally(() => live.current.delete(controller));
@@ -140,5 +144,14 @@ export function useCombatNarration() {
     [chatId, mode, language, debugMode, t],
   );
 
-  return { mode, prose, narrate };
+  /** Forgets everything told so far: a different fight now holds the screen. */
+  const reset = useCallback(() => {
+    for (const controller of live.current) controller.abort();
+    live.current.clear();
+    asked.current.clear();
+    setProse(new Map());
+  }, []);
+
+  // Off hides prose already told, and any that arrives after the switch.
+  return { mode, prose: mode === "off" ? NO_PROSE : prose, narrate, reset };
 }

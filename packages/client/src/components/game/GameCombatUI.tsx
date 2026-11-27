@@ -83,7 +83,7 @@ import {
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { TokenPicture } from "./TokenPicture";
 import { useCombatNarration } from "../../lib/combat-narration";
-import type { CombatNarrationBeat } from "@marinara-engine/shared";
+import { COMBAT_NARRATION_MAX_BEATS, type CombatNarrationBeat } from "@marinara-engine/shared";
 import type { TFunction } from "i18next";
 import { Spinner } from "../ui/Spinner";
 
@@ -911,6 +911,15 @@ export function GameCombatUI({
   // fight opened (a fight read back) is shown as it was, never sent for narration again.
   const directedLog = directed?.log;
   const directedLogSeen = useRef<number | null>(null);
+  // Blows wait here until the player's next choice, the round's end or the fight's end, so one request
+  // tells them all even when the director stops between them (a GM decision, a reaction).
+  const directedPending = useRef<{ round: number; beats: CombatNarrationBeat[] }>({ round: 0, beats: [] });
+  const flushDirected = useCallback(() => {
+    const { beats } = directedPending.current;
+    if (beats.length === 0) return;
+    directedPending.current = { round: directedPending.current.round, beats: [] };
+    narrate(beats);
+  }, [narrate]);
   const [directedBlow, setDirectedBlow] = useState<CombatLogEntry | null>(null);
   useEffect(() => {
     if (!directedLog) return;
@@ -935,9 +944,25 @@ export function GameCombatUI({
         beat ? { beat: beat.id, tail: directedLogTail(entry.params!, beat, localizeUi) } : undefined,
       );
     }
-    if (beats.length) narrate(beats);
+    if (beats.length) {
+      const round = directed?.round ?? 0;
+      if (round !== directedPending.current.round) flushDirected();
+      directedPending.current = { round, beats: [...directedPending.current.beats, ...beats] };
+      if (directedPending.current.beats.length >= COMBAT_NARRATION_MAX_BEATS) flushDirected();
+    }
     if (blow) setDirectedBlow(blow);
-  }, [directedLog, appendCombatLog, narrate, localizeUi]);
+  }, [directedLog, directed?.round, appendCombatLog, flushDirected, localizeUi]);
+  const directedWaits = !!(directed?.canAct || directed?.outcome || directed?.paused);
+  useEffect(() => {
+    if (directedWaits) {
+      flushDirected();
+      return;
+    }
+    // A fight the player never steps into (every fighter on AI) still gets told, a little later.
+    if (directedPending.current.beats.length === 0) return;
+    const timer = setTimeout(flushDirected, 15_000);
+    return () => clearTimeout(timer);
+  }, [directedWaits, directedLog, flushDirected]);
   // The newest blow stays up a while, longer once its prose is in, then makes way for the stage.
   const directedBlowTold = directedBlow?.beat ? narrated.has(directedBlow.beat) : false;
   useEffect(() => {
@@ -4139,6 +4164,7 @@ function directedLogBeat(entry: { id: number; params?: Record<string, string | n
   const outcome =
     NARRATION_OUTCOMES.find((one) => one === params.outcome) ??
     (String(params.amount).startsWith("+") ? "heal" : "hit");
+  const effect = params.effect;
   return {
     id: `d${entry.id}`,
     actor: params.actor,
@@ -4148,6 +4174,7 @@ function directedLogBeat(entry: { id: number; params?: Record<string, string | n
     ...(params.ko ? { ko: true } : {}),
     ...(typeof params.element === "string" && params.element ? { element: params.element } : {}),
     ...(typeof params.reaction === "string" && params.reaction ? { reaction: params.reaction } : {}),
+    ...(effect === "strong" || effect === "weak" || effect === "immune" ? { effect } : {}),
   };
 }
 

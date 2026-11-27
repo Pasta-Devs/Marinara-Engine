@@ -93,8 +93,12 @@ export function parseCombatNarration(raw: string, beats: CombatNarrationBeat[]):
         ? (value as { lines: unknown[] }).lines
         : [];
   } catch {
-    // A model that ignored the format: one numbered line per beat.
-    lines = text.split(/\n+/).filter((line) => /^\s*\d+[.):]/.test(line));
+    // A model that ignored the format: numbered lines, each put at its own beat's place.
+    for (const line of text.split(/\n+/)) {
+      const at = /^\s*(\d+)[.):]/.exec(line);
+      const index = at ? Number(at[1]) - 1 : -1;
+      if (index >= 0 && index < beats.length && lines[index] === undefined) lines[index] = line;
+    }
   }
   return beats.map((beat, index) => cleanCombatNarrationLine(lines[index], beat));
 }
@@ -151,8 +155,11 @@ export async function narrateCombatBeats(
     (typeof meta.gameSceneConnectionId === "string" && meta.gameSceneConnectionId) ||
     (typeof setup.sceneConnectionId === "string" && setup.sceneConnectionId) ||
     null;
-  if (!sceneConnectionId) throw new NoCombatNarratorError("No local model or scene model is set up.");
-  const { conn, baseUrl } = await resolveGameConnection(createConnectionsStorage(db), sceneConnectionId, chat);
+  const connections = createConnectionsStorage(db);
+  // A scene model that is gone or blocked is no scene model: never let the resolver fall back to Main.
+  if (!sceneConnectionId || (sceneConnectionId !== "random" && !(await connections.getWithKey(sceneConnectionId))))
+    throw new NoCombatNarratorError("No local model or scene model is set up.");
+  const { conn, baseUrl } = await resolveGameConnection(connections, sceneConnectionId, chat);
   const provider = createLLMProvider(
     conn.provider,
     baseUrl,

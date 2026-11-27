@@ -92,7 +92,10 @@ export function DirectedCombatUI(props: Props) {
     [s?.ruleset, rulesetText],
   );
   // Each blow of a ruleset fight told as prose above its roll, held here so the log's tab can close.
-  const rulesetNarration = useRulesetFightNarration(definition ? shown : undefined);
+  const rulesetNarration = useRulesetFightNarration(
+    definition ? shown : undefined,
+    s ? (s.instanceId ?? s.id) : undefined,
+  );
   // The kinds a zone strikes, named in the menu as it is cast (1.753), sent with that option once.
   // Every hook comes before the loading return, so the screen asks for the same hooks every time.
   const namedKinds = useRef<{ optionId: string; kinds: string[] } | null>(null);
@@ -182,7 +185,13 @@ export function DirectedCombatUI(props: Props) {
     }${e.source === "fallback" ? ` (${t("game.combat.director.fallbackUsed")})` : ""}`;
   const classicLog = s.log
     .filter((e) => e.kind !== "marinara:reasoning")
-    .map((e) => ({ id: e.id, kind: e.kind, text: logLine(e), params: e.message?.params }));
+    .map((e) => ({
+      id: e.id,
+      // A Classic Marinara blow is told like any other attack line.
+      kind: e.blow ? "action" : e.kind,
+      text: logLine(e),
+      params: e.message?.params ?? e.blow,
+    }));
   // A ruleset fight only reads as one when the rules it was started on can still be read here, which
   // is exactly when the server sends its view. Without either, the shell is the Classic one.
   const fight = s.style === "ruleset" && definition ? shown : undefined;
