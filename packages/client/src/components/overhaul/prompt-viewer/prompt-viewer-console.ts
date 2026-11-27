@@ -559,12 +559,27 @@ function closeConsoleNow() {
 }
 
 // ── Loading data ──────────────────────────────────────────────
+// GET /characters now answers one page at a time ({ items, hasMore }), with each card's whole data. The picker
+// only needs names, so it reads the light catalog (id, name) page by page; a picked card loads in full.
+async function listAllCharacters() {
+  const out = [];
+  for (let offset = 0; offset < 100000;) {
+    const page = await api("GET", "/characters/catalog?view=summary&sort=name-asc&limit=100&offset=" + offset);
+    if (Array.isArray(page)) return page;
+    const items = page && Array.isArray(page.items) ? page.items : [];
+    out.push(...items);
+    if (!page || !page.hasMore || !items.length) break;
+    offset += items.length;
+  }
+  return out;
+}
+
 async function loadAllSources() {
   try {
     const [presets, lorebooks, characters, personas] = await Promise.all([
       api("GET", "/prompts/").catch(() => []),
       api("GET", "/lorebooks").catch(() => []),
-      api("GET", "/characters").catch(() => []),
+      listAllCharacters().catch(() => []),
       api("GET", "/characters/personas/list").catch(() => []),
     ]);
     state.presets = Array.isArray(presets) ? presets : [];
