@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { defaultRangeExtractor, useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import {
   findScrollParent,
@@ -30,6 +30,13 @@ interface PanelVirtualListProps {
   keepMountedIndex?: number;
   /** Scrolls this row into view when the value changes (keyboard highlight on rows that may be unmounted). */
   scrollToIndex?: number;
+  /**
+   * "start" puts that row at the top, for an opened target (a library card, a lorebook entry): "auto" aligns a row
+   * below the view by its end, which hides the top of a row taller than the view.
+   */
+  scrollAlign?: "auto" | "start";
+  /** A sticky header in the list's scroller (a page header on phones): a row scrolled to the top lands below it. */
+  stickyHeaderRef?: RefObject<HTMLElement | null>;
   /** Paged lists: asks for the next page when the last rendered row is near the end. */
   paging?: {
     hasNextPage: boolean;
@@ -63,6 +70,8 @@ export function PanelVirtualList({
   pinnedIndex,
   keepMountedIndex,
   scrollToIndex,
+  scrollAlign = "auto",
+  stickyHeaderRef,
   paging,
   className,
   columns,
@@ -71,6 +80,7 @@ export function PanelVirtualList({
   const [listEl, setListEl] = useState<HTMLDivElement | null>(null);
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
+  const [scrollPaddingStart, setScrollPaddingStart] = useState(0);
   const [width, setWidth] = useState(0);
   // The row holding focus stays mounted, so keyboard focus is not lost when it scrolls away.
   const [focusedKey, setFocusedKey] = useState<Key>();
@@ -98,6 +108,7 @@ export function PanelVirtualList({
     gap,
     overscan: 6,
     scrollMargin,
+    scrollPaddingStart,
     initialMeasurementsCache: loadMeasurementSnapshot(listKey),
     rangeExtractor: (range) =>
       withPinnedIndex(
@@ -121,6 +132,9 @@ export function PanelVirtualList({
       setScroller(current);
       setWidth(listEl.clientWidth);
       setScrollMargin(listEl.getBoundingClientRect().top - current.getBoundingClientRect().top + current.scrollTop);
+      // A header outside the scroller (a pane that scrolls on its own) covers nothing.
+      const header = stickyHeaderRef?.current;
+      setScrollPaddingStart(header && current.contains(header) ? header.getBoundingClientRect().height : 0);
     };
     const resize = new ResizeObserver(measure);
     // Anything above the list that changes size moves it: watch every ancestor up to the container and all of their
@@ -141,7 +155,7 @@ export function PanelVirtualList({
       resize.disconnect();
       mutation.disconnect();
     };
-  }, [listEl]);
+  }, [listEl, stickyHeaderRef]);
 
   // Only a new target item scrolls: rows streaming in (count) or the same item moving (a chat that
   // re-sorts to the top) must not pull the list back.
@@ -153,7 +167,7 @@ export function PanelVirtualList({
     if (scrollToKey === undefined) scrolledKeyRef.current = undefined;
     if (scrollToKey === undefined || !scroller || scrolledKeyRef.current === scrollToKey) return;
     scrolledKeyRef.current = scrollToKey;
-    virtualizer.scrollToIndex(toRow(scrollToIndex)!, { align: "auto" });
+    virtualizer.scrollToIndex(toRow(scrollToIndex)!, { align: scrollAlign });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollToKey, scroller, virtualizer]);
 

@@ -56,17 +56,26 @@ interface SharedRenderer {
 }
 let shared: SharedRenderer | null = null;
 
-/** ponytail: Three 0.186 starts a private RAF even without a callback. Keep this pinned, guarded adapter
- * until Three exposes a public on-demand clock; the stage remains the only owner of animation ticks. */
+/** ponytail: Three starts a private RAF even without a callback: 0.186 from init(), 0.187 from every render().
+ * Keep this pinned, guarded adapter until Three exposes a public on-demand clock; the stage remains the only
+ * owner of animation ticks. */
 export function bindMmdStageClock(renderer: unknown): () => void {
   if (renderer === null || typeof renderer !== "object")
     throw new Error("This Three.js version cannot use the avatar stage clock.");
-  const clock = renderer as { _animation?: { stop?: () => void }; _nodes?: { nodeFrame?: { update?: () => void } } };
+  const clock = renderer as {
+    _animation?: { start?: () => void; stop?: () => void };
+    _nodes?: { nodeFrame?: { update?: () => void } };
+  };
   const animation = clock._animation;
   const frame = clock._nodes?.nodeFrame;
-  if (typeof animation?.stop !== "function" || typeof frame?.update !== "function")
+  if (
+    typeof animation?.start !== "function" ||
+    typeof animation.stop !== "function" ||
+    typeof frame?.update !== "function"
+  )
     throw new Error("This Three.js version cannot use the avatar stage clock.");
   animation.stop();
+  animation.start = () => undefined;
   return () => frame.update!();
 }
 

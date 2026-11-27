@@ -632,7 +632,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "phone-swipe-gestures",
-    sectionId: "editing-swipes",
+    sectionId: "touch-gestures",
     labelKey: "settings.controls.phoneSwipeGestures.label",
     label: "Swipe gestures on touch screens",
     description: "In the new layout on a phone or tablet, swipe the latest reply, the top-bar title and chat rows.",

@@ -630,6 +630,8 @@ async function keepsFieldAboveKeyboard(page: Page, request: APIRequestContext, i
       const html = page.locator("html");
       if (open) await expect(html).toHaveAttribute("data-mari-software-keyboard-open", "");
       else await expect(html).not.toHaveAttribute("data-mari-software-keyboard-open");
+      // The page reveals the focused field over the two frames after the keyboard opens; let that finish.
+      if (open) await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     };
     // The field's first lines show above the keyboard, not scrolled out of the window around them.
     const showsAboveKeyboard = (field: Locator) =>

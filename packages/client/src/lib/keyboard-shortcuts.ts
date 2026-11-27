@@ -11,6 +11,8 @@ export interface KeyboardShortcut {
   keys: string[][];
   /** Localization key of the description. */
   labelKey: string;
+  /** Stable id for the docs and tests. Defaults to `labelKey`. */
+  id?: string;
   /** The description in the new layout, when the binding does something else there. */
   overhaulLabelKey?: string;
   /**
@@ -22,6 +24,10 @@ export interface KeyboardShortcut {
   sequence?: boolean;
   /** Only works while this Settings switch is on; the list dims it and says where to turn it on. */
   requiresSetting?: "intuitiveSwipeNavigation";
+  /** Only in the new layout on a computer or a tablet held sideways (the tab strip); left out of the classic list. */
+  overhaulOnly?: boolean;
+  /** The keys on Apple devices, when they differ from `keys` by more than Ctrl → ⌘. */
+  appleKeys?: string[][];
 }
 
 export interface KeyboardShortcutGroup {
@@ -31,6 +37,46 @@ export interface KeyboardShortcutGroup {
 }
 
 export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
+  {
+    // New layout, computer shell (components/overhaul/use-navigation-keys.ts, place-history.ts).
+    id: "navigation",
+    titleKey: "shortcuts.groups.navigation",
+    shortcuts: [
+      {
+        keys: [["Alt", "←"], ["Mouse back"]],
+        appleKeys: [["Mod", "["], ["Mouse back"]],
+        labelKey: "shortcuts.navigation.back",
+        overhaulOnly: true,
+      },
+      {
+        keys: [["Alt", "→"], ["Mouse forward"]],
+        appleKeys: [["Mod", "]"], ["Mouse forward"]],
+        labelKey: "shortcuts.navigation.forward",
+        overhaulOnly: true,
+      },
+      {
+        keys: [
+          ["Alt", "Shift", "←"],
+          ["Alt", "Page Up"],
+        ],
+        labelKey: "shortcuts.navigation.previousTab",
+        overhaulOnly: true,
+      },
+      {
+        keys: [
+          ["Alt", "Shift", "→"],
+          ["Alt", "Page Down"],
+        ],
+        labelKey: "shortcuts.navigation.nextTab",
+        overhaulOnly: true,
+      },
+      { keys: [["Alt", "Shift", "1–8"]], labelKey: "shortcuts.navigation.jumpTab", overhaulOnly: true },
+      { keys: [["Alt", "Shift", "9"]], labelKey: "shortcuts.navigation.lastTab", overhaulOnly: true },
+      { keys: [["Alt", "W"]], labelKey: "shortcuts.navigation.closeTab", overhaulOnly: true },
+      // DesktopTabStrip (the browser keeps it in a normal tab; an installed app and Firefox pass it on)
+      { keys: [["Mod", "Shift", "T"]], labelKey: "shortcuts.navigation.reopenTab", overhaulOnly: true },
+    ],
+  },
   {
     id: "general",
     titleKey: "shortcuts.groups.general",
@@ -52,7 +98,8 @@ export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
       // QuickConnectionSwitcher (the composer's model chip; not while a dialog is open)
       { keys: [["Alt", "M"]], labelKey: "shortcuts.general.quickPicker" },
       // GlobalOmnibarHost (ignored while typing or while a dialog is open)
-      { keys: [["?"]], labelKey: "shortcuts.general.help" },
+      // New layout: opens Settings › Shortcuts (components/overhaul/shortcuts-page.ts).
+      { keys: [["?"]], labelKey: "shortcuts.general.help", overhaulLabelKey: "shortcuts.general.helpPage" },
       // Modal.tsx and every popover's Escape listener
       { keys: [["Esc"]], labelKey: "shortcuts.general.close" },
     ],
@@ -191,5 +238,32 @@ export function shortcutKeyTypesText(event: { composedPath?: () => ArrayLike<unk
 export function formatShortcutKey(key: string, apple = isApplePlatform()): string {
   if (key === "Mod") return apple ? "⌘" : "Ctrl";
   if (key === "Alt") return apple ? "⌥" : "Alt";
+  if (key === "Shift" && apple) return "⇧";
   return key;
+}
+
+/** Keys spelled as words, translated: the mouse's side buttons and Page Up / Page Down. */
+const KEY_WORD_LABELS: Record<string, string> = {
+  "Mouse back": "shortcuts.keys.mouseBack",
+  "Mouse forward": "shortcuts.keys.mouseForward",
+  "Page Up": "shortcuts.keys.pageUp",
+  "Page Down": "shortcuts.keys.pageDown",
+};
+
+export function shortcutKeyLabel(key: string, t: (key: string) => string, apple = isApplePlatform()): string {
+  const word = KEY_WORD_LABELS[key];
+  return word ? t(word) : formatShortcutKey(key, apple);
+}
+
+/** The groups and shortcuts for one layout: the classic layout leaves out the new layout's own keys. */
+export function shortcutGroupsFor(overhaul: boolean): KeyboardShortcutGroup[] {
+  return KEYBOARD_SHORTCUT_GROUPS.map((group) => ({
+    ...group,
+    shortcuts: group.shortcuts.filter((shortcut) => overhaul || !shortcut.overhaulOnly),
+  })).filter((group) => group.shortcuts.length > 0);
+}
+
+/** The key combinations to show for a shortcut on this platform. */
+export function shortcutKeysFor(shortcut: KeyboardShortcut, apple = isApplePlatform()): string[][] {
+  return apple && shortcut.appleKeys ? shortcut.appleKeys : shortcut.keys;
 }

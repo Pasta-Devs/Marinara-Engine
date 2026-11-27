@@ -46,6 +46,8 @@ export type SettingsSectionId =
   | "parameters"
   | "message-tools"
   | "message-buttons"
+  | "keyboard-shortcuts"
+  | "touch-gestures"
   | "backup-export"
   | "storage-optimization"
   | "danger-zone"
@@ -433,6 +435,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     label: "Message Buttons",
     description: "Which buttons sit on each message, and which wait in the ⋯ menu.",
     aliases: ["buttons", "actions", "regenerate", "swipe", "speak", "menu", "three dots", "hover", "toolbar"],
+  },
+  {
+    // New layout: the shortcut list as a Settings page (the classic layout keeps the "?" window).
+    id: "keyboard-shortcuts",
+    tab: "general",
+    label: "Keyboard Shortcuts",
+    description: "Every keyboard shortcut: Search, Back and Forward, tabs, the message box and editors.",
+    aliases: ["shortcuts", "hotkeys", "keybindings", "keys", "keyboard", "back", "forward", "tabs"],
+  },
+  {
+    id: "touch-gestures",
+    tab: "general",
+    label: "Touch Gestures",
+    description: "Swipes and pulls on phones and tablets, and the switch for them.",
+    aliases: ["gestures", "swipe", "pull", "touch", "edge swipe", "refresh", "back"],
   },
   {
     id: "backup-export",

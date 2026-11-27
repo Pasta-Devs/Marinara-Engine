@@ -6,9 +6,20 @@ In the new layout, every chat, character, persona, lorebook, preset and app you 
 
 - **Computer and tablet held sideways:** the tabs sit in the top bar. Click one to go back to it.
 - **Phone and tablet held upright:** tap the number button at the top right. **All Tabs** shows every tab as a card. Tap a card to open it, or tap **Done** to go back.
+- **Library sections** such as Characters, Presets or Settings don't get a tab by themselves, since they are one click away in the Library. To keep one in the top bar anyway, drag it from the Library list onto the tabs on a computer and drop it where you want it. It stays until you close it, like any other tab.
 - **Swipe the top bar** left or right on a phone to go to the next or previous tab.
 - **Chat tabs** start with the chat's mode: its symbol in the mode's color and a short code, **CO** for Conversation, **RP** for Roleplay and **GM** for Game, then the chat's name. Two open chats with the same name and mode are numbered, such as "Luna · 2".
 - **Other tabs** show their symbol (a character, a lorebook, a persona and so on) and the name. A chat and a character that share a name both keep the plain name, since the symbol tells them apart. Two open tabs of the same kind with the same name are numbered the same way.
+
+## Tabs keep your place
+
+Going back to a tab puts you where you left it:
+
+- **Editors** open on the same page, section or entry: the preset page and Prompt order section you were editing, the lorebook entry with its search and sort, the gallery or sprite tab of a character or persona, and sections you added to a card.
+- **Scrolling** comes back too, in editors, lists and chats. A chat you had scrolled up in opens at that spot instead of the newest message.
+- Opening something at a given spot on purpose, such as Professor Mari showing you a field, still goes to that spot.
+
+Places are kept until you close the tab or reload the page.
 
 ## Move, group and close tabs
 

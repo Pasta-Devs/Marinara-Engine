@@ -101,6 +101,19 @@
   color: var(--ov-accent-text);
   background: var(--mari-selected-bg);
 }
+/* Back and Forward between visited places, beside the logo (place-history.ts). */
+.ov-place-arrows {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.0625rem;
+  margin-right: 0.25rem;
+}
+.ov-place-arrows .ov-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+}
 .ov-tabs {
   display: flex;
   flex: 1 1 auto;
@@ -794,7 +807,18 @@
   color: var(--ov-muted);
   font-size: 0.75rem;
 }
+.ov-tag[data-ov-tag] {
+  max-width: 100%;
+  min-width: 0;
+}
+.ov-tag__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .ov-tag button {
+  flex-shrink: 0;
   opacity: 0.5;
 }
 @media (hover: hover) {
@@ -1176,6 +1200,9 @@
 }
 .ov-gallery__head {
   display: flex;
+  /* When the buttons don't fit beside the title (Lorebooks' Books/Sets + five buttons on a sideways iPad), they
+     wrap under it instead of running past the page's edge. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
@@ -2029,10 +2056,13 @@
 }
 [data-ov-settings-sections] section[id^="settings-section-"] > div:first-child > div:first-of-type {
   display: flex;
+  /* A narrow column (tablet, or a section with a button beside its title) puts the description under the
+     title instead of squeezing it to one word per line. */
+  flex-wrap: wrap;
   min-width: 0;
   flex: 1;
   align-items: baseline;
-  gap: 0.75rem;
+  gap: 0.25rem 0.75rem;
 }
 [data-ov-settings-sections] section[id^="settings-section-"] > div:first-child > div:first-of-type > div:first-child {
   flex: none;
@@ -2044,6 +2074,7 @@
 }
 /* Section descriptions wrap instead of ending mid-word ("They ope…", audit C18). */
 [data-ov-settings-sections] section[id^="settings-section-"] > div:first-child > div:first-of-type > div:nth-child(2) {
+  flex: 1 1 12rem;
   min-width: 0;
   margin: 0;
   color: var(--ov-dim);
@@ -2847,7 +2878,8 @@
 }
 /* The italic name already says "marker"; the badge spot names the entry's group instead. */
 [data-ov-row] [data-preset-section-group-badge] {
-  max-width: 7rem;
+  min-width: 2.5rem;
+  max-width: 6rem;
   overflow: hidden;
   border: 1px solid var(--ov-line);
   border-radius: 0.25rem;
@@ -2858,6 +2890,9 @@
 }
 .ov-preset__left [data-preset-section-root] {
   display: grid;
+  /* One column exactly as wide as the list: an auto column grew to the longest name, so the token counts and
+     row buttons ended up past the column's edge behind a sideways scrollbar. Names truncate instead. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.125rem;
 }
 .ov-preset__left [data-preset-section-root] > * + * {
@@ -2998,7 +3033,9 @@
   position: relative;
   min-height: 0;
   overflow-y: auto;
-  padding: 1.5rem 1.5rem 4rem;
+  /* A variable so a code block's Copy (below) can stick through it to the reader's bottom edge. */
+  --ov-docs-reader-pad-bottom: 4rem;
+  padding: 1.5rem 1.5rem var(--ov-docs-reader-pad-bottom);
 }
 .ov-docs__article,
 .ov-docs__empty {
@@ -3142,10 +3179,14 @@
 }
 .ov-docs .ov-docs__content .mari-md-codeblock {
   /* Right padding keeps code clear of the Copy button. One line of code (0.85rem at 1.6) plus this
-     padding is 2.75rem tall, so the 1.75rem button at top 0.5rem sits centered in a one-line block
-     and in the top corner of a longer one. */
+     padding is 2.75rem tall, so the 1.75rem button 0.5rem off the bottom sits centered in a one-line
+     block; in a longer one it keeps to the bottom corner of the part on screen as the page scrolls. */
   min-height: 2.75rem;
   padding: 0.6875rem 4.75rem 0.6875rem 1rem;
+  --code-copy-inset: 0.5rem;
+  /* clip, not hidden: a hidden overflow makes the block its own scroller, and Copy's sticky strip
+     (globals.css) would then ignore the page scrolling past a long block. */
+  overflow-x: clip;
   border: 1px solid var(--ov-line);
   background: color-mix(in srgb, var(--ov-text) 7%, var(--card));
   color: var(--ov-text);
@@ -3156,10 +3197,12 @@
 .ov-docs .ov-docs__content .mari-md-codeblock-lang {
   display: none;
 }
+.ov-docs .ov-docs__content .mari-md-codeblock > .docs-copy-dock {
+  /* A long block scrolls with the page here, so Copy sticks to the reader's bottom edge (through its
+     bottom padding), at the same inset as its corner in the block. */
+  bottom: calc(var(--code-copy-pad, 0.6875rem) - var(--ov-docs-reader-pad-bottom, 4rem));
+}
 .ov-docs .ov-docs__content .docs-copy-button {
-  top: 0.5rem;
-  bottom: auto;
-  right: 0.5rem;
   display: inline-flex;
   align-items: center;
   height: 1.75rem;
@@ -3787,6 +3830,36 @@
 .ov-lrow__keys small {
   color: var(--ov-dim);
   font-size: 0.75rem;
+}
+/* Where the entry lands in the prompt + its Order; only the side-by-side list shows it (the table has columns). */
+.ov-lrow__spot {
+  display: none;
+}
+.ov-lv__left .ov-lrow__spot {
+  display: inline-flex;
+  grid-area: spot;
+  align-items: baseline;
+  gap: 0.3125rem;
+  padding-left: 0.5rem;
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+.ov-lv__left .ov-lrow__spot small {
+  min-width: 1.5rem;
+  color: var(--ov-muted);
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+/* A thin label above the first entry of each prompt spot when a list mixes them (Prompt order sort). */
+.ov-lsec {
+  margin: 0.625rem 0 0.125rem;
+  padding: 0 0.5rem;
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 .ov-lrow__pos {
   flex: 0 0 4.75rem;
@@ -5739,18 +5812,20 @@ input.ov-edhead__title:focus {
   border-radius: 50%;
   background: currentColor;
 }
-/* An editor tab with unsaved changes: a small accent ring after its name (like an unsaved file in an editor). */
+/* An editor tab with unsaved changes: a small pencil after its name, in the tab's own text colour, so it never reads
+   as the Conversation online dot (a green accent ring did). */
 .ov-tab__draft {
-  display: inline-block;
+  display: inline-grid;
   flex: none;
+  place-items: center;
   vertical-align: middle;
-  width: 0.5rem;
-  height: 0.5rem;
   margin-left: 0.3125rem;
-  border-radius: 50%;
-  /* A ring, so it never reads as the filled mode dot (Roleplay is pink too) (keyboard QC round 2, PN23). */
-  background: transparent;
-  box-shadow: inset 0 0 0 0.125rem var(--ov-accent-text);
+  color: currentColor;
+  opacity: 0.75;
+  line-height: 0;
+}
+.ov-tab__draft svg {
+  display: block;
 }
 .ov-tab__presence.is-idle {
   color: #e0b04a;
@@ -7092,8 +7167,8 @@ input.ov-edhead__title:focus {
 }
 .ov-lv__left .ov-lrow {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  grid-template-areas: "grip switch name" "grip . keys";
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "grip switch name name" "grip . keys spot";
   row-gap: 0;
   column-gap: 0.375rem;
   padding: 0.25rem 0.5rem;
@@ -14202,6 +14277,20 @@ input.ov-edhead__title:not(#ov-x) {
     border-right: 0;
     border-bottom: 1px solid var(--ov-line);
   }
+  /* A preset on a narrow page stacks like the viewers above: its pages and Prompt order on top, the open page
+     below, each as wide as the page (side by side, the list kept 17rem and squeezed the editor to a sliver). */
+  .ov-preset__body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(9rem, 40%) minmax(0, 1fr);
+  }
+  .ov-preset__left {
+    padding: 0.5rem 1rem 1rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--ov-line);
+  }
+  .ov-preset__main {
+    padding: 1rem 1rem 3rem;
+  }
 }
 /* A very narrow editor (e.g. beside its list on a narrow split side): labels sit above their fields. */
 @container ov-ed (max-width: 30rem) {
@@ -15900,6 +15989,8 @@ input.ov-edhead__title:not(#ov-x) {
 }
 .ov-setup__morebody {
   display: grid;
+  /* As wide as the page, never as wide as the longest lorebook or entry name (which then ran off the right edge). */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
   padding-bottom: 0.5rem;
 }
@@ -17357,6 +17448,24 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-gsp__folderadd {
   margin-top: 0.375rem;
 }
+/* "Import character" under the party picker: a card the game needs may not be in the library yet. */
+.ov-gsp__import {
+  margin: 0.375rem 0 0;
+  font-size: 0.75rem;
+}
+.ov-gsp__import .ov-setup__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  text-decoration: none;
+}
+.ov-gsp__import .ov-setup__link:hover {
+  text-decoration: underline;
+}
+.ov-gsp__import .ov-setup__link:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
 .ov-gsp__notice {
   display: flex;
   align-items: flex-start;
@@ -18793,4 +18902,176 @@ button.ov-conn-card__name:hover b {
   max-width: 7.5rem;
   flex: 0 1 auto;
   border-radius: 0.375rem;
+}
+
+/* ── Settings › Shortcuts: keyboard shortcuts and touch gestures (ShortcutsSettings.tsx) ── */
+.ov-shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 0.75rem 0.75rem;
+}
+.ov-shortcuts__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+.ov-shortcuts__table caption {
+  padding: 0.25rem 0 0.375rem;
+  color: var(--ov-accent-text);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+}
+[dir="rtl"] .ov-shortcuts__table caption {
+  text-align: right;
+}
+.ov-shortcuts__table td {
+  height: 2.25rem;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ov-line) 70%, transparent);
+  color: var(--ov-muted);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.ov-shortcuts__what {
+  /* Half the row for the words, so a long key list wraps onto lines instead of squeezing the label. */
+  width: 50%;
+  color: var(--ov-text) !important;
+}
+.ov-shortcuts__how {
+  text-align: right;
+}
+[dir="rtl"] .ov-shortcuts__how {
+  text-align: left;
+}
+.ov-shortcuts__gesture {
+  color: var(--ov-muted);
+}
+.ov-shortcuts__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.ov-shortcuts__table tr.is-off td {
+  opacity: 0.6;
+}
+.ov-shortcuts__note {
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-shortcuts__keys {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem 0.375rem;
+}
+.ov-shortcuts__combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  white-space: nowrap;
+}
+.ov-shortcuts__combo kbd {
+  min-width: 1.375rem;
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.3125rem;
+  background: var(--ov-hover);
+  color: var(--ov-text);
+  font-family: inherit;
+  font-size: 0.75rem;
+  text-align: center;
+}
+.ov-shortcuts__or {
+  margin-right: 0.25rem;
+  color: var(--ov-muted);
+  font-size: 0.6875rem;
+}
+[dir="rtl"] .ov-shortcuts__or {
+  margin-right: 0;
+  margin-left: 0.25rem;
+}
+.ov-shortcuts__guide {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  border-radius: 0.4375rem;
+  color: var(--ov-accent-text);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  .ov-shortcuts__guide:hover {
+    background: var(--ov-hover);
+  }
+}
+@media (max-width: 40rem) {
+  .ov-shortcuts {
+    padding: 0 0.5rem 0.5rem;
+  }
+  /* A phone has no room for two columns: what it does, then the keys or the gesture under it. */
+  .ov-shortcuts__table tr {
+    display: block;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--ov-line) 70%, transparent);
+  }
+  .ov-shortcuts__table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .ov-shortcuts__table td {
+    display: block;
+    width: auto;
+    height: auto;
+    padding: 0.125rem 0.25rem;
+    border-bottom: 0;
+    text-align: left;
+  }
+  [dir="rtl"] .ov-shortcuts__table td {
+    text-align: right;
+  }
+  .ov-shortcuts__keys {
+    justify-content: flex-start;
+  }
+}
+
+/* Pull to refresh at the top of the Chats list on touch screens (hooks/use-pull-to-refresh.ts). */
+.ov-pull-refresh {
+  display: flex;
+  overflow: hidden;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 0.5rem;
+}
+.ov-pull-refresh[data-refreshing="true"] {
+  transition: height 0.2s ease;
+}
+.ov-pull-refresh__dot {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ov-muted);
+  transition:
+    transform 0.18s ease,
+    color 0.18s ease;
+}
+.ov-pull-refresh[data-armed="true"] .ov-pull-refresh__dot {
+  color: var(--ov-accent-text);
+  transform: rotate(180deg);
+}
+.ov-pull-refresh[data-refreshing="true"] .ov-pull-refresh__dot {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ov-pull-refresh__dot {
+    transition: none;
+  }
 }

@@ -571,6 +571,8 @@
 :root[data-mari-min-ui-text] .ov-vw__ghead small,
 :root[data-mari-min-ui-text] .ov-vw__text small,
 :root[data-mari-min-ui-text] .ov-lv__left .ov-lrow__keys code,
+:root[data-mari-min-ui-text] .ov-lv__left .ov-lrow__spot,
+:root[data-mari-min-ui-text] .ov-lsec,
 :root[data-mari-min-ui-text] .ov-lv__left .ov-lv-stats,
 :root[data-mari-min-ui-text] .ov-dl .ov-menu button small,
 :root[data-mari-min-ui-text] .ov-dl__state,

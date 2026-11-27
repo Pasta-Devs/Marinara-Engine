@@ -34,6 +34,12 @@ export const OVERHAUL_SETTINGS_TABS: {
     ],
   },
   {
+    id: "shortcuts",
+    label: "Shortcuts",
+    blurb: "Keyboard shortcuts and touch gestures",
+    sections: ["keyboard-shortcuts", "touch-gestures"],
+  },
+  {
     id: "appearance",
     label: "Appearance",
     blurb: "Theme, fonts, text colors, layout, effects, backgrounds and CSS themes",

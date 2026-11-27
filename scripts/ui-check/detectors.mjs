@@ -8,6 +8,7 @@
 //   clipped      a box with overflow hidden cuts off content taller/wider than itself, with nothing to scroll
 //   unreachable  a button, field or line of text sits outside the window and nothing can scroll it into view
 //   sideways     the page itself scrolls sideways
+//   column-sideways  a list column that scrolls up and down also scrolls sideways (rows wider than the column)
 //   offscreen    a popup, menu or window pokes out of the window
 //   picture      a picture is far bigger than the box it belongs in (the "giant avatar" family)
 //   stretched    a row or button is mostly empty space: many times taller than what is in it (Home's giant links)
@@ -111,6 +112,16 @@ export function detectLayoutProblems(options = {}) {
       text: "",
       detail: `page is ${pageWidth}px wide in a ${vw}px window`,
     });
+  }
+
+  // ── column-sideways: a list column that scrolls up and down also scrolls sideways, so the end of its rows
+  // (token counts, row buttons) needs a sideways scroll (preset Prompt order, Nov 26) ──
+  for (const el of visible) {
+    const style = styleOf(el);
+    if (!scrolls(style, "y") || !scrolls(style, "x") || el.clientWidth < 120) continue;
+    const extra = el.scrollWidth - el.clientWidth;
+    if (extra <= 4) continue;
+    add("column-sideways", el, `rows are ${el.scrollWidth}px wide in a ${el.clientWidth}px column`);
   }
 
   // ── clipped: overflow hidden cuts off content and nothing scrolls ──

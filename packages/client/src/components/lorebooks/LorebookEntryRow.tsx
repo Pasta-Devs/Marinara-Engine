@@ -1,4 +1,4 @@
-import { estimateTextTokens } from "@marinara-engine/shared";
+import { estimateTextTokens, lorebookPromptPlacement } from "@marinara-engine/shared";
 import { LorebookEntryImages } from "./LorebookEntryImages";
 import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { appendLorebookActivationKeys } from "../../lib/lorebook-keys";
@@ -833,6 +833,14 @@ export function LorebookEntryRow({
                 {(entry.keys ?? []).length > 4 ? <small>+{(entry.keys ?? []).length - 4}</small> : null}
               </>
             )}
+          </span>
+          {/* The side-by-side list's compact marker of where the entry lands in the prompt, with its Order:
+              Order only ranks entries at the same spot, so a Before 400 still sits above an After 100. */}
+          <span className="ov-lrow__spot" data-spot={lorebookPromptPlacement({ position: localPosition })}>
+            {localPosition === 2
+              ? localizeUi("lorebook.editor.promptSpot.depth", { depth: localDepth })
+              : localizeUi(`lorebook.editor.promptSpot.${lorebookPromptPlacement({ position: localPosition })}`)}
+            <small>{localOrder}</small>
           </span>
           <span className="ov-lrow__pos">
             {localPosition === 0

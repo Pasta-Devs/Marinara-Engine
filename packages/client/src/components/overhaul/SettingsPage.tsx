@@ -191,6 +191,7 @@ const MOBILE_TABS: Partial<
 > = {
   general: { blurb: "Language, confirmations, notifications", onePage: true },
   chatting: { blurb: "Replies, message box, swipes, thinking" },
+  shortcuts: { blurb: "Touch gestures and keyboard shortcuts" },
   appearance: { blurb: "Theme, fonts, colors and backgrounds" },
   conversation: { blurb: "How Conversation chats look", onePage: true },
   roleplay: { blurb: "Tracker Panel, avatars, Visual Novel" },

@@ -132,6 +132,7 @@ import { ConversationAgentsSection } from "./agents/ConversationAgentsSection";
 import { LongTermMemoryCapabilitySettings } from "./agents/LongTermMemorySettings";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
+import { readCombatNarrationMode } from "@marinara-engine/shared";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
 import { resolvePersonaInlineNames } from "../../lib/inline-name-colors";
@@ -3311,6 +3312,8 @@ export function ChatSettingsDrawer({
                 onCombatStyleChange={(gameCombatStyle) => updateMeta.mutate({ id: chat.id, gameCombatStyle })}
                 turnOrder={effectiveTurnOrder}
                 onTurnOrderChange={(gameTacticalTurnOrder) => updateMeta.mutate({ id: chat.id, gameTacticalTurnOrder })}
+                narration={readCombatNarrationMode(metadata.gameCombatNarration)}
+                onNarrationChange={(gameCombatNarration) => updateMeta.mutate({ id: chat.id, gameCombatNarration })}
               />
             )}
 
@@ -3969,7 +3972,11 @@ export function ChatSettingsDrawer({
                             )}
                           >
                             {renderAgentLorebookAttachment("card-evolution-auditor")}
-                            <CardEvolutionAuditorSettings closeForSurface={closeForSurface} />
+                            <CardEvolutionAuditorSettings
+                              closeForSurface={closeForSurface}
+                              chatId={chat.mode === "roleplay" ? chat.id : undefined}
+                              metadata={metadata}
+                            />
                           </AgentSettingsCard>
                         )}
 

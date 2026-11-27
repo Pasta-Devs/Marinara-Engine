@@ -62,6 +62,21 @@ export async function seedFixtures(api) {
   }
   const presets = await api.get("/api/prompts");
   ids.preset = presets[0]?.id;
+  // Long section names in a long-named group, so the Prompt order rows have to truncate to fit their column.
+  if (ids.preset) {
+    // The stock preset is read-only; its editable copy gets the long rows and is the one the editor screen opens.
+    ids.preset = (await api.post(`/api/prompts/${ids.preset}/duplicate`)).id;
+    const group = await api.post(`/api/prompts/${ids.preset}/groups`, { name: LONG_NAME });
+    for (const [n, name] of [LONG_NAME, UNBROKEN].entries())
+      await api.post(`/api/prompts/${ids.preset}/sections`, {
+        presetId: ids.preset,
+        identifier: `ui_check_long_${n}`,
+        name,
+        content: PARAGRAPH.repeat(3),
+        role: "user",
+        groupId: group.id,
+      });
+  }
   ids.regex = // A trim string, so the editor shows its "Trim from" row too.
     (
       await api.post("/api/regex-scripts", {
@@ -222,6 +237,7 @@ const open = {
 const SETTINGS_TABS = [
   "general",
   "chatting",
+  "shortcuts",
   "appearance",
   "conversation",
   "roleplay",

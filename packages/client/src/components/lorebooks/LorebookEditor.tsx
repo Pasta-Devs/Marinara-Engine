@@ -10,7 +10,12 @@
 // ──────────────────────────────────────────────
 import { announce } from "../../lib/live-announcer";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
-import { estimateTextTokens } from "@marinara-engine/shared";
+import {
+  clampLorebookEntryMoveToPromptSpot,
+  compareLorebookEntriesByPromptOrder,
+  estimateTextTokens,
+  lorebookPromptPlacement,
+} from "@marinara-engine/shared";
 import { useBuiltinEmbeddingOption } from "../connections/BuiltinEmbeddingDetail";
 import {
   useState,
@@ -97,6 +102,7 @@ import {
 } from "lucide-react";
 import { Select } from "../ui/Select";
 import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
+import { tabPlaceKey, useTabPlace } from "../../lib/tab-place";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { CharacterSelect } from "../characters/CharacterSelect";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
@@ -244,7 +250,8 @@ const CATEGORY_OPTIONS: Array<{ value: LorebookCategory; label: string; icon: ty
 type EntrySortKey = "order" | "entries" | "name-asc" | "name-desc" | "tokens" | "keys" | "fired" | "newest" | "oldest";
 
 const SORT_OPTIONS: Array<{ value: EntrySortKey; label: string }> = [
-  { value: "order", label: "Order" },
+  // Where entries land in the prompt: Before, After, depth, Outlets, with Order inside each.
+  { value: "order", label: "Prompt order" },
   { value: "entries", label: "Entries" },
   { value: "name-asc", label: "Name A→Z" },
   { value: "name-desc", label: "Name Z→A" },
@@ -477,7 +484,9 @@ export function LorebookEditor() {
   const [activeTab, setActiveTab] = useState<TabId>(
     () => (useUIStore.getState().lorebookDetailInitialTab as TabId | null) ?? "overview",
   );
-  const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
+  // Each lorebook tab keeps the entry, search, sort and panel it had open while you are in another tab (lib/tab-place).
+  const placeKey = tabPlaceKey("lorebook", lorebookId);
+  const [expandedEntryId, setExpandedEntryId] = useTabPlace<string | null>(placeKey, "entry", null);
   const newlyCreatedEntryRef = useRef<string | null>(null);
   // The entry just added stays open while the list catches up with it.
   const pendingNewEntryIdRef = useRef<string | null>(null);
@@ -495,7 +504,7 @@ export function LorebookEditor() {
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const [saving, setSaving] = useState(false);
 
-  const [entrySearch, setEntrySearch] = useState("");
+  const [entrySearch, setEntrySearch] = useTabPlace(placeKey, "search", "");
   // Rows are windowed, so a new entry may not be mounted: ask the lists to scroll to it first.
   const [scrollToEntryId, setScrollToEntryId] = useState<string | null>(null);
   const snapToEntryRef = useRef(true);
@@ -517,22 +526,26 @@ export function LorebookEditor() {
   }, [entries]);
   useEffect(() => {
     if (!scrollToEntryId) return;
-    // Two frames: the list scrolls and mounts the row, then the row snaps to the top.
-    const frame = requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        const row = snapToEntryRef.current
-          ? contentRef.current?.querySelector<HTMLElement>(
-              `[data-lorebook-entry-row-id="${CSS.escape(scrollToEntryId)}"]`,
-            )
-          : null;
-        // Anchored, so the drawer opening below the row cannot scroll it away.
-        if (row) scrollToElement(row);
-        setScrollToEntryId(null);
-      }),
-    );
+    // The list scrolls to the row and mounts it, which can take a few frames, then the row snaps to the top.
+    // scrollToElement keeps the row anchored while the windowed rows around it measure; otherwise the Entries tab
+    // the editor opened on keeps the anchor and pulls the view back to its top on every resize.
+    let frame = 0;
+    let frames = 0;
+    const snap = () => {
+      const row = contentRef.current?.querySelector<HTMLElement>(
+        `[data-lorebook-entry-row-id="${CSS.escape(scrollToEntryId)}"]`,
+      );
+      if (!row && ++frames < 60) {
+        frame = requestAnimationFrame(snap);
+        return;
+      }
+      if (snapToEntryRef.current && row) scrollToElement(row, false);
+      setScrollToEntryId(null);
+    };
+    frame = requestAnimationFrame(snap);
     return () => cancelAnimationFrame(frame);
   }, [scrollToEntryId, contentRef, scrollToElement]);
-  const [entrySort, setEntrySort] = useState<EntrySortKey>("order");
+  const [entrySort, setEntrySort] = useTabPlace<EntrySortKey>(placeKey, "sort", "order");
   // Keyword-test panel state. The panel is collapsed by default so it doesn't
   // crowd the editor for users who don't need it. We debounce the text input
   // so each keystroke doesn't re-run match computation against potentially
@@ -586,7 +599,7 @@ export function LorebookEditor() {
     () => new Map((activationStats ?? []).map((stat) => [stat.entryId, stat])),
     [activationStats],
   );
-  const [neverFiredOnly, setNeverFiredOnly] = useState(false);
+  const [neverFiredOnly, setNeverFiredOnly] = useTabPlace(placeKey, "neverFired", false);
   const [draggingEntryIdx, setDraggingEntryIdx] = useState<number | null>(null);
   const [entryDragReadyIdx, setEntryDragReadyIdx] = useState<number | null>(null);
   const [entryDropIdx, setEntryDropIdx] = useState<number | null>(null);
@@ -667,10 +680,10 @@ export function LorebookEditor() {
   const overhaulActive = useOverhaulLook();
   // Phones: the book page (tools and entries) and the open entry or tool are separate pages.
   const overhaulMobile = useOverhaulMobile();
-  const [ovmDetail, setOvmDetail] = useState(false);
-  const [ovBookOpen, setOvBookOpen] = useState(true);
+  const [ovmDetail, setOvmDetail] = useTabPlace(placeKey, "mobileDetail", false);
+  const [ovBookOpen, setOvBookOpen] = useTabPlace(placeKey, "bookOpen", true);
   // Overhaul viewer: which tool panel sits above the entry on the right, and where the entry editor renders.
-  const [ovPanel, setOvPanel] = useState<"book" | "check" | "keyword" | null>(null);
+  const [ovPanel, setOvPanel] = useTabPlace<"book" | "check" | "keyword" | null>(placeKey, "panel", null);
   // Phones: Safari's back and the left-edge swipe go from the open entry or tool back to the book (MOB1).
   useBackDismiss(overhaulMobile && ovmDetail, () => {
     setOvmDetail(false);
@@ -804,7 +817,7 @@ export function LorebookEditor() {
         return [...result].sort(
           (a, b) =>
             (activationStatsById.get(b.id)?.count ?? 0) - (activationStatsById.get(a.id)?.count ?? 0) ||
-            a.order - b.order,
+            compareLorebookEntriesByPromptOrder(a, b),
         );
       case "newest":
         return [...result].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
@@ -813,11 +826,13 @@ export function LorebookEditor() {
       case "entries":
         return [...result].sort(
           (a, b) =>
-            entryStatusSortRank(a) - entryStatusSortRank(b) || a.order - b.order || a.name.localeCompare(b.name),
+            entryStatusSortRank(a) - entryStatusSortRank(b) ||
+            compareLorebookEntriesByPromptOrder(a, b) ||
+            a.name.localeCompare(b.name),
         );
       case "order":
       default:
-        return [...result].sort((a, b) => a.order - b.order);
+        return [...result].sort(compareLorebookEntriesByPromptOrder);
     }
   }, [activationStatsById, entries, entrySearch, entrySort, neverFiredOnly]);
 
@@ -847,7 +862,8 @@ export function LorebookEditor() {
     });
   }, [entries]);
 
-  /** Entries for a given container (null = root, string = folder.id), sorted by Order. */
+  /** Entries for a given container (null = root, string = folder.id), in prompt order (Before, After, depth,
+   *  Outlets; Order inside each), since Order alone never moves an After entry above a Before one. */
   const entriesByContainer = useMemo(() => {
     const map = new Map<string | null, LorebookEntry[]>();
     map.set(null, []);
@@ -859,9 +875,45 @@ export function LorebookEditor() {
       if (list) list.push(e);
       else map.get(null)!.push(e);
     }
-    for (const list of map.values()) list.sort((a, b) => a.order - b.order);
+    for (const list of map.values()) list.sort(compareLorebookEntriesByPromptOrder);
     return map;
   }, [entries, folders]);
+
+  // Prompt order: a thin label above the first entry of each prompt spot, only in lists that mix spots.
+  const mixedSpotLists = useMemo(() => {
+    const mixed = new WeakSet<readonly LorebookEntry[]>();
+    const lists = [...entriesByContainer.values(), filteredEntries];
+    for (const list of lists) {
+      const first = list[0];
+      if (first && list.some((entry) => lorebookPromptPlacement(entry) !== lorebookPromptPlacement(first))) {
+        mixed.add(list);
+      }
+    }
+    return mixed;
+  }, [entriesByContainer, filteredEntries]);
+  const promptSpotHeading = useCallback(
+    (list: readonly LorebookEntry[], index: number) => {
+      if (entrySort !== "order" || !mixedSpotLists.has(list)) return null;
+      const entry = list[index];
+      if (!entry) return null;
+      const placement = lorebookPromptPlacement(entry);
+      if (index > 0 && lorebookPromptPlacement(list[index - 1]!) === placement) return null;
+      const heading =
+        placement === "before"
+          ? "headingBefore"
+          : placement === "after"
+            ? "headingAfter"
+            : placement === "depth"
+              ? "headingDepth"
+              : "headingOutlet";
+      return (
+        <p className="ov-lsec" data-lorebook-prompt-spot={placement}>
+          {localizeUi(`lorebook.editor.promptSpot.${heading}`)}
+        </p>
+      );
+    },
+    [entrySort, localizeUi, mixedSpotLists],
+  );
 
   // Folder hierarchy: flat parentFolderId rows → sorted roots + child lists.
   const folderForest = useMemo(() => buildFolderForest(folders), [folders]);
@@ -926,8 +978,10 @@ export function LorebookEditor() {
       const container = entry.folderId && entriesByContainer.has(entry.folderId) ? entry.folderId : null;
       const ids = (entriesByContainer.get(container) ?? []).map((candidate) => candidate.id);
       const from = ids.indexOf(entryId);
-      const to = from + offset;
-      if (from < 0 || to < 0 || to >= ids.length) return;
+      if (from < 0 || from + offset < 0 || from + offset >= ids.length) return;
+      // Moving renumbers Order only, so the entry stays among entries at its own prompt spot.
+      const to = clampLorebookEntryMoveToPromptSpot(entriesByContainer.get(container) ?? [], from, from + offset);
+      if (to === from) return;
       ids.splice(from, 1);
       ids.splice(to, 0, entryId);
       reorderEntries.mutate({ lorebookId, entryIds: ids, folderId: container });
@@ -1443,6 +1497,8 @@ export function LorebookEditor() {
       if (sourceContainer === targetContainer) {
         let insertAt = targetIdx;
         if (sourceIdx < insertAt) insertAt--;
+        // A drag renumbers Order only, so it can't carry an entry past another prompt spot (After above Before).
+        insertAt = clampLorebookEntryMoveToPromptSpot(sourceList, sourceIdx, insertAt);
         if (sourceIdx === insertAt) return;
         const ids = sourceList.map((entry) => entry.id);
         ids.splice(sourceIdx, 1);
@@ -1625,6 +1681,7 @@ export function LorebookEditor() {
       if (source.containerId === targetContainer) {
         let insertAt = targetIdx;
         if (source.index < insertAt) insertAt--;
+        insertAt = clampLorebookEntryMoveToPromptSpot(sourceList, source.index, insertAt);
         if (source.index === insertAt) return;
         const ids = sourceList.map((entry) => entry.id);
         ids.splice(source.index, 1);
@@ -2327,6 +2384,7 @@ export function LorebookEditor() {
               }
               keepMountedIndex={expandedIndexIn(folderEntries)}
               scrollToIndex={revealIndexIn(folderEntries)}
+              scrollAlign="start"
               renderRow={(eIdx) => {
                 const entry = folderEntries[eIdx]!;
                 const isDropTarget = dropTargetContainer === folder.id && draggingEntryIdx !== null;
@@ -2345,6 +2403,7 @@ export function LorebookEditor() {
                   draggingEntryIdx !== eIdx;
                 return (
                   <div key={entry.id}>
+                    {promptSpotHeading(folderEntries, eIdx)}
                     {showDropBefore && (
                       <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
                     )}
@@ -3449,6 +3508,7 @@ export function LorebookEditor() {
               pinnedIndex={dragSourceContainer === null && draggingEntryIdx !== null ? draggingEntryIdx : undefined}
               keepMountedIndex={expandedIndexIn(entriesByContainer.get(null) ?? [])}
               scrollToIndex={revealIndexIn(entriesByContainer.get(null) ?? [])}
+              scrollAlign="start"
               renderRow={(idx) => {
                 const rootList = entriesByContainer.get(null) ?? [];
                 const entry = rootList[idx]!;
@@ -3472,6 +3532,7 @@ export function LorebookEditor() {
                   draggingEntryIdx !== idx;
                 return (
                   <div key={entry.id}>
+                    {promptSpotHeading(rootList, idx)}
                     {showDropBefore && (
                       <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
                     )}
@@ -3540,9 +3601,11 @@ export function LorebookEditor() {
             gap={6}
             keepMountedIndex={expandedIndexIn(filteredEntries)}
             scrollToIndex={revealIndexIn(filteredEntries)}
+            scrollAlign="start"
             renderRow={(i) => {
               const entry = filteredEntries[i]!;
-              return (
+              const heading = promptSpotHeading(filteredEntries, i);
+              const row = (
                 <LorebookEntryRow
                   entry={entry}
                   lorebookId={lorebookId}
@@ -3568,6 +3631,14 @@ export function LorebookEditor() {
                   mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
                   onUpdateEntry={handleEntryUpdate}
                 />
+              );
+              return heading ? (
+                <div key={entry.id}>
+                  {heading}
+                  {row}
+                </div>
+              ) : (
+                row
               );
             }}
           />
@@ -3857,7 +3928,10 @@ export function LorebookEditor() {
                             ))}
                           </div>
                           {/* The header already says "4 entries · ~25 tokens"; the list label doesn't repeat it (audit C7). */}
-                          <p className="ov-vw__label">{localizeUi("Entries")}</p>
+                          <p className="ov-vw__label">
+                            {localizeUi("Entries")}
+                            <HelpTooltip text={localizeUi("lorebook.editor.promptSpot.help")} wide />
+                          </p>
                           <div className="ov-lv__entries">{ovEntriesBody}</div>
                         </aside>
                         <div className="ov-lv__right">

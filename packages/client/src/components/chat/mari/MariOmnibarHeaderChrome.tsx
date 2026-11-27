@@ -1,5 +1,5 @@
 import { ProfessorMariAskContext } from "@marinara-engine/shared";
-import { Brain, BookOpen, Eye, MessageCircle, Plus, EllipsisVertical } from "lucide-react";
+import { Brain, BookOpen, Eye, MessageCircle, Plus, EllipsisVertical, History } from "lucide-react";
 import { type Dispatch, type KeyboardEvent, type RefObject, type SetStateAction, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -38,6 +38,8 @@ type MariOmnibarHeaderChromeProps = {
   oneShotContext: ProfessorMariAskContext | null;
   reviewsByTurn: { byMessageId: Map<string, MariTurnReviewEntry[]>; unassigned: MariTurnReviewEntry[] };
   runRestart: () => Promise<void>;
+  /** Changes of this chat still open (waiting on you, or saved with Undo open): the Changes page's count. */
+  openChangeCount: number;
   setHeaderMenuOpen: Dispatch<SetStateAction<boolean>>;
   setWorkspaceDestination: Dispatch<SetStateAction<ProfessorMariWorkspaceDestination>>;
   workspaceDestination: ProfessorMariWorkspaceDestination;
@@ -64,6 +66,7 @@ export function MariOmnibarHeaderChrome({
   oneShotContext,
   reviewsByTurn,
   runRestart,
+  openChangeCount,
   setHeaderMenuOpen,
   setWorkspaceDestination,
   workspaceDestination,
@@ -93,6 +96,13 @@ export function MariOmnibarHeaderChrome({
       shortLabel: localizeUi("ui.chat.homeprofessormarichat.awareOf"),
       // Slice 74 (slice 73 leftover): one per chip the composer shows, plus what is attached for good.
       count: (attachedContext?.length ?? 0) + (composerContextFacets.length || (oneShotContext?.query ? 1 : 0)),
+    },
+    {
+      id: "approvals",
+      Icon: History,
+      label: localizeUi("ui.chat.marichangespanel.title"),
+      shortLabel: undefined,
+      count: openChangeCount,
     },
     {
       id: "chats",

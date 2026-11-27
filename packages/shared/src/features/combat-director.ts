@@ -601,6 +601,9 @@ export interface DirectedCombatView {
     kind: string;
     text: string;
     message?: CombatLogMessage;
+    /** A Classic Marinara blow, as battle narration tells it (actor, target, skill, outcome, amount,
+     *  ko, element, effect). Lines with message params carry these there instead. */
+    blow?: Record<string, string | number>;
     source?: "gm" | "ai" | "manual" | "fallback";
   }>;
   outcome?: "victory" | "defeat" | "flee";

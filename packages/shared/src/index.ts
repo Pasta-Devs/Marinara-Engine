@@ -246,6 +246,7 @@ export * from "./utils/agent-output.js";
 export * from "./utils/generation-guide.js";
 export * from "./utils/lorebook-keyword-matching.js";
 export * from "./utils/lorebook-lint.js";
+export * from "./utils/lorebook-prompt-order.js";
 export * from "./utils/lorebook-bulk-edit.js";
 export * from "./utils/lorebook-text-format.js";
 export * from "./utils/regex-safety.js";
@@ -320,6 +321,7 @@ export * from "./features/marinara-bestiary-threat.js";
 export * from "./features/marinara-party.js";
 export * from "./features/marinara-loot.js";
 export * from "./features/combat-director.js";
+export * from "./features/combat-narration.js";
 
 export * from "./features/combat-conditions.js";
 export * from "./features/rulesets/builder-draft.js";
@@ -354,6 +356,7 @@ export * from "./constants/request-timeouts.js";
 
 export * from "./utils/game-narration-text.js";
 export * from "./utils/message-marks.js";
+export * from "./utils/character-card-updates.js";
 
 export * from "./utils/game-tag-parser.js";
 export * from "./utils/game-widget-update.js";

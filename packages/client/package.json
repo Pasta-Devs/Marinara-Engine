@@ -20,7 +20,7 @@
     "@pixiv/three-vrm-animation": "3.5.5",
     "@takahirox/three-mmd": "0.1.2",
     "@tanstack/react-query": "^5.107.1",
-    "@tanstack/react-virtual": "^3.14.26",
+    "@tanstack/react-virtual": "^3.14.28",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.17",
     "framer-motion": "14.14.0",
@@ -35,7 +35,7 @@
     "react-i18next": "^17.1.0",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
-    "three": "0.186.1",
+    "three": "0.187.0",
     "workbox-window": "^7.4.1",
     "zod": "^4.6.7",
     "zod-v3": "npm:zod@3.25.76",
@@ -43,12 +43,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@rolldown/binding-wasm32-wasi": "1.2.14",
+    "@rolldown/binding-wasm32-wasi": "1.2.19",
     "@rollup/wasm-node": "4.64.12",
     "@tailwindcss/vite": "^4.3.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@types/three": "0.186.0",
+    "@types/three": "0.187.0",
     "@vitejs/plugin-react": "^6.1.2",
     "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -56,7 +56,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1",
-    "vite": "^8.3.5",
+    "vite": "^8.3.8",
     "vite-plugin-pwa": "^2.0.0"
   }
 }

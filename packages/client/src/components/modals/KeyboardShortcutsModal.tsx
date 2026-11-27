@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
 import { cn } from "../../lib/utils";
 import { isApplePlatform } from "../../lib/command-center";
-import { formatShortcutKey, KEYBOARD_SHORTCUT_GROUPS } from "../../lib/keyboard-shortcuts";
+import { shortcutGroupsFor, shortcutKeyLabel, shortcutKeysFor } from "../../lib/keyboard-shortcuts";
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { useUIStore } from "../../stores/ui.store";
 
@@ -22,7 +22,7 @@ export function KeyboardShortcutsModal({ open, onClose }: { open: boolean; onClo
       <div className="space-y-4">
         <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{t("shortcuts.intro")}</p>
         <div className="grid gap-4 md:grid-cols-2">
-          {KEYBOARD_SHORTCUT_GROUPS.map((group) => (
+          {shortcutGroupsFor(overhaul).map((group) => (
             <section key={group.id} className="min-w-0">
               <h3 className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)] [@media(pointer:coarse)]:text-[0.6875rem]">
                 {t(group.titleKey)}
@@ -44,7 +44,7 @@ export function KeyboardShortcutsModal({ open, onClose }: { open: boolean; onClo
                         {off ? <span>{t("shortcuts.offInSettings")}</span> : null}
                       </dt>
                       <dd className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-                        {shortcut.keys.map((combo, comboIndex) => (
+                        {shortcutKeysFor(shortcut, apple).map((combo, comboIndex) => (
                           <Fragment key={combo.join("+")}>
                             {comboIndex > 0 && (
                               <span className="text-[0.625rem] text-[var(--muted-foreground)] [@media(pointer:coarse)]:text-[0.6875rem] max-sm:!text-[13px]">
@@ -57,7 +57,7 @@ export function KeyboardShortcutsModal({ open, onClose }: { open: boolean; onClo
                                   key={key}
                                   className="min-w-5 rounded border border-[var(--border)] bg-[var(--secondary)]/60 px-1.5 py-0.5 text-center font-sans text-[0.625rem] text-[var(--foreground)] [@media(pointer:coarse)]:text-[0.6875rem]"
                                 >
-                                  {formatShortcutKey(key, apple)}
+                                  {shortcutKeyLabel(key, t, apple)}
                                 </kbd>
                               ))}
                             </span>

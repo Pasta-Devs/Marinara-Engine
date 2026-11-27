@@ -428,8 +428,12 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+/* A row, so the unsaved-changes pencil after a long name stays in view and the name gives way (it was pushed
+   past the card's edge). */
 .ovm-tabcard__label {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   padding: 0 0.25rem;
   font-size: 0.875rem;
@@ -443,6 +447,10 @@
   align-items: center;
   gap: 0.25rem;
   max-width: 100%;
+}
+.ovm-tabcard__label .ov-tab__label:not(.ov-tab__label--split, :has(> svg)) {
+  display: block;
+  min-width: 0;
 }
 .ovm-tabcard__close {
   position: absolute;
@@ -1021,7 +1029,8 @@
     min-height: 2.75rem;
   }
   :root[data-overhaul="mobile"] .ov-docs__reader {
-    padding: 0.5rem 0.5rem 3rem;
+    --ov-docs-reader-pad-bottom: 3rem;
+    padding: 0.5rem 0.5rem var(--ov-docs-reader-pad-bottom);
   }
   :root[data-overhaul="mobile"] .ov-docs__find {
     top: -0.5rem;
@@ -2189,6 +2198,14 @@
   padding-left: 0;
 }
 :root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .ov-lrow__keys code {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .ov-lrow__spot {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lsec {
+  margin-top: 0.875rem;
+  padding: 0 0.25rem;
   font-size: 0.8125rem;
 }
 /* The entry: one column. */
@@ -4678,6 +4695,11 @@
 :root[data-overhaul="mobile"] .ovm-settings-tablet .ov-settings__tabs [role="tab"] {
   padding: 0 0.375rem;
   font-size: 0.875rem;
+}
+/* Ten tabs (with Shortcuts) are wider than an upright tablet: wrap onto a second row like the computer
+   layout does, instead of a sideways scroll with no scrollbar that hides "Advanced". */
+:root[data-overhaul="mobile"] .ovm-settings-tablet .ov-settings__tabs [role="tablist"] {
+  flex-wrap: wrap;
 }
 /* Bordered cards inside a section box (Chat Layout, Avatar Shape, Visual Novel...) sit flat as rows. */
 :root[data-overhaul="mobile"]

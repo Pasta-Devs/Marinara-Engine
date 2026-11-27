@@ -297,8 +297,9 @@ export function EditorRail({
       {tags && onAddTag ? (
         <div className="ov-rail__tags" ref={tagFold.ref}>
           {tags.map((tag, index) => (
-            <span key={tag} className="ov-tag" data-ov-tag="" hidden={tagFold.hides(index)}>
-              {tag}
+            <span key={tag} className="ov-tag" data-ov-tag="" hidden={tagFold.hides(index)} title={tag}>
+              {/* A long tag ends in "…" inside the column instead of pushing its × past the edge. */}
+              <span className="ov-tag__text">{tag}</span>
               {onRemoveTag ? (
                 <button
                   type="button"
