@@ -226,6 +226,8 @@ type StreamChatCompletionOptions = {
   messages: SidecarMessage[];
   maxTokens: number;
   responseFormat?: Record<string, unknown>;
+  /** Overrides the 0 a structured reply otherwise runs at, for prose held to a schema. */
+  temperature?: number;
   signal?: AbortSignal;
 };
 
@@ -258,8 +260,8 @@ async function streamChatCompletionNow(options: StreamChatCompletionOptions): Pr
       stream: true,
       messages: fittedMessages,
       max_tokens: sendMaxTokens,
-      temperature: structuredOutput ? 0 : generation.temperature,
-      top_p: structuredOutput ? 1 : generation.topP,
+      temperature: options.temperature ?? (structuredOutput ? 0 : generation.temperature),
+      top_p: structuredOutput && options.temperature === undefined ? 1 : generation.topP,
       ...(!structuredOutput && generation.topK > 0 ? { top_k: generation.topK } : {}),
     };
     if (responseFormat && backend !== "mlx") {
@@ -702,6 +704,38 @@ export async function runTrackerPrompt(
       signal,
     });
   });
+}
+
+/** A short reply held to a JSON schema, raw: a few lines of battle prose. Ranked with the turn's
+ *  after-reply work, so a reply the player is waiting on still goes first. */
+export async function runShortJsonPrompt(
+  systemPrompt: string,
+  userPrompt: string,
+  options: {
+    name: string;
+    schema: Record<string, unknown>;
+    maxTokens: number;
+    temperature?: number;
+    signal?: AbortSignal;
+  },
+): Promise<string> {
+  return withRequestTracking(() =>
+    runOnMainModel("turn", options.signal, () =>
+      streamChatCompletionNow({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        maxTokens: options.maxTokens,
+        responseFormat: {
+          type: "json_schema",
+          json_schema: { name: options.name, schema: options.schema, strict: true },
+        },
+        temperature: options.temperature,
+        signal: options.signal,
+      }),
+    ),
+  );
 }
 
 export async function isInferenceAvailable(): Promise<boolean> {

@@ -9,6 +9,7 @@ import { rulesetRichLogLines, rulesetWindowLineSeq, type RulesetLogPiece } from 
 import { rulesetFightNoteText } from "../../lib/ruleset-combat-log";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
+import { useRulesetLineNarration } from "../../lib/ruleset-combat-narration";
 
 const PIECE_CLASS: Record<RulesetLogPiece["kind"], string> = {
   text: "",
@@ -40,6 +41,7 @@ export function RulesetCombatLog({
     [definition, view, t, debugMode, text],
   );
   const newestFirst = useMemo(() => [...lines].reverse(), [lines]);
+  const told = useRulesetLineNarration();
   const asking = rulesetWindowLineSeq(view);
   const box = useRef<HTMLDivElement>(null);
   const [adjustmentsOpen, setAdjustmentsOpen] = useState(false);
@@ -116,11 +118,18 @@ export function RulesetCombatLog({
                   data-log-reason={line.reason ? "" : undefined}
                   className={cn("min-w-0 text-[var(--muted-foreground)]", line.reason && "pl-3 text-[0.92em] italic")}
                 >
-                  {line.pieces.map((piece, n) => (
-                    <span key={n} className={PIECE_CLASS[piece.kind]}>
-                      {piece.text}
+                  {told.get(line.seq) && (
+                    <span data-combat-narration="" className="block text-[var(--foreground)]">
+                      {told.get(line.seq)}
                     </span>
-                  ))}
+                  )}
+                  <span>
+                    {line.pieces.map((piece, n) => (
+                      <span key={n} className={PIECE_CLASS[piece.kind]}>
+                        {piece.text}
+                      </span>
+                    ))}
+                  </span>
                 </span>
               </li>
             );

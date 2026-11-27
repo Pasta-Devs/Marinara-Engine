@@ -1,5 +1,5 @@
 import { Swords } from "lucide-react";
-import type { GameCombatStyle } from "@marinara-engine/shared";
+import type { CombatNarrationMode, GameCombatStyle } from "@marinara-engine/shared";
 import { Select } from "../../../components/ui/Select";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { getCombatStyle, isBuiltInCombatStyle, listCombatStyles } from "../../../components/game/combat-styles";
@@ -20,6 +20,9 @@ interface CombatStyleSectionProps {
   /** Who acts when in a Tactical battle (combat C6c). */
   turnOrder: "side" | "initiative";
   onTurnOrderChange: (order: "side" | "initiative") => void;
+  /** How much of a battle is told in prose. */
+  narration: CombatNarrationMode;
+  onNarrationChange: (mode: CombatNarrationMode) => void;
 }
 
 export function CombatStyleSection({
@@ -30,6 +33,8 @@ export function CombatStyleSection({
   onCombatStyleChange,
   turnOrder,
   onTurnOrderChange,
+  narration,
+  onNarrationChange,
 }: CombatStyleSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const offered = (id: string) => !allowedStyles || allowedStyles.includes(id);
@@ -38,7 +43,10 @@ export function CombatStyleSection({
       id="combat-style"
       label={localizeUi("ui.chatSettings.combatstylesection.combatStyle")}
       icon={<Swords size="0.875rem" />}
-      help={localizeUi("ui.chatSettings.combatstylesection.chooseHowBattlesPlayOutWhenTheGameMaster")}
+      help={[
+        localizeUi("ui.chatSettings.combatstylesection.chooseHowBattlesPlayOutWhenTheGameMaster"),
+        localizeUi("ui.chatSettings.combatstylesection.narrationHelp"),
+      ].join(" ")}
     >
       <div className="space-y-2">
         <div className="flex flex-col gap-1.5">
@@ -86,6 +94,22 @@ export function CombatStyleSection({
             />
           </div>
         )}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.chatSettings.combatstylesection.narration")}
+          </span>
+          <Select<CombatNarrationMode>
+            label={localizeUi("ui.chatSettings.combatstylesection.narration")}
+            value={narration}
+            options={[
+              { value: "every", label: localizeUi("ui.chatSettings.combatstylesection.narrationEvery") },
+              { value: "key", label: localizeUi("ui.chatSettings.combatstylesection.narrationKey") },
+              { value: "off", label: localizeUi("ui.chatSettings.combatstylesection.narrationOff") },
+            ]}
+            onChange={onNarrationChange}
+            className="mari-preset-native-select w-full truncate rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+          />
+        </div>
         {allowedStyles && (
           <p className="text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
             {localizeUi("game.combat.ruleset.stylesLimited")}

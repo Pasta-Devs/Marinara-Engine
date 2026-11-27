@@ -68,6 +68,7 @@ import {
   nextMarinaraTurn,
   performMarinaraAction,
   type MarinaraDirectorState,
+  type MarinaraLog,
 } from "./marinara-director.service.js";
 import { marinaraEnemyFamily, type MarinaraFighter } from "@marinara-engine/shared";
 
@@ -234,8 +235,12 @@ function log(
 /** A Classic Marinara fight still going after this many rounds is called off. */
 const MARINARA_ROUND_LIMIT = 60;
 /** The log a Classic Marinara step writes to. */
-const marinaraLog = (s: CombatDirectorState) => (text: string, kind: string, actorId?: string, source?: string) =>
-  log(s, text, kind, actorId, source as Source | undefined);
+const marinaraLog =
+  (s: CombatDirectorState): MarinaraLog =>
+  (text, kind, actorId, source, blow) => {
+    log(s, text, kind, actorId, source as Source | undefined);
+    if (blow) s.log.at(-1)!.blow = blow;
+  };
 /** Classic Marinara's own turn, for a unit the Engine plays: what its combat AI picks with the shared math. */
 function marinaraTurn(s: CombatDirectorState, u: Unit): CombatPlayerAction {
   return marinaraAiAction(
@@ -2155,6 +2160,11 @@ function effect(s: CombatDirectorState, p: Pending) {
                 skill: a.skillName ?? "",
                 target: get(s, a.defenderId)?.name ?? a.defenderId,
                 amount: `${a.isHeal ? "+" : "−"}${a.finalDamage}`,
+                // What battle narration tells of the blow; the line itself never prints these.
+                outcome: a.isHeal ? "heal" : a.isMiss ? "miss" : a.isCritical ? "critical" : "hit",
+                ...(a.isKo ? { ko: 1 } : {}),
+                ...(a.element ? { element: a.element } : {}),
+                ...(a.reaction ? { reaction: a.reaction.reaction, multiplier: a.reaction.damageMultiplier } : {}),
               },
             },
           );

@@ -59,6 +59,7 @@ import { RoleplayAgentsSection } from "./agents/RoleplayAgentsSection";
 import { createAgentSettingsRenderers } from "./agents/agent-settings-renderers";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
+import { readCombatNarrationMode } from "@marinara-engine/shared";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
 import { resolvePersonaInlineNames } from "../../lib/inline-name-colors";
@@ -2233,6 +2234,8 @@ export function ChatSettingsDrawer({
               onCombatStyleChange={(gameCombatStyle) => updateMeta.mutate({ id: chat.id, gameCombatStyle })}
               turnOrder={effectiveTurnOrder}
               onTurnOrderChange={(gameTacticalTurnOrder) => updateMeta.mutate({ id: chat.id, gameTacticalTurnOrder })}
+              narration={readCombatNarrationMode(metadata.gameCombatNarration)}
+              onNarrationChange={(gameCombatNarration) => updateMeta.mutate({ id: chat.id, gameCombatNarration })}
             />
           )}
 

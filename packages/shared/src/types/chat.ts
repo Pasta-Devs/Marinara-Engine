@@ -789,6 +789,8 @@ export interface ChatMetadata {
   gameCombatState?: import("./game.js").GameCombatStateSnapshot | null;
   /** Runtime override for combat presentation style (Pattern B). Takes effect next battle. */
   gameCombatStyle?: import("./game.js").GameCombatStyle;
+  /** How much of a battle is told in prose (battle narration). Absent means every blow. */
+  gameCombatNarration?: import("../features/combat-narration.js").CombatNarrationMode;
   /** Live tactical (grid) battle snapshot — restored on page refresh while a tactical fight is in progress. */
   gameTacticalCombatSnapshot?: import("../features/tactical-combat/types.js").TacticalCombatState | null;
   /** The ruleset this game was created on, pinned for the game's lifetime. Absent means

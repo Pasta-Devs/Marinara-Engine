@@ -53,6 +53,7 @@ import {
   gameRouteSkillCheckSchema,
   gameRouteMoraleSchema,
   gameRouteCombatRoundPartySchema,
+  gameRouteCombatNarrateBodySchema,
   gameRouteCombatTacticalStartBodySchema,
   gameRouteCombatTacticalActionBodySchema,
   gameRouteTimeAdvanceBodySchema,
@@ -178,6 +179,7 @@ import {
   worldInteriorForEditor,
 } from "../services/game/world-editor.service.js";
 import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
+import { narrateCombatBeats, NoCombatNarratorError } from "../services/game/combat-narration.service.js";
 import {
   buildWorldKitWritingPrompt,
   readWrittenWorldKit,
@@ -11094,6 +11096,24 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     );
 
     return { result, combatants };
+  });
+
+  // ── POST /game/combat/narrate ──
+  // A batch of blows told as prose. 503 when no model is set up, and the screen keeps its own lines.
+  app.post("/combat/narrate", async (req, reply) => {
+    const parsed = gameRouteCombatNarrateBodySchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message });
+    try {
+      return await narrateCombatBeats(
+        app.db,
+        parsed.data,
+        createResponseAbortSignal(reply, 90_000, "Battle narration"),
+      );
+    } catch (error) {
+      if (error instanceof NoCombatNarratorError) return reply.code(503).send({ error: error.message });
+      logger.warn(error, "[game/combat:narrate] narration failed");
+      return reply.code(502).send({ error: error instanceof Error ? error.message : "Battle narration failed" });
+    }
   });
 
   // ── Tactical (grid) combat ──

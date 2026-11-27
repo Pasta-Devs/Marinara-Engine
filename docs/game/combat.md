@@ -31,6 +31,28 @@ After you choose, the round plays out. Results appear as floating damage numbers
 
 In a game with a ruleset, **Items** does what the ruleset says for the ruleset's own items: how much they heal or harm and which conditions they add. An item with charges is offered while a use is left. An item that asks for a check first has it rolled, and if it fails the item is spent for nothing. An item the ruleset gives no use to is not offered. Other items do what the GM judged when the fight began, unless the ruleset turns off Game Mode's own items.
 
+## Battle narration
+
+In a Turn-Based battle, **Combat Log** tells each blow as a short line of prose, such as "Xerneas' antlers glow a brilliant silver before a blast of energy slams into Houndoom's side." The damage, healing and hit or miss always come from the game and appear in bold after the line. The model only describes how the blow looks.
+
+The plain line shows first and the prose replaces it a moment later. Marinara asks for the whole round in one request, not one request per blow. The lines come from the first of these that is available:
+
+1. The Built-in model, which runs on your own computer at no cost. See [Built-in Model Setup](../connections/local-model.md).
+2. The game's **Scene effects model**.
+3. Lines Marinara writes itself, at no cost.
+
+The model that runs the GM is never used for battle narration.
+
+To change how much is told, open **Chat Settings**, expand **Combat Style** and pick a **Battle narration** option:
+
+| Option | What it does |
+| --- | --- |
+| **Every blow** | Tells every blow in prose. This is the default. |
+| **Key moments: crits, knockouts, reactions** | Asks the model only for critical hits, knockouts, elemental reactions and super-effective hits. Other blows get Marinara's own lines. |
+| **Off: plain battle log** | Shows the plain battle log. |
+
+Tactical battles do not use battle narration.
+
 ## Play a Tactical battle
 
 Tactical combat places your party and the enemies on a grid battlefield. Each square is a tile, such as **Plains** or **Forest**.
