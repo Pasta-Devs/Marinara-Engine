@@ -93,6 +93,8 @@ export function DesktopTabStrip({
   const [clipped, setClipped] = useState<Set<string>>(() => new Set());
   const [drag, setDrag] = useState<Drag | null>(null);
   const [drop, setDrop] = useState<DropSpot | null>(null);
+  // A Library section dragged in from the Library pane: dropping it on the strip pins it as a tab.
+  const incoming = useOverhaulStore((s) => (!drag && s.splitDrag?.kind === "library" ? s.splitDrag : null));
   const [menu, setMenu] = useState<Menu | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   // A11Y3: both menus move focus with the arrows and give it back on Escape (hooks/use-menu-keyboard).
@@ -369,13 +371,18 @@ export function DesktopTabStrip({
   };
   /** Over a strip item: before/after by the pointer's half; pausing on the middle (or Shift) groups (tabs only). */
   const overStripItem = (event: DragEvent, item: StripItem) => {
-    if (!drag) return;
+    if (!drag && !incoming) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    const self = drag.kind === "tab" ? drag.key === item.itemKey : item.itemKey === `group:${drag.id}`;
+    event.dataTransfer.dropEffect = drag ? "move" : "copy";
+    const self = !drag
+      ? false
+      : drag.kind === "tab"
+        ? drag.key === item.itemKey
+        : item.itemKey === `group:${drag.id}`;
     const box = event.currentTarget.getBoundingClientRect();
     const x = (event.clientX - box.left) / box.width;
-    const middle = drag.kind === "tab" && !self && x >= 0.25 && x <= 0.75;
+    // A Library section lands before or after: it doesn't join a group by resting on it.
+    const middle = drag?.kind === "tab" && !self && x >= 0.25 && x <= 0.75;
     const half = x < 0.5 ? "before" : "after";
     if (!middle) clearDwell();
     else if (dwell.current?.itemKey !== item.itemKey) {
@@ -397,17 +404,30 @@ export function DesktopTabStrip({
   };
   /** Over a group-row tab or an overflow row: before/after along `axis`. */
   const overEntry = (event: DragEvent, entry: Placed, axis: "x" | "y") => {
-    if (!drag) return;
+    if (!drag && !incoming) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
+    event.dataTransfer.dropEffect = drag ? "move" : "copy";
     const box = event.currentTarget.getBoundingClientRect();
     const before = axis === "x" ? event.clientX < box.left + box.width / 2 : event.clientY < box.top + box.height / 2;
     setDrop({ itemKey: `entry:${entry.key}`, where: before ? "before" : "after" });
+  };
+  /** Pin the Library section being dragged in as a tab at `at` (in `group`), and open it. */
+  const pinIncoming = (at: number | null, group: string | null = null) => {
+    if (!incoming) return;
+    const tab: OverhaulTab = { kind: "library", id: incoming.id };
+    const key = overhaulTabKey(tab);
+    store().touchTab(tab);
+    store().setTabGroup(key, group, at ?? undefined);
+    activateTab(tab);
   };
   const dropOnStripItem = (event: DragEvent, item: StripItem) => {
     event.preventDefault();
     const spot = drop;
     endDrag();
+    if (incoming) {
+      pinIncoming(spot?.itemKey === item.itemKey ? placeIndex(spot, items) : null);
+      return;
+    }
     if (!drag || !spot || spot.itemKey !== item.itemKey) return;
     if (spot.where === "stack" && drag.kind === "tab") {
       if (item.type === "group") store().setTabGroup(drag.key, item.id);
@@ -427,6 +447,11 @@ export function DesktopTabStrip({
     event.preventDefault();
     const spot = drop;
     endDrag();
+    if (incoming) {
+      const on = spot?.itemKey === `entry:${entry.key}`;
+      pinIncoming(on ? (spot.where === "before" ? entry.index : entry.index + 1) : null, entry.tab.group ?? null);
+      return;
+    }
     if (!drag || !spot || spot.itemKey !== `entry:${entry.key}`) return;
     const at = spot.where === "before" ? entry.index : entry.index + 1;
     if (drag.kind === "group") {
@@ -437,7 +462,7 @@ export function DesktopTabStrip({
   };
 
   const dropClass = (itemKey: string) =>
-    drag && drop?.itemKey === itemKey
+    (drag || incoming) && drop?.itemKey === itemKey
       ? drop.where === "stack"
         ? "is-drop-stack"
         : drop.where === "before"
@@ -609,7 +634,20 @@ export function DesktopTabStrip({
         data-tour-fit="children"
         aria-label={localize("Open tabs")}
         ref={stripRef}
+        data-pin-target={incoming ? "true" : undefined}
         onDragLeave={() => setDrop(null)}
+        // The strip's empty space past the last tab: a Library section dropped there goes at the end.
+        onDragOver={(event) => {
+          if (!incoming || event.isDefaultPrevented()) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={(event) => {
+          if (!incoming || event.isDefaultPrevented()) return;
+          event.preventDefault();
+          endDrag();
+          pinIncoming(null);
+        }}
       >
         <button
           type="button"
