@@ -341,6 +341,15 @@ After a crash or a moved Docker volume, startup can report **The storage writer 
 
 Marinara clears a lease left by a crashed process on its own on Linux, Android, containers and Windows when the data folder is on a local drive. The manual step is the fallback for network or shared storage, removable drives, and (on Windows) a computer renamed after the crash.
 
+### Cannot access a network or external folder
+
+Marinara keeps your data only in its data folder, and a SillyTavern folder import reads only from folders the server allows. A network share or another drive works when you set it up in one of these ways:
+
+- **Your data lives on a network share.** Point `DATA_DIR` in `.env` at a folder on the share, then restart Marinara. See [Storage](CONFIGURATION.md#storage). Move the whole data folder: if you link one folder inside it, such as `avatars` or `backgrounds`, to another drive, its images don't load and Marinara answers **Not found** for them.
+- **You import a SillyTavern folder from a share.** A typed path must be inside the home folder of the user that runs the server, or you see **Marinara can only read folders inside your home folder**. On the server's own computer, click **Browse** and pick the folder instead. Or add the folder to `IMPORT_ALLOWED_ROOTS` in `.env`, separated by commas, and restart Marinara. Once that setting is set, only its folders are allowed, even for a picked folder, so add your home folder too if you still import from it.
+- **The in-app folder browser opens your home folder.** It lists only folders inside the home folder, whatever `IMPORT_ALLOWED_ROOTS` says. For a share outside it, add the share's folder to `IMPORT_ALLOWED_ROOTS` and restart Marinara, then type its path in **SillyTavern folder path**.
+- **The share is disconnected.** Reconnect it before you start Marinara, then retry.
+
 ### Backup or Export returns 403
 
 Same-computer sessions can back up without an admin secret. Requests from another device, a network address, Docker, or a proxy or tunnel on the same computer need one. Make it in **Settings → Advanced → Admin Access** on the server's own computer, or set `ADMIN_SECRET` on the server, then save the same value in **Admin Access** on the other device. To make loopback require it too, set `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. If `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, forwarded visitors get the local bypass. Keep it on for a public proxy or tunnel.
