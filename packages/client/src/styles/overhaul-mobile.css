@@ -4679,6 +4679,11 @@
   padding: 0 0.375rem;
   font-size: 0.875rem;
 }
+/* Ten tabs (with Shortcuts) are wider than an upright tablet: wrap onto a second row like the computer
+   layout does, instead of a sideways scroll with no scrollbar that hides "Advanced". */
+:root[data-overhaul="mobile"] .ovm-settings-tablet .ov-settings__tabs [role="tablist"] {
+  flex-wrap: wrap;
+}
 /* Bordered cards inside a section box (Chat Layout, Avatar Shape, Visual Novel...) sit flat as rows. */
 :root[data-overhaul="mobile"]
   .ovm-settings
