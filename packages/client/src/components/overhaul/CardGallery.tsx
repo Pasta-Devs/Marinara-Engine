@@ -7,7 +7,8 @@
 // ──────────────────────────────────────────────
 import { DelayedFallback } from "../ui/DelayedFallback";
 import { placeholderArt } from "../../lib/placeholder-art";
-import { Fragment, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { normalizeTextForMatch, type CharacterCatalogTagCounts } from "@marinara-engine/shared";
 import { toast } from "sonner";
 import {
   CheckSquare,
@@ -74,6 +75,8 @@ import { sortItemsByTokens } from "../../lib/panel-sort";
 export type GalleryCard = {
   id: string;
   name: string;
+  /** Other names (nameAliases); search finds a card by them too. */
+  aliases?: string[];
   avatarPath: string | null;
   avatarStyle?: CSSProperties;
   tags: string[];
@@ -88,6 +91,28 @@ export type GalleryCard = {
   createdAt: string;
   updatedAt: string;
 };
+
+/** The search box, tag selector and Favorites, reported so the owner can ask the server for every match. */
+export type GalleryFilters = { search: string; tags: string[]; favoritesOnly: boolean };
+export const EMPTY_GALLERY_FILTERS: GalleryFilters = { search: "", tags: [], favoritesOnly: false };
+
+/**
+ * The search box's match: a name, other name or tag contains the text ("tag:" searches tags only). Case and
+ * character width are ignored, the same as the server's names search, so loaded and unloaded cards agree.
+ */
+export function matchesGallerySearch(card: Pick<GalleryCard, "name" | "aliases" | "tags">, search: string) {
+  const needle = normalizeTextForMatch(search);
+  if (!needle) return true;
+  const tags = card.tags.map(normalizeTextForMatch);
+  if (needle.startsWith("tag:")) {
+    const tagQuery = needle.slice(4).trim();
+    return tags.some((tag) => tag.includes(tagQuery));
+  }
+  return (
+    [card.name, ...(card.aliases ?? [])].some((name) => normalizeTextForMatch(name).includes(needle)) ||
+    tags.some((tag) => tag.includes(needle))
+  );
+}
 
 // "Recently edited" is a sort, as on Lorebooks and Presets, not a filter (audit C16). Favorites is the first
 // choice in the Tags filter, so the header keeps one line of buttons.
@@ -124,6 +149,9 @@ export function CardGallery({
   extraHeader,
   serverSort,
   onServerSort,
+  onFiltersChange,
+  libraryTagCounts,
+  loadAllWhenFiltering = false,
 }: {
   kind: "characters" | "personas";
   title: string;
@@ -145,6 +173,12 @@ export function CardGallery({
   serverSort?: string;
   /** Load the cards in this order (only the sorts the server knows). */
   onServerSort?: (sort: string) => void;
+  /** Search, tags and Favorites as they change, so the owner can load every match instead of the loaded pages. */
+  onFiltersChange?: (filters: GalleryFilters) => void;
+  /** Tag counts over the whole library (the tag selector then lists tags of cards not loaded yet). */
+  libraryTagCounts?: CharacterCatalogTagCounts;
+  /** The owner filters only loaded cards: load every page as soon as a search or filter is on. */
+  loadAllWhenFiltering?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
@@ -159,8 +193,16 @@ export function CardGallery({
   const mobile = useOverhaulMobile();
   // The tag selector beside search (several tags narrow to cards with all of them).
   const [pickedTags, setPickedTags] = useState<string[]>([]);
-  const tagCounts = useMemo(() => countItemTags(cards), [cards]);
-  const favoriteCount = useMemo(() => cards.filter((card) => card.favorite).length, [cards]);
+  const loadedTagCounts = useMemo(() => countItemTags(cards), [cards]);
+  const tagCounts = libraryTagCounts ?? loadedTagCounts;
+  const loadedFavoriteCount = useMemo(() => cards.filter((card) => card.favorite).length, [cards]);
+  const favoriteCount = libraryTagCounts?.favorites ?? loadedFavoriteCount;
+  // Report the filters so a search reaches cards beyond the loaded pages (no "Load all" needed to find one).
+  const reportFilters = useRef(onFiltersChange);
+  reportFilters.current = onFiltersChange;
+  useEffect(() => {
+    reportFilters.current?.({ search, tags: pickedTags, favoritesOnly });
+  }, [search, pickedTags, favoritesOnly]);
   const [baseSort, setBaseSort] = useState<SortKey>(() =>
     serverSort && SERVER_SORTS.has(serverSort) ? (serverSort as SortKey) : "name-asc",
   );
@@ -179,14 +221,10 @@ export function CardGallery({
   };
 
   const visible = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    const tagQuery = needle.startsWith("tag:") ? needle.slice(4).trim() : null;
     let list = cards.filter((card) => {
       if (favoritesOnly && !card.favorite) return false;
       if (!matchesPickedTags(card.tags, pickedTags)) return false;
-      if (!needle) return true;
-      if (tagQuery !== null) return card.tags.some((tag) => tag.toLowerCase().includes(tagQuery));
-      return card.name.toLowerCase().includes(needle) || card.tags.some((tag) => tag.toLowerCase().includes(needle));
+      return matchesGallerySearch(card, search);
     });
     list = [...list];
     switch (sort) {
@@ -230,6 +268,12 @@ export function CardGallery({
   // Searching or filtering looks inside every folder; otherwise the Folders view lists folders closed.
   const searching = !!search.trim() || favoritesOnly || pickedTags.length > 0;
   const opened = useOpenFolder(folders);
+  // Owners that filter only loaded cards (Personas) load the rest as soon as a filter is on.
+  useEffect(() => {
+    if (!loadAllWhenFiltering || !searching || !hasMore || loadingAll || !onLoadAll) return;
+    setLoadingAll(true);
+    void onLoadAll().finally(() => setLoadingAll(false));
+  }, [hasMore, loadAllWhenFiltering, loadingAll, onLoadAll, searching]);
   const byId = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
   const exportBase = isCharacters ? "/characters" : "/characters/personas";
   const removeMany = async (ids: string[], names?: string) => {
@@ -610,7 +654,9 @@ export function CardGallery({
       ) : null}
       {loading && cards.length === 0 ? null : openRows.length + groups.length + loose.length === 0 ? (
         <p className="ov-list__empty">
-          {localize(kind === "characters" ? "No characters here." : "No personas here.")}
+          {searching
+            ? localize(kind === "characters" ? "No characters match." : "No personas match.")
+            : localize(kind === "characters" ? "No characters here." : "No personas here.")}
         </p>
       ) : (
         <div className="ov-table-wrap ov-cl" data-kind={kind}>
