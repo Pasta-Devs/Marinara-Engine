@@ -3174,8 +3174,8 @@ export function HomeProfessorMariChat({
       // Without a review named, the newest one that waits on you (never the oldest open Undo, far up the chat).
       setRequestedReviewId(
         reviewId ??
-          visiblePendingChangeReviews.findLast(isMariReviewWaiting)?.id ??
-          visiblePendingChangeReviews.at(-1)?.id ??
+          newestReview(visiblePendingChangeReviews.filter(isMariReviewWaiting))?.id ??
+          newestReview(visiblePendingChangeReviews)?.id ??
           null,
       );
       setWorkspaceDestination("chat");
@@ -3698,7 +3698,7 @@ export function HomeProfessorMariChat({
     }
     const fresh = visiblePendingChangeReviews.filter((approval) => !seen.has(approval.id));
     for (const approval of visiblePendingChangeReviews) seen.add(approval.id);
-    const waiting = fresh.filter(isMariReviewWaiting).at(-1);
+    const waiting = newestReview(fresh.filter(isMariReviewWaiting));
     if (!waiting) return;
     setRequestedReviewId(waiting.id);
     setWorkspaceDestination("chat");
@@ -4497,4 +4497,13 @@ export function HomeProfessorMariChat({
       </AnimatePresence>
     </>
   );
+}
+
+/** The latest requested of these reviews. The server lists database reviews before change reviews, so
+ *  list order is not time order. */
+function newestReview<T extends { requestedAt: string }>(reviews: readonly T[]): T | undefined {
+  let newest: T | undefined;
+  for (const review of reviews)
+    if (!newest || Date.parse(review.requestedAt) >= Date.parse(newest.requestedAt)) newest = review;
+  return newest;
 }
