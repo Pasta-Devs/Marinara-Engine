@@ -3,7 +3,7 @@
 // name, what changed in words, the changed fields (folded: one key field; opened: every field), her reason,
 // and Undo while the undo copy lasts. No Keep: an applied change is already saved, and Undo is the way back.
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { AlertTriangle, Check, ChevronDown, ExternalLink, Undo2 } from "lucide-react";
 import {
@@ -16,7 +16,7 @@ import {
   type MariWorkspacePendingApproval,
 } from "@marinara-engine/shared";
 
-import { diffWordRuns } from "../../lib/word-diff";
+import { diffWordRuns, type DiffSegment } from "../../lib/word-diff";
 import { fieldLabel } from "../../lib/mari-edit-diff";
 import { cn } from "../../lib/utils";
 
@@ -162,7 +162,170 @@ export function TextBody({ change }: { change: Extract<MariChangeExcerpt, { kind
   );
 }
 
-function ListBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "list" }> }) {
+/** An excerpt cut around the change starts or ends with "…". */
+const clipped = (...texts: string[]) => texts.some((text) => text.startsWith("…") || text.endsWith("…"));
+
+// A kept stretch longer than this folds to its first and last few words in the "Changes" view.
+const GAP_FOLD_WORDS = 40;
+const GAP_CONTEXT_WORDS = 12;
+/** Below this many characters (both sides) a text change is short enough to read whole: no view switch. */
+const LONG_TEXT_CHARS = 700;
+
+type Piece = { type: DiffSegment["type"]; value: string } | { type: "gap"; id: number; words: number; value: string };
+
+/**
+ * The word diff as pieces, each long kept stretch split into its first words, a fold, and its last words.
+ * The text's own start and end keep only the words next to the change.
+ */
+function foldPieces(segments: readonly DiffSegment[]): Piece[] {
+  const out: Piece[] = [];
+  segments.forEach((segment, index) => {
+    if (segment.type !== "equal") return void out.push(segment);
+    const tokens = segment.value.match(/\s+|\S+/gu) ?? [];
+    const wordAt: number[] = [];
+    tokens.forEach((token, at) => {
+      if (/\S/u.test(token)) wordAt.push(at);
+    });
+    const first = index === 0;
+    const last = index === segments.length - 1;
+    const keepHead = first ? 0 : GAP_CONTEXT_WORDS;
+    const keepTail = last ? 0 : GAP_CONTEXT_WORDS;
+    if (wordAt.length <= GAP_FOLD_WORDS || wordAt.length - keepHead - keepTail < 8) {
+      return void out.push(segment);
+    }
+    const foldFrom = keepHead ? wordAt[keepHead]! : 0;
+    const foldTo = keepTail ? wordAt[wordAt.length - keepTail]! : tokens.length;
+    const head = tokens.slice(0, foldFrom).join("");
+    const middle = tokens.slice(foldFrom, foldTo).join("");
+    const tail = tokens.slice(foldTo).join("");
+    if (head) out.push({ type: "equal", value: head });
+    out.push({ type: "gap", id: index, words: wordAt.length - keepHead - keepTail, value: middle });
+    if (tail) out.push({ type: "equal", value: tail });
+  });
+  return out;
+}
+
+function DiffRuns({
+  pieces,
+  open,
+  onOpen,
+}: {
+  pieces: readonly Piece[];
+  open?: ReadonlySet<number>;
+  onOpen?: (id: number) => void;
+}) {
+  const { t } = useUiTranslation();
+  return (
+    <>
+      {pieces.map((piece, index) =>
+        piece.type === "removed" ? (
+          <del key={index}>{piece.value}</del>
+        ) : piece.type === "added" ? (
+          <ins key={index}>{piece.value}</ins>
+        ) : piece.type === "gap" ? (
+          open?.has(piece.id) ? (
+            <span key={index}>{piece.value}</span>
+          ) : (
+            <button
+              key={index}
+              type="button"
+              className="mari-receipt__gap"
+              onClick={() => onOpen?.(piece.id)}
+              disabled={!onOpen}
+            >
+              {t("ui.chat.marichangereceipt.unchangedWords", { count: piece.words })}
+            </button>
+          )
+        ) : (
+          <span key={index}>{piece.value}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+/**
+ * Slice 74 follow-up: a text change you can read in full. "Changes" is the word diff with long unchanged
+ * stretches folded to their edges (a fold opens in place); "Full text" is the whole text, as one marked diff
+ * for an edit or the old text struck over the new text for a rewrite. Folded on the card it is the
+ * same view, clamped to a few lines, so the first lines show the first change, not the field's start.
+ */
+export function TextChange({
+  before,
+  after,
+  folded,
+  partial,
+}: {
+  before: string;
+  after: string;
+  folded?: boolean;
+  /** Only the part around the change was kept (an older message, or a very long field). */
+  partial?: boolean;
+}) {
+  const { t } = useUiTranslation();
+  const edit = keptShare(before, after) >= 0.4;
+  const segments = useMemo(() => diffWordRuns(before, after), [before, after]);
+  const pieces = useMemo(() => foldPieces(segments), [segments]);
+  const folds = pieces.some((piece) => piece.type === "gap");
+  const long = folds || before.length + after.length > LONG_TEXT_CHARS;
+  const [view, setView] = useState<"changes" | "full">(edit ? "changes" : "full");
+  const [openGaps, setOpenGaps] = useState<ReadonlySet<number>>(() => new Set());
+  const shown = folded ? (edit ? "changes" : "full") : long ? view : "full";
+  const body =
+    shown === "changes" ? (
+      <div className="mari-receipt__box" data-view="changes">
+        <DiffRuns
+          pieces={pieces}
+          open={openGaps}
+          onOpen={folded ? undefined : (id) => setOpenGaps((current) => new Set(current).add(id))}
+        />
+      </div>
+    ) : edit ? (
+      <div className="mari-receipt__box" data-view="full">
+        <DiffRuns pieces={segments} />
+      </div>
+    ) : (
+      <>
+        <div className="mari-receipt__box mari-receipt__box--old">
+          <del>{before}</del>
+        </div>
+        <div className="mari-receipt__box mari-receipt__box--new">
+          <ins>{after}</ins>
+        </div>
+      </>
+    );
+  if (folded || !long) {
+    return (
+      <>
+        {body}
+        {partial && !folded ? (
+          <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.partialText")}</span>
+        ) : null}
+      </>
+    );
+  }
+  return (
+    <>
+      <div className="mari-receipt__views" role="group" aria-label={t("ui.chat.marichangereceipt.viewLabel")}>
+        {(["changes", "full"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            className="mari-receipt__view"
+            aria-pressed={view === option}
+            onClick={() => setView(option)}
+          >
+            {t(option === "changes" ? "ui.chat.marichangereceipt.viewChanges" : "ui.chat.marichangereceipt.viewFull")}
+          </button>
+        ))}
+      </div>
+      {body}
+      {partial ? <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.partialText")}</span> : null}
+    </>
+  );
+}
+
+function ListBody({ change, folded }: { change: Extract<MariChangeExcerpt, { kind: "list" }>; folded?: boolean }) {
   const { t } = useUiTranslation();
   const hidden =
     change.count.added +
@@ -189,7 +352,22 @@ function ListBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "list
                 ))}
               </span>
             ) : null}
-            {item.text ? <span className="mari-receipt__entry-text">{item.text}</span> : null}
+            {!folded && item.before !== undefined && (item.text || item.before) ? (
+              <div className="mari-receipt__entry-diff">
+                <TextChange
+                  before={item.before}
+                  after={item.text ?? ""}
+                  partial={!item.full && clipped(item.before, item.text ?? "")}
+                />
+              </div>
+            ) : item.text ? (
+              <>
+                <span className="mari-receipt__entry-text">{item.text}</span>
+                {!folded && !item.full && clipped(item.text) ? (
+                  <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.partialText")}</span>
+                ) : null}
+              </>
+            ) : null}
           </div>
         ))}
         {hidden > 0 ? (
@@ -267,11 +445,12 @@ function NestedBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "ne
 
 /** One changed field. A created record's switches are grouped by the caller, not shown here. */
 function FieldView({ change, folded }: { change: MariChangeExcerpt; folded?: boolean }) {
+  const { t } = useUiTranslation();
   const name = label(change.field);
   if (change.kind === "list") {
     return (
       <Field label={name} folded={folded}>
-        <ListBody change={change} />
+        <ListBody change={change} folded={folded} />
       </Field>
     );
   }
@@ -299,9 +478,32 @@ function FieldView({ change, folded }: { change: MariChangeExcerpt; folded?: boo
   }
   return (
     <Field label={name} folded={folded}>
-      <TextBody change={change} />
+      {change.before && change.after ? (
+        <TextChange
+          before={change.before}
+          after={change.after}
+          folded={folded}
+          partial={!change.full && clipped(change.before, change.after)}
+        />
+      ) : (
+        <>
+          <TextBody change={change} />
+          {!folded && !change.full && clipped(change.before, change.after) ? (
+            <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.partialText")}</span>
+          ) : null}
+        </>
+      )}
     </Field>
   );
+}
+
+/** Whether a folded card hides anything of its one field: long or multi-line text, a list's entries. */
+function foldHides(change: MariChangeExcerpt | undefined): boolean {
+  if (!change) return false;
+  if (change.kind === "value") return false;
+  if (change.kind === "text")
+    return change.before.length + change.after.length > 160 || /\n/u.test(change.before + change.after);
+  return true;
 }
 
 /** Opened: every changed field. A created record's switches and numbers go to one Settings field of chips. */
@@ -699,11 +901,13 @@ export function MariChangeReceipt({
                 </div>
               </div>
             ) : null}
-            {(multi ? total > 0 : total > 1) ? (
+            {(multi ? total > 0 : total > 1 || foldHides(key)) ? (
               <button type="button" className="mari-receipt__more" aria-expanded={open} onClick={() => toggle(index)}>
                 {open
                   ? t("ui.chat.marichangereceipt.showLess")
-                  : t("ui.chat.marichangereceipt.showAll", { count: total })}
+                  : total > 1
+                    ? t("ui.chat.marichangereceipt.showAll", { count: total })
+                    : t("ui.chat.marichangereceipt.showWhole")}
                 <ChevronDown className="mari-receipt__chev" aria-hidden="true" />
               </button>
             ) : null}

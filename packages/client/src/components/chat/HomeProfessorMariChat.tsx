@@ -231,6 +231,7 @@ import { isHardStepFailure } from "./mari/mari-tool-presentation";
 import { MariSeesPanel } from "./mari/MariSeesPanel";
 import type { MariReplacedMessage } from "./mari/MariImageLightbox";
 import { MariChatsPanel } from "./mari/MariChatsPanel";
+import { MariChangesPanel } from "./mari/MariChangesPanel";
 import { MariComposer } from "./mari/MariComposer";
 import { MariQuestionCard } from "./mari/MariQuestionCard";
 import { MariTodoList } from "./mari/MariTodoList";
@@ -564,7 +565,8 @@ export function HomeProfessorMariChat({
   const [mobileFocusMode, setMobileFocusMode] = useState(false);
   const hasLoadedRef = useRef(false);
   const notifiedApprovalIdsRef = useRef<Set<string>>(new Set());
-  const lastAutoOpenedApprovalKeyRef = useRef("");
+  const seenReviewIdsRef = useRef<Set<string>>(new Set());
+  const reviewsPrimedRef = useRef(false);
   const activeChatIdRef = useRef<string | null>(cachedThread?.chatId ?? null);
   const messagesRef = useRef<Message[]>(messages);
   const messageLoadAbortRef = useRef<AbortController | null>(null);
@@ -3169,7 +3171,13 @@ export function HomeProfessorMariChat({
   // first visible review, as every other door into this pane already did.
   const openPendingApprovals = useCallback(
     (reviewId?: string | null) => {
-      setRequestedReviewId(reviewId ?? visiblePendingChangeReviews[0]?.id ?? null);
+      // Without a review named, the newest one that waits on you (never the oldest open Undo, far up the chat).
+      setRequestedReviewId(
+        reviewId ??
+          newestReview(visiblePendingChangeReviews.filter(isMariReviewWaiting))?.id ??
+          newestReview(visiblePendingChangeReviews)?.id ??
+          null,
+      );
       setWorkspaceDestination("chat");
       void refreshWorkspaceStatus();
     },
@@ -3205,7 +3213,7 @@ export function HomeProfessorMariChat({
     } else if (id === "permissions") {
       setConnectionMenuOpen(false);
       setPermissionsMenuOpen(true);
-    } else openPendingApprovals();
+    } else setWorkspaceDestination("approvals");
   };
   // An `@` field pick: she takes that field (its text as it is now) and the editor shows it.
   const focusEditorField = (field: { id: string; label: string }) => {
@@ -3521,7 +3529,11 @@ export function HomeProfessorMariChat({
             key={`delete-group:${first.id}`}
             id={`mari-workspace-review-${first.id}`}
             data-review-id={first.id}
-            className={cn("mari-inline-review", highlightedReviewId === first.id && "mari-inline-review--jump")}
+            data-review-ids={deletes.map(({ approval }) => approval.id).join(" ")}
+            className={cn(
+              "mari-inline-review",
+              deletes.some(({ approval }) => approval.id === highlightedReviewId) && "mari-inline-review--jump",
+            )}
           >
             <DeleteReviewCard
               approvals={deletes.map(({ approval }) => approval)}
@@ -3660,13 +3672,37 @@ export function HomeProfessorMariChat({
     ],
   );
 
+  // The review list on screen when the chat changes still belongs to the chat before; only a list fetched
+  // after the switch can say what this chat already had.
+  const staleReviewListRef = useRef<MariWorkspacePendingApproval[] | undefined>(undefined);
+  const workspaceStatusRef = useRef(workspaceStatus);
+  workspaceStatusRef.current = workspaceStatus;
+  useLayoutEffect(() => {
+    seenReviewIdsRef.current = new Set();
+    reviewsPrimedRef.current = false;
+    staleReviewListRef.current = workspaceStatusRef.current?.pendingApprovals;
+  }, [chatId]);
+  // A new review that waits on you (a held change, a delete, an install) is brought into view once. An
+  // applied change is not: its card is already in her reply at the bottom, and jumping to the first open
+  // review took the reader to the oldest of a chat's open Undo copies, far up the conversation.
   useEffect(() => {
-    if (visiblePendingChangeReviewKey && visiblePendingChangeReviewKey !== lastAutoOpenedApprovalKeyRef.current) {
-      lastAutoOpenedApprovalKeyRef.current = visiblePendingChangeReviewKey;
-      setRequestedReviewId(visiblePendingChangeReviews[0]?.id ?? null);
-      setWorkspaceDestination("chat");
+    const seen = seenReviewIdsRef.current;
+    // The first list a chat loads is history, not news. It is read whole, even while a run hides the
+    // cards, so a review that was already there never counts as new when the run ends.
+    if (!reviewsPrimedRef.current) {
+      const loaded = workspaceStatus?.pendingApprovals;
+      if (!loaded || loaded === staleReviewListRef.current) return;
+      for (const approval of loaded) seen.add(approval.id);
+      reviewsPrimedRef.current = true;
+      return;
     }
-  }, [visiblePendingChangeReviewKey, visiblePendingChangeReviews]);
+    const fresh = visiblePendingChangeReviews.filter((approval) => !seen.has(approval.id));
+    for (const approval of visiblePendingChangeReviews) seen.add(approval.id);
+    const waiting = newestReview(fresh.filter(isMariReviewWaiting));
+    if (!waiting) return;
+    setRequestedReviewId(waiting.id);
+    setWorkspaceDestination("chat");
+  }, [visiblePendingChangeReviews, workspaceStatus?.pendingApprovals]);
 
   // R14: the newest unresolved failure is one card at the end of the turn: what broke, Retry, Retry with
   // another model, and Dismiss. Older failures are one quiet "Failed · reason" line (runFailedLine).
@@ -3736,7 +3772,10 @@ export function HomeProfessorMariChat({
     const deadline = Date.now() + 3000;
     const tryFocus = () => {
       if (cancelled) return;
-      const review = document.getElementById(`mari-workspace-review-${targetId}`);
+      // A delete grouped with others is shown by the group's one card.
+      const review =
+        document.getElementById(`mari-workspace-review-${targetId}`) ??
+        document.querySelector<HTMLElement>(`[data-review-ids~="${CSS.escape(targetId)}"]`);
       if (!review) {
         if (Date.now() < deadline) rafId = window.requestAnimationFrame(tryFocus);
         return;
@@ -3940,6 +3979,7 @@ export function HomeProfessorMariChat({
         oneShotContext={oneShotContext}
         reviewsByTurn={reviewsByTurn}
         runRestart={runRestart}
+        openChangeCount={visiblePendingChangeReviews.length}
         setHeaderMenuOpen={setHeaderMenuOpen}
         setWorkspaceDestination={setWorkspaceDestination}
         workspaceDestination={workspaceDestination}
@@ -4106,6 +4146,10 @@ export function HomeProfessorMariChat({
                         memoriesMenuOpen={memoriesMenuOpen}
                         omnibarMode={omnibarMode}
                         openPendingApprovals={openPendingApprovals}
+                        changesOpen={workspaceDestination === "approvals"}
+                        toggleChangesPage={() =>
+                          setWorkspaceDestination((current) => (current === "approvals" ? "chat" : "approvals"))
+                        }
                         runRestart={runRestart}
                         setConnectionMenuOpen={setConnectionMenuOpen}
                         setHandoffContext={setHandoffContext}
@@ -4394,6 +4438,28 @@ export function HomeProfessorMariChat({
                             />
                           </Suspense>
                         </motion.div>
+                      ) : workspaceDestination === "approvals" ? (
+                        <motion.div
+                          key="professor-mari-changes"
+                          initial={{ opacity: 0, x: 8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 8 }}
+                          transition={paneTransition}
+                          className={MARI_PANEL_SLOT_CLASS}
+                        >
+                          <MariChangesPanel
+                            reviews={pendingChangeReviews}
+                            busy={approvalBusyId !== null}
+                            onClose={() => setWorkspaceDestination("chat")}
+                            onShow={(reviewId) => openPendingApprovals(reviewId)}
+                            onAnswer={(approvals, keep) =>
+                              void answerAll(
+                                approvals.map((approval) => ({ approval })),
+                                keep,
+                              )
+                            }
+                          />
+                        </motion.div>
                       ) : workspaceDestination === "context" ? (
                         <motion.section
                           key="professor-mari-context"
@@ -4432,4 +4498,13 @@ export function HomeProfessorMariChat({
       </AnimatePresence>
     </>
   );
+}
+
+/** The latest requested of these reviews. The server lists database reviews before change reviews, so
+ *  list order is not time order. */
+function newestReview<T extends { requestedAt: string }>(reviews: readonly T[]): T | undefined {
+  let newest: T | undefined;
+  for (const review of reviews)
+    if (!newest || Date.parse(review.requestedAt) >= Date.parse(newest.requestedAt)) newest = review;
+  return newest;
 }
