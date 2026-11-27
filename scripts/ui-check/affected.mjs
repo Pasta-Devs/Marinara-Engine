@@ -118,6 +118,21 @@ function newText(repoRoot, path) {
   return existsSync(full) ? readFileSync(full, "utf8") : "";
 }
 
+/** The added and removed lines of a file's diff (or the whole file when it is new). */
+function changedLines(repoRoot, mergeBase, path) {
+  try {
+    const patch = git(repoRoot, ["diff", "-U0", "--no-color", mergeBase, "--", path]);
+    if (!patch.trim()) return newText(repoRoot, path);
+    return patch
+      .split("\n")
+      .filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---) /.test(l))
+      .map((l) => l.slice(1))
+      .join("\n");
+  } catch {
+    return newText(repoRoot, path);
+  }
+}
+
 // ── The client's import graph (for files no screen ran directly) ──
 
 function clientSources(repoRoot) {
@@ -321,6 +336,7 @@ export function chooseChecks({ repoRoot, map, sizes, screens, base }) {
 
   let allThemes = false;
   const themeWords = new Set();
+  const canaryWords = new Set();
   let sources = null;
   let importers = null;
   const loadSources = () => {
@@ -457,7 +473,7 @@ export function chooseChecks({ repoRoot, map, sizes, screens, base }) {
         }
         if (!users.length) unused.push(key);
         for (const file of users) for (const s of file.endsWith(".css") ? [] : addCodeFile(file)) hit.add(s);
-        for (const file of users) for (const w of sourceWords(text.get(file) ?? "")) themeWords.add(w);
+        for (const file of users) for (const w of sourceWords(text.get(file) ?? "")) canaryWords.add(w);
       }
       notes.push({
         path,
@@ -530,7 +546,9 @@ export function chooseChecks({ repoRoot, map, sizes, screens, base }) {
       }
       if (THEME_ENGINE.test(path)) allThemes = true;
       const hit = addCodeFile(path);
-      for (const w of sourceWords(newText(repoRoot, path))) themeWords.add(w);
+      // Themes that style a class or attribute on the changed lines; the rest of the file picks the canary.
+      for (const w of sourceWords(changedLines(repoRoot, diff.mergeBase, path))) themeWords.add(w);
+      for (const w of sourceWords(newText(repoRoot, path))) canaryWords.add(w);
       const ran = Boolean(fileBits(path));
       notes.push({
         path,
@@ -571,7 +589,7 @@ export function chooseChecks({ repoRoot, map, sizes, screens, base }) {
     changed: diff.files,
     jobs,
     notes,
-    themes: { all: allThemes, words: themeWords },
+    themes: { all: allThemes, words: themeWords, canaryWords },
     mapCommit: map.commit,
   };
 }

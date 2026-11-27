@@ -47,9 +47,10 @@ pnpm ui:check -- --url http://127.0.0.1:7860   # an Engine you already run (adds
 | Server code                                    | A smoke pass: the core screens on a computer and a phone                                                                                                                              |
 | Docs, tests, other scripts                     | Nothing                                                                                                                                                                               |
 
-Starter themes run on the affected core screens only, and only the themes whose CSS styles something the change
-touched (every theme when the theme engine, `theme-tokens.css`, `overhaul-always.css` or `accessibility.css`
-changed). Vivaldi runs on the affected core screens at computer sizes. WebKit runs whenever a phone or tablet size
+Starter themes run on the affected core screens only, and only the themes whose CSS styles a class or attribute on
+the changed lines or in the changed CSS rules (every theme when the theme engine, `theme-tokens.css`,
+`overhaul-always.css` or `accessibility.css` changed). When no theme styles anything on the changed lines, one canary
+theme that styles the changed files still runs, so an affected core screen always gets a theme pass. Vivaldi runs on the affected core screens at computer sizes. WebKit runs whenever a phone or tablet size
 is checked, always with **Show tap timings** on and the readings in the report, even when no core screen is in the
 run. A screen the map doesn't know yet (a new one) is always checked.
 

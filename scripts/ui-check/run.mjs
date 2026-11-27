@@ -581,15 +581,26 @@ async function main() {
       const choosy = decision.themes && !decision.themes.all && themeArg === "all";
       const previous = await api.get("/api/themes/active").catch(() => null);
       const skippedThemes = [];
-      for (const theme of candidates) {
-        const installed = await api.post(`/api/themes/gallery/${encodeURIComponent(theme)}`);
-        if (choosy && !themeTouches(installed.css, decision.themes.words)) {
-          skippedThemes.push(theme);
-          continue;
+      const installed = [];
+      for (const theme of candidates)
+        installed.push({ theme, row: await api.post(`/api/themes/gallery/${encodeURIComponent(theme)}`) });
+      let chosen = installed;
+      let canary = null;
+      if (choosy) {
+        chosen = installed.filter(({ row }) => themeTouches(row.css, decision.themes.words));
+        // Nothing on the changed lines is styled by a theme: still run one theme that styles the changed files,
+        // so a theme pass always happens on an affected core screen.
+        if (!chosen.length) {
+          canary =
+            installed.find(({ row }) => themeTouches(row.css, decision.themes.canaryWords)) ?? installed[0] ?? null;
+          chosen = canary ? [canary] : [];
         }
+        for (const { theme } of installed) if (!chosen.some((c) => c.theme === theme)) skippedThemes.push(theme);
+      }
+      for (const { theme, row } of chosen) {
         themes.push(theme);
         partial.themes = themes;
-        await api.put("/api/themes/active", { id: installed.id });
+        await api.put("/api/themes/active", { id: row.id });
         await pool(
           themeJobs.map(
             ([screen, size]) =>
@@ -601,7 +612,7 @@ async function main() {
       }
       await api.put("/api/themes/active", { id: previous?.id ?? null }).catch(() => undefined);
       if (choosy) {
-        const line = `themes: ${themes.length ? themes.join(", ") : "none"} (they style what changed)${skippedThemes.length ? `; skipped ${skippedThemes.length} that don't: ${skippedThemes.join(", ")}` : ""}`;
+        const line = `themes: ${themes.length ? themes.join(", ") : "none"} (${canary ? "no theme styles the changed lines; one canary theme" : "they style what changed"})${skippedThemes.length ? `; skipped ${skippedThemes.length} that don't: ${skippedThemes.join(", ")}` : ""}`;
         log(line);
         decision.plan.notes.push({ path: "(themes)", what: line.replace(/^themes: /, "") });
       }
