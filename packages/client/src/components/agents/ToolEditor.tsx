@@ -464,7 +464,7 @@ export function ToolEditor() {
 
       {/* ── Body ── */}
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-3xl space-y-6">
+        <div className="mari-editor-content-inner--fill mx-auto max-w-3xl space-y-6">
           {/* ── Name hint ── */}
           <p className="text-[0.625rem] text-[var(--muted-foreground)]">
             {localizeUi("ui.agents.tooleditor.toolNameMustBeLowercaseSnakeCaseEG")}{" "}
