@@ -3,6 +3,7 @@
 // with hundreds of entries (one pass per rule, maps instead of pairwise loops).
 
 import type { LorebookEntry } from "../types/lorebook.js";
+import { compareLorebookEntriesByPromptOrder } from "./lorebook-prompt-order.js";
 import { isPatternSafe } from "./regex-safety.js";
 import { estimateTextTokens } from "./token-estimator.js";
 
@@ -37,7 +38,7 @@ export type LintableLorebookEntry = Pick<
   LorebookEntry,
   "id" | "name" | "content" | "keys" | "enabled" | "constant" | "useRegex" | "caseSensitive"
 > &
-  Partial<Pick<LorebookEntry, "order">>;
+  Partial<Pick<LorebookEntry, "order" | "position" | "depth">>;
 
 export interface LorebookLintOptions {
   /** Entries estimated above this many tokens are flagged. Default 1000. */
@@ -90,7 +91,7 @@ function regexError(source: string): boolean {
 
 /**
  * Analyze lorebook entries for authoring problems. Returns issues sorted by
- * severity, then by entry order, then by entry name. Never mutates input.
+ * severity, then by entry prompt order, then by entry name. Never mutates input.
  */
 export function lintLorebookEntries(
   entries: readonly LintableLorebookEntry[],
@@ -177,12 +178,17 @@ export function lintLorebookEntries(
     }
   }
 
-  const positionById = new Map(entries.map((entry, index) => [entry.id, { order: entry.order ?? 0, index }]));
+  // Within a severity, issues follow the entries' prompt order (Before, After, depth, Outlets; Order inside each).
+  const positionById = new Map(entries.map((entry, index) => [entry.id, { entry, index }]));
   return issues.sort((a, b) => {
     const severity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
     if (severity !== 0) return severity;
     const left = positionById.get(a.entryId)!;
     const right = positionById.get(b.entryId)!;
-    return left.order - right.order || left.index - right.index || a.code.localeCompare(b.code);
+    return (
+      compareLorebookEntriesByPromptOrder(left.entry, right.entry) ||
+      left.index - right.index ||
+      a.code.localeCompare(b.code)
+    );
   });
 }
