@@ -1224,6 +1224,29 @@
   .mari-message-content {
   max-width: var(--mari-message-measure);
 }
+/* The measure shortens free-standing lines (Conversation). Inside a box that keeps its width whatever
+   the text (a roleplay card, the Visual Novel text box) it only left an empty strip on the right, so
+   the text fills the box there (Nov 27). A theme wanting shorter lines narrows --mari-chat-column. */
+:root[data-mari-message-measure]
+  [data-chat-mode="roleplay"]
+  :is(.mari-rp-bubble, .mari-roleplay-vn-dialogue)
+  .mari-message-content {
+  max-width: none;
+}
+/* Editing a message: the editor fills the message's column in every theme. Themes that size cards and
+   bubbles to their text (width: fit-content) squeezed it to a strip about as wide as an empty box. */
+[data-chat-mode="roleplay"] .mari-roleplay-message-row > .mari-roleplay-message-body--editing {
+  flex: 1 1 0% !important;
+  width: 100% !important;
+}
+[data-chat-mode="roleplay"] .mari-roleplay-message-body--editing > .mari-rp-bubble,
+.mari-message-body:has([data-chat-message-editor]) {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+[data-chat-mode="roleplay"] .mari-roleplay-message-body--editing > .mari-rp-bubble {
+  max-width: 100% !important;
+}
 /* Roleplay text takes --mari-chat-line-height inline (ChatMessage); conversation lines keep their own
    leading class, so they take it here. */
 :root[data-mari-chat-line-height] [data-chat-mode="conversation"] .mari-message-content {
