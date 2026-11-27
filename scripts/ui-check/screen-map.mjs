@@ -13,6 +13,8 @@ import { keepsAttributeValue, keepsId } from "./css-changes.mjs";
 
 export const MAP_VERSION = 1;
 
+const REFRESH_HELPER = /^(\$Refresh\w*\$|_c\d*|_s\d*)$/;
+
 /** Starts function-level coverage for one page (Chromium only). Returns stop() → client source paths that ran. */
 export async function startCoverage(context, page, repoRoot) {
   const cdp = await context.newCDPSession(page);
@@ -25,9 +27,16 @@ export async function startCoverage(context, page, repoRoot) {
     for (const script of result) {
       const path = sourcePath(script.url, repoRoot);
       if (!path || ran.has(path)) continue;
-      // The first entry is the module's own top level, which runs on import; a file "ran" when one of its
-      // functions (a component, a hook, a helper) was called.
-      if (script.functions.some((fn, i) => i > 0 && fn.ranges[0]?.count > 0)) ran.add(path);
+      // The first entry is the module's own top level, which runs on import, and unnamed callbacks run there too
+      // (`const TABS = list.map((t) => …)`). A file "ran" when one of its named functions (a component, a hook, a
+      // helper; `const f = () => …` is named too) was called.
+      // React Refresh's own per-module bookkeeping ($RefreshReg$, $RefreshSig$, _c, _s) runs on import too.
+      if (
+        script.functions.some(
+          (fn, i) => i > 0 && fn.ranges[0]?.count > 0 && fn.functionName && !REFRESH_HELPER.test(fn.functionName),
+        )
+      )
+        ran.add(path);
     }
   };
   return {

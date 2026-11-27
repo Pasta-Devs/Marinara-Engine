@@ -364,7 +364,7 @@ export function chooseChecks({ repoRoot, map, sizes, screens, base }) {
     notes.push({ path: SCREENS_FILE, what: `screen entries changed → ${[...screenEdits].join(", ")} (every size)` });
   }
   for (const path of diff.files) {
-    if (path === SCREENS_FILE) continue;
+    if (path === SCREENS_FILE || /(^|\/)node_modules(\/|$)|(^|\/)\.tmp\//.test(path)) continue;
     const isClient = path.startsWith(CLIENT_SRC);
     if (!isClient && NOT_UI.some((re) => re.test(path)) && !path.startsWith("packages/")) {
       notes.push({ path, what: "not part of the app's screens: nothing to check" });
