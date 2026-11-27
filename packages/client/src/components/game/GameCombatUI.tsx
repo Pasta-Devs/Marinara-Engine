@@ -931,6 +931,7 @@ export function GameCombatUI({
       directedLogSeen.current = null;
       directedPending.current = { round: 0, beats: [] };
       resetNarration();
+      setCombatLogEntries([]);
     }
     if (!directedLog) return;
     const first = directedLogSeen.current === null;
