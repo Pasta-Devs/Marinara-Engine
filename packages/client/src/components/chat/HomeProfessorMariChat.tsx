@@ -58,7 +58,7 @@ import { characterKeys, useCharacterListRows, usePersonas } from "../../hooks/us
 import { getCharacterDisplayIdentity } from "../../lib/character-display";
 import { buildCharacterPreviewModel, type CharacterPreviewModel } from "../../lib/character-preview";
 import { buildLorebookPreviewModel } from "../../lib/lorebook-preview";
-import { completeInline } from "../../lib/inline-completion";
+import { completeInlineAt } from "../../lib/inline-completion";
 import { resolveMariRestStory, type MariStoryState } from "../../lib/mari-work-animations";
 import { lorebookKeys, useLorebooks } from "../../hooks/use-lorebooks";
 import { useMariComposerReferences } from "../../hooks/use-mari-composer-references";
@@ -450,7 +450,7 @@ export function HomeProfessorMariChat({
       ),
     [completionLorebooks.data],
   );
-  const draftSuffix = useMemo(() => completeInline(draft, completionCandidates), [completionCandidates, draft]);
+  const draftCompletion = useMemo(() => completeInlineAt(draft, completionCandidates), [completionCandidates, draft]);
   const [attachments, setAttachments] = useState<ProfessorMariAttachment[]>([]);
   const [composerScroll, setComposerScroll] = useState({ left: 0, top: 0 });
   const [handoffContext, setHandoffContext] = useState<ProfessorMariAskContext | null>(() => initialAskContext ?? null);
@@ -4219,7 +4219,8 @@ export function HomeProfessorMariChat({
                           connectionMenuRef={connectionMenuRef}
                           connectionOptions={connectionOptions}
                           draft={draft}
-                          draftSuffix={draftSuffix}
+                          draftSuffix={draftCompletion?.suffix ?? ""}
+                          draftSuffixStart={draftCompletion?.start ?? -1}
                           pickerOpen={composerReferences.pickerOpen}
                           onPickerAction={composerReferences.onPickerAction}
                           onActiveTokenChange={composerReferences.onActiveTokenChange}
