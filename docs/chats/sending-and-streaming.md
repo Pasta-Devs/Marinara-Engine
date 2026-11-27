@@ -19,7 +19,7 @@ Find it in **Settings → General → Input & Editing**. There is one toggle per
 
 | Chat mode | Default | When off |
 | --- | --- | --- |
-| Roleplay | Off | <kbd>Enter</kbd> adds a new line. Click **Send**. |
+| Roleplay | Off | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
 | Conversations | On | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
 | Game | On | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
 

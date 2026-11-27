@@ -1601,7 +1601,8 @@ export const ChatInput = memo(function ChatInput({
     }
 
     if (e.key === "Enter") {
-      if (enterToSend && !e.shiftKey) {
+      // Send on Enter off: Enter adds a line and Ctrl/Cmd+Enter sends, as in Conversation and Game.
+      if (enterToSend ? !e.shiftKey : e.metaKey || e.ctrlKey) {
         e.preventDefault();
         handleSend();
       } else {
