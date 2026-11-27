@@ -1021,7 +1021,8 @@
     min-height: 2.75rem;
   }
   :root[data-overhaul="mobile"] .ov-docs__reader {
-    padding: 0.5rem 0.5rem 3rem;
+    --ov-docs-reader-pad-bottom: 3rem;
+    padding: 0.5rem 0.5rem var(--ov-docs-reader-pad-bottom);
   }
   :root[data-overhaul="mobile"] .ov-docs__find {
     top: -0.5rem;

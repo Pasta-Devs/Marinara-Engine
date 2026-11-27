@@ -3033,7 +3033,9 @@
   position: relative;
   min-height: 0;
   overflow-y: auto;
-  padding: 1.5rem 1.5rem 4rem;
+  /* A variable so a code block's Copy (below) can stick through it to the reader's bottom edge. */
+  --ov-docs-reader-pad-bottom: 4rem;
+  padding: 1.5rem 1.5rem var(--ov-docs-reader-pad-bottom);
 }
 .ov-docs__article,
 .ov-docs__empty {
@@ -3177,10 +3179,14 @@
 }
 .ov-docs .ov-docs__content .mari-md-codeblock {
   /* Right padding keeps code clear of the Copy button. One line of code (0.85rem at 1.6) plus this
-     padding is 2.75rem tall, so the 1.75rem button at top 0.5rem sits centered in a one-line block
-     and in the top corner of a longer one. */
+     padding is 2.75rem tall, so the 1.75rem button 0.5rem off the bottom sits centered in a one-line
+     block; in a longer one it keeps to the bottom corner of the part on screen as the page scrolls. */
   min-height: 2.75rem;
   padding: 0.6875rem 4.75rem 0.6875rem 1rem;
+  --code-copy-inset: 0.5rem;
+  /* clip, not hidden: a hidden overflow makes the block its own scroller, and Copy's sticky strip
+     (globals.css) would then ignore the page scrolling past a long block. */
+  overflow-x: clip;
   border: 1px solid var(--ov-line);
   background: color-mix(in srgb, var(--ov-text) 7%, var(--card));
   color: var(--ov-text);
@@ -3191,10 +3197,12 @@
 .ov-docs .ov-docs__content .mari-md-codeblock-lang {
   display: none;
 }
+.ov-docs .ov-docs__content .mari-md-codeblock > .docs-copy-dock {
+  /* A long block scrolls with the page here, so Copy sticks to the reader's bottom edge (through its
+     bottom padding), at the same inset as its corner in the block. */
+  bottom: calc(var(--code-copy-pad, 0.6875rem) - var(--ov-docs-reader-pad-bottom, 4rem));
+}
 .ov-docs .ov-docs__content .docs-copy-button {
-  top: 0.5rem;
-  bottom: auto;
-  right: 0.5rem;
   display: inline-flex;
   align-items: center;
   height: 1.75rem;
