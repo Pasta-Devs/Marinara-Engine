@@ -5274,6 +5274,32 @@ strong {
   text-transform: lowercase;
 }
 
+/* Copy (use-code-block-copy.ts) sits in a zero-height strip at the end of the block. The strip is sticky, so
+   when a tall block scrolls (Professor Mari caps hers) Copy stays in the bottom-right corner of what you can
+   see instead of scrolling away with the code, and settles into the block's bottom padding at the end.
+   The hook writes the block's own padding (themes change it) into --code-copy-pad (bottom) and
+   --code-copy-pad-right; --code-copy-inset is the gap to the block's edge.
+   bottom: 0 is the block's content edge, not its border: a scroller's padding is taken off the area a sticky
+   box sticks to, so the strip stops exactly where it rests at the end, and the shift puts Copy at the inset. */
+.mari-message-content .mari-md-codeblock > .docs-copy-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  height: 0;
+  /* Physical right: code is LTR in every locale. */
+  margin-right: calc(var(--code-copy-inset, 0.375rem) - var(--code-copy-pad-right, 1em));
+  pointer-events: none;
+  white-space: normal;
+}
+.mari-message-content .mari-md-codeblock > .docs-copy-dock > .docs-copy-button {
+  flex: none;
+  pointer-events: auto;
+  transform: translateY(calc(var(--code-copy-pad, 3rem) - var(--code-copy-inset, 0.375rem)));
+}
+
 /* Blockquotes */
 .mari-message-content .mari-md-blockquote {
   border: 1px solid var(--marinara-app-accent-solid);
