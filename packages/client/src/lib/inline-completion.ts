@@ -33,7 +33,18 @@ function matchSuffix(fragment: string, candidates: readonly string[]): string {
  * `candidates` must already be in priority order; the first match wins.
  */
 export function completeInline(value: string, candidates: readonly string[]): string {
-  if (!value) return "";
+  return completeInlineAt(value, candidates)?.suffix ?? "";
+}
+
+/**
+ * Like `completeInline`, plus where the completed fragment starts in `value` (at its `@` when it has one),
+ * so a caller can keep only a guess that continues a given word, such as the `@` token being typed.
+ */
+export function completeInlineAt(
+  value: string,
+  candidates: readonly string[],
+): { suffix: string; start: number } | null {
+  if (!value) return null;
   const maxCandidateLength = candidates.reduce((max, candidate) => Math.max(max, candidate.trim().length), 0);
   // Try the longest suffix first so spaces inside a name remain part of its prefix.
   // Whitespace alone (or a single letter followed by a space) is not a useful guess.
@@ -42,7 +53,7 @@ export function completeInline(value: string, candidates: readonly string[]): st
     if (fragment.length >= maxCandidateLength) continue;
     if (fragment.trimEnd().length < MIN_FRAGMENT) continue;
     const suffix = matchSuffix(fragment, candidates);
-    if (suffix) return suffix;
+    if (suffix) return { suffix, start: word.index };
   }
-  return "";
+  return null;
 }

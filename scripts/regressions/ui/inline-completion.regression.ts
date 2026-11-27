@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { completeInline } from "../../../packages/client/src/lib/inline-completion.js";
+import { completeInline, completeInlineAt } from "../../../packages/client/src/lib/inline-completion.js";
 
 const candidates = ["dc simulator", "Duke Gunterlie", "Celeste"];
 assert.equal(completeInline("DC", candidates), " simulator");
@@ -32,4 +32,13 @@ assert.equal(completeInline('@"', names), "");
 assert.equal(completeInline("@Jessica", names), " Rabbit");
 // not a trigger inside a word
 assert.equal(completeInline("me@Jes", names), "");
+{
+  const places = ["Haunted Mansion", "MARINARASIM"];
+  assert.deepEqual(completeInlineAt("OK so in @MARINARASIM  since I ha", places), {
+    suffix: "unted Mansion",
+    start: 31,
+  });
+  assert.deepEqual(completeInlineAt("see @Haun", places), { suffix: "ted Mansion", start: 4 });
+  assert.equal(completeInlineAt("nothing", places), null);
+}
 console.log("Inline completion regression passed");

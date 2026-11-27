@@ -99,6 +99,35 @@ export function activeToken(text: string, caret: number): ActiveComposerToken | 
   return null;
 }
 
+/**
+ * The live token, minus an `@` already linked to a reference once the caret has moved past its name: the
+ * words after a linked `@Alice` (`@Alice and then`) are prose, not more of the name. Inside the name the
+ * token stays live, so it can still be edited or picked again.
+ */
+export function unlinkedActiveToken(
+  text: string,
+  caret: number,
+  linked: readonly { start: number; end: number }[],
+): { token: ActiveComposerToken | null; linked: boolean } {
+  const token = activeToken(text, caret);
+  const mark = token ? linked.find((spot) => spot.start === token.start) : undefined;
+  if (!mark) return { token, linked: false };
+  return { token: caret > mark.end ? null : token, linked: true };
+}
+
+/**
+ * Whether a name guess (`guessStart`: where the guessed fragment starts, at its `@`) may show: only inside an
+ * unlinked `@` token that ends the draft, and only when it continues the whole token, not a later word in it.
+ */
+export function showsReferenceGuess(
+  text: string,
+  token: ActiveComposerToken | null,
+  linked: boolean,
+  guessStart: number,
+): boolean {
+  return token?.trigger === "@" && token.end === text.length && !linked && guessStart === token.start;
+}
+
 /** `@Alice`, or `@Alice in Wonderland`: a bare token may hold spaces, so no quotes are ever needed. */
 export function formatReferenceToken(label: string): string {
   // Quotes and angle brackets would break the token; names are one line.

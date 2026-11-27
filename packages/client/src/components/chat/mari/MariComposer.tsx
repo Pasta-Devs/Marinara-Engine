@@ -38,9 +38,11 @@ import { MariWorkspaceContextItem } from "../../../hooks/use-mari-workspace-cont
 import { ProfessorMariContextFacet } from "../../../lib/professor-mari-presentation";
 import { RESULT_TYPE_ICONS, resourceResultType } from "../../../lib/command-icons";
 import {
-  activeToken,
+  type activeToken,
   composerKeyAction,
   pastedFiles,
+  showsReferenceGuess,
+  unlinkedActiveToken,
   type ComposerMark,
   type ComposerPickerAction,
 } from "../../../lib/composer-triggers";
@@ -92,6 +94,8 @@ type MariComposerProps = {
   connectionOptions: ProfessorMariConnectionOption[];
   draft: string;
   draftSuffix: string;
+  /** Where the guessed fragment starts in the draft: a guess shows only when it continues the live `@` token. */
+  draftSuffixStart?: number;
   effectiveConnection: ProfessorMariConnectionOption;
   effectiveConnectionId: string;
   enterToSend: boolean;
@@ -187,6 +191,7 @@ export function MariComposer({
   connectionOptions,
   draft,
   draftSuffix,
+  draftSuffixStart = -1,
   referenceMarks = [],
   effectiveConnection,
   effectiveConnectionId,
@@ -260,7 +265,13 @@ export function MariComposer({
   useDismiss(sendMenuRef, sendMenuVisible, () => setSendMenuOpen(false));
   // Where the caret sits in the draft, so a live `@` / `/` token can be found.
   const [caret, setCaret] = useState(draft.length);
-  const liveToken = activeToken(draft, Math.min(caret, draft.length));
+  // An `@` already linked to a reference ends at its name: words typed after it (`@Alice and then`) are
+  // prose, not more of the name, so they get no picker, highlight or guess. Inside the name it stays editable.
+  const { token: liveToken, linked: liveTokenLinked } = unlinkedActiveToken(
+    draft,
+    Math.min(caret, draft.length),
+    referenceMarks,
+  );
   const liveTokenKey = liveToken ? `${liveToken.trigger}:${liveToken.start}:${liveToken.end}:${liveToken.query}` : "";
   // Report only when the token itself changes; the ref keeps the latest callback without re-firing on each render.
   const tokenChangeRef = useRef(onActiveTokenChange);
@@ -296,9 +307,12 @@ export function MariComposer({
     setCaret(atRequest.pos);
   }, [atRequest, floatingTextareaRef]);
   // Names are only guessed inside an `@` token that ends the draft (a Tab there links it), never in plain
-  // sentences, where a guess after two letters reads as autocorrect. The open picker replaces it.
+  // sentences, where a guess after two letters reads as autocorrect. The guess must continue the whole
+  // token from its `@`, not a later word in it (`@Alice and ha` guesses nothing), and a linked name gets
+  // none. The open picker replaces it.
   const ghostInToken = liveToken?.trigger === "@" && liveToken.end === draft.length;
-  const ghostAvailable = Boolean(draftSuffix) && ghostInToken;
+  const ghostAvailable =
+    Boolean(draftSuffix) && showsReferenceGuess(draft, liveToken, liveTokenLinked, draftSuffixStart);
   const ActivePermissionsModeIcon = MARI_PERMISSIONS_MODE_ICONS[permissionsMode];
   // The connection menu is the chat's quick switch: the list, with the chosen Connection's models beside it.
   const setFeatureModels = useSetFeatureModels();
