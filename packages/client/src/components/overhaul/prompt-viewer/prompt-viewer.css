@@ -2795,7 +2795,8 @@
 }
 .ov-prompt-viewer .kaio-title-icon {
   display: inline-flex;
-  color: var(--ov-accent-text, var(--primary));
+  font-size: 1.05rem;
+  line-height: 1;
 }
 .ov-prompt-viewer .kaio-title {
   margin-left: 0.25rem;

@@ -6,8 +6,8 @@ It began as kolache's AIO Prompt Viewer and Editor extension and is now part of 
 
 ## Opening it
 
-- **Computer:** the Prompt viewer button in the top bar, right after Search.
-- **Phone or tablet:** tap the tab count in the top bar to open All Tabs, then the Prompt viewer button beside **+**.
+- **Computer:** the Prompt viewer button (🥞) in the top bar, right after Search.
+- **Phone or tablet:** tap the tab count in the top bar to open All Tabs, then the Prompt viewer button (🥞) beside **+**.
 - **Anywhere:** open Search and type `prompt viewer`.
 
 It opens in its own tab. Switching to another tab keeps your picks and any unsaved edit; closing the tab asks first if an edit is unsaved.

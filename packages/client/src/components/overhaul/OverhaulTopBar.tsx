@@ -24,7 +24,6 @@ import {
   Link,
   Pencil,
   Regex,
-  ScanText,
   Search,
   Settings2,
   Sparkles,
@@ -86,6 +85,7 @@ import { goBackPlace, goForwardPlace, usePlaceHistory } from "./place-history";
 import { isApplePlatform } from "../../lib/command-center";
 import { useNavigationKeys } from "./use-navigation-keys";
 import { requestPromptViewerTabClose } from "./prompt-viewer/close-guard";
+import { PancakeIcon } from "../../lib/pancake-icon";
 // Its own chunk, so the app shell stays under the bundle budget.
 const DesktopTabStrip = lazy(() => import("./DesktopTabStrip").then((module) => ({ default: module.DesktopTabStrip })));
 
@@ -100,7 +100,7 @@ const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library" | "app">, Lu
   docs: CircleHelp,
   mari: GraduationCap,
   schedules: CalendarDays,
-  "prompt-viewer": ScanText,
+  "prompt-viewer": PancakeIcon,
 };
 
 const MODE_DOT: Record<string, string> = {
@@ -1070,7 +1070,7 @@ export function OverhaulTopBar() {
           title={localize("Prompt viewer")}
           aria-label={localize("Prompt viewer")}
         >
-          <ScanText size={15} />
+          <PancakeIcon size={15} />
         </button>
         <div className="ov-topbar__right">
           <MariTopbarStatus state={mariEdgeGlow} />

@@ -9,7 +9,8 @@
 import { toggleChatSettings as toggleChatSettingsWindow } from "../../lib/chat-settings-close";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, Check, ChevronLeft, Home, Layers, Plus, ScanText, Search, Settings2, X } from "lucide-react";
+import { ArrowUp, Check, ChevronLeft, Home, Layers, Plus, Search, Settings2, X } from "lucide-react";
+import { PancakeIcon } from "../../lib/pancake-icon";
 import type { Chat } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -251,7 +252,7 @@ function AllTabsViewer({ chats, current }: { chats: Chat[]; current: OverhaulTab
             openPromptViewerTab();
           }}
         >
-          <ScanText size={22} />
+          <PancakeIcon size={22} />
         </button>
         <label className="ovm-alltabs__search">
           <Search size={18} aria-hidden="true" />

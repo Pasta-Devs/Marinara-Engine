@@ -350,7 +350,7 @@ function buildConsole() {
   overlayEl.innerHTML = `
     <div class="kaio-shell" role="region" aria-label="Prompt viewer">
       <div class="kaio-titlebar">
-        <span class="kaio-title-icon">${ico("viewer")}</span>
+        <span class="kaio-title-icon" aria-hidden="true">🥞</span>
         <span class="kaio-title">Prompt viewer</span>
         <span class="kaio-subtitle">Preset, lorebooks, character and persona, in the order they're sent</span>
         <span class="kaio-spacer"></span>
