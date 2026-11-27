@@ -243,6 +243,7 @@ import {
   mergeChatVariableChanges,
   removeCopiedPromptGuidance,
   undoChatVariableChanges,
+  readHeldCardUpdates,
   type APIProvider,
   type MacroContext,
   type RulesetCatalogEntriesById,
@@ -444,6 +445,13 @@ import {
 } from "../services/generation/roleplay-commands.js";
 import { createPromptsStorage } from "../services/storage/prompts.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import {
+  agentRunsWithSummaries,
+  applyHeldCardUpdates,
+  automaticSummaryDueAfterReply,
+  summariesPaceAgents,
+  summaryTurnIsNext,
+} from "../services/chat-summary/summary-paced-agents.js";
 import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { withAvatarFileLifecycleLock } from "../services/image/avatar-file-lifecycle.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
@@ -2185,6 +2193,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           throw new Error(
             "Advanced Memory: confirm the missing character knowledge ranges in Chat Settings before generating.",
           );
+        }
+      }
+      // "Run with summaries": card edits approved after a summary turn are applied on the next one, before the
+      // prompt reads the card. Held edits whose chat no longer holds them (switch or summaries off) apply now.
+      if (chatMode === "roleplay" && !input.continueMessageId && readHeldCardUpdates(chatMeta).length > 0) {
+        const holdStill = agentRunsWithSummaries("card-evolution-auditor", chatMeta, chatMode);
+        const beforeThisReply = input.regenerateMessageId
+          ? allChatMessages.filter((message) => message.id !== input.regenerateMessageId)
+          : allChatMessages;
+        if (!holdStill || summaryTurnIsNext(chatMeta, beforeThisReply, true)) {
+          try {
+            await applyHeldCardUpdates(chats, chars, input.chatId);
+          } catch (err) {
+            logger.warn(err, "[card-evolution-auditor] could not apply held card edits");
+          }
         }
       }
       const startsNewAssistantBubble =
@@ -5181,6 +5204,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
         const builtInAgentTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
         const createsAssistantMessage = !input.impersonate && !input.regenerateMessageId && !input.continueMessageId;
+        // Whether the automatic summary runs after this reply; agents set to "Run with summaries" run with it. A
+        // regenerated or continued reply is already counted, and impersonation writes no reply for a summary to follow.
+        const summaryAgentsRunThisTurn =
+          !input.impersonate &&
+          summariesPaceAgents(chatMeta, chatMode) &&
+          automaticSummaryDueAfterReply(chatMeta, allChatMessages, createsAssistantMessage);
         const trackerAgentTypes = getTrackerAgentTypes();
         const manualTrackers = chatMeta.manualTrackers === true;
         const manualTrackerAgentTypes = normalizeManualTrackerAgentTypes(chatMeta.manualTrackerAgentTypes);
@@ -7179,6 +7208,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           );
           if (lorebookKeeperSettings.readBehindMessages > 0 && !historicalLorebookTarget) {
             resolvedAgents.splice(resolvedAgents.indexOf(lkAgent), 1);
+          } else if (agentRunsWithSummaries("lorebook-keeper", chatMeta, chatMode)) {
+            // "Run with summaries": only on the reply the automatic summary follows, so its entries (and the
+            // messages it retires) change the prompt on the same turn as the summary.
+            if (!summaryAgentsRunThisTurn) resolvedAgents.splice(resolvedAgents.indexOf(lkAgent), 1);
           } else if (
             runInterval > 1 &&
             (await shouldSkipAgentByMessageInterval({
@@ -7535,15 +7568,18 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         if (resolvedAgents.some((a) => a.type === "card-evolution-auditor")) {
           const ceaAgent = resolvedAgents.find((a) => a.type === "card-evolution-auditor")!;
           if (
-            await shouldSkipAgentByMessageInterval({
-              agentsStore,
-              chatId: input.chatId,
-              agentType: "card-evolution-auditor",
-              settings: ceaAgent.settings,
-              fallbackInterval: (getDefaultBuiltInAgentSettings("card-evolution-auditor").runInterval as number) ?? 8,
-              messages: allChatMessages,
-              countUpcomingAssistantMessage: createsAssistantMessage,
-            })
+            agentRunsWithSummaries("card-evolution-auditor", chatMeta, chatMode)
+              ? !summaryAgentsRunThisTurn
+              : await shouldSkipAgentByMessageInterval({
+                  agentsStore,
+                  chatId: input.chatId,
+                  agentType: "card-evolution-auditor",
+                  settings: ceaAgent.settings,
+                  fallbackInterval:
+                    (getDefaultBuiltInAgentSettings("card-evolution-auditor").runInterval as number) ?? 8,
+                  messages: allChatMessages,
+                  countUpcomingAssistantMessage: createsAssistantMessage,
+                })
           ) {
             resolvedAgents.splice(resolvedAgents.indexOf(ceaAgent), 1);
           }

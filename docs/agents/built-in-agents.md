@@ -122,6 +122,7 @@ Watches how a character changes during play and suggests edits to that character
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
 - **Key settings**: it runs once every 8 user and assistant messages by default. See [Agent approvals and the Agent Suite](approvals-and-agent-suite.md).
+- **Run with summaries** (Roleplay, on the chat's Card Evolution Auditor card): with automatic summaries on, it runs on the same reply as each summary instead of on its own count. If you approve its edits before your next message, the card changes on the summary turn. If you approve them later, they wait in the chat for the next summary turn, and the card shows how many are waiting. This way the card changes on the turn the prompt changes anyway, so prompt caching breaks once instead of twice. With automatic summaries off, it runs on its own count and approved edits apply right away.
 
 ### Narrative Director
 
@@ -311,6 +312,7 @@ Creates and updates lorebook entries from important facts in your chat, so your 
 - **Where it works**: Roleplay. In Game Mode, a session-end variant called **Game Session Keeper** does the same job.
 - **Key settings**: runs once every 8 user and assistant messages by default. **Target Lorebook** chooses where entries go, with an auto-select option. Advanced prompts can return a writable lorebook name or an alias such as `world`, `npc`, `scene` or `player`. Missing alias destinations are created and linked to the chat. With no destination, the single-lorebook behavior stays.
 - **Leave stored messages out of Chat History** (on the chat's Lorebook Keeper card): messages up to the Keeper's last successful run leave Chat History, keeping the newest few (10 by default). They stay in the chat, and their facts reach the prompt through the lorebook. With **Drop Old Messages in Steps** on, they leave a whole step at a time.
+- **Run with summaries** (on the chat's Lorebook Keeper card): with automatic summaries on, the Keeper runs on the same reply as each summary instead of on its own count. Its new entries, and the messages it leaves out of Chat History, then change the prompt on the summary turn, so prompt caching breaks once instead of twice. With automatic summaries off, it runs on its own count.
 
 ### Combat
 

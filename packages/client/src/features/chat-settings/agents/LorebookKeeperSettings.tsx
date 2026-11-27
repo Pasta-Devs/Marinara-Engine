@@ -8,6 +8,7 @@ import { Settings2, RefreshCw } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import type { useLorebooks } from "../../../hooks/use-lorebooks";
 import { RetireStoredSetting } from "./RetireStoredSetting";
+import { RunWithSummariesSetting } from "./RunWithSummariesSetting";
 
 interface LorebookKeeperSettingsProps {
   chat: Chat;
@@ -114,7 +115,10 @@ export function LorebookKeeperSettings({
         {localizeUi("ui.chat.chatsettingsdrawer.readBehindUsesAssistantMessages0MeansTheNewest")}
       </p>
       {metadata && chat.mode === "roleplay" && (
-        <RetireStoredSetting chatId={chat.id} metadata={metadata} settingKey="lorebookKeeperRetireStored" />
+        <>
+          <RunWithSummariesSetting chatId={chat.id} metadata={metadata} agent="lorebook-keeper" />
+          <RetireStoredSetting chatId={chat.id} metadata={metadata} settingKey="lorebookKeeperRetireStored" />
+        </>
       )}
     </>
   );

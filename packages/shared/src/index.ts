@@ -354,6 +354,7 @@ export * from "./constants/request-timeouts.js";
 
 export * from "./utils/game-narration-text.js";
 export * from "./utils/message-marks.js";
+export * from "./utils/character-card-updates.js";
 
 export * from "./utils/game-tag-parser.js";
 export * from "./utils/game-widget-update.js";
