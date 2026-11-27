@@ -157,6 +157,8 @@ export interface ProfessorMariTranscriptScrollInput {
   nearBottom: boolean;
   /** Was the reader following the newest output before this event? */
   following: boolean;
+  /** "user-scroll": did the position move down since the previous scroll event? */
+  movedDown?: boolean;
 }
 
 export interface ProfessorMariTranscriptScrollDecision {
@@ -176,6 +178,7 @@ export function transcriptScrollAction({
   event,
   nearBottom,
   following,
+  movedDown = false,
 }: ProfessorMariTranscriptScrollInput): ProfessorMariTranscriptScrollDecision {
   switch (event) {
     case "send":
@@ -188,6 +191,9 @@ export function transcriptScrollAction({
     case "complete":
       return { scrollTo: null, following };
     case "user-scroll":
-      return { scrollTo: null, following: nearBottom };
+      // #9842: a reader leaves the newest line by scrolling up. When a picture above the view and one below it load
+      // in the same frame, the browser's scroll anchoring moves the position down by the first and the second
+      // leaves the reader short of the new bottom until the follow pins them, which runs after this event.
+      return { scrollTo: null, following: nearBottom || (following && movedDown) };
   }
 }
