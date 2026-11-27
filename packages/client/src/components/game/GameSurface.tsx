@@ -2208,6 +2208,8 @@ import {
 } from "lucide-react";
 import { Spinner } from "@/components/ui/Spinner";
 import { ReplyWritingStatus } from "@/components/chat/ReplyWritingStatus";
+import { CombatNarrationFrame } from "../../lib/combat-narration";
+import { readCombatNarrationMode } from "@marinara-engine/shared";
 
 /** Randomly sample up to `max` items from an array (Fisher-Yates shuffle). */
 function sampleTags(tags: string[], max: number): string[] {
@@ -14742,7 +14744,11 @@ function GameSurfaceComponent({
                       };
 
                       return (
-                        <div className="relative h-full min-h-0">
+                        <CombatNarrationFrame
+                          chatId={activeChatId}
+                          mode={readCombatNarrationMode(chatMeta.gameCombatNarration)}
+                          className="relative h-full min-h-0"
+                        >
                           <Suspense
                             fallback={
                               <div className="flex h-full items-center justify-center text-sm text-white/70">
@@ -14833,7 +14839,7 @@ function GameSurfaceComponent({
                               combatStyleSurface.render(combatSurfaceContext)
                             )}
                           </Suspense>
-                        </div>
+                        </CombatNarrationFrame>
                       );
                     }
                     if (gameState === "travel_rest") {
