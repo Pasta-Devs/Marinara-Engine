@@ -308,7 +308,7 @@ const cases: RegressionCase[] = [
       // retain their independent setting when Storyboard owns foreground art.
       assert.match(
         generateRouteSource,
-        /if \(!commandTarget && automaticBackgroundsEnabled && illustratorBackgroundAgent\)/u,
+        /!commandTarget &&\s*\(automaticBackgroundsEnabled \|\| weatherVersionsEnabled \|\| timeVersionsEnabled\) &&\s*illustratorBackgroundAgent/u,
       );
       assert.match(
         generateRouteSource,
@@ -848,8 +848,8 @@ const cases: RegressionCase[] = [
         "Roleplay and Game Mode should be distinct navigable workflows",
       );
       assert.match(activeEditorSource, /role="tabpanel"/u);
-  assert.match(activeEditorSource, /idPrefix="storyboard-workflow"/u);
-          const roleplayWorkflowSource = activeEditorSource.slice(roleplayWorkflowStart, gameWorkflowStart);
+      assert.match(activeEditorSource, /idPrefix="storyboard-workflow"/u);
+      const roleplayWorkflowSource = activeEditorSource.slice(roleplayWorkflowStart, gameWorkflowStart);
       const gameWorkflowSource = activeEditorSource.slice(gameWorkflowStart);
       assert.ok(
         roleplayWorkflowSource.indexOf("number={1}") < roleplayWorkflowSource.indexOf("{sharedWorkflowStages}"),

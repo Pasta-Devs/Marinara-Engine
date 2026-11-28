@@ -8,6 +8,7 @@ import {
   backgroundVersionStem,
   backgroundWeatherVersion,
   normalizeLocationBackgroundPins,
+  parseBackgroundWeatherVersionName,
   resolveLocationBackgroundPin,
   type LocationBackgroundMatch,
   type LocationBackgroundPin,
@@ -19,7 +20,7 @@ import { useUIStore } from "../stores/ui.store";
 import { useUpdateChatMetadata } from "./use-chats";
 import { useSpatialContext } from "./use-spatial-context";
 
-type BackgroundListItem = { filename: string; source?: string };
+type BackgroundListItem = { filename: string; source?: string; versionOf?: string | null };
 
 function readMetadata(raw: unknown): Record<string, unknown> {
   if (raw && typeof raw === "object") return raw as Record<string, unknown>;
@@ -86,8 +87,25 @@ export function pinnedBackgroundForWeather(
   const wantedWeather = weatherVersions ? backgroundWeatherVersion(weather) : "";
   const wantedTime = timeVersions ? backgroundTimeOfDay(time) : "";
   if (!wantedWeather && !wantedTime) return background;
+  if (background.includes("/") || background.includes(":")) {
+    // A gallery picture: its versions are linked to it by the library (versionOf), not by file name.
+    const versions = library.filter((item) => item.versionOf === background);
+    for (const [weatherPart, timePart] of [
+      [wantedWeather, wantedTime],
+      [wantedWeather, ""],
+      ["", wantedTime],
+    ] as const) {
+      if (!weatherPart && !timePart) continue;
+      const found = versions.find((item) => {
+        const parsed = parseBackgroundWeatherVersionName(item.filename);
+        return parsed.version === weatherPart && parsed.time === timePart;
+      });
+      if (found) return found.filename;
+    }
+    return background;
+  }
   const dot = background.lastIndexOf(".");
-  if (dot <= 0 || background.includes("/") || background.includes(":")) return background;
+  if (dot <= 0) return background;
   const stem = background.slice(0, dot);
   const names = new Set(library.map((item) => item.filename));
   const tries: Array<[typeof wantedWeather, typeof wantedTime]> = [
@@ -179,7 +197,7 @@ export function useLocationBackgroundPinFollower(args: {
     });
   }, [publish, chatId, isRoleplay, location, place, match]);
 
-  const { data: library } = useQuery({
+  const { data: library, isError: libraryFailed } = useQuery({
     queryKey: ["backgrounds"],
     queryFn: () => api.get<BackgroundListItem[]>("/backgrounds"),
     enabled: isRoleplay && pins.length > 0 && (weatherVersions || timeVersions),
@@ -204,6 +222,8 @@ export function useLocationBackgroundPinFollower(args: {
       return;
     }
     if (shownPinId === matchPinId) return;
+    // Wait for the library, so the pin isn't marked shown with its plain picture while a version exists.
+    if ((weatherVersions || timeVersions) && !library && !libraryFailed) return;
     const filename = pinnedBackgroundForWeather(matchBackground, weather, library, weatherVersions, time, timeVersions);
     const url = chatBackgroundMetadataToUrl(filename);
     if (url) useUIStore.getState().setChatBackground(url);
@@ -222,5 +242,6 @@ export function useLocationBackgroundPinFollower(args: {
     matchBackground,
     shownPinId,
     library,
+    libraryFailed,
   ]);
 }

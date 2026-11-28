@@ -13197,11 +13197,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             : (charInfo.find(
                 (character) => character.id === (lastSavedMsg as { characterId?: string } | null)?.characterId,
               )?.name ?? null);
-        const pinnedSceneBackgroundForTurn = async (snapshotMessageId: string, snapshotSwipeIndex: number) => {
+        /** The tracker state saved for this reply, else the state the turn started with. */
+        const trackedStateForTurn = async (snapshotMessageId: string, snapshotSwipeIndex: number) => {
           const snapshot = snapshotMessageId
             ? await gameStateStore.getByChatAndMessage(input.chatId, snapshotMessageId, snapshotSwipeIndex)
             : null;
-          const state = snapshot ? parseGameStateRow(snapshot as Record<string, unknown>) : gameState;
+          return snapshot ? parseGameStateRow(snapshot as Record<string, unknown>) : gameState;
+        };
+        const pinnedSceneBackgroundForTurn = async (snapshotMessageId: string, snapshotSwipeIndex: number) => {
+          const state = await trackedStateForTurn(snapshotMessageId, snapshotSwipeIndex);
           const projection = hierarchicalMapsEnabledForChat
             ? await resolveOwnerSpatialProjection(input.chatId, {}, chatMeta)
             : null;
@@ -13249,6 +13253,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               const pinnedHere = locationBackgroundPinsApply(chatMode, freshMeta, await galleryPinsForChat())
                 ? await pinnedSceneBackgroundForTurn(tail.messageId, tail.swipeIndex)
                 : null;
+              // A picture picked by hand in a pinned place stays: only the pin's own picture gets versions.
+              if (
+                pinnedHere &&
+                backgroundBeforeGeneration &&
+                chatBackgroundPlainPicture(backgroundBeforeGeneration) !==
+                  chatBackgroundPlainPicture(pinnedHere.filename)
+              ) {
+                return;
+              }
               if (
                 backgroundBeforeGeneration !== backgroundAtDecision &&
                 !(backgroundBeforeGeneration && backgroundsShownThisTurn.has(backgroundBeforeGeneration)) &&
@@ -13295,33 +13308,37 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               // A reply the Illustrator skipped that only has a time change to show never paints a new place.
               const mayPaintNewPlace = tail.illustratorRan || illustratorChecks.location || illustratorChecks.weather;
               if (trackerLocationChanged && !mayPaintNewPlace && !pinnedHere) return;
+              // The story's weather and time of day. Without a World State weather or time, the Decision
+              // model's pick on this reply, else its last saved pick, stands in for it.
+              const savedDecisionWeather =
+                typeof freshMeta.illustratorDecisionWeather === "string" ? freshMeta.illustratorDecisionWeather : "";
+              const savedDecisionTime =
+                typeof freshMeta.illustratorDecisionTime === "string" ? freshMeta.illustratorDecisionTime : "";
+              const weatherNow = weatherVersionsEnabled
+                ? trackedWeather || decided.weather || (illustratorChecks.weather ? savedDecisionWeather : "")
+                : "";
+              const timeNow = timeVersionsEnabled
+                ? (trackedTimeOfDay ? trackedTime : "") ||
+                  decided.time ||
+                  (illustratorChecks.time ? savedDecisionTime : "")
+                : "";
               if (
                 !automaticBackgroundsEnabled ||
                 pinnedHere ||
                 (!tail.requestedBackground && !trackerLocationChanged && !decidedNewPlace)
               ) {
                 // Same place: show it in the story's weather and time of day (each version made once, then reused).
-                // Without a World State weather or time, the Decision model's last pick stands in for it.
-                const weatherNow = weatherVersionsEnabled
-                  ? trackedWeather ||
-                    decided.weather ||
-                    (illustratorChecks.weather && typeof freshMeta.illustratorDecisionWeather === "string"
-                      ? freshMeta.illustratorDecisionWeather
-                      : "")
-                  : "";
-                const timeNow = timeVersionsEnabled
-                  ? (trackedTimeOfDay ? trackedTime : "") ||
-                    decided.time ||
-                    (illustratorChecks.time && typeof freshMeta.illustratorDecisionTime === "string"
-                      ? freshMeta.illustratorDecisionTime
-                      : "")
-                  : "";
                 if (!weatherNow && !timeNow) return;
                 // A reply the Illustrator skipped is only looked at when the weather or the time of day changed.
+                // The Decision model's first pick (nothing saved before) counts as a change.
+                const decidedWeatherIsNew = !!decided.weather && decided.weather !== savedDecisionWeather;
+                const decidedTimeIsNew = !!decided.time && decided.time !== savedDecisionTime;
                 if (
                   !tail.illustratorRan &&
                   decided.weatherChanged !== true &&
                   decided.timeChanged !== true &&
+                  !decidedWeatherIsNew &&
+                  !decidedTimeIsNew &&
                   !(timeNow && trackerTimeOfDayChanged)
                 ) {
                   return;
@@ -13364,7 +13381,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   typeof metaAfterWeather.background === "string" && metaAfterWeather.background.trim()
                     ? metaAfterWeather.background.trim()
                     : null;
-                if (backgroundAfterWeather !== backgroundBeforeGeneration) return;
+                if (backgroundAfterWeather !== backgroundBeforeGeneration || agentSignal.aborted) return;
                 await chats.patchMetadata(input.chatId, { background: weatherFilename });
                 sendSseEvent(reply, {
                   type: "agent_result",
@@ -13405,14 +13422,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 );
               }
               // A place the chat already has a picture of (pin, then library by name/tags) is shown, not painted again.
-              const weatherForReuse = weatherVersionsEnabled ? trackedWeather || decided.weather || "" : "";
-              const timeForReuse = timeVersionsEnabled
-                ? (trackedTimeOfDay ? trackedTime : "") || decided.time || ""
-                : "";
+              const weatherForReuse = weatherNow;
+              const timeForReuse = timeNow;
+              // When only the Decision model saw a move, the tracker still names the old place: match the
+              // place name the background plan writes instead, so the old place's picture isn't reused.
+              const trackerNamesThisPlace = trackerLocationChanged || tail.requestedBackground || !decidedNewPlace;
               const existingHere = findExistingSceneBackground({
                 chatMode,
                 chatMetadata: freshMeta,
-                location: latestGameState?.location ?? null,
+                location: trackerNamesThisPlace ? (latestGameState?.location ?? null) : null,
                 projection: hierarchicalMapsEnabledForChat
                   ? await resolveOwnerSpatialProjection(input.chatId, {}, chatMeta)
                   : null,
@@ -13528,6 +13546,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 );
                 return;
               }
+              if (agentSignal.aborted) return;
 
               await chats.patchMetadata(input.chatId, { background: generated.filename });
               sendSseEvent(reply, {
@@ -14920,16 +14939,25 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               }
 
               // Show the pick in the story's weather and time of day when that version already exists (never made here).
+              // Read from the tracker state saved for this reply (World State runs first), else the turn's start.
               // Without a World State weather or time, the Decision model's last pick (when its check is on).
+              const agentPick = bgData.chosen;
+              const versionsOn =
+                !!agentPick &&
+                (illustratorWeatherVersionsEnabled(chatMode, chatMeta) ||
+                  illustratorTimeVersionsEnabled(chatMode, chatMeta));
+              const pickState = versionsOn
+                ? await trackedStateForTurn(messageId, targetSwipeIndex).catch(() => gameState)
+                : gameState;
               const pickWeather = illustratorWeatherVersionsEnabled(chatMode, chatMeta)
-                ? gameState?.weather?.trim() ||
+                ? pickState?.weather?.trim() ||
                   (chatMeta.illustratorDecisionWeatherCheck === true &&
                   typeof chatMeta.illustratorDecisionWeather === "string"
                     ? chatMeta.illustratorDecisionWeather
                     : "")
                 : "";
               const pickTime = illustratorTimeVersionsEnabled(chatMode, chatMeta)
-                ? (backgroundTimeOfDay(gameState?.time) ? (gameState?.time ?? "") : "") ||
+                ? (backgroundTimeOfDay(pickState?.time) ? (pickState?.time ?? "") : "") ||
                   (chatMeta.illustratorDecisionTimeCheck === true &&
                   typeof chatMeta.illustratorDecisionTime === "string"
                     ? chatMeta.illustratorDecisionTime
@@ -15007,6 +15035,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   await updateChatMetadataForTools({ background: bgData.chosen });
                 } catch {
                   /* non-critical */
+                }
+                // The client already got the agent's plain pick; tell it the weather or time version shows.
+                if (bgData.chosen !== agentPick) {
+                  sendSseEvent(reply, {
+                    type: "agent_result",
+                    data: {
+                      agentType: result.agentType,
+                      agentName: agentNameByType.get(result.agentType) ?? result.agentType,
+                      resultType: "background_change",
+                      data: { chosen: bgData.chosen },
+                      success: true,
+                      error: null,
+                    },
+                  });
                 }
               }
             }
