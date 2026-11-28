@@ -366,6 +366,15 @@ export function CharacterScheduleEditorModal({
   const [generationError, setGenerationError] = useState("");
   const [draft, setDraft] = useState<DraftSchedule>(() => createDraft(schedule));
   const [expandedDay, setExpandedDay] = useState<string | null>(initialDay ?? null);
+  /** Phone day view: the block just tapped, scrolled to and highlighted in the day's editor below. */
+  const [focusBlock, setFocusBlock] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusBlock) return;
+    const row = document.querySelector<HTMLElement>(`[data-sched-block="${CSS.escape(focusBlock)}"]`);
+    if (!row) return;
+    // Stays marked until another block is tapped, so it is easy to find again after a look at the calendar.
+    row.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focusBlock]);
   const [generationGuidance, setGenerationGuidance] = useState("");
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isGeneratingWeek, setIsGeneratingWeek] = useState(false);
@@ -1257,6 +1266,21 @@ export function CharacterScheduleEditorModal({
           onPickDay={(day) => setExpandedDay(expandedDay === day ? null : day)}
         />
       )}
+      {embedded && (
+        <OvDayCalendar
+          days={draft.days}
+          expandedDay={expandedDay}
+          onShowDay={(day) => {
+            setOpenStatusMenu(null);
+            setExpandedDay(day);
+          }}
+          onPickBlock={(day, index) => {
+            setOpenStatusMenu(null);
+            setExpandedDay(day);
+            setFocusBlock(`${day}-${index}`);
+          }}
+        />
+      )}
       <fieldset disabled={generationBusy} className="min-w-0 space-y-2">
         {CONVERSATION_SCHEDULE_DAYS.map((day) => {
           const blocks = draft.days[day] ?? [];
@@ -1339,7 +1363,11 @@ export function CharacterScheduleEditorModal({
                     return (
                       <div
                         key={index}
-                        className="grid gap-2 rounded-md bg-[var(--background)] p-2 ring-1 ring-[var(--border)] md:grid-cols-[minmax(0,1fr)_2.5rem]"
+                        data-sched-block={menuKey}
+                        className={cn(
+                          "grid gap-2 rounded-md bg-[var(--background)] p-2 ring-1 ring-[var(--border)] md:grid-cols-[minmax(0,1fr)_2.5rem]",
+                          focusBlock === menuKey && "is-focus",
+                        )}
                       >
                         <div className="space-y-1 text-xs">
                           <div className="font-medium">
@@ -1620,6 +1648,171 @@ function OvWeekCalendar({
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Where each block of a day sits, as minutes from midnight; a block past midnight is two parts. */
+function dayParts(blocks: ScheduleBlock[]) {
+  return blocks.flatMap((block, index) => {
+    const range = parseTimeRange(block.time);
+    if (!range) return [];
+    const status = block.status ?? "online";
+    const spans: Array<[number, number]> =
+      range.start > range.end
+        ? [
+            [range.start, 1440],
+            [0, range.end],
+          ]
+        : [[range.start, range.end]];
+    return spans.map(([start, end], part) => ({ block, index, status, start, end, part }));
+  });
+}
+
+/**
+ * UI overhaul, phones: one day at a time. The seven days are buttons along the top, each with a thin bar showing the
+ * shape of that day; the picked day fills the width so every block reads in full. Swipe sideways for the next or
+ * previous day; tap a block to edit it in the day's editor below.
+ */
+function OvDayCalendar({
+  days,
+  expandedDay,
+  onShowDay,
+  onPickBlock,
+}: {
+  days: Record<string, ScheduleBlock[]>;
+  expandedDay: string | null;
+  onShowDay: (day: string) => void;
+  onPickBlock: (day: string, index: number) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const now = new Date();
+  const todayName = CONVERSATION_SCHEDULE_DAYS[(now.getDay() + 6) % 7]!;
+  const nowTop = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 100;
+  const [shownDay, setShownDay] = useState<string>(expandedDay ?? todayName);
+  useEffect(() => {
+    if (expandedDay) setShownDay(expandedDay);
+  }, [expandedDay]);
+  const show = (day: string) => {
+    setShownDay(day);
+    if (expandedDay) onShowDay(day);
+  };
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrolledRef = useRef(false);
+  const hasBlocks = Object.values(days).some((blocks) => (blocks ?? []).length > 0);
+  useLayoutEffect(() => {
+    const box = scrollRef.current;
+    if (!box || scrolledRef.current || !hasBlocks || box.offsetParent === null) return;
+    scrolledRef.current = true;
+    const grid = box.querySelector<HTMLElement>(".ov-day__grid");
+    if (grid) box.scrollTop = (grid.offsetHeight / 24) * firstAwakeHour(days);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasBlocks]);
+  // Sideways swipe on the day: the next or previous day. Up and down stays a scroll.
+  const swipeRef = useRef<{ x: number; y: number } | null>(null);
+  const swipedRef = useRef(false);
+  const shownIndex = CONVERSATION_SCHEDULE_DAYS.indexOf(shownDay as (typeof CONVERSATION_SCHEDULE_DAYS)[number]);
+  const step = (by: number) => {
+    const next = CONVERSATION_SCHEDULE_DAYS[(shownIndex + by + 7) % 7];
+    if (next) show(next);
+  };
+  return (
+    <div className="ov-day">
+      <div className="ov-day__days">
+        {CONVERSATION_SCHEDULE_DAYS.map((day) => (
+          <button
+            key={day}
+            type="button"
+            aria-pressed={day === shownDay}
+            aria-label={day}
+            className={cn("ov-day__chip", day === todayName && "is-today", day === shownDay && "is-on")}
+            onClick={() => {
+              setShownDay(day);
+              onShowDay(day);
+            }}
+          >
+            {day.slice(0, 3)}
+            <span className="ov-day__bar" aria-hidden="true">
+              {dayParts(days[day] ?? []).map((part) => (
+                <span
+                  key={`${part.index}-${part.part}`}
+                  className={`is-${part.status}`}
+                  style={{ left: `${(part.start / 1440) * 100}%`, width: `${((part.end - part.start) / 1440) * 100}%` }}
+                />
+              ))}
+            </span>
+          </button>
+        ))}
+      </div>
+      <h3 className="ov-day__title">
+        {shownDay}
+        {shownDay === todayName ? localizeUi("ui.chat.ovweekcalendar.today") : ""}
+      </h3>
+      <div
+        ref={scrollRef}
+        className="ov-day__scroll"
+        aria-label={localizeUi("ui.chat.ovweekcalendar.weekSchedule")}
+        // Pointer events, not touch events: every browser sends them for a finger, and a mouse drag works too.
+        onPointerDown={(event) => {
+          swipedRef.current = false;
+          swipeRef.current = { x: event.clientX, y: event.clientY };
+        }}
+        onPointerCancel={() => {
+          swipeRef.current = null;
+        }}
+        onPointerUp={(event) => {
+          const start = swipeRef.current;
+          swipeRef.current = null;
+          if (!start) return;
+          const dx = event.clientX - start.x;
+          const dy = event.clientY - start.y;
+          if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+          swipedRef.current = true;
+          step(dx < 0 ? 1 : -1);
+        }}
+        onClickCapture={(event) => {
+          // The click that ends a swipe over a block is not a tap on that block.
+          if (!swipedRef.current) return;
+          swipedRef.current = false;
+          event.stopPropagation();
+        }}
+      >
+        <div className="ov-day__hrs" aria-hidden="true">
+          {Array.from({ length: 12 }, (_, index) => index * 2).map((hour) => (
+            <span key={hour} style={{ top: `${(hour / 24) * 100}%` }}>
+              {hour}:00
+            </span>
+          ))}
+        </div>
+        <div className="ov-day__grid">
+          {dayParts(days[shownDay] ?? []).map(({ block, index, status, start, end, part }) => {
+            const label = block.activity || STATUS_LABELS[status];
+            return (
+              <button
+                key={`${shownDay}-${index}-${part}`}
+                type="button"
+                className={cn(
+                  "ov-week__blk ov-day__blk",
+                  `is-${status}`,
+                  end - start < OV_WEEK_ONE_LINE_MINUTES && "is-short",
+                )}
+                style={{ top: `${(start / 1440) * 100}%`, height: `${((end - start) / 1440) * 100}%` }}
+                aria-label={localizeUi("ui.chat.homeprofessormarichat.actingOnModeOutcomeValue1Value2", {
+                  value1: block.time,
+                  value2: label,
+                })}
+                onClick={() => onPickBlock(shownDay, index)}
+              >
+                <b>{label}</b>
+                <span>
+                  {block.time} · {STATUS_LABELS[status]}
+                </span>
+              </button>
+            );
+          })}
+          {shownDay === todayName && <div className="ov-week__now" style={{ top: `${nowTop}%` }} />}
+        </div>
+      </div>
     </div>
   );
 }

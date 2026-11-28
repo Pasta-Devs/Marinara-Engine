@@ -6580,6 +6580,137 @@ input.ov-edhead__title:focus {
   height: 2px;
   background: var(--ov-accent);
 }
+/* Phones: one day at a time instead of the week (seven 45px columns cannot hold a name). */
+.ov-day {
+  display: none;
+}
+.ov-schedEd > .ov-day {
+  order: -2;
+}
+@container ov-sched (max-width: 32rem) {
+  .ov-schedEd > .ov-week {
+    display: none;
+  }
+  .ov-schedEd > .ov-day {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+.ov-day__days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+.ov-day__chip {
+  display: flex;
+  min-width: 0;
+  height: 3.25rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.5rem;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.ov-day__chip.is-today {
+  color: var(--ov-accent-text);
+}
+.ov-day__chip.is-on {
+  background: color-mix(in srgb, var(--ov-accent) 16%, transparent);
+  color: var(--ov-accent-text);
+}
+.ov-day__bar {
+  position: relative;
+  width: 80%;
+  height: 0.25rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+.ov-day__bar > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.ov-day__bar > .is-online {
+  background: #3fbf6f;
+}
+.ov-day__bar > .is-idle {
+  background: #e0b04a;
+}
+.ov-day__bar > .is-dnd {
+  background: #e0566f;
+}
+.ov-day__bar > .is-offline {
+  background: color-mix(in srgb, var(--foreground) 22%, transparent);
+}
+.ov-day__title {
+  margin: 0.25rem 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.ov-day__scroll {
+  --ov-week-hour: 3.25rem;
+  position: relative;
+  display: grid;
+  height: max(24rem, calc(100dvh - var(--ov-day-top, 15rem)));
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  align-items: start;
+  column-gap: 0.375rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+.ov-day__hrs {
+  position: relative;
+  height: calc(var(--ov-week-hour) * 24);
+  color: var(--ov-dim);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+.ov-day__hrs span {
+  position: absolute;
+  right: 0.25rem;
+  transform: translateY(-0.35em);
+}
+.ov-day__hrs span:first-child {
+  transform: none;
+}
+.ov-day__grid {
+  position: relative;
+  height: calc(var(--ov-week-hour) * 24);
+  border-radius: 0.5rem;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--ov-line) 55%, transparent) 0 1px,
+      transparent 1px calc(100% / 12)
+    ),
+    color-mix(in srgb, var(--foreground) 2.5%, transparent);
+}
+.ov-day__blk {
+  width: auto;
+  align-items: stretch;
+  padding: 0.3125rem 0.625rem;
+  border-width: 0 0 0 3px;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  text-align: left;
+}
+.ov-day__blk span {
+  font-size: 0.75rem;
+}
+.ov-day__blk.is-short {
+  align-items: baseline;
+  padding-top: 0.125rem;
+}
+.ov-schedEd [data-sched-block].is-focus {
+  --tw-ring-color: var(--ov-accent) !important;
+  box-shadow: 0 0 0 2px var(--ov-accent) !important;
+}
 /* The calendar already shows every day, so below it only the picked day's editor shows. */
 .ov-schedEd fieldset > section:not(:has(> div)) {
   display: none;
