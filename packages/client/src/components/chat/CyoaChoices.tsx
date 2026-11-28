@@ -8,6 +8,7 @@ import { useAgentStore } from "../../stores/agent.store";
 import { useGenerate } from "../../hooks/use-generate";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
+import { impersonateResultsGoToDraft, startImpersonateDraft } from "../../stores/impersonate-draft.store";
 import { cn } from "../../lib/utils";
 import type { Message } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -184,6 +185,16 @@ export function CyoaChoices({ messages }: Props) {
       // Adding keeps the choices on screen so several can be combined into one message.
       if (action === "add") {
         handleAddToMessage(text);
+        return;
+      }
+      // Impersonate as a message draft: the choice is the direction, the result goes into the message box, and
+      // nothing is posted, so the choices stay until the user sends.
+      if (action === "impersonate" && impersonateResultsGoToDraft()) {
+        const composer = document.querySelector<HTMLTextAreaElement>(
+          `textarea[data-chat-composer="true"][data-chat-id="${CSS.escape(activeChatId)}"]`,
+        );
+        const before = composer?.value ?? useChatStore.getState().inputDrafts.get(activeChatId) ?? "";
+        await startImpersonateDraft({ chatId: activeChatId, direction: text, before });
         return;
       }
       if (persistedChoiceState?.messageId) {
