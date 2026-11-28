@@ -1,7 +1,8 @@
 // SillyTavern imports that go wrong partway must not leave anything behind or confuse the next run:
 // junk or future send_date values, a chat whose saving fails after it was created, a file that isn't a chat
 // counted as imported (and so making an identical copy "already here"), long chats read whole just to be
-// listed, and import routes answering a malformed upload with a bare 500.
+// listed, import routes answering a malformed upload with a bare 500, and Browse or its folder tokens following a
+// link out of the home folder.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -260,6 +261,47 @@ try {
   assert.equal(first.json().groupId, second.json().groupId, "two imports at once share one group");
   const [afterBoth] = await db.select().from(chats).where(eq(chats.id, target!.id));
   assert.equal(afterBoth!.groupId, first.json().groupId, "and the chat is in it");
+
+  // ── Browse and its folder tokens stay inside the home folder when a folder in it links elsewhere ──
+  const browseHome = join(fixtureRoot, "browse-home");
+  const browseOutside = join(fixtureRoot, "browse-outside");
+  mkdirSync(join(browseHome, "SillyTavern"), { recursive: true });
+  mkdirSync(join(browseOutside, "secret-folder"), { recursive: true });
+  // Junctions need no extra rights on Windows; elsewhere the type is ignored.
+  symlinkSync(browseOutside, join(browseHome, "elsewhere"), "junction");
+  const previousHome = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+  process.env.HOME = browseHome;
+  process.env.USERPROFILE = browseHome;
+  try {
+    const list = async (path: string) =>
+      (await app.inject({ method: "POST", url: "/api/import/list-directory", payload: { path } })).json() as {
+        success: boolean;
+        folders?: string[];
+        folderToken?: string;
+      };
+    const inside = await list(browseHome);
+    assert.equal(inside.success, true, JSON.stringify(inside));
+    assert.deepEqual(inside.folders, ["SillyTavern"], "links are not listed as folders");
+    const listed = await list(join(browseHome, "SillyTavern"));
+    assert.ok(listed.folderToken, "a folder inside home gets a token");
+    assert.equal((await list(join(browseHome, "elsewhere"))).success, false, "a link out of home is not listed");
+    assert.equal((await list(join(browseHome, "elsewhere", "secret-folder"))).success, false, "nor its subfolders");
+
+    const scanByToken = async (folderToken: string) =>
+      (await app.inject({ method: "POST", url: "/api/import/st-bulk/scan", payload: { folderToken } })).json() as {
+        error?: string;
+      };
+    assert.doesNotMatch((await scanByToken(listed.folderToken!)).error ?? "", /can only read folders/);
+    // Swapped for a link after its token was issued: the token no longer reaches outside home.
+    rmSync(join(browseHome, "SillyTavern"), { recursive: true });
+    symlinkSync(browseOutside, join(browseHome, "SillyTavern"), "junction");
+    assert.match((await scanByToken(listed.folderToken!)).error ?? "", /can only read folders inside your home folder/);
+  } finally {
+    for (const [key, value] of Object.entries(previousHome)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
   await app.close();
 
   console.log("sillytavern-import-hardening: ok");

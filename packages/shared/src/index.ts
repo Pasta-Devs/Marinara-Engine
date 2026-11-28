@@ -347,6 +347,7 @@ export * from "./utils/gallery-tags.js";
 export * from "./utils/chat-image-variants.js";
 export * from "./utils/gallery-descriptions.js";
 export * from "./utils/location-backgrounds.js";
+export * from "./utils/scene-weather.js";
 
 export * from "./utils/zod-input.js";
 export * from "./utils/image-edit.js";

@@ -2,7 +2,8 @@
 // Chat: Dynamic Weather Effects — ambient particles
 // that change based on roleplay weather + time of day
 // ──────────────────────────────────────────────
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState, type CSSProperties } from "react";
+import type { SceneShelter } from "@marinara-engine/shared";
 import { advanceWeatherFrameClock } from "../../lib/weather-frame-clock";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import {
@@ -10,7 +11,11 @@ import {
   drawWeatherMoon,
   drawWeatherParticle,
   drawWeatherSun,
+  paintedSkyStill,
+  paintedWeatherRenderConfig,
   resolveWeatherRenderConfig,
+  shelterWeatherRenderConfig,
+  stillPaintedSky,
   weatherCelestialX,
   weatherCelestialY,
   type WeatherParticle,
@@ -28,14 +33,63 @@ interface WeatherEffectsProps {
   showCelestial?: boolean;
   /** Freeze ambient rendering while local text generation needs the GPU. */
   paused?: boolean;
+  /** "indoors": the weather stays outside (only its colour and lightning light come in). */
+  shelter?: SceneShelter;
+  /** The chat background is a weather version of this weather, so the picture already shows it. */
+  paintedWeather?: boolean;
+  /**
+   * The chat background is a time of day version of this time (the night picture at night), so the
+   * picture already has its sky and light: no tint, sun, moon or stars are drawn over it.
+   */
+  paintedTime?: boolean;
+  /**
+   * The window stencil of the painted background (an alpha PNG address on this server) and the
+   * background's own zoom. With it, the weather is drawn in full but shows only through the glass.
+   */
+  windowMask?: { url: string; scale?: number } | null;
+}
+
+/** The stencil address once the picture has loaded, so a missing stencil never hides the weather. */
+function useLoadedMask(url: string | null): string | null {
+  const [loaded, setLoaded] = useState<string | null>(null);
+  useEffect(() => {
+    if (!url) return;
+    let alive = true;
+    const img = new Image();
+    img.onload = () => {
+      if (alive) setLoaded(url);
+    };
+    img.onerror = () => {
+      if (alive) setLoaded(null);
+    };
+    img.src = url;
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  return url && loaded === url ? loaded : null;
 }
 
 // ═══════════════════════════════════════════════
 // Main component
 // ═══════════════════════════════════════════════
 
-export function WeatherEffects({ weather, timeOfDay, showCelestial = true, paused = false }: WeatherEffectsProps) {
+export function WeatherEffects({
+  weather,
+  timeOfDay,
+  showCelestial = true,
+  paused = false,
+  shelter = "",
+  paintedWeather = false,
+  paintedTime = false,
+  windowMask = null,
+}: WeatherEffectsProps) {
   const reduceAmbientEffects = useReducedAmbientEffects();
+  // A painted weather version counts as indoors unless the scene is known to be outdoors.
+  const indoors = shelter === "indoors" || (paintedWeather && shelter !== "outdoors");
+  // Behind the glass: the painted room has a window stencil, so the full weather falls only there.
+  const maskUrl = useLoadedMask(paintedWeather && shelter !== "outdoors" ? (windowMask?.url ?? null) : null);
+  const masked = !!maskUrl;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<WeatherParticle[]>([]);
   const frameRef = useRef<number>(0);
@@ -51,14 +105,33 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
   }, [paused]);
 
   const config = useMemo(() => {
-    return resolveWeatherRenderConfig(weather, timeOfDay);
-  }, [weather, timeOfDay]);
+    const resolved = resolveWeatherRenderConfig(weather, timeOfDay);
+    // Only the windows show (often a sixth of the screen), so three times the falling weather keeps
+    // the glass as busy as the open screen would be.
+    const shown = masked
+      ? paintedSkyStill(resolved)
+        ? stillPaintedSky(resolved)
+        : { ...resolved, count: Math.min(400, resolved.count * 3) }
+      : paintedWeather
+        ? paintedWeatherRenderConfig(resolved, shelter)
+        : shelterWeatherRenderConfig(resolved, shelter);
+    // A time of day version already has its own sky, masked or not.
+    return paintedTime
+      ? { ...shown, tint: "", celestial: "none" as const, addStars: false, sunRays: false, sunsetGlow: false }
+      : shown;
+  }, [weather, timeOfDay, shelter, paintedWeather, paintedTime, masked]);
 
   // Render when we have particles, celestial bodies, or time-based ambient effects
   const shouldDrawCelestial = showCelestial && config.celestial !== "none";
   const shouldRender =
     !reduceAmbientEffects &&
-    (config.count > 0 || config.addFireflies || config.addStars || shouldDrawCelestial || config.sunsetGlow);
+    (config.count > 0 ||
+      config.addFireflies ||
+      config.addStars ||
+      shouldDrawCelestial ||
+      config.sunsetGlow ||
+      // Indoors nothing falls, but the weather's colour and lightning still reach the room.
+      (indoors && (!!config.overlay || !!config.tint || config.lightning)));
 
   useEffect(() => {
     if (!shouldRender) return;
@@ -317,19 +390,40 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
     return () => {
       running = false;
       if (frameRef.current !== 0) cancelAnimationFrame(frameRef.current);
+      frameRef.current = 0;
       if (resumeFallbackRef.current === ensureFallbackRunning) resumeFallbackRef.current = null;
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [config, shouldDrawCelestial, shouldRender, showCelestial, workerFailed]);
 
+  const maskScale = windowMask?.scale ?? 1;
+  const canvasStyle = useMemo<CSSProperties | undefined>(() => {
+    if (!maskUrl) return undefined;
+    // Lined up with the background picture: cover, centred, and the same zoom its blur adds.
+    const image = `url("${maskUrl}")`;
+    return {
+      maskImage: image,
+      WebkitMaskImage: image,
+      maskSize: "cover",
+      WebkitMaskSize: "cover",
+      maskPosition: "center",
+      WebkitMaskPosition: "center",
+      maskRepeat: "no-repeat",
+      WebkitMaskRepeat: "no-repeat",
+      maskMode: "alpha",
+      ...(maskScale !== 1 ? { transform: `scale(${maskScale})` } : {}),
+    };
+  }, [maskUrl, maskScale]);
+
   if (!shouldRender) return null;
 
   return (
     <canvas
-      key={`${weather ?? ""}:${timeOfDay ?? ""}:${showCelestial ? "celestial" : "particles"}:${workerFailed ? "fallback" : "worker"}`}
+      key={`${weather ?? ""}:${timeOfDay ?? ""}:${shelter}:${paintedWeather ? "pw:" : ""}${paintedTime ? "pt:" : ""}${masked ? "masked:" : ""}${showCelestial ? "celestial" : "particles"}:${workerFailed ? "fallback" : "worker"}`}
       ref={canvasRef}
       className="pointer-events-none absolute inset-0 z-0 h-full w-full [contain:strict]"
+      style={canvasStyle}
     />
   );
 }

@@ -8,7 +8,24 @@ import { supportsNovelAiCharacterPrompts } from "../image/character-prompts.js";
 // `enableSpriteGeneration` is active.
 // ──────────────────────────────────────────────
 
-import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from "fs";
+import {
+  generateCheckedPicture,
+  pictureDataUrl,
+  type PictureCheckLine,
+  type PictureCheckMode,
+} from "../decision/picture-decisions.js";
+import type { DecisionBackend } from "../decision/decision-default.js";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  statSync,
+  unlinkSync,
+} from "fs";
 import { createHash } from "crypto";
 import { logger } from "../../lib/logger.js";
 import { basename, extname, join } from "path";
@@ -30,7 +47,18 @@ import {
   GAME_SCENE_ILLUSTRATION,
 } from "../prompt-overrides/index.js";
 import {
+  BACKGROUND_WEATHER_VERSIONS,
+  backgroundTimeOfDay,
+  backgroundTimeOfDayFromWords,
+  backgroundVersionInstruction,
+  backgroundVersionNameFits,
+  backgroundVersionStem,
+  backgroundWeatherVersion,
   inferImageSource,
+  parseBackgroundWeatherVersionName,
+  type BackgroundTimeOfDay,
+  type BackgroundWeatherVersionKey,
+  type SceneShelter,
   type ImageGenerationDefaultsProfile,
   type ImageGenerationQuality,
   type ImageStyleProfileSettings,
@@ -45,6 +73,8 @@ import { writeFileAtomicSync } from "../../utils/atomic-write.js";
 const NPC_AVATAR_DIR = join(DATA_DIR, "avatars", "npc");
 const CHAT_BACKGROUND_DIR = join(DATA_DIR, "backgrounds");
 const CHAT_BACKGROUND_META_PATH = join(CHAT_BACKGROUND_DIR, "meta.json");
+/** Scene prompt and painted weather of each generated chat background, for its weather versions. */
+const CHAT_BACKGROUND_SCENES_PATH = join(CHAT_BACKGROUND_DIR, "scenes.json");
 export const DEFAULT_GAME_BACKGROUND_SIZE: ImageGenerationSize = { width: 1280, height: 720 };
 export const DEFAULT_GAME_PORTRAIT_SIZE: ImageGenerationSize = { width: 1024, height: 1024 };
 export const GENERATED_GAME_BACKGROUND_EXTS = ["png", "jpg", "jpeg", "webp", "avif", "gif"] as const;
@@ -286,7 +316,15 @@ function isUsableGeneratedImagePath(filePath: string): boolean {
     if (!existsSync(filePath)) return false;
     const stat = statSync(filePath);
     if (!stat.isFile() || stat.size <= 0) return false;
-    return detectImageExt(readFileSync(filePath)) !== null;
+    // The file signature is in the first bytes; large pictures aren't read whole just to check.
+    const header = Buffer.alloc(16);
+    const fd = openSync(filePath, "r");
+    try {
+      readSync(fd, header, 0, header.length, 0);
+    } finally {
+      closeSync(fd);
+    }
+    return detectImageExt(header) !== null;
   } catch {
     return false;
   }
@@ -1345,8 +1383,8 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
   const slug = `generated-${baseSlug}`;
   if (!existsSync(CHAT_BACKGROUND_DIR)) mkdirSync(CHAT_BACKGROUND_DIR, { recursive: true });
 
-  const existingPath = !req.force ? existingGeneratedBackgroundPath(CHAT_BACKGROUND_DIR, slug) : null;
-  if (existingPath) return basename(existingPath);
+  const previousPath = existingGeneratedBackgroundPath(CHAT_BACKGROUND_DIR, slug);
+  if (previousPath && !req.force) return basename(previousPath);
 
   const compiled = await buildBackgroundProviderPrompt(req);
   const prompt = compiled.prompt;
@@ -1389,12 +1427,24 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
     writeFileAtomicSync(join(CHAT_BACKGROUND_DIR, filename), image.buffer);
 
     const replaced = removeOtherGeneratedBackgroundFormats(CHAT_BACKGROUND_DIR, slug, image.ext);
+    // A remade picture has a new layout: versions and the stencil of the old one no longer fit it.
+    if (previousPath) removeChatBackgroundVersionsOf(slug);
     const meta = readChatBackgroundMeta();
     for (const removed of replaced) delete meta[removed];
     meta[filename] = {
       tags: chatBackgroundTags(req, baseSlug),
     };
     writeChatBackgroundMeta(meta);
+    // A prompt override (or a prompt sent as written) replaces the tracker context, so the picture
+    // shows what that prompt says, not what the tracker said.
+    const promptSetsConditions = !!req.promptOverride?.trim() || !!req.providerReadyPrompt;
+    rememberChatBackgroundScene(
+      filename,
+      req.sceneDescription,
+      promptSetsConditions ? weatherNamedInPrompt(prompt) : backgroundWeatherVersion(req.currentWeather),
+      replaced,
+      promptSetsConditions ? backgroundTimeOfDay(prompt) : backgroundTimeOfDay(req.currentTimeOfDay),
+    );
     if (replaced.length > 0) {
       // The new file takes over the replaced file's folder and star, as a rename does.
       let organization = readBackgroundLibraryOrganization(CHAT_BACKGROUND_DIR);
@@ -1415,6 +1465,712 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
     return filename;
   } catch (err) {
     logger.warn(err, '[background-agent] Failed to generate roleplay background "%s"', slug);
+    return null;
+  }
+}
+
+// ── Weather and time of day versions of chat backgrounds ──
+//
+// "the-inn.png" in the rain is "the-inn--wx-rain.png", at night "the-inn--tod-night.png", and in the
+// rain at night "the-inn--wx-rain--tod-night.png": the same picture repainted by the image model
+// from the original as its canvas. Made once per picture, weather and time, then reused for free.
+
+type ChatBackgroundScenes = Record<
+  string,
+  { prompt: string; weather: BackgroundWeatherVersionKey | ""; time?: BackgroundTimeOfDay | "" }
+>;
+
+function readChatBackgroundScenes(): ChatBackgroundScenes {
+  if (!existsSync(CHAT_BACKGROUND_SCENES_PATH)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(CHAT_BACKGROUND_SCENES_PATH, "utf-8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as ChatBackgroundScenes) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Weather words in a written prompt. Only words that name weather: a fireplace, a dusty shelf or an
+ * ashtray in the scene is not weather.
+ */
+const PROMPT_WEATHER_WORDS =
+  /\b(thunderstorms?|thunder|lightning|blizzards?|snowstorms?|snow(?:ing|y|fall)?|sleet|hail(?:storms?|ing)?|fog(?:gy)?|mist(?:y)?|sandstorms?|dust storms?|ash ?fall|falling ash|volcanic ash|falling embers|drifting embers|ember storms?|cherry blossoms?|falling petals|petals falling|auroras?|northern lights|rain(?:ing|y|fall|storms?)?|drizzl(?:e|ing)|downpour|storm(?:s|y)?)\b/giu;
+
+/**
+ * The weather a written prompt names, as a version key (blizzard stays apart from snow), or "".
+ * Only the main kinds: a long prompt never becomes a weather slug.
+ */
+export function weatherNamedInPrompt(prompt: string): BackgroundWeatherVersionKey | "" {
+  for (const match of prompt.matchAll(PROMPT_WEATHER_WORDS)) {
+    const version = backgroundWeatherVersion(match[0].replace(/drizzl\w*/iu, "rain"));
+    if ((BACKGROUND_WEATHER_VERSIONS as readonly string[]).includes(version)) return version;
+  }
+  return "";
+}
+
+function rememberChatBackgroundScene(
+  filename: string,
+  prompt: string,
+  weather: BackgroundWeatherVersionKey | "",
+  removed: string[] = [],
+  time: BackgroundTimeOfDay | "" = "",
+): void {
+  try {
+    const scenes = readChatBackgroundScenes();
+    for (const name of removed) delete scenes[name];
+    scenes[filename] = { prompt: prompt.trim().slice(0, 4_000), weather, ...(time ? { time } : {}) };
+    writeFileAtomicSync(CHAT_BACKGROUND_SCENES_PATH, JSON.stringify(scenes, null, 2));
+  } catch (err) {
+    logger.warn(err, '[background-weather] Could not remember the scene of "%s"', filename);
+  }
+}
+
+/**
+ * A character's or persona's gallery picture shown as the chat background (a pinned place from a
+ * gallery). Its weather versions and window stencil live in the library under a stem made from its
+ * address, and gallery-links.json maps that stem back to the address.
+ */
+const GALLERY_BACKGROUND_URL = /^\/api\/characters\/(personas\/)?([A-Za-z0-9_-]{1,128})\/gallery\/file\/([^/?#]+)$/u;
+const CHAT_BACKGROUND_GALLERY_LINKS_PATH = join(CHAT_BACKGROUND_DIR, "gallery-links.json");
+
+type GalleryBackground = { url: string; path: string; stem: string; ext: string };
+
+function galleryBackground(value: string | null | undefined): GalleryBackground | null {
+  const url = (value ?? "").trim();
+  const match = GALLERY_BACKGROUND_URL.exec(url);
+  if (!match) return null;
+  let file: string;
+  try {
+    file = decodeURIComponent(match[3]!);
+  } catch {
+    return null;
+  }
+  if (!file || file !== basename(file) || file.startsWith(".") || file.includes("\\")) return null;
+  const ext = extname(file).slice(1).toLowerCase();
+  if (!GAME_BACKGROUND_EXT_SET.has(ext)) return null;
+  const path = join(DATA_DIR, "gallery", match[1] ? "personas" : "characters", match[2]!, file);
+  if (!isUsableGeneratedImagePath(path)) return null;
+  // Named after the decoded file, so two spellings of one address (room.png, %72oom.png) share versions.
+  const identity = `${match[1] ? "personas" : "characters"}/${match[2]}/${file}`;
+  const stem = `gallery-${createHash("sha256").update(identity).digest("hex").slice(0, 12)}`;
+  return { url, path, stem, ext };
+}
+
+function readGalleryBackgroundLinks(): Record<string, string> {
+  if (!existsSync(CHAT_BACKGROUND_GALLERY_LINKS_PATH)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(CHAT_BACKGROUND_GALLERY_LINKS_PATH, "utf-8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function rememberGalleryBackgroundLink(source: GalleryBackground): void {
+  try {
+    const links = readGalleryBackgroundLinks();
+    if (links[source.stem] === source.url) return;
+    links[source.stem] = source.url;
+    if (!existsSync(CHAT_BACKGROUND_DIR)) mkdirSync(CHAT_BACKGROUND_DIR, { recursive: true });
+    writeFileAtomicSync(CHAT_BACKGROUND_GALLERY_LINKS_PATH, JSON.stringify(links, null, 2));
+  } catch (err) {
+    logger.warn(err, '[background-weather] Could not remember the gallery picture "%s"', source.url);
+  }
+}
+
+/** The gallery picture whose weather versions use this library stem, when it still exists. */
+function galleryBackgroundForStem(stem: string): GalleryBackground | null {
+  const url = readGalleryBackgroundLinks()[stem];
+  const source = url ? galleryBackground(url) : null;
+  return source && source.stem === stem ? source : null;
+}
+
+/** A plain picture (library file name or gallery address) -> the file to read, and the stem its versions use. */
+function plainPictureSource(name: string): { path: string; stem: string; gallery: GalleryBackground | null } | null {
+  const gallery = galleryBackground(name);
+  if (gallery) return { path: gallery.path, stem: gallery.stem, gallery };
+  const file = chatBackgroundFile(name);
+  return file ? { path: join(CHAT_BACKGROUND_DIR, file), stem: basename(file, extname(file)), gallery: null } : null;
+}
+
+/** A plain file name in the chat background library that exists, or null. */
+function chatBackgroundFile(filename: string | null | undefined): string | null {
+  const name = (filename ?? "").trim();
+  if (!name || name !== basename(name) || name.startsWith(".")) return null;
+  const ext = extname(name).slice(1).toLowerCase();
+  if (!GAME_BACKGROUND_EXT_SET.has(ext)) return null;
+  return isUsableGeneratedImagePath(join(CHAT_BACKGROUND_DIR, name)) ? name : null;
+}
+
+function chatBackgroundFileForStem(stem: string, preferredExt: string): string | null {
+  const exts = [preferredExt, ...GENERATED_GAME_BACKGROUND_EXTS.filter((ext) => ext !== preferredExt)];
+  for (const ext of exts) {
+    if (!ext) continue;
+    const found = chatBackgroundFile(`${stem}.${ext}`);
+    if (found) return found;
+  }
+  return null;
+}
+
+export type ChatBackgroundWeatherPlan =
+  | { kind: "keep" }
+  | { kind: "switch"; filename: string }
+  | {
+      kind: "generate";
+      baseFilename: string;
+      /** The weather part ("" when only the time of day changes). */
+      version: BackgroundWeatherVersionKey | "";
+      /** The time of day part ("" when only the weather changes). */
+      time: BackgroundTimeOfDay | "";
+      scenePrompt: string;
+    };
+
+/**
+ * The time of day a plain picture shows: what Illustrator painted it at, else a time word in its
+ * name or tags ("tavern-night.png", #sunset), else day (most pictures are painted in daylight).
+ */
+function chatBackgroundPaintedTime(baseFilename: string, scenes: ChatBackgroundScenes): BackgroundTimeOfDay {
+  const recorded = scenes[baseFilename]?.time;
+  if (recorded) return recorded;
+  const gallery = galleryBackground(baseFilename);
+  const name = gallery ? basename(gallery.path) : baseFilename;
+  const words = [basename(name, extname(name)), ...(readChatBackgroundMeta()[baseFilename]?.tags ?? [])];
+  return backgroundTimeOfDayFromWords(words) || "day";
+}
+
+/**
+ * What the chat background should be for the story's weather now: keep it, switch to a picture
+ * that already exists (the plain one or a weather version), or make the missing version.
+ * Only pictures in the user's background library take part; anything else is kept as is.
+ */
+export function planChatBackgroundWeather(
+  currentBackground: string | null | undefined,
+  weather: string | null | undefined,
+): ChatBackgroundWeatherPlan {
+  return planChatBackgroundVersion(currentBackground, { weather });
+}
+
+/**
+ * What the chat background should be for the story's weather and time of day now. A part that is
+ * left out (or blank) keeps what the current picture shows, so a weather change at night stays a
+ * night picture and the other way round. Each part is compared with what the plain picture already
+ * shows: a picture painted at night needs no night version, a dry one no clear version.
+ */
+export function planChatBackgroundVersion(
+  currentBackground: string | null | undefined,
+  wanted: { weather?: string | null; time?: string | null },
+): ChatBackgroundWeatherPlan {
+  // A gallery picture (pinned place) is its own plain picture; its versions sit in the library.
+  const gallery = galleryBackground(currentBackground);
+  const current = gallery?.url ?? chatBackgroundFile(currentBackground);
+  if (!current) return { kind: "keep" };
+  const parsed = gallery ? null : parseBackgroundWeatherVersionName(current);
+  const isVersion = !!parsed && (parsed.version !== "" || parsed.time !== "");
+  const baseFilename = isVersion
+    ? (chatBackgroundFileForStem(parsed!.baseStem, parsed!.ext) ??
+      galleryBackgroundForStem(parsed!.baseStem)?.url ??
+      null)
+    : current;
+  // The plain picture was renamed or deleted: leave the version alone.
+  if (!baseFilename) return { kind: "keep" };
+  const scenes = readChatBackgroundScenes();
+
+  let weatherPart: BackgroundWeatherVersionKey | "" = parsed?.version ?? "";
+  if (wanted.weather?.trim()) {
+    const baseWeather = scenes[baseFilename]?.weather ?? "";
+    const wantedWeather = backgroundWeatherVersion(wanted.weather);
+    // The plain picture already shows this weather (or both are dry).
+    weatherPart = wantedWeather === baseWeather ? "" : wantedWeather || "clear";
+  }
+  let timePart: BackgroundTimeOfDay | "" = parsed?.time ?? "";
+  const wantedTime = backgroundTimeOfDay(wanted.time);
+  if (wantedTime) timePart = wantedTime === chatBackgroundPaintedTime(baseFilename, scenes) ? "" : wantedTime;
+
+  if (!weatherPart && !timePart) {
+    return current === baseFilename ? { kind: "keep" } : { kind: "switch", filename: baseFilename };
+  }
+  const baseGallery = galleryBackground(baseFilename);
+  const baseStem = baseGallery?.stem ?? basename(baseFilename, extname(baseFilename));
+  // A name this long leaves no room for the version suffix: keep the picture rather than pay for a
+  // version that can't be saved.
+  if (!backgroundVersionNameFits(baseStem)) return { kind: "keep" };
+  const existing = chatBackgroundFileForStem(
+    backgroundVersionStem(baseStem, weatherPart, timePart),
+    baseGallery?.ext ?? extname(baseFilename).slice(1),
+  );
+  if (existing) return existing === current ? { kind: "keep" } : { kind: "switch", filename: existing };
+  return {
+    kind: "generate",
+    baseFilename,
+    version: weatherPart,
+    time: timePart,
+    scenePrompt: scenes[baseFilename]?.prompt ?? "",
+  };
+}
+
+/** The plain picture a weather or time of day version was made from, when it is still in the library. */
+export function chatBackgroundPlainPicture(filename: string): string | null {
+  const gallery = galleryBackground(filename);
+  if (gallery) return gallery.url;
+  const parsed = parseBackgroundWeatherVersionName(filename);
+  return parsed.version || parsed.time
+    ? (chatBackgroundFileForStem(parsed.baseStem, parsed.ext) ?? galleryBackgroundForStem(parsed.baseStem)?.url ?? null)
+    : chatBackgroundFile(filename);
+}
+
+/** Weather and time of day versions never take part in picking a background; they follow their plain picture. */
+export function isChatBackgroundWeatherVersion(filename: string): boolean {
+  const parsed = parseBackgroundWeatherVersionName(filename);
+  return parsed.version !== "" || parsed.time !== "";
+}
+
+/**
+ * Repaint a library background in other weather, with the original as the image model's canvas.
+ * Returns the new file name, or null when it failed.
+ */
+/**
+ * A weather version keeps its picture's shape: the background size setting's width, with the
+ * original's aspect ratio (so the repaint isn't cropped to 16:9).
+ */
+async function weatherVersionSize(
+  basePath: string,
+  requested: ImageGenerationSize | undefined,
+): Promise<ImageGenerationSize> {
+  const target = resolvedSize(requested, DEFAULT_GAME_BACKGROUND_SIZE);
+  const sharp = await getSharp();
+  if (!sharp) return target;
+  try {
+    const meta = (await sharp(basePath, { limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS }).metadata()) as {
+      width?: number;
+      height?: number;
+    };
+    if (!meta.width || !meta.height) return target;
+    const ratio = meta.height / meta.width;
+    if (!(ratio > 0.2 && ratio < 5)) return target;
+    return { width: target.width, height: Math.max(64, Math.round(target.width * ratio)) };
+  } catch {
+    return target;
+  }
+}
+
+type ChatBackgroundVersionRequest = ChatBackgroundGenRequest & {
+  baseFilename: string;
+  /** The weather to paint ("" for a time of day version only). */
+  version: BackgroundWeatherVersionKey | "";
+  /** The time of day to paint ("" or left out for a weather version only). */
+  time?: BackgroundTimeOfDay | "";
+  shelter: SceneShelter;
+  scenePrompt: string;
+  /** Optional: a decision model that reads pictures checks the version shows the weather. */
+  pictureCheck?: { mode: PictureCheckMode; backend: DecisionBackend | null; lines: PictureCheckLine[] };
+};
+
+export function generateChatBackgroundWeatherVersion(req: ChatBackgroundVersionRequest): Promise<string | null> {
+  // Two chats needing the same version of the same picture share one request.
+  return onceInFlight(`version:${req.baseFilename}:${req.version}:${req.time ?? ""}`, () =>
+    makeChatBackgroundWeatherVersion(req),
+  );
+}
+
+async function makeChatBackgroundWeatherVersion(req: ChatBackgroundVersionRequest): Promise<string | null> {
+  const source = plainPictureSource(req.baseFilename);
+  if (!source) return null;
+  const baseFilename = source.gallery?.url ?? basename(source.path);
+  if (source.gallery) rememberGalleryBackgroundLink(source.gallery);
+  const time = req.time ?? "";
+  if (!req.version && !time) return null;
+  if (!backgroundVersionNameFits(source.stem)) {
+    logger.info('[background-weather] "%s" has too long a name for versions', baseFilename);
+    return null;
+  }
+  const stem = backgroundVersionStem(source.stem, req.version, time);
+  const instruction = backgroundVersionInstruction(req.version, time, req.shelter);
+  const versionLabel = [req.version, time].filter(Boolean).join(", ");
+  const scene = req.scenePrompt.trim() || req.sceneDescription.trim();
+  const compiled = await buildBackgroundProviderPrompt({
+    ...req,
+    sceneDescription: [instruction, scene ? `The place: ${scene}` : ""].filter(Boolean).join("\n\n"),
+    providerReadyPrompt: true,
+  });
+  const size = await weatherVersionSize(source.path, req.size);
+  req.debugLog?.(
+    "[debug/background-weather/image-generation] base=%s version=%s shelter=%s prompt:\n%s",
+    baseFilename,
+    versionLabel,
+    req.shelter || "unknown",
+    compiled.prompt,
+  );
+  try {
+    const reference = readFileSync(source.path).toString("base64");
+    const drawVersion = () =>
+      generateImage(req.imgModel, req.imgBaseUrl, req.imgApiKey, req.imgSource || req.imgService || "", {
+        prompt: compiled.prompt,
+        negativePrompt: compiled.negativePrompt || undefined,
+        model: req.imgModel,
+        width: size.width,
+        height: size.height,
+        imageEndpointId: req.imgEndpointId || undefined,
+        comfyWorkflow: req.imgComfyWorkflow || undefined,
+        imageDefaults: req.imgDefaults ?? undefined,
+        quality: req.imgQuality,
+        fallback: req.imgFallback,
+        signal: req.signal,
+        referenceImage: reference,
+        referenceIsCanvas: true,
+        preserveProviderOutput: true,
+      });
+    const { result } = await generateCheckedPicture({
+      mode: req.pictureCheck?.mode ?? "off",
+      backend: req.pictureCheck?.backend ?? null,
+      lines: req.pictureCheck?.lines ?? [],
+      label: `${req.version ? "Weather" : "Time of day"} version (${versionLabel})`,
+      toDataUrl: (made) => pictureDataUrl(made.base64, made.ext),
+      generate: drawVersion,
+    });
+    const image = await gameBackgroundImage(result, size);
+    const filename = `${stem}.${image.ext}`;
+    writeFileAtomicSync(join(CHAT_BACKGROUND_DIR, filename), image.buffer);
+    const replaced = removeOtherGeneratedBackgroundFormats(CHAT_BACKGROUND_DIR, stem, image.ext);
+    const meta = readChatBackgroundMeta();
+    for (const removed of replaced) delete meta[removed];
+    const baseTags = meta[baseFilename]?.tags ?? [];
+    meta[filename] = {
+      tags: Array.from(
+        new Set([
+          ...baseTags,
+          ...(req.version ? ["weather version", req.version] : []),
+          ...(time ? ["time version", time] : []),
+        ]),
+      ).slice(0, 24),
+    };
+    writeChatBackgroundMeta(meta);
+    rememberChatBackgroundScene(filename, scene, req.version, replaced, time);
+    buildAssetManifest();
+    logger.info('[background-weather] Made "%s" (%s version of "%s")', filename, versionLabel, baseFilename);
+    return filename;
+  } catch (err) {
+    logger.warn(err, '[background-weather] Failed to make the %s version of "%s"', versionLabel, baseFilename);
+    return null;
+  }
+}
+
+/** Background work running now, by what it makes; a second caller for the same thing waits for it. */
+const inFlightBackgroundWork = new Map<string, Promise<unknown>>();
+
+function onceInFlight<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const running = inFlightBackgroundWork.get(key) as Promise<T> | undefined;
+  if (running) return running;
+  const started = run().finally(() => inFlightBackgroundWork.delete(key));
+  inFlightBackgroundWork.set(key, started);
+  return started;
+}
+
+// ── Window stencils ──
+//
+// An indoor weather version shows the weather through its windows; the drawn weather (rain lines,
+// snowflakes) then falls only where the glass is. The stencil is made once per plain picture by
+// the image model and shared by every weather version of it.
+
+const CHAT_BACKGROUND_MASK_DIR = join(CHAT_BACKGROUND_DIR, "weather-masks");
+const CHAT_BACKGROUND_MASKS_PATH = join(CHAT_BACKGROUND_MASK_DIR, "masks.json");
+/** Less glass than this is a speck; more is a wrong answer (the whole room lit up). */
+const WINDOW_MASK_MIN_COVERAGE = 0.005;
+const WINDOW_MASK_MAX_COVERAGE = 0.6;
+const WINDOW_MASK_WIDTH = 640;
+
+/** Plain picture file name -> its stencil file name, or "none" when it has no windows to use. */
+type ChatBackgroundMasks = Record<string, string>;
+
+function readChatBackgroundMasks(): ChatBackgroundMasks {
+  if (!existsSync(CHAT_BACKGROUND_MASKS_PATH)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(CHAT_BACKGROUND_MASKS_PATH, "utf-8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as ChatBackgroundMasks) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Delete the weather and time of day versions and the window stencil of a plain picture that was
+ * just replaced, so none made from the old picture is shown for the new one.
+ */
+function removeChatBackgroundVersionsOf(stem: string): void {
+  try {
+    const versions = readdirSync(CHAT_BACKGROUND_DIR).filter((file) => {
+      const parsed = parseBackgroundWeatherVersionName(file);
+      return (parsed.version || parsed.time) && parsed.baseStem === stem && GAME_BACKGROUND_EXT_SET.has(parsed.ext);
+    });
+    for (const file of versions) unlinkSync(join(CHAT_BACKGROUND_DIR, file));
+    const meta = readChatBackgroundMeta();
+    const scenes = readChatBackgroundScenes();
+    for (const file of versions) {
+      delete meta[file];
+      delete scenes[file];
+    }
+    if (versions.length > 0) {
+      writeChatBackgroundMeta(meta);
+      writeFileAtomicSync(CHAT_BACKGROUND_SCENES_PATH, JSON.stringify(scenes, null, 2));
+    }
+    const masks = readChatBackgroundMasks();
+    let masksChanged = false;
+    for (const [plain, mask] of Object.entries(masks)) {
+      if (basename(plain, extname(plain)) !== stem) continue;
+      if (mask !== "none" && mask === basename(mask) && existsSync(join(CHAT_BACKGROUND_MASK_DIR, mask))) {
+        unlinkSync(join(CHAT_BACKGROUND_MASK_DIR, mask));
+      }
+      delete masks[plain];
+      masksChanged = true;
+    }
+    if (masksChanged) writeFileAtomicSync(CHAT_BACKGROUND_MASKS_PATH, JSON.stringify(masks, null, 2));
+    if (versions.length > 0)
+      logger.info('[background-weather] Removed %d versions of the remade "%s"', versions.length, stem);
+  } catch (err) {
+    logger.warn(err, '[background-weather] Could not remove the versions of "%s"', stem);
+  }
+}
+
+/** Records a picture's stencil in masks.json. False when the index couldn't be written. */
+function rememberChatBackgroundMask(baseFilename: string, value: string): boolean {
+  try {
+    if (!existsSync(CHAT_BACKGROUND_MASK_DIR)) mkdirSync(CHAT_BACKGROUND_MASK_DIR, { recursive: true });
+    const masks = readChatBackgroundMasks();
+    masks[baseFilename] = value;
+    writeFileAtomicSync(CHAT_BACKGROUND_MASKS_PATH, JSON.stringify(masks, null, 2));
+    return true;
+  } catch (err) {
+    logger.warn(err, '[background-weather] Could not remember the window stencil of "%s"', baseFilename);
+    return false;
+  }
+}
+
+/**
+ * Turn a picture's window stencil off ("none"): its weather versions then draw no moving weather.
+ * False when it couldn't be saved.
+ */
+export function turnOffChatBackgroundWindowMask(baseFilename: string): boolean {
+  const plain = chatBackgroundPlainPicture(baseFilename);
+  return plain ? rememberChatBackgroundMask(plain, "none") : false;
+}
+
+/** The scene prompt Illustrator saved for a picture (or for the plain picture of a version), or "". */
+export function chatBackgroundScenePrompt(filename: string): string {
+  const scenes = readChatBackgroundScenes();
+  const plain = chatBackgroundPlainPicture(filename);
+  return scenes[filename]?.prompt ?? (plain ? scenes[plain]?.prompt : "") ?? "";
+}
+
+/** Whether a stencil was already made (or tried and found no windows) for this plain picture. */
+export function chatBackgroundWindowMaskKnown(baseFilename: string): boolean {
+  return Object.prototype.hasOwnProperty.call(readChatBackgroundMasks(), baseFilename);
+}
+
+/**
+ * The stencil file for a background (plain picture or any of its weather versions), as an absolute
+ * path, or null. Only names from masks.json are used, never the requested name itself.
+ */
+export function chatBackgroundWindowMaskPath(filename: string): string | null {
+  const plain = chatBackgroundPlainPicture(filename);
+  if (!plain) return null;
+  const mask = readChatBackgroundMasks()[plain];
+  if (!mask || mask === "none" || mask !== basename(mask) || !mask.endsWith(".png")) return null;
+  const path = join(CHAT_BACKGROUND_MASK_DIR, mask);
+  return existsSync(path) ? path : null;
+}
+
+/**
+ * The stencil's size: the picture's aspect ratio, fitted inside WINDOW_MASK_WIDTH on both sides, so
+ * a tall narrow picture doesn't grow a huge stencil.
+ */
+function windowMaskSize(pictureWidth: number, pictureHeight: number) {
+  const scale = WINDOW_MASK_WIDTH / Math.max(pictureWidth, pictureHeight);
+  return {
+    width: Math.max(32, Math.round(pictureWidth * scale)),
+    height: Math.max(32, Math.round(pictureHeight * scale)),
+  };
+}
+
+async function rawRgb(sharp: SharpFn, image: Buffer | string, width: number, height: number) {
+  const raw = (await sharp(image, { limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS })
+    .flatten({ background: "#000000" })
+    .resize(width, height, { fit: "fill" })
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })) as { data: Buffer; info: { channels: number } };
+  return raw;
+}
+
+/** One 0/255 cell per pixel -> the stored stencil: specks dropped, a slight feather, white with alpha. */
+async function stencilFromCells(
+  sharp: SharpFn,
+  cells: Buffer,
+  width: number,
+  height: number,
+): Promise<{ png: Buffer; coverage: number } | null> {
+  const cleaned = (await sharp(cells, { raw: { width, height, channels: 1 } })
+    .median(3)
+    .extractChannel(0)
+    .raw()
+    .toBuffer()) as Buffer;
+  let lit = 0;
+  for (let i = 0; i < width * height; i++) if (cleaned[i]! > 127) lit++;
+  const coverage = lit / (width * height);
+  if (coverage < WINDOW_MASK_MIN_COVERAGE || coverage > WINDOW_MASK_MAX_COVERAGE) return null;
+  const alpha = (await sharp(cleaned, { raw: { width, height, channels: 1 } })
+    .blur(1.2)
+    .extractChannel(0)
+    .raw()
+    .toBuffer()) as Buffer;
+  const rgba = Buffer.alloc(width * height * 4, 255);
+  for (let i = 0; i < width * height; i++) rgba[i * 4 + 3] = alpha[i]!;
+  const png = (await sharp(rgba, { raw: { width, height, channels: 4 } })
+    .png({ compressionLevel: 9 })
+    .toBuffer()) as Buffer;
+  return { png, coverage };
+}
+
+/** How magenta (#FF00FF) a pixel is: red and blue both high, green far below them. */
+function isWindowMagenta(r: number, g: number, b: number): boolean {
+  return r > 150 && b > 150 && r - g > 110 && b - g > 110 && Math.abs(r - b) < 90;
+}
+
+/**
+ * The stencil from the image model's repaint: the same picture with only the outside view painted
+ * flat magenta. Glass is every pixel that came back magenta and wasn't magenta in the picture (pink
+ * flowers, a purple rug). Anything in front of the glass keeps its colours, so it stays out.
+ * Null when it shows too little or too much glass to be windows.
+ */
+export async function windowMaskFromRepaint(
+  answer: Buffer,
+  picture: Buffer | string,
+  pictureWidth: number,
+  pictureHeight: number,
+): Promise<{ png: Buffer; coverage: number } | null> {
+  const sharp = await getSharp();
+  if (!sharp || !(pictureWidth > 0) || !(pictureHeight > 0)) return null;
+  const { width, height } = windowMaskSize(pictureWidth, pictureHeight);
+  const painted = await rawRgb(sharp, answer, width, height);
+  const original = await rawRgb(sharp, picture, width, height);
+  const cells = Buffer.alloc(width * height);
+  const pc = painted.info.channels;
+  const oc = original.info.channels;
+  for (let i = 0; i < width * height; i++) {
+    const r = painted.data[i * pc]!;
+    const g = painted.data[i * pc + 1]!;
+    const b = painted.data[i * pc + 2]!;
+    const wasMagenta = isWindowMagenta(original.data[i * oc]!, original.data[i * oc + 1]!, original.data[i * oc + 2]!);
+    cells[i] = isWindowMagenta(r, g, b) && !wasMagenta ? 255 : 0;
+  }
+  return stencilFromCells(sharp, cells, width, height);
+}
+
+export const WINDOW_MASK_INSTRUCTION = [
+  "Edit the reference image. Repaint only what is seen through its windows and other openings to the outdoors (the sky, the landscape, buildings and trees outside) as one flat, solid, pure magenta colour (#FF00FF), with no texture or shading.",
+  "Keep everything else exactly as it is, at exactly the same framing: walls, window frames and bars, curtains, furniture, and anything standing in front of the glass, such as cushions, pillows, plants, vases, lamps or people, keep their own colours and stay in front of the magenta.",
+  "Do not add or remove anything. If no outside can be seen at all, return the picture unchanged.",
+].join(" ");
+
+/**
+ * Ask the image model for the window stencil of a plain library picture, clean it into an alpha
+ * mask, and save it. Records "none" when the answer has no usable windows, so it isn't asked again.
+ * Returns the stencil file name, "none" (no windows, recorded), or null when it couldn't be made.
+ */
+export function generateChatBackgroundWindowMask(
+  req: ChatBackgroundGenRequest & { baseFilename: string },
+): Promise<string | "none" | null> {
+  // Two chats showing the same picture share one request instead of paying twice.
+  return onceInFlight(`stencil:${req.baseFilename}`, () => makeChatBackgroundWindowMask(req));
+}
+
+async function makeChatBackgroundWindowMask(
+  req: ChatBackgroundGenRequest & { baseFilename: string },
+): Promise<string | "none" | null> {
+  const source = plainPictureSource(req.baseFilename);
+  if (!source || (!source.gallery && isChatBackgroundWeatherVersion(basename(source.path)))) return null;
+  const baseFilename = source.gallery?.url ?? basename(source.path);
+  if (source.gallery) rememberGalleryBackgroundLink(source.gallery);
+  const sharp = await getSharp();
+  if (!sharp) return null;
+  const basePath = source.path;
+  // What masks.json said when this started: a stencil turned off (or remade) meanwhile wins.
+  const maskBefore = readChatBackgroundMasks()[baseFilename];
+  try {
+    // One snapshot of the picture for the request and the comparison, so a picture replaced under the
+    // same name meanwhile can't get a stencil of another window layout.
+    const sourceBytes = readFileSync(basePath);
+    const sourceHash = createHash("sha256").update(sourceBytes).digest("hex");
+    const meta = (await sharp(sourceBytes, { limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS }).metadata()) as {
+      width?: number;
+      height?: number;
+    };
+    if (!meta.width || !meta.height) return null;
+    const size = await weatherVersionSize(basePath, req.size);
+    req.debugLog?.(
+      "[debug/illustrator] Window stencil prompt for %s (%dx%d):\n%s",
+      baseFilename,
+      size.width,
+      size.height,
+      WINDOW_MASK_INSTRUCTION,
+    );
+    const result = await generateImage(
+      req.imgModel,
+      req.imgBaseUrl,
+      req.imgApiKey,
+      req.imgSource || req.imgService || "",
+      {
+        prompt: WINDOW_MASK_INSTRUCTION,
+        model: req.imgModel,
+        width: size.width,
+        height: size.height,
+        imageEndpointId: req.imgEndpointId || undefined,
+        comfyWorkflow: req.imgComfyWorkflow || undefined,
+        imageDefaults: req.imgDefaults ?? undefined,
+        quality: req.imgQuality,
+        fallback: req.imgFallback,
+        signal: req.signal,
+        referenceImage: sourceBytes.toString("base64"),
+        referenceIsCanvas: true,
+        preserveProviderOutput: true,
+      },
+    );
+    const cleaned = await windowMaskFromRepaint(
+      Buffer.from(result.base64, "base64"),
+      sourceBytes,
+      meta.width,
+      meta.height,
+    );
+    const maskNow = readChatBackgroundMasks()[baseFilename];
+    if (maskNow !== maskBefore) {
+      logger.info('[background-weather] The stencil of "%s" changed meanwhile; keeping that one', baseFilename);
+      return maskNow ?? null;
+    }
+    const sourceNow = existsSync(basePath) ? createHash("sha256").update(readFileSync(basePath)).digest("hex") : "";
+    if (sourceNow !== sourceHash) {
+      logger.info('[background-weather] "%s" was replaced while its stencil was made; dropping it', baseFilename);
+      return null;
+    }
+    if (!cleaned) {
+      logger.info('[background-weather] No usable windows in "%s"', baseFilename);
+      return rememberChatBackgroundMask(baseFilename, "none") ? "none" : null;
+    }
+    const { png, coverage } = cleaned;
+    if (!existsSync(CHAT_BACKGROUND_MASK_DIR)) mkdirSync(CHAT_BACKGROUND_MASK_DIR, { recursive: true });
+    // Named by a hash of the whole file name, so inn.png and inn.jpg keep stencils of their own and a
+    // long name stays within file name limits.
+    const maskName = source.gallery
+      ? `${source.stem}.png`
+      : `${source.stem.slice(0, 80)}-${createHash("sha256").update(basename(source.path)).digest("hex").slice(0, 10)}.png`;
+    writeFileAtomicSync(join(CHAT_BACKGROUND_MASK_DIR, maskName), png);
+    if (!rememberChatBackgroundMask(baseFilename, maskName)) return null;
+    logger.info(
+      '[background-weather] Made the window stencil of "%s" (%s%% glass)',
+      baseFilename,
+      (coverage * 100).toFixed(1),
+    );
+    return maskName;
+  } catch (err) {
+    logger.warn(err, '[background-weather] Failed to make the window stencil of "%s"', baseFilename);
     return null;
   }
 }

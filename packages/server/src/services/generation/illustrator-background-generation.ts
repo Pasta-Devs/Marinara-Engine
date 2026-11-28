@@ -1,10 +1,14 @@
 import {
+  sceneShelter,
+  type BackgroundTimeOfDay,
+  type BackgroundWeatherVersionKey,
   findImageStyleProfile,
   removeCopiedPromptGuidance,
   resolveGameSetupArtStylePrompt,
   type GameState,
   type ImageStyleProfileSettings,
 } from "@marinara-engine/shared";
+import { normalizePictureCheckMode, resolvePictureDecisionBackend } from "../decision/picture-decisions.js";
 import type { DB } from "../../db/connection.js";
 import { debugJson, logger } from "../../lib/logger.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
@@ -17,8 +21,12 @@ import {
 import {
   buildBackgroundProviderPrompt,
   generateChatBackground,
+  generateChatBackgroundWeatherVersion,
+  generateChatBackgroundWindowMask,
+  chatBackgroundWindowMaskKnown,
   type ChatBackgroundGenRequest,
 } from "../game/game-asset-generation.js";
+import { imageConnectionTakesReferencePicture } from "../image/image-generation.js";
 import {
   buildIllustratorCharacterPromptInstruction,
   resolveNovelAiCharacterPromptLimit,
@@ -492,4 +500,112 @@ export async function generateIllustratorSceneBackground(
     filename,
     url: `/api/backgrounds/file/${encodeURIComponent(filename)}`,
   };
+}
+
+/**
+ * The chat's picture check for a weather or time of day version: the version must show the weather
+ * (through a window when the place is indoors) and the time of day. Off without the setting or a
+ * decision model that reads pictures.
+ */
+async function weatherVersionPictureCheck(
+  args: IllustratorSceneBackgroundArgs,
+  version: BackgroundWeatherVersionKey | "",
+  time: BackgroundTimeOfDay | "",
+  shelter: ReturnType<typeof sceneShelter>,
+) {
+  const mode = normalizePictureCheckMode(args.chatMetadata.pictureCheck);
+  if (mode === "off") return undefined;
+  const backend = await resolvePictureDecisionBackend(args.db, args.signal);
+  if (!backend) return undefined;
+  const lines: Array<{ statement: string }> = [];
+  if (version) {
+    const weather = version.replace(/-/gu, " ");
+    lines.push({
+      statement:
+        shelter === "outdoors"
+          ? `The picture shows ${weather} weather.`
+          : `The picture shows ${weather} weather, outside or through a window.`,
+    });
+  }
+  if (time) lines.push({ statement: TIME_PICTURE_STATEMENTS[time] });
+  return lines.length ? { mode, backend, lines } : undefined;
+}
+
+const TIME_PICTURE_STATEMENTS: Record<BackgroundTimeOfDay, string> = {
+  dawn: "The picture shows the place at dawn.",
+  day: "The picture shows the place in daylight.",
+  sunset: "The picture shows the place at sunset.",
+  night: "The picture shows the place at night.",
+};
+
+/** Whether the chat makes weather versions of its background (Chat settings > Illustrator). */
+export function illustratorWeatherVersionsEnabled(chatMode: unknown, chatMetadata: Record<string, unknown>): boolean {
+  return (
+    ROLEPLAY_BACKGROUND_MODES.has(String(chatMode ?? "")) && chatMetadata.illustratorWeatherBackgroundsEnabled === true
+  );
+}
+
+/** Whether the chat makes time of day versions of its background (Chat settings > Illustrator). */
+export function illustratorTimeVersionsEnabled(chatMode: unknown, chatMetadata: Record<string, unknown>): boolean {
+  return (
+    ROLEPLAY_BACKGROUND_MODES.has(String(chatMode ?? "")) && chatMetadata.illustratorTimeBackgroundsEnabled === true
+  );
+}
+
+/**
+ * Make the weather and/or time of day version of a library background with the Illustrator's image
+ * connection. No prompt-writer call: the picture itself is the canvas, and its saved scene prompt
+ * (when Illustrator made it) says what the place is. Connections that can't take a picture are
+ * skipped (null), since a fresh picture from text alone would be a different room.
+ */
+export async function generateIllustratorBackgroundWeatherVersion(
+  args: IllustratorSceneBackgroundArgs & {
+    baseFilename: string;
+    version: BackgroundWeatherVersionKey | "";
+    time?: BackgroundTimeOfDay | "";
+    scenePrompt: string;
+  },
+): Promise<{ filename: string; url: string } | null> {
+  const time = args.time ?? "";
+  const shelter = sceneShelter(args.gameState?.location ?? null);
+  const plan: IllustratorBackgroundPlan = {
+    locationName: args.baseFilename,
+    prompt: args.scenePrompt || args.gameState?.location || "the same place",
+    tags: [],
+    reason: [args.version ? `Weather changed to ${args.version}` : "", time ? `Time of day changed to ${time}` : ""]
+      .filter(Boolean)
+      .join("; "),
+  };
+  const { imageConnection, request } = await prepareIllustratorSceneBackground(args, plan);
+  if (
+    !imageConnectionTakesReferencePicture({
+      source: imageConnection.imageGenerationSource || imageConnection.model || "",
+      baseUrl: imageConnection.baseUrl || "https://image.pollinations.ai",
+      serviceHint: imageConnection.imageService || imageConnection.imageGenerationSource || "",
+      model: imageConnection.model || "",
+      comfyWorkflow: imageConnection.comfyuiWorkflow || undefined,
+    })
+  ) {
+    logger.info(
+      "[background-weather] The Illustrator image connection can't start from a picture; no weather or time of day version made",
+    );
+    return null;
+  }
+  // The window stencil is made alongside the first indoor (or unsure) weather version, once per picture.
+  const needsStencil = !!args.version && shelter !== "outdoors" && !chatBackgroundWindowMaskKnown(args.baseFilename);
+  const [filename] = await Promise.all([
+    generateChatBackgroundWeatherVersion({
+      ...request,
+      baseFilename: args.baseFilename,
+      version: args.version,
+      time,
+      shelter,
+      scenePrompt: args.scenePrompt,
+      pictureCheck: await weatherVersionPictureCheck(args, args.version, time, shelter),
+    }),
+    needsStencil
+      ? generateChatBackgroundWindowMask({ ...request, baseFilename: args.baseFilename })
+      : Promise.resolve(null),
+  ]);
+  return filename ? { filename, url: `/api/backgrounds/file/${encodeURIComponent(filename)}` } : null;
 }
