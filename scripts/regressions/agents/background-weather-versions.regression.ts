@@ -2,7 +2,7 @@
 // weather and/or at its time of day, made once per picture, weather and time, and no full-screen weather while
 // the story is indoors.
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -23,6 +23,7 @@ const {
   windowMaskFromRepaint,
   chatBackgroundWindowMaskPath,
   chatBackgroundWindowMaskKnown,
+  weatherNamedInPrompt,
 } = await import("../../../packages/server/src/services/game/game-asset-generation.js");
 
 // ── Weather words ──
@@ -382,5 +383,31 @@ assert.match(indoorsPrompt, /same location, composition/);
 assert.match(shared.backgroundWeatherVersionInstruction("snow", "outdoors"), /across the whole scene/);
 assert.match(shared.backgroundWeatherVersionInstruction("aurora", "indoors"), /aurora/);
 assert.match(shared.backgroundWeatherVersionInstruction("meteor-shower", "outdoors"), /this weather: meteor shower/);
+
+// ── Weather a written prompt names (a prompt override's picture is recorded with it) ──
+assert.equal(weatherNamedInPrompt("An inn during a blizzard"), "blizzard", "blizzard stays apart from snow");
+assert.equal(weatherNamedInPrompt("A village under light snowfall"), "snow");
+assert.equal(
+  weatherNamedInPrompt("An inn interior with a fireplace and rain outside"),
+  "rain",
+  "a fireplace isn't weather",
+);
+assert.equal(weatherNamedInPrompt("A dusty shelf by the fire, drizzle on the glass"), "rain");
+assert.equal(weatherNamedInPrompt("A sunny market square"), "");
+
+// ── Saved Decision picks come only from the newest reply ──
+const generateRouteSource = readFileSync(
+  new URL("../../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+  "utf8",
+);
+assert.match(
+  generateRouteSource,
+  /if \(\(decided\.weather \|\| decided\.time\) && \(await replyIsNewest\(\)\)\)/u,
+  "an older reply finishing late can't overwrite a newer reply's saved weather or time",
+);
+assert.match(
+  generateRouteSource,
+  /const showIfUnchanged = async[^]*?if \(!\(await replyIsNewest\(\)\)\) return false;/u,
+);
 
 console.log("background weather versions: ok");

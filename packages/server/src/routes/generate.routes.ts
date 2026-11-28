@@ -13016,15 +13016,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             typeof chatMeta.background === "string" && chatMeta.background.trim() ? chatMeta.background.trim() : null;
           const trackedLocationAtDecision = gameState?.location ?? null;
           const trackedTimeOfDayAtDecision = backgroundTimeOfDay(gameState?.time);
+          /** Whether this tail's reply (and swipe) is still the newest message, so its conditions are the chat's. */
+          const replyIsNewest = async () => {
+            const [newest] = await chats.listMessagesPaginated(input.chatId, 1).catch(() => []);
+            return !newest || (newest.id === tail.messageId && (newest.activeSwipeIndex ?? 0) === tail.swipeIndex);
+          };
           /**
            * Shows a picture only while the chat still shows the one this tail started from and this reply is
            * still the newest one (a newer reply's conditions win), in one queued write.
            */
           const showIfUnchanged = async (filename: string, before: string | null) => {
-            const [newest] = await chats.listMessagesPaginated(input.chatId, 1).catch(() => []);
-            if (newest && (newest.id !== tail.messageId || (newest.activeSwipeIndex ?? 0) !== tail.swipeIndex)) {
-              return false;
-            }
+            if (!(await replyIsNewest())) return false;
             let shown = false;
             await chats.patchMetadata(input.chatId, (current) => {
               const now =
@@ -13084,7 +13086,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 trackedWeather.length === 0,
                 backgroundTimeOfDay(trackedTime) === "",
               );
-              if (decided.weather || decided.time) {
+              // Saved only from the newest reply, so an older reply finishing late can't overwrite a newer pick.
+              if ((decided.weather || decided.time) && (await replyIsNewest())) {
                 try {
                   await chats.patchMetadata(input.chatId, {
                     ...(decided.weather ? { illustratorDecisionWeather: decided.weather } : {}),

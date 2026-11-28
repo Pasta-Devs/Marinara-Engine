@@ -56,7 +56,6 @@ import {
   backgroundWeatherVersion,
   inferImageSource,
   parseBackgroundWeatherVersionName,
-  sceneWeatherCategory,
   type BackgroundTimeOfDay,
   type BackgroundWeatherVersionKey,
   type SceneShelter,
@@ -1498,11 +1497,14 @@ function readChatBackgroundScenes(): ChatBackgroundScenes {
 const PROMPT_WEATHER_WORDS =
   /\b(thunderstorms?|thunder|lightning|blizzards?|snowstorms?|snow(?:ing|y|fall)?|sleet|hail(?:storms?|ing)?|fog(?:gy)?|mist(?:y)?|sandstorms?|dust storms?|ash ?fall|falling ash|volcanic ash|falling embers|drifting embers|ember storms?|cherry blossoms?|falling petals|petals falling|auroras?|northern lights|rain(?:ing|y|fall|storms?)?|drizzl(?:e|ing)|downpour|storm(?:s|y)?)\b/giu;
 
-/** The weather a written prompt names (only the main kinds; a long prompt is no weather slug), or "". */
-function weatherNamedInPrompt(prompt: string): BackgroundWeatherVersionKey | "" {
+/**
+ * The weather a written prompt names, as a version key (blizzard stays apart from snow), or "".
+ * Only the main kinds: a long prompt never becomes a weather slug.
+ */
+export function weatherNamedInPrompt(prompt: string): BackgroundWeatherVersionKey | "" {
   for (const match of prompt.matchAll(PROMPT_WEATHER_WORDS)) {
-    const category = sceneWeatherCategory(match[0].replace(/drizzl\w*/iu, "rain"));
-    if ((BACKGROUND_WEATHER_VERSIONS as readonly string[]).includes(category)) return category;
+    const version = backgroundWeatherVersion(match[0].replace(/drizzl\w*/iu, "rain"));
+    if ((BACKGROUND_WEATHER_VERSIONS as readonly string[]).includes(version)) return version;
   }
   return "";
 }
