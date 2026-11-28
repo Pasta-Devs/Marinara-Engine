@@ -4,7 +4,7 @@ A Roleplay chat shows a full-scene image behind your messages. You can let the *
 
 Image generation is not required. Without an image generation account, the backdrop is a solid color and the chat works as text.
 
-Pins and gallery places are matched against the **World State** location, so they switch the picture on their own only while the World State agent tracks where the story is. Without it, the Background agent still sees gallery backgrounds by their places.
+Pins and gallery places switch the picture on their own only when Marinara knows where the story is: from the **World State** agent's location, or from **World Maps**. Without either, the Background agent still sees gallery backgrounds by their places.
 
 ## Set a background for one chat
 

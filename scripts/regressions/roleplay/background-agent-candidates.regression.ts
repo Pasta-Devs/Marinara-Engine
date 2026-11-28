@@ -19,6 +19,7 @@ const { makeCapturingProvider, makeRegressionAgentConfig, makeRegressionAgentCon
 // ── File names that say nothing ──
 for (const name of [
   "70c60b32-6b8c-4047-9b79-197df0a6e126.jpg",
+  "70c60b32-6b8c-4047-9b79-123456789012.jpg",
   "8b64cacbc47f4a5a829d28daf7d80000.png",
   "IMG_2041.jpg",
   "background (3).png",
@@ -69,9 +70,10 @@ assert.deepEqual(
   [
     ["gallery:kitchen", ["dorm kitchen"]],
     ["gallery:bedroom", ["Zion's bedroom", "Zion's room"]],
+    ["gallery:nothing", []],
     ["gallery:pink", ["Alyssa's bedroom"]],
   ],
-  "only background pictures with places or a description; {{char}}/{{user}} name the owner",
+  "only background pictures; {{char}}/{{user}} name the owner",
 );
 assert.equal(gallery[0]!.background, "/api/characters/zion/gallery/file/k.png");
 
@@ -88,6 +90,7 @@ const { candidates, leftOut } = buildBackgroundAgentCandidates({
   chatMetadata: {
     locationBackgroundPins: [
       { id: "pin", names: ["the old study"], background: "d990ed36-66d8-4dc5-96c6-912c04c75b62.jpg" },
+      { id: "gallery-pin", names: ["the attic"], background: "/api/characters/zion/gallery/file/n.png" },
     ],
   },
 });
@@ -97,12 +100,21 @@ assert.deepEqual(
   [
     "gallery:kitchen",
     "gallery:bedroom",
+    "gallery:nothing",
     "gallery:pink",
     "1c2757c3-4557-419f-a8bd-8de5ffd388d2.jpg",
     "castle_cliff.jpg",
     "d990ed36-66d8-4dc5-96c6-912c04c75b62.jpg",
   ],
-  "tags label a random name; a pinned place labels one too; weather versions stay out",
+  "tags label a random name; a pinned place labels one too (library or gallery); weather versions stay out",
+);
+assert.deepEqual(candidates.find((item) => item.filename === "gallery:nothing")!.places, ["the attic"]);
+assert.equal(
+  buildBackgroundAgentCandidates({ library: [], gallery }).candidates.some(
+    (item) => item.filename === "gallery:nothing",
+  ),
+  false,
+  "a gallery background with no places, no description and no pin has nothing to be picked by",
 );
 assert.deepEqual(candidates.at(-1)!.places, ["the old study"]);
 

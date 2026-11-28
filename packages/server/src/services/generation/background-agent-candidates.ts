@@ -52,8 +52,10 @@ type GalleryRow = {
  * only digits, or a camera/download default such as "IMG_2041" or "background (3)".
  */
 export function isUntellingBackgroundName(filename: string): boolean {
-  const stem = filename
-    .slice(0, filename.length - extname(filename).length)
+  const rawStem = filename.slice(0, filename.length - extname(filename).length).trim();
+  // A UUID first: its last group is digits only sometimes, and the suffix trim below would cut it.
+  if (/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/iu.test(rawStem)) return true;
+  const stem = rawStem
     .replace(/\s*\(\d+\)$/u, "")
     .replace(/[-_ ]\d+$/u, "")
     .trim();
@@ -122,8 +124,6 @@ export async function loadGalleryBackgroundAgentCandidates(args: {
           : name.replace(/\{\{\s*user\s*\}\}/giu, owner.name),
       );
       const description = cleanText(row.description);
-      // A gallery background with neither places nor a description has nothing to be picked by.
-      if (places.length === 0 && !description) continue;
       out.push({
         filename: `${GALLERY_CANDIDATE_PREFIX}${row.id}`,
         tags: [],
@@ -183,7 +183,9 @@ export function buildBackgroundAgentCandidates(args: {
       library.push({ filename: pin.background, tags: [], source: "user", places: [...pin.names] });
     }
   }
-  return { candidates: [...gallery, ...library], leftOut: [...stillLeftOut] };
+  // A gallery background with neither places (its own or a pin's) nor a description has nothing to be picked by.
+  const labelledGallery = gallery.filter((item) => (item.places?.length ?? 0) > 0 || !!item.description);
+  return { candidates: [...labelledGallery, ...library], leftOut: [...stillLeftOut] };
 }
 
 /** The handle the agent knows the current background by (a gallery picture's URL becomes its handle). */
