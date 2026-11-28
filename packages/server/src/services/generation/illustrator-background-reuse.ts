@@ -9,7 +9,7 @@
 // ──────────────────────────────────────────────
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
-import { isBackgroundWeatherVersionName } from "@marinara-engine/shared";
+import { isBackgroundWeatherVersionName, parseBackgroundWeatherVersionName } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 
 const LIBRARY_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
@@ -124,17 +124,27 @@ export function readBackgroundLibrary(dir = join(DATA_DIR, "backgrounds")): Back
     /* no tags */
   }
   try {
-    return (
-      readdirSync(dir)
-        // Weather and time of day versions belong to their plain picture, never serve a place themselves.
-        .filter((file) => LIBRARY_EXTS.has(extname(file).toLowerCase()) && !isBackgroundWeatherVersionName(file))
-        .map((filename) => ({
-          filename,
-          tags: Array.isArray(meta[filename]?.tags)
-            ? (meta[filename]?.tags as unknown[]).filter((tag): tag is string => typeof tag === "string")
-            : [],
-        }))
-    );
+    const pictures = readdirSync(dir).filter((file) => LIBRARY_EXTS.has(extname(file).toLowerCase()));
+    const stems = new Set(pictures.map((file) => file.slice(0, file.length - extname(file).length)));
+    const tagsOf = (file: string): unknown[] =>
+      Array.isArray(meta[file]?.tags) ? (meta[file]?.tags as unknown[]) : [];
+    // Weather and time of day versions belong to their plain picture, never serve a place themselves.
+    // A name like "cabin--tod-night.png" is a version only when Illustrator recorded it as one or its
+    // plain picture is here; an upload that just happens to be named that way still serves its place.
+    const isVersion = (file: string): boolean => {
+      if (!isBackgroundWeatherVersionName(file)) return false;
+      const tags = tagsOf(file);
+      if (tags.includes("weather version") || tags.includes("time version")) return true;
+      return stems.has(parseBackgroundWeatherVersionName(file).baseStem);
+    };
+    return pictures
+      .filter((file) => !isVersion(file))
+      .map((filename) => ({
+        filename,
+        tags: Array.isArray(meta[filename]?.tags)
+          ? (meta[filename]?.tags as unknown[]).filter((tag): tag is string => typeof tag === "string")
+          : [],
+      }));
   } catch {
     return [];
   }

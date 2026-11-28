@@ -310,6 +310,13 @@ const cases: RegressionCase[] = [
         generateRouteSource,
         /!commandTarget &&\s*\(automaticBackgroundsEnabled \|\| weatherVersionsEnabled \|\| timeVersionsEnabled\) &&\s*illustratorBackgroundAgent/u,
       );
+      // The automatic backgrounds setting itself is unchanged: it comes from its own setting, never from
+      // Storyboard, and a new place still needs it (weather and time versions only repaint the place shown).
+      assert.match(
+        generateRouteSource,
+        /const automaticBackgroundsEnabled = illustratorBackgroundGenerationEnabled\(chatMode, chatMeta\);/u,
+      );
+      assert.match(generateRouteSource, /if \(\s*!automaticBackgroundsEnabled \|\|\s*pinnedHere \|\|/u);
       assert.match(
         generateRouteSource,
         /if \(!storyboardSuppressesForeground && shouldGenerate && imagePrompt(?: && !alreadyShown)?\)/u,

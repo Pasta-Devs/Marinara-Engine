@@ -164,6 +164,17 @@ export function backgroundVersionStem(
   return `${baseStem}${version ? `--wx-${version}` : ""}${time ? `--tod-${time}` : ""}`;
 }
 
+/**
+ * Longest plain stem (in UTF-8 bytes) that still leaves room for the longest version suffix
+ * (`--wx-<32>--tod-sunset`) and a file extension within the usual 255-byte file name limit.
+ */
+export const BACKGROUND_VERSION_MAX_BASE_STEM_BYTES = 180;
+
+/** Whether versions of a plain picture with this stem have names that fit on disk. */
+export function backgroundVersionNameFits(baseStem: string): boolean {
+  return new TextEncoder().encode(baseStem).byteLength <= BACKGROUND_VERSION_MAX_BASE_STEM_BYTES;
+}
+
 /** A weather version, a time of day version, or both (anything but a plain picture). */
 export function isBackgroundWeatherVersionName(filename: string): boolean {
   const parsed = parseBackgroundWeatherVersionName(filename);

@@ -241,6 +241,14 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       const ext = extname(f).toLowerCase();
       return ALLOWED_EXTS.has(ext);
     });
+    // Versions of one picture share their plain picture; look it up once per list.
+    const plainPictures = new Map<string, string | null>();
+    const plainPictureOf = (filename: string): string | null => {
+      const { baseStem, ext } = parseBackgroundWeatherVersionName(filename);
+      const key = `${baseStem}.${ext}`;
+      if (!plainPictures.has(key)) plainPictures.set(key, chatBackgroundPlainPicture(filename));
+      return plainPictures.get(key) ?? null;
+    };
     const userBackgrounds = files.map((filename) => {
       const id = `user:${filename}`;
       return {
@@ -257,7 +265,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
         favorite: favorites.has(id),
         // A weather or time of day version names its plain picture (a library file or a gallery address), so the
         // Library can show it under that picture.
-        ...(isChatBackgroundWeatherVersion(filename) ? { versionOf: chatBackgroundPlainPicture(filename) } : {}),
+        ...(isChatBackgroundWeatherVersion(filename) ? { versionOf: plainPictureOf(filename) } : {}),
       };
     });
 
