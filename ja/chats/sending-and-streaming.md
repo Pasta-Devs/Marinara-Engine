@@ -19,7 +19,7 @@
 
 | チャットモード | デフォルト | オフのとき |
 | --- | --- | --- |
-| Roleplay | オフ | <kbd>Enter</kbd>で改行が入ります。**Send**をクリックして送信します。 |
+| Roleplay | オフ | <kbd>Ctrl</kbd>+<kbd>Enter</kbd>(Macでは<kbd>Cmd</kbd>+<kbd>Enter</kbd>)で送信します。 |
 | Conversations | オン | <kbd>Ctrl</kbd>+<kbd>Enter</kbd>(Macでは<kbd>Cmd</kbd>+<kbd>Enter</kbd>)で送信します。 |
 | Game | オン | <kbd>Ctrl</kbd>+<kbd>Enter</kbd>(Macでは<kbd>Cmd</kbd>+<kbd>Enter</kbd>)で送信します。 |
 

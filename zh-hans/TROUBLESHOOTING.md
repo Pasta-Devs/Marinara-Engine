@@ -365,7 +365,7 @@ Marinara 只把数据保存在它的数据文件夹里，SillyTavern 文件夹�
 
 - **数据放在网络共享上。** 把 `.env` 里的 `DATA_DIR` 指向共享里的某个文件夹，然后重启 Marinara。见[存储](CONFIGURATION.md#storage)。要移动就移动整个数据文件夹：如果只把其中某个文件夹（例如 `avatars` 或 `backgrounds`）链接到另一个驱动器，里面的图片会加载不出来，Marinara 对这些图片的回应是 **Not found**。
 - **从共享导入 SillyTavern 文件夹。** 手动输入的路径必须位于运行服务器的用户的主文件夹内，否则会看到 **Marinara can only read folders inside your home folder**。在服务器所在的电脑上，可以改为点击 **Browse**(浏览) 选取该文件夹。也可以把该文件夹加入 `.env` 里的 `IMPORT_ALLOWED_ROOTS`，多个文件夹用逗号分隔，然后重启 Marinara。设置了这个变量后，就只允许其中列出的文件夹，选取的文件夹也不例外；如果仍要从主文件夹导入，记得把主文件夹也加进去。
-- **应用内的文件夹浏览器打开的是主文件夹。** 无论 `IMPORT_ALLOWED_ROOTS` 怎么设置，它都只列出主文件夹内的文件夹。如果共享在主文件夹之外，就把共享的文件夹加入 `IMPORT_ALLOWED_ROOTS` 并重启 Marinara，然后在 **SillyTavern folder path**(SillyTavern 文件夹路径) 中输入它的路径。
+- **应用内的文件夹浏览器打开的是主文件夹。** 无论 `IMPORT_ALLOWED_ROOTS` 怎么设置，它都只列出主文件夹内的文件夹。主文件夹里的链接如果指向主文件夹之外，也算在主文件夹之外。如果共享在主文件夹之外，就把共享的文件夹加入 `IMPORT_ALLOWED_ROOTS` 并重启 Marinara，然后在 **SillyTavern folder path**(SillyTavern 文件夹路径) 中输入它的路径。
 - **共享已断开。** 启动 Marinara 之前先重新连接它，然后重试。
 
 ### 备份或导出返回 403

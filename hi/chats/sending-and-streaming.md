@@ -19,7 +19,7 @@
 
 | चैट मोड | डिफ़ॉल्ट | बंद होने पर |
 | --- | --- | --- |
-| Roleplay | बंद | <kbd>Enter</kbd> नई पंक्ति जोड़ता है। **Send** पर क्लिक करें। |
+| Roleplay | बंद | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (Mac पर <kbd>Cmd</kbd>+<kbd>Enter</kbd>) से संदेश जाता है। |
 | Conversations | चालू | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (Mac पर <kbd>Cmd</kbd>+<kbd>Enter</kbd>) से संदेश जाता है। |
 | Game | चालू | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (Mac पर <kbd>Cmd</kbd>+<kbd>Enter</kbd>) से संदेश जाता है। |
 

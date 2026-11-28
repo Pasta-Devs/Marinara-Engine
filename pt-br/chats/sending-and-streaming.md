@@ -19,7 +19,7 @@ Ele fica em **Settings → General → Input & Editing** (Configurações → Ge
 
 | Modo de chat | Padrão | Quando está desligado |
 | --- | --- | --- |
-| Roleplay | Desligado | <kbd>Enter</kbd> adiciona uma nova linha. Clique em **Send**. |
+| Roleplay | Desligado | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> no Mac) envia. |
 | Conversations | Ligado | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> no Mac) envia. |
 | Game | Ligado | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> no Mac) envia. |
 

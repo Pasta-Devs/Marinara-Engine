@@ -19,7 +19,7 @@ Ce réglage se trouve dans **Settings → General → Input & Editing** (Paramè
 
 | Mode de chat | Par défaut | Quand il est désactivé |
 | --- | --- | --- |
-| Roleplay | Désactivé | <kbd>Enter</kbd> ajoute une nouvelle ligne. Clique sur **Send**. |
+| Roleplay | Désactivé | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> sur Mac) envoie le message. |
 | Conversations | Activé | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> sur Mac) envoie le message. |
 | Game | Activé | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> sur Mac) envoie le message. |
 
