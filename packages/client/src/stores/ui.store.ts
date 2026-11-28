@@ -85,6 +85,8 @@ export type Panel =
   | "bot-browser"
   | "extensions";
 export type ChatModeShortcut = "conversation" | "roleplay" | "game";
+/** Where an impersonate's result goes: posted as your message, or written into the message box as a draft. */
+export type ImpersonateResult = "post" | "draft";
 
 /** Not saved: a Home surface the omnibar or a Command Center row asks Home to open. */
 export type HomeRequest = { kind: "faq" | "widgets" | "credits" } | { kind: "tab"; tab: string };
@@ -1506,6 +1508,8 @@ export interface UIState {
   impersonateBlockAgents: boolean;
   /** When true, Roleplay impersonates send each character's Public Face in place of its card (#9427). Persisted. */
   impersonatePublicFaces: boolean;
+  /** Where an impersonate's result goes: posted as your message, or into the message box as a draft. Synced. */
+  impersonateResult: ImpersonateResult;
 
   /** Transient: true when center content area is too narrow (overflow detected) */
   centerCompact: boolean;
@@ -1888,6 +1892,7 @@ export interface UIState {
   setAddCyoaChoicesToMessage: (v: boolean) => void;
   setImpersonatePresetId: (id: string | null) => void;
   setImpersonateBlockAgents: (v: boolean) => void;
+  setImpersonateResult: (v: ImpersonateResult) => void;
   setImpersonatePublicFaces: (v: boolean) => void;
 
   /** Legacy migration helpers for browser-local custom themes. */
@@ -2350,6 +2355,7 @@ export function pickSyncedSettings(state: UIState) {
     impersonatePresetId: state.impersonatePresetId,
     impersonateBlockAgents: state.impersonateBlockAgents,
     impersonatePublicFaces: state.impersonatePublicFaces,
+    impersonateResult: state.impersonateResult,
     learnedGameSetupOptions: state.learnedGameSetupOptions,
   };
 }
@@ -2667,6 +2673,7 @@ export function pickPersistedUIState(state: UIState) {
     impersonatePresetId: state.impersonatePresetId,
     impersonateBlockAgents: state.impersonateBlockAgents,
     impersonatePublicFaces: state.impersonatePublicFaces,
+    impersonateResult: state.impersonateResult,
     learnedGameSetupOptions: state.learnedGameSetupOptions,
     rememberedGameSetupText: state.rememberedGameSetupText,
   };
@@ -3061,6 +3068,7 @@ export const useUIStore = create<UIState>()(
         impersonatePresetId: null,
         impersonateBlockAgents: false,
         impersonatePublicFaces: false,
+        impersonateResult: "post",
 
         toggleSidebar: () =>
           set((s) => {
@@ -4086,6 +4094,7 @@ export const useUIStore = create<UIState>()(
         setImpersonatePresetId: (id) => set({ impersonatePresetId: id }),
         setImpersonateBlockAgents: (v) => set({ impersonateBlockAgents: v }),
         setImpersonatePublicFaces: (v) => set({ impersonatePublicFaces: v }),
+        setImpersonateResult: (v) => set({ impersonateResult: v === "draft" ? "draft" : "post" }),
         setHasMigratedCustomThemesToServer: (v) => set({ hasMigratedCustomThemesToServer: v }),
         clearLegacyCustomThemes: () => set({ customThemes: [], activeCustomTheme: null }),
         setHasCompletedOnboarding: (v) => set({ hasCompletedOnboarding: v }),

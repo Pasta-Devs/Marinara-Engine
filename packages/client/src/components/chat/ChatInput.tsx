@@ -12,6 +12,7 @@ import {
   Smile,
   Users,
   UserCheck,
+  PencilLine,
   Languages,
   FileText,
   Sparkles,
@@ -23,6 +24,15 @@ import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { updateCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
 import { hasActiveTextSelection } from "../../lib/text-selection";
 import { useAgentStore } from "../../stores/agent.store";
+import {
+  forgetImpersonateDraft,
+  redoImpersonateDraft,
+  startImpersonateDraft,
+  stopImpersonateDraft,
+  undoImpersonateDraft,
+  useImpersonateDraftStore,
+} from "../../stores/impersonate-draft.store";
+import { ImpersonateDraftStrip } from "./ImpersonateDraftStrip";
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { isApplePlatform } from "../../lib/command-center";
@@ -114,6 +124,12 @@ const TEXT_ATTACHMENT_EXTENSIONS = new Set([
 const PDF_ATTACHMENT_MIME_TYPE = "application/pdf";
 const ROLEPLAY_INPUT_RESIZE_IDLE_MS = 150;
 const ROLEPLAY_INPUT_DELETE_RESIZE_IDLE_MS = 450;
+
+/**
+ * The impersonate draft text each chat's message box last took, so reopening a chat (or this box remounting)
+ * does not write a finished draft over the user's edits.
+ */
+const appliedImpersonateDrafts = new Map<string, string>();
 
 const submittedDrafts = createSubmittedDraftHold({
   get: (chatId) => useChatStore.getState().inputDrafts.get(chatId),
@@ -278,11 +294,19 @@ export const ChatInput = memo(function ChatInput({
   );
   const hasActiveStream = isStreamingGlobal && streamingChatId === activeChatId;
   const isStreaming = hasActiveStream && !isBackgroundIllustration;
-  const isInputBusy = isGenerationSendBlocked({
-    streamActive: hasActiveStream,
-    agentsProcessing: mode === "roleplay" ? false : interactionsLocked,
-    backgroundIllustration: isBackgroundIllustration,
-  });
+  // Impersonate writing a draft into this chat's message box (not a chat reply).
+  const impersonateDraft =
+    useImpersonateDraftStore((s) => (activeChatId && mode === "roleplay" ? s.drafts[activeChatId] : undefined)) ?? null;
+  const impersonateDraftWriting = impersonateDraft?.status === "writing";
+  const showStopButton = isStreaming || impersonateDraftWriting;
+  /** The typed text of the slash command now running, which an impersonate draft's Undo gives back. */
+  const slashSubmittedTextRef = useRef("");
+  const isInputBusy =
+    isGenerationSendBlocked({
+      streamActive: hasActiveStream,
+      agentsProcessing: mode === "roleplay" ? false : interactionsLocked,
+      backgroundIllustration: isBackgroundIllustration,
+    }) || impersonateDraftWriting;
   const responseQueue = useChatStore((s) =>
     activeChatId ? (s.responseQueues.get(activeChatId) ?? EMPTY_RESPONSE_QUEUE) : EMPTY_RESPONSE_QUEUE,
   );
@@ -363,6 +387,7 @@ export const ChatInput = memo(function ChatInput({
   const showQuickReplyPostOnly = useUIStore((s) => s.showQuickReplyPostOnly);
   const showQuickReplyGuide = useUIStore((s) => s.showQuickReplyGuide);
   const showQuickReplyImpersonate = useUIStore((s) => s.showQuickReplyImpersonate);
+  const impersonateResult = useUIStore((s) => s.impersonateResult);
   const customQuickReplies = useUIStore((s) => s.customQuickReplies);
   const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
@@ -557,6 +582,34 @@ export const ChatInput = memo(function ChatInput({
     }
   }, [activeChatId, setInputDraft, clearInputDraft, syncInputState, replaceAttachments]);
 
+  // An impersonate draft writes into the box as it streams, and lands there when done. A finished draft is put in
+  // once; after that the box is the user's to edit.
+  const impersonateDraftText = impersonateDraft?.text ?? null;
+  const impersonateDraftStatus = impersonateDraft?.status ?? null;
+  useEffect(() => {
+    if (!activeChatId) return;
+    if (!impersonateDraftStatus || impersonateDraftText === null) {
+      appliedImpersonateDrafts.delete(activeChatId);
+      return;
+    }
+    const key = `${impersonateDraftStatus}\u0000${impersonateDraftText}`;
+    if (appliedImpersonateDrafts.get(activeChatId) === key) return;
+    appliedImpersonateDrafts.set(activeChatId, key);
+    const el = textareaRef.current;
+    if (!el) return;
+    if (draftTimerRef.current) {
+      clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = null;
+    }
+    if (el.value !== impersonateDraftText) {
+      el.value = impersonateDraftText;
+      resizeChatInputTextarea(el);
+      syncInputState(impersonateDraftText);
+    }
+    // Follow the text as it is written.
+    if (impersonateDraftStatus === "writing") el.scrollTop = el.scrollHeight;
+  }, [activeChatId, impersonateDraftStatus, impersonateDraftText, syncInputState]);
+
   // Save draft when component unmounts (e.g. navigating to editor)
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -703,7 +756,7 @@ export const ChatInput = memo(function ChatInput({
   const hasPendingAttachments = isReadingAttachments || attachments.length > 0;
   const requiresManualGuideTarget = groupResponseOrder === "manual" && activeCharacterNames.length > 1;
   const inputBusyReason = isInputBusy
-    ? isStreaming
+    ? isStreaming || impersonateDraftWriting
       ? "Wait for the current stream to finish."
       : "Wait for agents to finish."
     : null;
@@ -846,6 +899,14 @@ export const ChatInput = memo(function ChatInput({
             ? { pendingSpatialTransition: pendingSpatialTransition.transition }
             : {}),
         }),
+      ...(mode === "roleplay"
+        ? {
+            impersonateDraft: (direction: string) => {
+              void startImpersonateDraft({ chatId: activeChatId, direction, before: slashSubmittedTextRef.current });
+              return true;
+            },
+          }
+        : {}),
       createMessage: async (data) => {
         await createMessage.mutateAsync(data);
         requestChatScrollToBottom({ chatId: activeChatId, behavior: "auto" });
@@ -926,6 +987,8 @@ export const ChatInput = memo(function ChatInput({
   const handleSend = useCallback(async () => {
     const raw = getValue();
     if (!activeChatId || isInputBusy) return;
+    // A sent impersonate draft is the user's own message now.
+    forgetImpersonateDraft(activeChatId);
     setEnterTipRequested(false);
     if (isReadingAttachments) {
       toast.info(localizeUi("ui.chat.chatinput.stillReadingAttachedFilesSendWillBeReadyIn"));
@@ -997,6 +1060,7 @@ export const ChatInput = memo(function ChatInput({
       if (!ctx) return;
 
       const submittedDraft = textareaRef.current?.value ?? "";
+      slashSubmittedTextRef.current = submittedDraft;
       const submittedHeight = textareaRef.current?.style.height ?? "auto";
       const submittedAttachments = attachments;
       const submittedCompletions = completions;
@@ -1212,6 +1276,7 @@ export const ChatInput = memo(function ChatInput({
       if (!match || !ctx) return;
 
       const previousDraft = textareaRef.current?.value ?? "";
+      slashSubmittedTextRef.current = previousDraft;
       const previousHeight = textareaRef.current?.style.height ?? "auto";
       const previousCompletions = completions;
       const restoreSubmittedDraft = () => {
@@ -1259,16 +1324,30 @@ export const ChatInput = memo(function ChatInput({
     [activeChatId, availableCapabilityIds, buildContext, completions, mode, setInputDraft, syncInputState],
   );
 
-  const handleImpersonateQuickButton = useCallback(async () => {
-    if (!activeChatId || isInputBusy) return;
-    if (hasPendingAttachments) {
-      toast.info(localizeUi("ui.chat.chatinput.clearOrSendAttachmentsBeforeUsingQuickImpersonate"));
-      return;
-    }
-    const text = textareaRef.current?.value?.trim() ?? "";
-    if (!text) return;
-    await runQuickSlashCommand(`/impersonate ${text}`, "Impersonate failed");
-  }, [activeChatId, isInputBusy, hasPendingAttachments, runQuickSlashCommand, localizeUi]);
+  const handleImpersonateQuickButton = useCallback(
+    async (result: "post" | "draft") => {
+      if (!activeChatId || isInputBusy) return;
+      if (hasPendingAttachments) {
+        toast.info(localizeUi("ui.chat.chatinput.clearOrSendAttachmentsBeforeUsingQuickImpersonate"));
+        return;
+      }
+      const typed = textareaRef.current?.value ?? "";
+      const text = typed.trim();
+      if (result === "draft") {
+        // The typed text is the direction; an empty box lets the model choose.
+        if (draftTimerRef.current) {
+          clearTimeout(draftTimerRef.current);
+          draftTimerRef.current = null;
+        }
+        setCompletions([]);
+        await startImpersonateDraft({ chatId: activeChatId, direction: text, before: typed });
+        return;
+      }
+      if (!text) return;
+      await runQuickSlashCommand(`/impersonate_post ${text}`, "Impersonate failed");
+    },
+    [activeChatId, isInputBusy, hasPendingAttachments, runQuickSlashCommand, localizeUi],
+  );
 
   const handlePostOnlyButton = useCallback(async () => {
     if (!activeChatId || isInputBusy) return;
@@ -1470,15 +1549,41 @@ export const ChatInput = memo(function ChatInput({
       });
     }
     if (showQuickReplyImpersonate) {
-      actions.push({
-        id: "impersonate",
-        label: "Impersonate",
-        description: "Generate as your persona",
-        icon: <UserCheck size="0.875rem" />,
-        disabled: !activeChatId || isInputBusy || !hasInput || hasPendingAttachments,
-        disabledReason: getImpersonateDisabledReason(),
-        onSelect: handleImpersonateQuickButton,
-      });
+      // Impersonate follows Chat Settings > Impersonate > Result goes to; the second action is the other result,
+      // for one time.
+      const defaultResult = impersonateResult === "draft" ? "draft" : "post";
+      const otherResult = defaultResult === "draft" ? "post" : "draft";
+      const impersonateAction = (result: "post" | "draft", primary: boolean) => {
+        // A draft may start from an empty box; a posted impersonate needs a direction, as before.
+        const needsText = result === "post";
+        const disabledReason = needsText
+          ? getImpersonateDisabledReason()
+          : !activeChatId
+            ? "Select or create a chat first."
+            : (inputBusyReason ?? (hasPendingAttachments ? "Clear or post attachments first." : undefined));
+        return {
+          id: primary ? "impersonate" : `impersonate-${result}`,
+          label: primary
+            ? "Impersonate"
+            : result === "draft"
+              ? localizeUi("ui.chat.impersonateDraft.quickDraft")
+              : localizeUi("ui.chat.impersonateDraft.quickPost"),
+          description: primary
+            ? result === "draft"
+              ? localizeUi("ui.chat.impersonateDraft.quickDraftDescription")
+              : "Generate as your persona"
+            : result === "draft"
+              ? localizeUi("ui.chat.impersonateDraft.quickDraftDescription")
+              : localizeUi("ui.chat.impersonateDraft.quickPostDescription"),
+          // The draft action reads as writing, so the two Impersonate buttons tell apart at a glance.
+          icon: result === "draft" ? <PencilLine size="0.875rem" /> : <UserCheck size="0.875rem" />,
+          disabled: !activeChatId || isInputBusy || (needsText && !hasInput) || hasPendingAttachments,
+          disabledReason,
+          onSelect: () => handleImpersonateQuickButton(result),
+        };
+      };
+      actions.push(impersonateAction(defaultResult, true));
+      if (mode === "roleplay") actions.push(impersonateAction(otherResult, false));
     }
     for (const entry of customQuickReplies) {
       const label = entry.label.trim() || entry.content.trim().slice(0, 24) || "Quick reply";
@@ -1516,6 +1621,9 @@ export const ChatInput = memo(function ChatInput({
     showQuickReplyPostOnly,
     showQuickReplyGuide,
     showQuickReplyImpersonate,
+    impersonateResult,
+    mode,
+    localizeUi,
     customQuickReplies,
     sendCustomQuickReply,
     handlePostOnlyButton,
@@ -1659,6 +1767,8 @@ export const ChatInput = memo(function ChatInput({
     const shouldDeferDeleteWork = mode === "roleplay" && isDeleting && heldDeleteKeyRef.current;
     const fixed = applyTextareaQuoteFormat(el, quoteFormat, inputEvent);
     syncInputState(fixed);
+    // Emptying the box ends a finished impersonate draft.
+    if (activeChatId && !/\S/u.test(fixed)) forgetImpersonateDraft(activeChatId);
     if (!isDeleting) {
       // Resize once before Firefox's next paint so newly wrapped text remains
       // visible without competing with a second, delayed height measurement.
@@ -1864,6 +1974,24 @@ export const ChatInput = memo(function ChatInput({
 
       {/* Feedback toast */}
       {feedback && <SlashCommandFeedback feedback={feedback} onDismiss={() => setFeedback(null)} className="mb-2" />}
+
+      {impersonateDraft && activeChatId ? (
+        <ImpersonateDraftStrip
+          draft={impersonateDraft}
+          className="mb-2"
+          onStop={() => stopImpersonateDraft(activeChatId)}
+          onRedo={() => redoImpersonateDraft(activeChatId)}
+          onUndo={() => {
+            const before = undoImpersonateDraft(activeChatId);
+            const el = textareaRef.current;
+            if (!el) return;
+            el.value = before;
+            resizeChatInputTextarea(el);
+            syncInputState(before);
+            el.focus();
+          }}
+        />
+      ) : null}
 
       {hierarchicalMapsActive && activeChatId ? (
         <CapabilityElement
@@ -2113,6 +2241,8 @@ export const ChatInput = memo(function ChatInput({
           onBlur={releaseHeldDeleteWork}
           placeholder={themedPlaceholder}
           disabled={!activeChatId}
+          readOnly={impersonateDraftWriting}
+          aria-busy={impersonateDraftWriting || undefined}
           rows={1}
           spellCheck
           autoCorrect="on"
@@ -2212,31 +2342,40 @@ export const ChatInput = memo(function ChatInput({
           }}
           onMouseDown={(event) => event.preventDefault()}
           onClick={
-            isStreaming
+            impersonateDraftWriting && !isStreaming
               ? () => {
-                  // A Stop right after a send is a second tap on Send, not a decision to stop.
-                  if (Date.now() - lastSendTapAtRef.current < 1200) return;
-                  useChatStore.getState().stopGeneration(activeChatId ?? undefined);
+                  if (activeChatId) stopImpersonateDraft(activeChatId);
                 }
-              : () => {
-                  lastSendTapAtRef.current = Date.now();
-                  void handleSend();
-                }
+              : isStreaming
+                ? () => {
+                    // A Stop right after a send is a second tap on Send, not a decision to stop.
+                    if (Date.now() - lastSendTapAtRef.current < 1200) return;
+                    useChatStore.getState().stopGeneration(activeChatId ?? undefined);
+                  }
+                : () => {
+                    lastSendTapAtRef.current = Date.now();
+                    void handleSend();
+                  }
           }
           disabled={
-            (!isStreaming && (isInputBusy || isReadingAttachments)) ||
-            (!hasInput && !attachments.length && !canSubmitSpatialMove && !isStreaming && !canRetry && !canContinue) ||
+            (!showStopButton && (isInputBusy || isReadingAttachments)) ||
+            (!hasInput &&
+              !attachments.length &&
+              !canSubmitSpatialMove &&
+              !showStopButton &&
+              !canRetry &&
+              !canContinue) ||
             !activeChatId
           }
           aria-label={
-            isStreaming
+            showStopButton
               ? t("chat.input.stopGenerating")
               : isInputBusy
                 ? t("chat.input.waitForAgents")
                 : t("chat.input.send")
           }
           title={
-            isStreaming
+            showStopButton
               ? t("chat.input.stopGenerating")
               : isInputBusy
                 ? t("chat.input.waitForAgents")
@@ -2244,7 +2383,7 @@ export const ChatInput = memo(function ChatInput({
           }
           className={cn(
             "mari-chat-send-btn flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-200 sm:h-8 sm:w-8",
-            isInputBusy
+            isInputBusy || showStopButton
               ? "text-foreground/75 hover:bg-foreground/10 hover:text-foreground/90"
               : (hasInput || attachments.length || canSubmitSpatialMove || canRetry || canContinue) &&
                   activeChatId &&
@@ -2254,7 +2393,7 @@ export const ChatInput = memo(function ChatInput({
                 : "text-foreground/20",
           )}
         >
-          {isStreaming ? (
+          {showStopButton ? (
             <StopCircle size="1rem" />
           ) : isInputBusy ? (
             <Spinner size="md" />

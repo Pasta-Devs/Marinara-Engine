@@ -71,7 +71,9 @@ Quote names that contain spaces. The older name-first forms such as `/hide Mauki
 | `/illustrate` | Roleplay only. Generates a gallery image. Needs the Illustrator agent. Also `/ill`. Format: `/illustrate [range=N-M] [template=name] [prompt]`. |
 | `/html` | Roleplay only. Makes one in-world artifact, such as `a spellbook page`, at the end of the latest reply. Format: `/html [what you want]`. |
 | `/video` | Roleplay only. Makes a short clip of the latest reply, or of your description, under that reply. Follows Illustrator's **First frame** setting. Needs Illustrator. Format: `/video [description]`. |
-| `/impersonate` | Writes a reply as your persona. Also `/imp`. Format: `/impersonate [direction (optional)]`. |
+| `/impersonate` | Writes a reply as your persona. It posts it, or writes a draft into your message box if **Result goes to** is **Message draft** in Chat Settings. Also `/imp`. Format: `/impersonate [direction (optional)]`. |
+| `/impersonate_draft` | Writes your persona's reply into the message box to edit before you send it. Nothing is posted. Also `/impd`, `/imp_draft`. Format: `/impersonate_draft [direction (optional)]`. |
+| `/impersonate_post` | Writes and posts your persona's reply right away, whatever **Result goes to** says. Also `/impp`, `/imp_post`. Format: `/impersonate_post [direction (optional)]`. |
 | `/impersonate_prompt` | Sets the instruction `/impersonate` uses in this chat. Also `/imp_prompt`. Format: `/impersonate_prompt [prompt or reset]`. |
 
 Most of these work best in Roleplay. `/scene` is run from a Conversation. `/impersonate` and `/impersonate_prompt` are not available in Conversation.
