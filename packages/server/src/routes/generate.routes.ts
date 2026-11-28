@@ -23,6 +23,7 @@ import {
   marinaraGameWorldKit,
   LOCATION_BACKGROUND_PIN_SHOWN_KEY,
   type LocationBackgroundPin,
+  backgroundTimeOfDay,
 } from "@marinara-engine/shared";
 import {
   GAME_STARTING_GEAR_TAKEN_KEY,
@@ -591,14 +592,30 @@ import {
 import { matchCustomAgentActivation } from "./generate/agent-activation.js";
 import { listCharacterSprites } from "../services/game/sprite.service.js";
 import {
+  generateIllustratorBackgroundWeatherVersion,
   generateIllustratorSceneBackground,
   illustratorBackgroundGenerationEnabled,
+  illustratorTimeVersionsEnabled,
+  illustratorWeatherVersionsEnabled,
   illustratorRequestedBackground,
   illustratorTrackerLocationChanged,
   resolveIllustratorImageConnectionId,
   resolveIllustratorCharacterPromptInstruction,
   resolveIllustratorPromptStyle,
 } from "../services/generation/illustrator-background-generation.js";
+import {
+  saveDecisionPicksIfNewest,
+  showBackgroundIfUnchanged,
+} from "../services/generation/illustrator-background-reply-guard.js";
+import {
+  askIllustratorDecisionChecks,
+  illustratorDecisionChecks,
+} from "../services/generation/illustrator-decision-checks.js";
+import {
+  chatBackgroundPlainPicture,
+  isChatBackgroundWeatherVersion,
+  planChatBackgroundVersion,
+} from "../services/game/game-asset-generation.js";
 import {
   matchLibraryBackgroundForPlace,
   readBackgroundLibrary,
@@ -7201,10 +7218,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               }
 
-              agentContext.memory._availableBackgrounds = files.map((f: string) => ({
-                filename: f,
-                tags: meta[f]?.tags ?? [],
-              }));
+              // Weather and time of day versions follow their plain picture; the agent picks among plain pictures.
+              agentContext.memory._availableBackgrounds = files
+                .filter((f: string) => !isChatBackgroundWeatherVersion(f))
+                .map((f: string) => ({
+                  filename: f,
+                  tags: meta[f]?.tags ?? [],
+                }));
+              if (currentBackground && isChatBackgroundWeatherVersion(currentBackground)) {
+                const plainName = chatBackgroundPlainPicture(currentBackground);
+                if (plainName) agentContext.memory._currentBackground = plainName;
+              }
             }
           } catch {
             /* non-critical */
@@ -12880,6 +12904,54 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             : allResponses
                 .map((response, index) => agentReplyText(response, responseMessageIds.get(index)))
                 .join("\n\n");
+        // The Illustrator's scene-background tail: a new place gets a new background, the same place its
+        // weather version. Made by the Illustrator's own result, or by the optional Decision model checks
+        // on a reply the Illustrator skipped. Runs after "done", once the trackers have saved.
+        const illustratorAutomaticBackgrounds = illustratorBackgroundGenerationEnabled(chatMode, chatMeta);
+        const illustratorWeatherVersions = illustratorWeatherVersionsEnabled(chatMode, chatMeta);
+        const illustratorTimeVersions = illustratorTimeVersionsEnabled(chatMode, chatMeta);
+        const illustratorChecks = illustratorDecisionChecks(chatMeta, {
+          automaticBackgrounds: illustratorAutomaticBackgrounds,
+          weatherVersions: illustratorWeatherVersions,
+          timeVersions: illustratorTimeVersions,
+        });
+        const noIllustratorDecisions = {
+          locationChanged: null,
+          weatherChanged: null,
+          weather: null,
+          timeChanged: null,
+          time: null,
+        };
+        const askIllustratorBackgroundDecisions = async (pickWeather: boolean, pickTime: boolean) => {
+          if (!illustratorChecks.location && !illustratorChecks.weather && !illustratorChecks.time) {
+            return noIllustratorDecisions;
+          }
+          const backend = await resolveDecisionBackend(
+            {
+              getLocalDefault: () => appSettings.get(DECISION_SETTINGS_KEYS.localDefault),
+              getThinkingPreGeneration: async () =>
+                (await appSettings.get(DECISION_SETTINGS_KEYS.thinkingPreGeneration)) === "true",
+              getDefaultConnection: () => connections.getDefaultForDecision(),
+              getConnectionWithKey: (id) => connections.getWithKey(id),
+              debugMode: requestDebug,
+            },
+            agentSignal,
+          ).catch(() => null);
+          if (!backend) return noIllustratorDecisions;
+          return askIllustratorDecisionChecks({
+            backend,
+            checks: illustratorChecks,
+            pickWeather,
+            pickTime,
+            messages: [
+              ...agentContext.recentMessages
+                .slice(-4)
+                .map((message) => ({ role: message.role, content: message.content })),
+              { role: "assistant", content: agentCompletedResponse },
+            ],
+            signal: agentSignal,
+          });
+        };
         // Pinned places (Chat settings > Background) and gallery backgrounds with places: where this turn's
         // story is (tracker text + World Maps place) checked against them.
         let galleryPinsLoad: Promise<LocationBackgroundPin[]> | null = null;
@@ -12905,11 +12977,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             : (charInfo.find(
                 (character) => character.id === (lastSavedMsg as { characterId?: string } | null)?.characterId,
               )?.name ?? null);
-        const pinnedSceneBackgroundForTurn = async (snapshotMessageId: string, snapshotSwipeIndex: number) => {
+        /** The tracker state saved for this reply, else the state the turn started with. */
+        const trackedStateForTurn = async (snapshotMessageId: string, snapshotSwipeIndex: number) => {
           const snapshot = snapshotMessageId
             ? await gameStateStore.getByChatAndMessage(input.chatId, snapshotMessageId, snapshotSwipeIndex)
             : null;
-          const state = snapshot ? parseGameStateRow(snapshot as Record<string, unknown>) : gameState;
+          return snapshot ? parseGameStateRow(snapshot as Record<string, unknown>) : gameState;
+        };
+        const pinnedSceneBackgroundForTurn = async (snapshotMessageId: string, snapshotSwipeIndex: number) => {
+          const state = await trackedStateForTurn(snapshotMessageId, snapshotSwipeIndex);
           const projection = hierarchicalMapsEnabledForChat
             ? await resolveOwnerSpatialProjection(input.chatId, {}, chatMeta)
             : null;
@@ -12921,8 +12997,367 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             userName: personaName,
             characterNames: charInfo.map((character) => character.name),
             speakerName: replySpeakerName(),
+            weather: state?.weather ?? null,
+            weatherVersions: illustratorWeatherVersionsEnabled(chatMode, chatMeta),
+            time: state?.time ?? null,
+            timeVersions: illustratorTimeVersionsEnabled(chatMode, chatMeta),
             galleryPins: await galleryPinsForChat(),
           });
+        };
+        const makeIllustratorBackgroundTail = (tail: {
+          illustratorAgent: ResolvedAgent;
+          /** The Illustrator ran on this reply (its run interval), not only the Decision model checks. */
+          illustratorRan: boolean;
+          requestedBackground: boolean;
+          illustratorReason?: string;
+          messageId: string;
+          swipeIndex: number;
+        }) => {
+          const automaticBackgroundsEnabled = illustratorAutomaticBackgrounds;
+          const weatherVersionsEnabled = illustratorWeatherVersions;
+          const timeVersionsEnabled = illustratorTimeVersions;
+          const backgroundAtDecision =
+            typeof chatMeta.background === "string" && chatMeta.background.trim() ? chatMeta.background.trim() : null;
+          const trackedLocationAtDecision = gameState?.location ?? null;
+          const trackedTimeOfDayAtDecision = backgroundTimeOfDay(gameState?.time);
+          const backgroundReply = { chatId: input.chatId, messageId: tail.messageId, swipeIndex: tail.swipeIndex };
+          /** Shows a picture only while the chat still shows `before` and this reply is still the newest. */
+          const showIfUnchanged = (filename: string, before: string | null) =>
+            showBackgroundIfUnchanged(chats, backgroundReply, filename, before, () => agentSignal.aborted);
+          return async () => {
+            try {
+              const freshChat = await chats.getById(input.chatId);
+              const freshMeta = parseExtra(freshChat?.metadata) as Record<string, unknown>;
+              const backgroundBeforeGeneration =
+                typeof freshMeta.background === "string" && freshMeta.background.trim()
+                  ? freshMeta.background.trim()
+                  : null;
+              // A pinned place keeps its picture: no new background, only its weather version.
+              const pinnedHere = (await pinsApplyToChat(freshMeta))
+                ? await pinnedSceneBackgroundForTurn(tail.messageId, tail.swipeIndex)
+                : null;
+              // A picture picked by hand in a pinned place stays: only the pin's own picture gets versions.
+              if (
+                pinnedHere &&
+                backgroundBeforeGeneration &&
+                chatBackgroundPlainPicture(backgroundBeforeGeneration) !==
+                  chatBackgroundPlainPicture(pinnedHere.filename)
+              ) {
+                return;
+              }
+              if (
+                backgroundBeforeGeneration !== backgroundAtDecision &&
+                !(backgroundBeforeGeneration && backgroundsShownThisTurn.has(backgroundBeforeGeneration)) &&
+                !pinnedHere
+              ) {
+                logger.info(
+                  "[illustrator-background] Skipping automatic background because the active background changed after the Illustrator decision",
+                );
+                return;
+              }
+
+              const latestSnapshot = tail.messageId
+                ? await gameStateStore.getByChatAndMessage(input.chatId, tail.messageId, tail.swipeIndex)
+                : await gameStateStore.getForGeneration(input.chatId, { preferLatestVisible: true });
+              const latestGameState = latestSnapshot
+                ? parseGameStateRow(latestSnapshot as Record<string, unknown>)
+                : gameState;
+              const trackerLocationChanged = illustratorTrackerLocationChanged(
+                trackedLocationAtDecision,
+                latestGameState?.location,
+              );
+              // Optional Decision model checks (off by default): they read every reply and only add reasons to act.
+              const trackedWeather = latestGameState?.weather?.trim() ?? "";
+              const trackedTime = latestGameState?.time?.trim() ?? "";
+              const decided = await askIllustratorBackgroundDecisions(
+                trackedWeather.length === 0,
+                backgroundTimeOfDay(trackedTime) === "",
+              );
+              // Saved only from the newest reply, so an older reply finishing late can't overwrite a newer pick.
+              try {
+                await saveDecisionPicksIfNewest(chats, backgroundReply, decided, () => agentSignal.aborted);
+              } catch {
+                /* only a fallback for later replies */
+              }
+              const decidedNewPlace = decided.locationChanged === true;
+              // The World State clock moved to another part of the day (night -> dawn) on this reply.
+              const trackedTimeOfDay = backgroundTimeOfDay(trackedTime);
+              const trackerTimeOfDayChanged =
+                !!trackedTimeOfDay && !!trackedTimeOfDayAtDecision && trackedTimeOfDay !== trackedTimeOfDayAtDecision;
+              // A reply the Illustrator skipped that only has a time change to show never paints a new place.
+              const mayPaintNewPlace = tail.illustratorRan || illustratorChecks.location || illustratorChecks.weather;
+              if (trackerLocationChanged && !mayPaintNewPlace && !pinnedHere) return;
+              // The story's weather and time of day. Without a World State weather or time, the Decision
+              // model's pick on this reply, else its last saved pick, stands in for it.
+              const savedDecisionWeather =
+                typeof freshMeta.illustratorDecisionWeather === "string" ? freshMeta.illustratorDecisionWeather : "";
+              const savedDecisionTime =
+                typeof freshMeta.illustratorDecisionTime === "string" ? freshMeta.illustratorDecisionTime : "";
+              const weatherNow = weatherVersionsEnabled
+                ? trackedWeather || decided.weather || (illustratorChecks.weather ? savedDecisionWeather : "")
+                : "";
+              const timeNow = timeVersionsEnabled
+                ? (trackedTimeOfDay ? trackedTime : "") ||
+                  decided.time ||
+                  (illustratorChecks.time ? savedDecisionTime : "")
+                : "";
+              if (
+                !automaticBackgroundsEnabled ||
+                pinnedHere ||
+                (!tail.requestedBackground && !trackerLocationChanged && !decidedNewPlace)
+              ) {
+                // Same place: show it in the story's weather and time of day (each version made once, then reused).
+                if (!weatherNow && !timeNow) return;
+                // A reply the Illustrator skipped is only looked at when the weather or the time of day changed.
+                // The Decision model's first pick (nothing saved before) counts as a change.
+                const decidedWeatherIsNew = !!decided.weather && decided.weather !== savedDecisionWeather;
+                const decidedTimeIsNew = !!decided.time && decided.time !== savedDecisionTime;
+                if (
+                  !tail.illustratorRan &&
+                  decided.weatherChanged !== true &&
+                  decided.timeChanged !== true &&
+                  !decidedWeatherIsNew &&
+                  !decidedTimeIsNew &&
+                  !(timeNow && trackerTimeOfDayChanged)
+                ) {
+                  return;
+                }
+                const weatherPlan = planChatBackgroundVersion(backgroundBeforeGeneration, {
+                  weather: weatherNow || null,
+                  time: timeNow || null,
+                });
+                if (weatherPlan.kind === "keep") return;
+                let weatherFilename: string | null = null;
+                let weatherGenerated = false;
+                if (weatherPlan.kind === "switch") {
+                  weatherFilename = weatherPlan.filename;
+                } else {
+                  const made = await generateIllustratorBackgroundWeatherVersion({
+                    db: app.db,
+                    chatId: input.chatId,
+                    chatName: chat.name,
+                    chatMode: chatMode === "game" ? "game" : "roleplay",
+                    chatMetadata: freshMeta,
+                    currentBackground: backgroundBeforeGeneration,
+                    illustratorAgent: tail.illustratorAgent,
+                    assistantResponse: agentCompletedResponse,
+                    gameState: latestGameState,
+                    recentMessages: agentContext.recentMessages,
+                    signal: agentSignal,
+                    debugLog,
+                    baseFilename: weatherPlan.baseFilename,
+                    version: weatherPlan.version,
+                    time: weatherPlan.time,
+                    scenePrompt: weatherPlan.scenePrompt,
+                  });
+                  if (!made) return;
+                  weatherFilename = made.filename;
+                  weatherGenerated = true;
+                }
+                const chatAfterWeather = await chats.getById(input.chatId);
+                const metaAfterWeather = parseExtra(chatAfterWeather?.metadata) as Record<string, unknown>;
+                const backgroundAfterWeather =
+                  typeof metaAfterWeather.background === "string" && metaAfterWeather.background.trim()
+                    ? metaAfterWeather.background.trim()
+                    : null;
+                if (backgroundAfterWeather !== backgroundBeforeGeneration || agentSignal.aborted) return;
+                if (!weatherFilename || !(await showIfUnchanged(weatherFilename, backgroundBeforeGeneration))) return;
+                sendSseEvent(reply, {
+                  type: "agent_result",
+                  data: {
+                    agentType: "illustrator",
+                    agentName: tail.illustratorAgent.name ?? "Illustrator",
+                    resultType: "background_change",
+                    data: {
+                      chosen: weatherFilename,
+                      generated: weatherGenerated,
+                      weatherVersion: true,
+                      reason: [weatherNow ? `Weather: ${weatherNow}` : "", timeNow ? `Time: ${timeNow}` : ""]
+                        .filter(Boolean)
+                        .join(". "),
+                    },
+                    success: true,
+                    error: null,
+                  },
+                });
+                logger.info(
+                  '[background-weather] Showing "%s" for weather "%s", time "%s"',
+                  weatherFilename,
+                  weatherNow || "-",
+                  timeNow || "-",
+                );
+                return;
+              }
+              const backgroundDecisionReason = tail.requestedBackground
+                ? tail.illustratorReason
+                : trackerLocationChanged
+                  ? `Tracker location changed from ${trackedLocationAtDecision || "an unspecified location"} to ${latestGameState?.location}.`
+                  : "The Decision model read that the latest message moves the scene to a new place.";
+              if (trackerLocationChanged && !tail.requestedBackground) {
+                logger.info(
+                  '[illustrator-background] Tracker location changed from "%s" to "%s"; generating despite a false Illustrator background decision',
+                  trackedLocationAtDecision || "(none)",
+                  latestGameState?.location,
+                );
+              }
+              // A place the library already has a picture of is shown, not painted again: first by the
+              // tracker location, then (without one) by the place name the background plan writes.
+              const weatherForReuse = weatherNow;
+              const timeForReuse = timeNow;
+              const backgroundLibrary = readBackgroundLibrary();
+              // When only the Decision model saw a move, the tracker still names the old place: match the
+              // place name the background plan writes instead, so the old place's picture isn't reused.
+              const trackerNamesThisPlace = trackerLocationChanged || tail.requestedBackground || !decidedNewPlace;
+              const trackerLocation = trackerNamesThisPlace ? latestGameState?.location?.trim() || null : null;
+              const existingForLocation = matchLibraryBackgroundForPlace(trackerLocation, backgroundLibrary);
+              const picked = existingForLocation
+                ? {
+                    filename: existingForLocation,
+                    locationName: trackerLocation ?? existingForLocation,
+                    prompt: "",
+                    reason: `Already in the library for ${trackerLocation ?? "this place"}.`,
+                    tags: [] as string[],
+                    url: `/api/backgrounds/file/${encodeURIComponent(existingForLocation)}`,
+                    reused: true,
+                  }
+                : await generateIllustratorSceneBackground({
+                    db: app.db,
+                    chatId: input.chatId,
+                    chatName: chat.name,
+                    chatMode: chatMode === "game" ? "game" : "roleplay",
+                    chatMetadata: freshMeta,
+                    currentBackground: backgroundBeforeGeneration ?? currentBackground,
+                    illustratorAgent: tail.illustratorAgent,
+                    assistantResponse: agentCompletedResponse,
+                    decisionReason: backgroundDecisionReason,
+                    // Without a World State weather or time, the Decision model's picks are painted (and recorded).
+                    gameState:
+                      latestGameState && (weatherNow || timeNow)
+                        ? {
+                            ...latestGameState,
+                            weather: latestGameState.weather?.trim() ? latestGameState.weather : weatherNow || null,
+                            time: backgroundTimeOfDay(latestGameState.time) ? latestGameState.time : timeNow || null,
+                          }
+                        : latestGameState,
+                    recentMessages: agentContext.recentMessages,
+                    signal: agentSignal,
+                    debugLog,
+                    reuseExisting: trackerLocation
+                      ? undefined
+                      : async (plan) =>
+                          matchLibraryBackgroundForPlace(plan.locationName, backgroundLibrary) ??
+                          // Optional: no name matches, so a decision model that reads pictures looks at a
+                          // few backgrounds sharing words with the place, and reuses one that shows it.
+                          (freshMeta.illustratorReuseByLooking === true
+                            ? await reuseLibraryBackgroundByLooking(
+                                app.db,
+                                plan.locationName,
+                                backgroundLibrary,
+                                agentSignal,
+                              )
+                            : null),
+                  });
+              // A picture the chat already had arrives in today's weather and time: its version, made once when missing.
+              let generated = picked;
+              if (picked.reused === true && (weatherForReuse || timeForReuse)) {
+                const reuseWeather = planChatBackgroundVersion(picked.filename, {
+                  weather: weatherForReuse || null,
+                  time: timeForReuse || null,
+                });
+                if (reuseWeather.kind === "switch") {
+                  generated = { ...picked, filename: reuseWeather.filename };
+                } else if (reuseWeather.kind === "generate") {
+                  const made = await generateIllustratorBackgroundWeatherVersion({
+                    db: app.db,
+                    chatId: input.chatId,
+                    chatName: chat.name,
+                    chatMode: chatMode === "game" ? "game" : "roleplay",
+                    chatMetadata: freshMeta,
+                    currentBackground: picked.filename,
+                    illustratorAgent: tail.illustratorAgent,
+                    assistantResponse: agentCompletedResponse,
+                    gameState: latestGameState,
+                    recentMessages: agentContext.recentMessages,
+                    signal: agentSignal,
+                    debugLog,
+                    baseFilename: reuseWeather.baseFilename,
+                    version: reuseWeather.version,
+                    time: reuseWeather.time,
+                    scenePrompt: reuseWeather.scenePrompt,
+                  });
+                  if (made) {
+                    generated = {
+                      ...picked,
+                      filename: made.filename,
+                      reason: [
+                        picked.reason,
+                        weatherForReuse ? `Weather: ${weatherForReuse}.` : "",
+                        timeForReuse ? `Time: ${timeForReuse}.` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" "),
+                    };
+                  }
+                }
+              }
+              if (generated.filename === backgroundBeforeGeneration) {
+                logger.info('[illustrator-background] "%s" already shows this place', generated.filename);
+                return;
+              }
+
+              const chatAfterGeneration = await chats.getById(input.chatId);
+              const metaAfterGeneration = parseExtra(chatAfterGeneration?.metadata) as Record<string, unknown>;
+              const backgroundAfterGeneration =
+                typeof metaAfterGeneration.background === "string" && metaAfterGeneration.background.trim()
+                  ? metaAfterGeneration.background.trim()
+                  : null;
+              if (backgroundAfterGeneration !== backgroundBeforeGeneration) {
+                logger.info(
+                  "[illustrator-background] Saved %s to the library without activating it because the background changed during generation",
+                  generated.filename,
+                );
+                return;
+              }
+              if (agentSignal.aborted) return;
+              if (!(await showIfUnchanged(generated.filename, backgroundBeforeGeneration))) return;
+              sendSseEvent(reply, {
+                type: "agent_result",
+                data: {
+                  agentType: "illustrator",
+                  agentName: tail.illustratorAgent.name ?? "Illustrator",
+                  resultType: "background_change",
+                  data: {
+                    chosen: generated.filename,
+                    generated: generated.reused !== true,
+                    location: generated.locationName,
+                    reason: generated.reason,
+                    tags: generated.tags,
+                  },
+                  success: true,
+                  error: null,
+                },
+              });
+              logger.info(
+                '[illustrator-background] %s and activated "%s" for %s',
+                generated.reused ? "Reused" : "Generated",
+                generated.filename,
+                generated.locationName,
+              );
+            } catch (backgroundError) {
+              logger.error(backgroundError, "[illustrator-background] Automatic scene background failed");
+              sendSseEvent(reply, {
+                type: "agent_error",
+                data: {
+                  agentType: "illustrator",
+                  agentName: tail.illustratorAgent.name ?? "Illustrator",
+                  retryTarget: "background",
+                  error: `Background generation failed: ${
+                    backgroundError instanceof Error ? backgroundError.message : String(backgroundError)
+                  }`,
+                },
+              });
+            }
+          };
         };
         let assistantMessageReadySent = false;
         const sendAssistantMessageReady = async (savedMessage?: typeof currentIterationSavedMsg) => {
@@ -14227,6 +14662,39 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               }
 
+              // Show the pick in the story's weather and time of day when that version already exists (never made here).
+              // Read from the tracker state saved for this reply (World State runs first), else the turn's start.
+              // Without a World State weather or time, the Decision model's last pick (when its check is on).
+              const agentPick = bgData.chosen;
+              const versionsOn =
+                !!agentPick &&
+                (illustratorWeatherVersionsEnabled(chatMode, chatMeta) ||
+                  illustratorTimeVersionsEnabled(chatMode, chatMeta));
+              const pickState = versionsOn
+                ? await trackedStateForTurn(messageId, targetSwipeIndex).catch(() => gameState)
+                : gameState;
+              const pickWeather = illustratorWeatherVersionsEnabled(chatMode, chatMeta)
+                ? pickState?.weather?.trim() ||
+                  (chatMeta.illustratorDecisionWeatherCheck === true &&
+                  typeof chatMeta.illustratorDecisionWeather === "string"
+                    ? chatMeta.illustratorDecisionWeather
+                    : "")
+                : "";
+              const pickTime = illustratorTimeVersionsEnabled(chatMode, chatMeta)
+                ? (backgroundTimeOfDay(pickState?.time) ? (pickState?.time ?? "") : "") ||
+                  (chatMeta.illustratorDecisionTimeCheck === true &&
+                  typeof chatMeta.illustratorDecisionTime === "string"
+                    ? chatMeta.illustratorDecisionTime
+                    : "")
+                : "";
+              if (bgData.chosen && (pickWeather || pickTime)) {
+                const versionPlan = planChatBackgroundVersion(bgData.chosen, {
+                  weather: pickWeather || null,
+                  time: pickTime || null,
+                });
+                if (versionPlan.kind === "switch") bgData.chosen = versionPlan.filename;
+              }
+
               // A pinned place owns its picture: the agent can't swap it for another one there.
               let pinnedPatch: Record<string, unknown> | null = null;
               if (bgData.chosen && (await pinsApplyToChat(chatMeta))) {
@@ -14276,6 +14744,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   await updateChatMetadataForTools({ background: bgData.chosen });
                 } catch {
                   /* non-critical */
+                }
+                // The client already got the agent's plain pick; tell it the weather or time version shows.
+                if (bgData.chosen !== agentPick) {
+                  sendSseEvent(reply, {
+                    type: "agent_result",
+                    data: {
+                      agentType: result.agentType,
+                      agentName: agentNameByType.get(result.agentType) ?? result.agentType,
+                      resultType: "background_change",
+                      data: { chosen: bgData.chosen },
+                      success: true,
+                      error: null,
+                    },
+                  });
                 }
               }
             }
@@ -14687,163 +15169,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 `[illustrator] shouldGenerate=${shouldGenerate}, generateBackground=${requestedBackground}, reason="${(illData.reason as string) ?? "none"}", prompt="${imagePrompt.slice(0, 500) || "(empty)"}"${illData.parseError ? " [JSON PARSE ERROR — raw: " + ((illData.raw as string) ?? "").slice(0, 300) + "]" : ""}`,
               );
 
-              if (!commandTarget && automaticBackgroundsEnabled && illustratorBackgroundAgent) {
-                const backgroundAtDecision =
-                  typeof chatMeta.background === "string" && chatMeta.background.trim()
-                    ? chatMeta.background.trim()
-                    : null;
-                const trackedLocationAtDecision = gameState?.location ?? null;
-                pendingIllustratorBackground = async () => {
-                  try {
-                    const freshChat = await chats.getById(input.chatId);
-                    const freshMeta = parseExtra(freshChat?.metadata) as Record<string, unknown>;
-                    const backgroundBeforeGeneration =
-                      typeof freshMeta.background === "string" && freshMeta.background.trim()
-                        ? freshMeta.background.trim()
-                        : null;
-                    // A pinned place keeps its picture: the Illustrator paints nothing there.
-                    if (
-                      (await pinsApplyToChat(freshMeta)) &&
-                      (await pinnedSceneBackgroundForTurn(messageId, targetSwipeIndex))
-                    ) {
-                      logger.info("[illustrator-background] The story is at a pinned place; no new background");
-                      return;
-                    }
-                    if (
-                      backgroundBeforeGeneration !== backgroundAtDecision &&
-                      !(backgroundBeforeGeneration && backgroundsShownThisTurn.has(backgroundBeforeGeneration))
-                    ) {
-                      logger.info(
-                        "[illustrator-background] Skipping automatic background because the active background changed after the Illustrator decision",
-                      );
-                      return;
-                    }
-
-                    const latestSnapshot = messageId
-                      ? await gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex)
-                      : await gameStateStore.getForGeneration(input.chatId, { preferLatestVisible: true });
-                    const latestGameState = latestSnapshot
-                      ? parseGameStateRow(latestSnapshot as Record<string, unknown>)
-                      : gameState;
-                    const trackerLocationChanged = illustratorTrackerLocationChanged(
-                      trackedLocationAtDecision,
-                      latestGameState?.location,
-                    );
-                    if (!requestedBackground && !trackerLocationChanged) return;
-                    const backgroundDecisionReason = requestedBackground
-                      ? typeof illData.reason === "string"
-                        ? illData.reason
-                        : undefined
-                      : `Tracker location changed from ${trackedLocationAtDecision || "an unspecified location"} to ${latestGameState?.location}.`;
-                    if (trackerLocationChanged && !requestedBackground) {
-                      logger.info(
-                        '[illustrator-background] Tracker location changed from "%s" to "%s"; generating despite a false Illustrator background decision',
-                        trackedLocationAtDecision || "(none)",
-                        latestGameState?.location,
-                      );
-                    }
-                    // A place the library already has a picture of is shown, not painted again: first by the
-                    // tracker location, then (without one) by the place name the background plan writes.
-                    const backgroundLibrary = readBackgroundLibrary();
-                    const trackerLocation = latestGameState?.location?.trim() || null;
-                    const existingForLocation = matchLibraryBackgroundForPlace(trackerLocation, backgroundLibrary);
-                    const generated = existingForLocation
-                      ? {
-                          filename: existingForLocation,
-                          locationName: trackerLocation ?? existingForLocation,
-                          prompt: "",
-                          reason: `Already in the library for ${trackerLocation ?? "this place"}.`,
-                          tags: [] as string[],
-                          url: `/api/backgrounds/file/${encodeURIComponent(existingForLocation)}`,
-                          reused: true,
-                        }
-                      : await generateIllustratorSceneBackground({
-                          db: app.db,
-                          chatId: input.chatId,
-                          chatName: chat.name,
-                          chatMode: chatMode === "game" ? "game" : "roleplay",
-                          chatMetadata: freshMeta,
-                          currentBackground: backgroundBeforeGeneration ?? currentBackground,
-                          illustratorAgent: illustratorBackgroundAgent,
-                          assistantResponse: agentCompletedResponse,
-                          decisionReason: backgroundDecisionReason,
-                          gameState: latestGameState,
-                          recentMessages: agentContext.recentMessages,
-                          signal: agentSignal,
-                          debugLog,
-                          reuseExisting: trackerLocation
-                            ? undefined
-                            : async (plan) =>
-                                matchLibraryBackgroundForPlace(plan.locationName, backgroundLibrary) ??
-                                // Optional: no name matches, so a decision model that reads pictures looks at a
-                                // few backgrounds sharing words with the place, and reuses one that shows it.
-                                (freshMeta.illustratorReuseByLooking === true
-                                  ? await reuseLibraryBackgroundByLooking(
-                                      app.db,
-                                      plan.locationName,
-                                      backgroundLibrary,
-                                      agentSignal,
-                                    )
-                                  : null),
-                        });
-                    if (generated.filename === backgroundBeforeGeneration) {
-                      logger.info('[illustrator-background] "%s" already shows this place', generated.filename);
-                      return;
-                    }
-
-                    const chatAfterGeneration = await chats.getById(input.chatId);
-                    const metaAfterGeneration = parseExtra(chatAfterGeneration?.metadata) as Record<string, unknown>;
-                    const backgroundAfterGeneration =
-                      typeof metaAfterGeneration.background === "string" && metaAfterGeneration.background.trim()
-                        ? metaAfterGeneration.background.trim()
-                        : null;
-                    if (backgroundAfterGeneration !== backgroundBeforeGeneration) {
-                      logger.info(
-                        "[illustrator-background] Saved %s to the library without activating it because the background changed during generation",
-                        generated.filename,
-                      );
-                      return;
-                    }
-
-                    await chats.patchMetadata(input.chatId, { background: generated.filename });
-                    sendSseEvent(reply, {
-                      type: "agent_result",
-                      data: {
-                        agentType: "illustrator",
-                        agentName: illustratorBackgroundAgent.name ?? "Illustrator",
-                        resultType: "background_change",
-                        data: {
-                          chosen: generated.filename,
-                          generated: generated.reused !== true,
-                          location: generated.locationName,
-                          reason: generated.reason,
-                          tags: generated.tags,
-                        },
-                        success: true,
-                        error: null,
-                      },
-                    });
-                    logger.info(
-                      '[illustrator-background] %s and activated "%s" for %s',
-                      generated.reused ? "Reused" : "Generated",
-                      generated.filename,
-                      generated.locationName,
-                    );
-                  } catch (backgroundError) {
-                    logger.error(backgroundError, "[illustrator-background] Automatic scene background failed");
-                    sendSseEvent(reply, {
-                      type: "agent_error",
-                      data: {
-                        agentType: "illustrator",
-                        agentName: illustratorBackgroundAgent.name ?? "Illustrator",
-                        retryTarget: "background",
-                        error: `Background generation failed: ${
-                          backgroundError instanceof Error ? backgroundError.message : String(backgroundError)
-                        }`,
-                      },
-                    });
-                  }
-                };
+              const weatherVersionsEnabled = illustratorWeatherVersionsEnabled(chatMode, chatMeta);
+              const timeVersionsEnabled = illustratorTimeVersionsEnabled(chatMode, chatMeta);
+              if (
+                !commandTarget &&
+                (automaticBackgroundsEnabled || weatherVersionsEnabled || timeVersionsEnabled) &&
+                illustratorBackgroundAgent
+              ) {
+                pendingIllustratorBackground = makeIllustratorBackgroundTail({
+                  illustratorAgent: illustratorBackgroundAgent,
+                  illustratorRan: true,
+                  requestedBackground,
+                  illustratorReason: typeof illData.reason === "string" ? illData.reason : undefined,
+                  messageId,
+                  swipeIndex: targetSwipeIndex,
+                });
               }
 
               if (storyboardSuppressesForeground) {
@@ -15741,6 +16081,38 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 },
               });
             }
+          }
+        }
+
+        // Optional Decision model checks also look at replies the Illustrator skipped (its run interval),
+        // and so do time of day versions: the World State clock reaching night shows the night picture.
+        if (
+          !pendingIllustratorBackground &&
+          (illustratorChecks.location ||
+            illustratorChecks.weather ||
+            illustratorChecks.time ||
+            illustratorTimeVersions) &&
+          chatEnableAgents &&
+          !input.impersonate &&
+          !recoveredAlreadyAppliedOwnerTurn &&
+          latestAssistantMessageId &&
+          agentCompletedResponse &&
+          !generationSignal.aborted
+        ) {
+          const illustratorForChecks = resolvedAgents.find((agent) => agent.type === "illustrator");
+          if (illustratorForChecks) {
+            pendingIllustratorBackground = makeIllustratorBackgroundTail({
+              illustratorAgent: illustratorForChecks,
+              illustratorRan: false,
+              requestedBackground: false,
+              messageId: latestAssistantMessageId,
+              swipeIndex:
+                typeof lastSavedSwipeIndex === "number"
+                  ? lastSavedSwipeIndex
+                  : typeof (lastSavedMsg as { activeSwipeIndex?: unknown } | null)?.activeSwipeIndex === "number"
+                    ? (lastSavedMsg as { activeSwipeIndex: number }).activeSwipeIndex
+                    : 0,
+            });
           }
         }
 

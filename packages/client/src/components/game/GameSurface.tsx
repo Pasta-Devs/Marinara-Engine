@@ -351,6 +351,12 @@ import {
 import { DirectionEngine } from "./DirectionEngine";
 import { GameWidgetPanel, GameWidgetSessionPrepModal, MobileWidgetPanel } from "./GameWidgetPanel";
 import { WeatherEffects } from "../chat/WeatherEffects";
+import {
+  backgroundFileName,
+  backgroundShowsTimeOfDay,
+  backgroundShowsWeather,
+  useSceneShelter,
+} from "../../hooks/use-scene-shelter";
 import { GameInventory } from "./GameInventory";
 import type { StartingGearTaken } from "./StartingGearPicker";
 import { GameReadableDisplay } from "./GameReadableDisplay";
@@ -2615,6 +2621,8 @@ function GameSurfaceComponent({
   const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
   const generationPhase = useChatStore((s) => s.generationPhase);
   const gameSnapshot = useGameStateStore((s) => (s.current?.chatId === activeChatId ? s.current : null));
+  // Indoors the weather stays outside: no rain or snow across the room.
+  const gameSceneShelter = useSceneShelter(activeChatId, chatMeta, gameSnapshot?.location ?? null);
   const chatCharacterIds = useMemo(
     () => getChatCharacterIds(chat.characterIds).filter((id) => id !== PROFESSOR_MARI_ID),
     [chat.characterIds],
@@ -12817,6 +12825,22 @@ function GameSurfaceComponent({
       ? lastResolvedBackgroundRef.current.url
       : undefined);
 
+  // A weather or time of day version of a library background already shows the weather or the sky,
+  // so the drawn weather steps back (indoors: falls only on the window stencil), as in Roleplay.
+  const gameShownLibraryFile =
+    typeof displayedBackground === "string" && displayedBackground.startsWith("/api/backgrounds/file/")
+      ? backgroundFileName(displayedBackground)
+      : null;
+  const gamePaintedWeather = backgroundShowsWeather(gameShownLibraryFile, gameSnapshot?.weather);
+  const gamePaintedTime = backgroundShowsTimeOfDay(gameShownLibraryFile, gameSnapshot?.time ?? metaTime);
+  const gameWindowMask = useMemo(
+    () =>
+      gamePaintedWeather && gameShownLibraryFile
+        ? { url: `/api/backgrounds/weather-mask/${encodeURIComponent(gameShownLibraryFile)}` }
+        : null,
+    [gamePaintedWeather, gameShownLibraryFile],
+  );
+
   // Carries the RESOLVED background so an experience can post-process the scene it draws over. It cannot
   // derive this itself — the host's scene analysis may have chosen the background rather than the seam.
   const experienceUnderlayProps = useMemo(
@@ -14143,6 +14167,10 @@ function GameSurfaceComponent({
                           weather={gameSnapshot?.weather ?? null}
                           timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
                           showCelestial={false}
+                          shelter={gameSceneShelter}
+                          paintedWeather={gamePaintedWeather}
+                          paintedTime={gamePaintedTime}
+                          windowMask={gameWindowMask}
                           paused={isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing}
                         />
                       </div>

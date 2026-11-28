@@ -3,7 +3,8 @@
 //
 // A pinned place owns its background: while the story is there, the
 // Background agent can't swap the picture for another one, and the
-// Illustrator doesn't paint a new background for it.
+// Illustrator doesn't paint a new background for it (weather and time of day
+// versions of the pinned picture still happen).
 // ──────────────────────────────────────────────
 
 import {
@@ -17,11 +18,12 @@ import {
   type LocationBackgroundPin,
   type ResolvedOwnerSpatialProjection,
 } from "@marinara-engine/shared";
+import { planChatBackgroundVersion } from "../game/game-asset-generation.js";
 import { logger } from "../../lib/logger.js";
 
 export type PinnedSceneBackground = {
   match: LocationBackgroundMatch;
-  /** The pinned picture to show. */
+  /** What to show: the pinned picture, or its weather / time of day version when that already exists. */
   filename: string;
 };
 
@@ -90,6 +92,12 @@ export function pinnedSceneBackground(args: {
   characterNames?: readonly string[];
   /** Who wrote the message the location belongs to ("my bedroom" is theirs). */
   speakerName?: string | null;
+  /** The story's weather (World State), shown through a weather version when weatherVersions is on. */
+  weather?: string | null;
+  weatherVersions?: boolean;
+  /** The story's time (World State), shown through a time of day version when timeVersions is on. */
+  time?: string | null;
+  timeVersions?: boolean;
   /** Background pictures from the chat's characters' and persona's galleries (loadGalleryBackgroundPins). */
   galleryPins?: readonly LocationBackgroundPin[];
 }): PinnedSceneBackground | null {
@@ -106,10 +114,22 @@ export function pinnedSceneBackground(args: {
     speakerName: args.speakerName,
   });
   if (!match) return null;
-  return { match, filename: match.pin.background };
+  return { match, filename: existingVersionFor(match.pin.background, args) };
 }
 
 /** Metadata patch that shows a pin and remembers it was shown (a manual pick then lasts until the place changes). */
 export function pinnedBackgroundMetadataPatch(pinned: PinnedSceneBackground): Record<string, unknown> {
   return { background: pinned.filename, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: pinned.match.pin.id };
+}
+
+/** The picture's weather and/or time of day version when the library already has it, else the picture. */
+export function existingVersionFor(
+  filename: string,
+  args: { weather?: string | null; weatherVersions?: boolean; time?: string | null; timeVersions?: boolean },
+): string {
+  const weather = args.weatherVersions && args.weather?.trim() ? args.weather : null;
+  const time = args.timeVersions && args.time?.trim() ? args.time : null;
+  if (!weather && !time) return filename;
+  const plan = planChatBackgroundVersion(filename, { weather, time });
+  return plan.kind === "switch" ? plan.filename : filename;
 }

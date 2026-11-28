@@ -53,6 +53,13 @@ import {
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameStateStore } from "../../stores/game-state.store";
+import {
+  backgroundFileName,
+  backgroundShowsTimeOfDay,
+  backgroundShowsWeather,
+  readChatBackground,
+  useSceneShelter,
+} from "../../hooks/use-scene-shelter";
 import { useChatComposerFocused, useChatKeyboardOpen } from "../../hooks/use-visual-viewport-chat-bottom";
 import { useActiveLorebookEntries, useLorebooks } from "../../hooks/use-lorebooks";
 import { usePresetFull, usePresets } from "../../hooks/use-presets";
@@ -172,12 +179,38 @@ function useIsMobileToolbarViewport() {
   return isMobileViewport;
 }
 
-function WeatherEffectsConnected({ paused }: { paused: boolean }) {
+function WeatherEffectsConnected({ paused, backgroundBlurPx }: { paused: boolean; backgroundBlurPx: number }) {
   const weather = useGameStateStore((s) => s.current?.weather ?? null);
   const timeOfDay = useGameStateStore((s) => s.current?.time ?? null);
+  const location = useGameStateStore((s) => s.current?.location ?? null);
+  const chatId = useChatStore((s) => s.activeChat?.id ?? null);
+  const chatMetadata = useChatStore((s) => s.activeChat?.metadata);
+  const shelter = useSceneShelter(chatId, chatMetadata, location);
+  const shownBackground = useUIStore((s) => s.chatBackground);
+  const shownFile = backgroundFileName(shownBackground) ?? readChatBackground(chatMetadata);
+  // A weather or time of day version of the background already shows the weather or the sky.
+  const paintedWeather = backgroundShowsWeather(shownFile, weather);
+  const paintedTime = backgroundShowsTimeOfDay(shownFile, timeOfDay);
+  const blurStyle = getBackgroundBlurStyle(backgroundBlurPx);
+  const maskScale = blurStyle.transform ? Math.min(1.08, 1 + backgroundBlurPx * 0.0025) : 1;
+  const windowMask = useMemo(
+    () =>
+      paintedWeather && shownFile
+        ? { url: `/api/backgrounds/weather-mask/${encodeURIComponent(shownFile)}`, scale: maskScale }
+        : null,
+    [paintedWeather, shownFile, maskScale],
+  );
   return (
     <Suspense fallback={null}>
-      <WeatherEffects weather={weather} timeOfDay={timeOfDay} paused={paused} />
+      <WeatherEffects
+        weather={weather}
+        timeOfDay={timeOfDay}
+        paused={paused}
+        shelter={shelter}
+        paintedWeather={paintedWeather}
+        paintedTime={paintedTime}
+        windowMask={windowMask}
+      />
     </Suspense>
   );
 }
@@ -1825,7 +1858,9 @@ export function ChatRoleplaySurface({
         <CrossfadeBackground url={chatBackground} blurPx={chatBackgroundBlur} />
         <div className="rpg-overlay absolute inset-0" />
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
-        {weatherEffects && <WeatherEffectsConnected paused={weatherEffectsPaused} />}
+        {weatherEffects && (
+          <WeatherEffectsConnected paused={weatherEffectsPaused} backgroundBlurPx={chatBackgroundBlur} />
+        )}
         {visualNovel && !vnHistoryOpen && (
           <div
             ref={setVnMediaTarget}

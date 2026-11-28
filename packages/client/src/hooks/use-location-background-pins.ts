@@ -1,18 +1,26 @@
 import { useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { create } from "zustand";
 import {
   LOCATION_BACKGROUND_PIN_SHOWN_KEY,
   LOCATION_BACKGROUND_PINS_KEY,
+  backgroundTimeOfDay,
+  backgroundVersionStem,
+  backgroundWeatherVersion,
   normalizeLocationBackgroundPins,
+  parseBackgroundWeatherVersionName,
   resolveLocationBackgroundPin,
   type LocationBackgroundMatch,
   type LocationBackgroundPin,
 } from "@marinara-engine/shared";
+import { api } from "../lib/api-client";
 import { chatBackgroundMetadataToUrl } from "../lib/backgrounds";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useUIStore } from "../stores/ui.store";
 import { useUpdateChatMetadata } from "./use-chats";
 import { useSpatialContext } from "./use-spatial-context";
+
+type BackgroundListItem = { filename: string; source?: string; versionOf?: string | null };
 
 function readMetadata(raw: unknown): Record<string, unknown> {
   if (raw && typeof raw === "object") return raw as Record<string, unknown>;
@@ -63,6 +71,60 @@ export function chatUsesWorldMaps(metadata: unknown): boolean {
 }
 
 /**
+ * The picture to show for a pin in the story's weather and time of day: its version when the
+ * library already has one (made by the Illustrator), else the pinned picture itself. When the exact
+ * mix is missing, the weather version, then the time of day version stand in until it is made.
+ */
+export function pinnedBackgroundForWeather(
+  background: string,
+  weather: string | null | undefined,
+  library: readonly BackgroundListItem[] | undefined,
+  weatherVersions: boolean,
+  time?: string | null,
+  timeVersions = false,
+): string {
+  if ((!weatherVersions && !timeVersions) || !library?.length) return background;
+  const wantedWeather = weatherVersions ? backgroundWeatherVersion(weather) : "";
+  const wantedTime = timeVersions ? backgroundTimeOfDay(time) : "";
+  if (!wantedWeather && !wantedTime) return background;
+  if (background.includes("/") || background.includes(":")) {
+    // A gallery picture: its versions are linked to it by the library (versionOf), not by file name.
+    const versions = library.filter((item) => item.versionOf === background);
+    for (const [weatherPart, timePart] of [
+      [wantedWeather, wantedTime],
+      [wantedWeather, ""],
+      ["", wantedTime],
+    ] as const) {
+      if (!weatherPart && !timePart) continue;
+      const found = versions.find((item) => {
+        const parsed = parseBackgroundWeatherVersionName(item.filename);
+        return parsed.version === weatherPart && parsed.time === timePart;
+      });
+      if (found) return found.filename;
+    }
+    return background;
+  }
+  const dot = background.lastIndexOf(".");
+  if (dot <= 0) return background;
+  const stem = background.slice(0, dot);
+  const names = new Set(library.map((item) => item.filename));
+  const tries: Array<[typeof wantedWeather, typeof wantedTime]> = [
+    [wantedWeather, wantedTime],
+    [wantedWeather, ""],
+    ["", wantedTime],
+  ];
+  for (const [weatherPart, timePart] of tries) {
+    if (!weatherPart && !timePart) continue;
+    const versionStem = backgroundVersionStem(stem, weatherPart, timePart);
+    const sameExt = `${versionStem}${background.slice(dot)}`;
+    if (names.has(sameExt)) return sameExt;
+    const other = library.find((item) => item.filename.startsWith(`${versionStem}.`));
+    if (other) return other.filename;
+  }
+  return background;
+}
+
+/**
  * Shows a pinned place's picture when the story arrives there: a new reply, a tracker edit, a
  * swipe or a World Maps move. It applies once per arrival, so a picture picked by hand in a
  * pinned place stays until the story moves on (the server follows the same rule on new replies).
@@ -91,10 +153,14 @@ export function useLocationBackgroundPinFollower(args: {
   );
   const shownPinId =
     typeof meta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] === "string" ? meta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] : null;
+  const weatherVersions = meta.illustratorWeatherBackgroundsEnabled === true;
+  const timeVersions = meta.illustratorTimeBackgroundsEnabled === true;
 
   const gameState = useGameStateStore((state) => state.current);
   const stateKnown = !!gameState && gameState.chatId === chatId;
   const location = stateKnown ? (gameState?.location ?? null) : null;
+  const weather = stateKnown ? (gameState?.weather ?? null) : null;
+  const time = stateKnown ? (gameState?.time ?? null) : null;
 
   const mapsActive = isRoleplay && chatUsesWorldMaps(chatMetadata);
   const tracksLocation = chatUsesAgent(chatMetadata, "world-state");
@@ -131,6 +197,13 @@ export function useLocationBackgroundPinFollower(args: {
     });
   }, [publish, chatId, isRoleplay, location, place, match]);
 
+  const { data: library, isError: libraryFailed } = useQuery({
+    queryKey: ["backgrounds"],
+    queryFn: () => api.get<BackgroundListItem[]>("/backgrounds"),
+    enabled: isRoleplay && pins.length > 0 && (weatherVersions || timeVersions),
+    staleTime: 60_000,
+  });
+
   const updateMeta = useUpdateChatMetadata();
   const known = stateKnown || !!spatialData;
   const matchPinId = match?.pin.id ?? null;
@@ -149,7 +222,12 @@ export function useLocationBackgroundPinFollower(args: {
       return;
     }
     if (shownPinId === matchPinId) return;
-    const url = chatBackgroundMetadataToUrl(matchBackground);
+    // Wait for the library, so the pin isn't marked shown with its plain picture while a version exists.
+    if ((weatherVersions || timeVersions) && !library && !libraryFailed) return;
+    // With World State on, wait for its weather and time too, so the right version shows on arrival.
+    if ((weatherVersions || timeVersions) && tracksLocation && !stateKnown) return;
+    const filename = pinnedBackgroundForWeather(matchBackground, weather, library, weatherVersions, time, timeVersions);
+    const url = chatBackgroundMetadataToUrl(filename);
     if (url) useUIStore.getState().setChatBackground(url);
     updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: matchPinId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -165,5 +243,7 @@ export function useLocationBackgroundPinFollower(args: {
     matchPinId,
     matchBackground,
     shownPinId,
+    library,
+    libraryFailed,
   ]);
 }
