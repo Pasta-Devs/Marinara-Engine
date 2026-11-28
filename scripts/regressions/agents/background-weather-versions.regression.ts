@@ -432,11 +432,13 @@ assert.equal(weatherNamedInPrompt("A sunny market square"), "");
     "an older reply finishing late can't replace the newer reply's picture",
   );
   assert.equal(chat.metadata.background, "inn--tod-night.png");
-  await saveDecisionPicksIfNewest(chat, older, { weather: "rain", time: "night" });
+  await saveDecisionPicksIfNewest(chat, older, { weather: "rain", time: "night" }, () => false);
   assert.equal(chat.metadata.illustratorDecisionWeather, undefined, "an older reply's picks aren't saved");
 
   const newer = { chatId: "c1", messageId: "m2", swipeIndex: 0 };
-  await saveDecisionPicksIfNewest(chat, newer, { time: "dawn" });
+  await saveDecisionPicksIfNewest(chat, newer, { weather: "snow" }, () => true);
+  assert.equal(chat.metadata.illustratorDecisionWeather, undefined, "a stopped run's picks aren't saved");
+  await saveDecisionPicksIfNewest(chat, newer, { time: "dawn" }, () => false);
   assert.equal(chat.metadata.illustratorDecisionTime, "dawn", "the newest reply's picks are saved");
   assert.equal(
     await showBackgroundIfUnchanged(chat, newer, "inn--tod-dawn.png", "inn.png", () => false),
@@ -470,6 +472,26 @@ assert.equal(weatherNamedInPrompt("A sunny market square"), "");
   await held;
   assert.equal(await late, false);
   assert.equal(queued.metadata.background, "inn.png");
+
+  // A failed newest-reply lookup can't prove the reply is newest, so nothing is written.
+  const broken = fakeChat({ id: "m1", activeSwipeIndex: 0 });
+  broken.listMessagesPaginated = async () => {
+    throw new Error("database busy");
+  };
+  assert.equal(await showBackgroundIfUnchanged(broken, older, "inn--wx-rain.png", "inn.png", () => false), false);
+  await saveDecisionPicksIfNewest(broken, older, { weather: "rain" }, () => false);
+  assert.equal(broken.metadata.background, "inn.png");
+  assert.equal(broken.metadata.illustratorDecisionWeather, undefined);
+
+  // A stop that lands while the newest-reply lookup runs still stops the write.
+  const slow = fakeChat({ id: "m1", activeSwipeIndex: 0 });
+  let stopped = false;
+  slow.listMessagesPaginated = async () => {
+    stopped = true;
+    return [slow.newest];
+  };
+  assert.equal(await showBackgroundIfUnchanged(slow, older, "inn--wx-rain.png", "inn.png", () => stopped), false);
+  assert.equal(slow.metadata.background, "inn.png");
 }
 
 console.log("background weather versions: ok");

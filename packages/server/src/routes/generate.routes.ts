@@ -13075,7 +13075,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               );
               // Saved only from the newest reply, so an older reply finishing late can't overwrite a newer pick.
               try {
-                await saveDecisionPicksIfNewest(chats, backgroundReply, decided);
+                await saveDecisionPicksIfNewest(chats, backgroundReply, decided, () => agentSignal.aborted);
               } catch {
                 /* only a fallback for later replies */
               }

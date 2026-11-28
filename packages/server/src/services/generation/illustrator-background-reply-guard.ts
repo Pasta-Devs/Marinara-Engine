@@ -26,7 +26,10 @@ export interface BackgroundReply {
 
 /** Whether the reply (and swipe) is still the newest message of its chat. */
 export async function backgroundReplyIsNewest(chats: ReplyGuardChats, reply: BackgroundReply): Promise<boolean> {
-  const [newest] = await chats.listMessagesPaginated(reply.chatId, 1).catch(() => []);
+  const page = await chats.listMessagesPaginated(reply.chatId, 1).catch(() => null);
+  // A failed lookup can't prove the reply is newest, so nothing is written.
+  if (!page) return false;
+  const [newest] = page;
   return !newest || (newest.id === reply.messageId && (newest.activeSwipeIndex ?? 0) === reply.swipeIndex);
 }
 
@@ -44,7 +47,7 @@ export async function showBackgroundIfUnchanged(
   let shown = false;
   await chats.patchMetadata(reply.chatId, async (current) => {
     const now = typeof current.background === "string" && current.background.trim() ? current.background.trim() : null;
-    if (now !== before || aborted() || !(await backgroundReplyIsNewest(chats, reply))) return {};
+    if (now !== before || aborted() || !(await backgroundReplyIsNewest(chats, reply)) || aborted()) return {};
     shown = true;
     return { background: filename };
   });
@@ -53,16 +56,17 @@ export async function showBackgroundIfUnchanged(
 
 /**
  * Save the Decision model's weather and time picks (the fallback for later replies) only while the
- * reply is still the newest, so an older reply finishing late can't overwrite a newer pick.
+ * reply is still the newest and the run isn't stopped, so an older reply finishing late can't overwrite a newer pick.
  */
 export async function saveDecisionPicksIfNewest(
   chats: ReplyGuardChats,
   reply: BackgroundReply,
   picks: { weather?: string | null; time?: string | null },
+  aborted: () => boolean,
 ): Promise<void> {
   if (!picks.weather && !picks.time) return;
   await chats.patchMetadata(reply.chatId, async (current) => {
-    if (!(await backgroundReplyIsNewest(chats, reply))) return {};
+    if (aborted() || !(await backgroundReplyIsNewest(chats, reply)) || aborted()) return {};
     return {
       illustratorDecisionWeather: picks.weather || current.illustratorDecisionWeather,
       illustratorDecisionTime: picks.time || current.illustratorDecisionTime,
