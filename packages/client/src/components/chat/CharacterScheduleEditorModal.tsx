@@ -1791,6 +1791,8 @@ function OvDayCalendar({
               <button
                 key={`${shownDay}-${index}-${part}`}
                 type="button"
+                // As tall as the time it covers, on purpose.
+                data-ui-check-allow="stretched"
                 className={cn(
                   "ov-week__blk ov-day__blk",
                   `is-${status}`,
