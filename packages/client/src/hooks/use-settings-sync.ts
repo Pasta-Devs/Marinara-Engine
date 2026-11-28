@@ -42,6 +42,7 @@ import {
   normalizeConversationBackgroundImageOpacity,
   normalizeMariWindowHeightRem,
   normalizeMariWindowWidthRem,
+  normalizeChatBackgroundOverlays,
   normalizeMariCompanionWidthRem,
   normalizeRoleplayChatWidthPercent,
   normalizeSidebarSide,
@@ -105,6 +106,9 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
     sanitized.conversationBackgroundImageOpacity = normalizeConversationBackgroundImageOpacity(
       sanitized.conversationBackgroundImageOpacity,
     );
+  }
+  if ("chatBackgroundOverlays" in sanitized) {
+    sanitized.chatBackgroundOverlays = normalizeChatBackgroundOverlays(sanitized.chatBackgroundOverlays);
   }
   if ("sidebarSide" in sanitized) {
     sanitized.sidebarSide = normalizeSidebarSide(sanitized.sidebarSide);

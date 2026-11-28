@@ -85,6 +85,11 @@ export type Panel =
   | "bot-browser"
   | "extensions";
 export type ChatModeShortcut = "conversation" | "roleplay" | "game";
+/** Settings > Appearance > Chat backgrounds > Theme overlays. */
+export type ChatBackgroundOverlays = "full" | "light" | "off";
+export function normalizeChatBackgroundOverlays(value: unknown): ChatBackgroundOverlays {
+  return value === "light" || value === "off" ? value : "full";
+}
 
 /** Not saved: a Home surface the omnibar or a Command Center row asks Home to open. */
 export type HomeRequest = { kind: "faq" | "widgets" | "credits" } | { kind: "tab"; tab: string };
@@ -978,6 +983,12 @@ export interface UIState {
   defaultRoleplayBackground: string;
   /** Native blur applied to selected chat/game background images, in px. */
   chatBackgroundBlur: number;
+  /**
+   * How strongly a theme's layers over the chat background show (the tint, grid and edge shading
+   * over a Roleplay picture, the colour veil over a Conversation picture): "full" as the theme drew
+   * them, "light" at under half strength, "off" for the picture as it is. Message panels stay.
+   */
+  chatBackgroundOverlays: ChatBackgroundOverlays;
   /** Persisted opacity applied to conversation background images, as a percentage. */
   conversationBackgroundImageOpacity: number;
   /** When set, the main area shows the full-page character editor instead of chat */
@@ -1619,6 +1630,7 @@ export interface UIState {
   setChatBackground: (url: string | null) => void;
   setDefaultRoleplayBackground: (url: string) => void;
   setChatBackgroundBlur: (v: number) => void;
+  setChatBackgroundOverlays: (v: ChatBackgroundOverlays) => void;
   setConversationBackgroundImageOpacity: (v: number) => void;
   setCharacterLibrarySelectedId: (id: string | null) => void;
   setPersonaLibrarySelectedId: (id: string | null) => void;
@@ -2166,6 +2178,7 @@ export function pickSyncedSettings(state: UIState) {
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
+    chatBackgroundOverlays: state.chatBackgroundOverlays,
     conversationBackgroundImageOpacity: state.conversationBackgroundImageOpacity,
     language: state.language,
     fontFamily: state.fontFamily,
@@ -2481,6 +2494,7 @@ export function pickPersistedUIState(state: UIState) {
     recentChatBackgrounds: state.recentChatBackgrounds,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
+    chatBackgroundOverlays: state.chatBackgroundOverlays,
     conversationBackgroundImageOpacity: state.conversationBackgroundImageOpacity,
     fontSize: state.fontSize,
     language: state.language,
@@ -2796,6 +2810,7 @@ export const useUIStore = create<UIState>()(
         recentChatBackgrounds: [],
         defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
         chatBackgroundBlur: 0,
+        chatBackgroundOverlays: "full" as ChatBackgroundOverlays,
         conversationBackgroundImageOpacity: DEFAULT_CONVERSATION_BACKGROUND_IMAGE_OPACITY,
         characterDetailId: null,
         lorebookDetailId: null,
@@ -3358,6 +3373,7 @@ export const useUIStore = create<UIState>()(
         setDefaultRoleplayBackground: (url) =>
           set({ defaultRoleplayBackground: normalizeDefaultRoleplayBackground(url) }),
         setChatBackgroundBlur: (v) => set({ chatBackgroundBlur: Math.max(0, Math.min(24, Math.round(v))) }),
+        setChatBackgroundOverlays: (v) => set({ chatBackgroundOverlays: normalizeChatBackgroundOverlays(v) }),
         setConversationBackgroundImageOpacity: (v) =>
           set({ conversationBackgroundImageOpacity: normalizeConversationBackgroundImageOpacity(v) }),
         setCharacterLibrarySelectedId: (id) => set({ characterLibrarySelectedId: id }),
@@ -3955,6 +3971,7 @@ export const useUIStore = create<UIState>()(
             chatBackground: null,
             defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
             chatBackgroundBlur: 0,
+            chatBackgroundOverlays: "full" as ChatBackgroundOverlays,
             conversationBackgroundImageOpacity: DEFAULT_CONVERSATION_BACKGROUND_IMAGE_OPACITY,
             fontSize: 17 as FontSize,
             chatFontSize: 16,
