@@ -12426,6 +12426,8 @@
   "ui.chat.slash.usage.hide": "/hide [range] [name (optional)]",
   "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M (optional)] [template=name (optional)] [prompt (optional)]",
   "ui.chat.slash.usage.impersonate": "/impersonate [direction (optional)]",
+  "ui.chat.slash.usage.impersonate_draft": "/impersonate_draft [direction (optional)]",
+  "ui.chat.slash.usage.impersonate_post": "/impersonate_post [direction (optional)]",
   "ui.chat.slash.usage.impersonate_prompt": "/impersonate_prompt [prompt|reset]",
   "ui.chat.slash.usage.remind": "/remind [time] [message]",
   "ui.chat.slash.usage.roll": "/roll [dice (optional)]",

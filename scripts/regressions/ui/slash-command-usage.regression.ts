@@ -308,7 +308,7 @@ const parameterized = [
       .map((command) => [command.name, command]),
   ).values(),
 ];
-assert.equal(parameterized.length, 17);
+assert.equal(parameterized.length, 19);
 for (const command of parameterized) {
   assert.equal(english[`ui.chat.slash.usage.${command.name}`], command.usage);
   assert.equal(getSlashCommandUsage(command, translate), command.usage);
