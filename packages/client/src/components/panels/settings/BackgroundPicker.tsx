@@ -24,11 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  BACKGROUND_THUMBNAIL_WIDTH,
-  CHAT_IMAGE_PREVIEW_WIDTH,
-  parseBackgroundWeatherVersionName,
-} from "@marinara-engine/shared";
+import { BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH } from "@marinara-engine/shared";
 import { api } from "../../../lib/api-client";
 import { saveExportUrl } from "../../../lib/file-download";
 import { cn, getAvatarCropStyle } from "../../../lib/utils";
@@ -63,6 +59,7 @@ import { Spinner } from "../../ui/Spinner";
 import { ImageUploadDropzone } from "../../ui/ImageUploadDropzone";
 import { Modal } from "../../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { backgroundVersionLabel } from "../../../lib/background-version-label";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../../chat/ChatResourceActionButton";
 import { ContextMenu, type ContextMenuItem } from "../../ui/ContextMenu";
@@ -89,14 +86,6 @@ type BackgroundLibraryItem = {
   /** A weather or time of day version names its plain picture (a library file or a gallery address). */
   versionOf?: string | null;
 };
-
-/** "Night", "Rain at night", "Snow by day": what a weather or time of day version shows. */
-function backgroundVersionLabel(filename: string): string {
-  const { version, time } = parseBackgroundWeatherVersionName(filename);
-  const weather = version.replace(/-/gu, " ");
-  const label = weather && time ? `${weather} ${time === "day" ? "by day" : `at ${time}`}` : weather || time;
-  return label ? label.charAt(0).toUpperCase() + label.slice(1) : filename;
-}
 
 const SHOW_VERSIONS_KEY = "marinara.backgrounds.showVersions";
 
@@ -833,7 +822,12 @@ export function BackgroundPicker({
     const isRenaming = renamingFile === background.id;
     const title = getBackgroundLibraryTitle(background);
     const isFloatingActions = !isEditingTags && !isRenaming;
-    const versionLabel = background.versionOf ? backgroundVersionLabel(background.filename) : null;
+    const versionText = background.versionOf ? backgroundVersionLabel(background.filename, localizeUi) : "";
+    const versionLabel = background.versionOf
+      ? versionText
+        ? versionText.charAt(0).toUpperCase() + versionText.slice(1)
+        : background.filename
+      : null;
     const versionCount = versionLabel ? 0 : (versionCounts.get(background.filename) ?? 0);
     const datalistId = `background-tag-suggestions-${background.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 

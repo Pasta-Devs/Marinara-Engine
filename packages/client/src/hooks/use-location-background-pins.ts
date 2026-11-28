@@ -224,6 +224,8 @@ export function useLocationBackgroundPinFollower(args: {
     if (shownPinId === matchPinId) return;
     // Wait for the library, so the pin isn't marked shown with its plain picture while a version exists.
     if ((weatherVersions || timeVersions) && !library && !libraryFailed) return;
+    // With World State on, wait for its weather and time too, so the right version shows on arrival.
+    if ((weatherVersions || timeVersions) && tracksLocation && !stateKnown) return;
     const filename = pinnedBackgroundForWeather(matchBackground, weather, library, weatherVersions, time, timeVersions);
     const url = chatBackgroundMetadataToUrl(filename);
     if (url) useUIStore.getState().setChatBackground(url);

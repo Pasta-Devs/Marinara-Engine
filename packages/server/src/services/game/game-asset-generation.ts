@@ -2025,8 +2025,11 @@ export async function generateChatBackgroundWindowMask(
     }
     const { png, coverage } = cleaned;
     if (!existsSync(CHAT_BACKGROUND_MASK_DIR)) mkdirSync(CHAT_BACKGROUND_MASK_DIR, { recursive: true });
-    // The whole file name (inn.jpg.png), so inn.png and inn.jpg keep stencils of their own.
-    const maskName = source.gallery ? `${source.stem}.png` : `${basename(source.path)}.png`;
+    // Named by a hash of the whole file name, so inn.png and inn.jpg keep stencils of their own and a
+    // long name stays within file name limits.
+    const maskName = source.gallery
+      ? `${source.stem}.png`
+      : `${source.stem.slice(0, 80)}-${createHash("sha256").update(basename(source.path)).digest("hex").slice(0, 10)}.png`;
     writeFileAtomicSync(join(CHAT_BACKGROUND_MASK_DIR, maskName), png);
     if (!rememberChatBackgroundMask(baseFilename, maskName)) return null;
     logger.info(

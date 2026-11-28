@@ -29,6 +29,7 @@ import { getChatActiveLorebookIds } from "../../../lib/chat-lorebooks";
 import { getAgentRunIntervalMeta } from "../../../lib/agent-cadence";
 import { buildRoleplayAgentSettingsOrder, hasStandaloneRoleplayAgentSettings } from "../../../lib/agent-settings-order";
 import { useUIStore } from "../../../stores/ui.store";
+import { backgroundVersionLabel } from "../../../lib/background-version-label";
 import { abortGenerationForChat, useChatStore } from "../../../stores/chat.store";
 import type {
   AgentPhase,
@@ -954,20 +955,8 @@ export function useChatAgents({
       : { version: "", time: "" as const };
   const shownWeatherVersion = illustratorWeatherBackgroundsEnabled ? shownVersionParts.version : "";
   const shownTimeVersion = illustratorTimeBackgroundsEnabled ? shownVersionParts.time : "";
-  const shownVersionLabel = [
-    shownVersionParts.version.replace(/-/gu, " "),
-    shownVersionParts.time
-      ? shownVersionParts.version
-        ? shownVersionParts.time === "day"
-          ? "by day"
-          : `at ${shownVersionParts.time}`
-        : shownVersionParts.time === "day"
-          ? "daytime"
-          : shownVersionParts.time
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const shownVersionLabel =
+    typeof metadata.background === "string" ? backgroundVersionLabel(metadata.background, localizeUi) : "";
   const [remakingWeatherArt, setRemakingWeatherArt] = useState<WeatherArtPart | null>(null);
   const remakeWeatherArt = useCallback(
     async (part: WeatherArtPart) => {

@@ -13016,6 +13016,18 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             typeof chatMeta.background === "string" && chatMeta.background.trim() ? chatMeta.background.trim() : null;
           const trackedLocationAtDecision = gameState?.location ?? null;
           const trackedTimeOfDayAtDecision = backgroundTimeOfDay(gameState?.time);
+          /** Shows a picture only while the chat still shows the one this tail started from, in one queued write. */
+          const showIfUnchanged = async (filename: string, before: string | null) => {
+            let shown = false;
+            await chats.patchMetadata(input.chatId, (current) => {
+              const now =
+                typeof current.background === "string" && current.background.trim() ? current.background.trim() : null;
+              if (now !== before || agentSignal.aborted) return {};
+              shown = true;
+              return { background: filename };
+            });
+            return shown;
+          };
           return async () => {
             try {
               const freshChat = await chats.getById(input.chatId);
@@ -13157,7 +13169,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     ? metaAfterWeather.background.trim()
                     : null;
                 if (backgroundAfterWeather !== backgroundBeforeGeneration || agentSignal.aborted) return;
-                await chats.patchMetadata(input.chatId, { background: weatherFilename });
+                if (!weatherFilename || !(await showIfUnchanged(weatherFilename, backgroundBeforeGeneration))) return;
                 sendSseEvent(reply, {
                   type: "agent_result",
                   data: {
@@ -13226,7 +13238,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     illustratorAgent: tail.illustratorAgent,
                     assistantResponse: agentCompletedResponse,
                     decisionReason: backgroundDecisionReason,
-                    gameState: latestGameState,
+                    // Without a World State weather or time, the Decision model's picks are painted (and recorded).
+                    gameState:
+                      latestGameState && (weatherNow || timeNow)
+                        ? {
+                            ...latestGameState,
+                            weather: latestGameState.weather?.trim() ? latestGameState.weather : weatherNow || null,
+                            time: backgroundTimeOfDay(latestGameState.time) ? latestGameState.time : timeNow || null,
+                          }
+                        : latestGameState,
                     recentMessages: agentContext.recentMessages,
                     signal: agentSignal,
                     debugLog,
@@ -13307,8 +13327,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 return;
               }
               if (agentSignal.aborted) return;
-
-              await chats.patchMetadata(input.chatId, { background: generated.filename });
+              if (!(await showIfUnchanged(generated.filename, backgroundBeforeGeneration))) return;
               sendSseEvent(reply, {
                 type: "agent_result",
                 data: {

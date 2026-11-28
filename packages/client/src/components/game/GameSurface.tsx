@@ -12802,22 +12802,6 @@ function GameSurfaceComponent({
     return undefined;
   }, [chatBackground, effectiveBackgroundTag, replayActive, sceneAnalysisEnabled, scopedAssetMap]);
 
-  // A weather or time of day version of a library background already shows the weather or the sky,
-  // so the drawn weather steps back (indoors: falls only on the window stencil), as in Roleplay.
-  const gameShownLibraryFile =
-    typeof resolvedBackground === "string" && resolvedBackground.startsWith("/api/backgrounds/file/")
-      ? backgroundFileName(resolvedBackground)
-      : null;
-  const gamePaintedWeather = backgroundShowsWeather(gameShownLibraryFile, gameSnapshot?.weather);
-  const gamePaintedTime = backgroundShowsTimeOfDay(gameShownLibraryFile, gameSnapshot?.time ?? metaTime);
-  const gameWindowMask = useMemo(
-    () =>
-      gamePaintedWeather && gameShownLibraryFile
-        ? { url: `/api/backgrounds/weather-mask/${encodeURIComponent(gameShownLibraryFile)}` }
-        : null,
-    [gamePaintedWeather, gameShownLibraryFile],
-  );
-
   const lastResolvedBackgroundRef = useRef<{ scopeKey: string; url?: string }>({ scopeKey: sceneRuntimeScopeKey });
   useEffect(() => {
     if (lastResolvedBackgroundRef.current.scopeKey !== sceneRuntimeScopeKey) {
@@ -12840,6 +12824,22 @@ function GameSurfaceComponent({
     (scenePreparing && lastResolvedBackgroundRef.current.scopeKey === sceneRuntimeScopeKey
       ? lastResolvedBackgroundRef.current.url
       : undefined);
+
+  // A weather or time of day version of a library background already shows the weather or the sky,
+  // so the drawn weather steps back (indoors: falls only on the window stencil), as in Roleplay.
+  const gameShownLibraryFile =
+    typeof displayedBackground === "string" && displayedBackground.startsWith("/api/backgrounds/file/")
+      ? backgroundFileName(displayedBackground)
+      : null;
+  const gamePaintedWeather = backgroundShowsWeather(gameShownLibraryFile, gameSnapshot?.weather);
+  const gamePaintedTime = backgroundShowsTimeOfDay(gameShownLibraryFile, gameSnapshot?.time ?? metaTime);
+  const gameWindowMask = useMemo(
+    () =>
+      gamePaintedWeather && gameShownLibraryFile
+        ? { url: `/api/backgrounds/weather-mask/${encodeURIComponent(gameShownLibraryFile)}` }
+        : null,
+    [gamePaintedWeather, gameShownLibraryFile],
+  );
 
   // Carries the RESOLVED background so an experience can post-process the scene it draws over. It cannot
   // derive this itself — the host's scene analysis may have chosen the background rather than the seam.
