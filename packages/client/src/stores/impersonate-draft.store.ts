@@ -183,3 +183,9 @@ export function forgetImpersonateDraft(chatId: string) {
   const draft = getImpersonateDraft(chatId);
   if (draft?.status === "ready") setDraft(chatId, null);
 }
+
+/** Gives a draft its Redo and Undo back when sending it failed and nothing was posted. */
+export function restoreImpersonateDraft(chatId: string, draft: ImpersonateDraft) {
+  if (getImpersonateDraft(chatId)) return;
+  setDraft(chatId, { ...draft, status: "ready" });
+}
