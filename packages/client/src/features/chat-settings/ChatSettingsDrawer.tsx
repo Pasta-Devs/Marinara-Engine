@@ -528,6 +528,8 @@ export function ChatSettingsDrawer({
   const updateChat = useUpdateChat();
   const roomRoster = useMultiplayerMutation<unknown, MultiplayerHostAction>("/multiplayer/host/actions");
   const updateMeta = useUpdateChatMetadata();
+  // Serialized: two quick Decision check picks must not land out of order.
+  const updateMetaInOrder = useUpdateChatMetadata({ serialize: true });
   const globalAvatarStyle = useUIStore((s) => s.roleplayAvatarStyle);
   const updateTranslationMeta = useUpdateChatMetadata({ serialize: true });
   const createMessage = useCreateMessage(chat.id);
@@ -1887,8 +1889,13 @@ export function ChatSettingsDrawer({
       weather: illustratorDecisionWeatherCheck,
       time: illustratorDecisionTimeCheck,
     });
-    const every = parts.join("+");
-    const options = Array.from(new Set(["off", ...parts, ...(parts.length > 1 ? [every] : []), value]));
+    // Every mix of the checks that are on: single checks, then pairs, then all of them.
+    const subsets: string[] = [];
+    for (let mask = 1; mask < 1 << parts.length; mask++) {
+      subsets.push(parts.filter((_, index) => mask & (1 << index)).join("+"));
+    }
+    subsets.sort((a, b) => a.split("+").length - b.split("+").length);
+    const options = Array.from(new Set(["off", ...subsets, value]));
     const optionLabel = (option: string) =>
       localizeUi(
         `ui.chat.chatsettingsdrawer.illustratorDecisionChecks.${
@@ -1919,7 +1926,7 @@ export function ChatSettingsDrawer({
           disabled={!hasDecisionModel && value === "off"}
           onChange={(e) => {
             const picked = e.target.value.split("+");
-            updateMeta.mutate({
+            updateMetaInOrder.mutate({
               id: chat.id,
               illustratorDecisionLocationCheck: picked.includes("location"),
               illustratorDecisionWeatherCheck: picked.includes("weather"),

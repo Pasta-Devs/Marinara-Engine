@@ -1507,7 +1507,9 @@ function galleryBackground(value: string | null | undefined): GalleryBackground 
   if (!GAME_BACKGROUND_EXT_SET.has(ext)) return null;
   const path = join(DATA_DIR, "gallery", match[1] ? "personas" : "characters", match[2]!, file);
   if (!isUsableGeneratedImagePath(path)) return null;
-  const stem = `gallery-${createHash("sha1").update(url).digest("hex").slice(0, 12)}`;
+  // Named after the decoded file, so two spellings of one address (room.png, %72oom.png) share versions.
+  const identity = `${match[1] ? "personas" : "characters"}/${match[2]}/${file}`;
+  const stem = `gallery-${createHash("sha256").update(identity).digest("hex").slice(0, 12)}`;
   return { url, path, stem, ext };
 }
 
@@ -1821,21 +1823,27 @@ function readChatBackgroundMasks(): ChatBackgroundMasks {
   }
 }
 
-function rememberChatBackgroundMask(baseFilename: string, value: string): void {
+/** Records a picture's stencil in masks.json. False when the index couldn't be written. */
+function rememberChatBackgroundMask(baseFilename: string, value: string): boolean {
   try {
     if (!existsSync(CHAT_BACKGROUND_MASK_DIR)) mkdirSync(CHAT_BACKGROUND_MASK_DIR, { recursive: true });
     const masks = readChatBackgroundMasks();
     masks[baseFilename] = value;
     writeFileAtomicSync(CHAT_BACKGROUND_MASKS_PATH, JSON.stringify(masks, null, 2));
+    return true;
   } catch (err) {
     logger.warn(err, '[background-weather] Could not remember the window stencil of "%s"', baseFilename);
+    return false;
   }
 }
 
-/** Turn a picture's window stencil off ("none"): its weather versions then draw no moving weather. */
-export function turnOffChatBackgroundWindowMask(baseFilename: string): void {
+/**
+ * Turn a picture's window stencil off ("none"): its weather versions then draw no moving weather.
+ * False when it couldn't be saved.
+ */
+export function turnOffChatBackgroundWindowMask(baseFilename: string): boolean {
   const plain = chatBackgroundPlainPicture(baseFilename);
-  if (plain) rememberChatBackgroundMask(plain, "none");
+  return plain ? rememberChatBackgroundMask(plain, "none") : false;
 }
 
 /** The scene prompt Illustrator saved for a picture (or for the plain picture of a version), or "". */
@@ -1863,11 +1871,15 @@ export function chatBackgroundWindowMaskPath(filename: string): string | null {
   return existsSync(path) ? path : null;
 }
 
-/** The stencil's size: WINDOW_MASK_WIDTH wide, at the picture's aspect ratio. */
+/**
+ * The stencil's size: the picture's aspect ratio, fitted inside WINDOW_MASK_WIDTH on both sides, so
+ * a tall narrow picture doesn't grow a huge stencil.
+ */
 function windowMaskSize(pictureWidth: number, pictureHeight: number) {
+  const scale = WINDOW_MASK_WIDTH / Math.max(pictureWidth, pictureHeight);
   return {
-    width: WINDOW_MASK_WIDTH,
-    height: Math.max(32, Math.round((WINDOW_MASK_WIDTH * pictureHeight) / pictureWidth)),
+    width: Math.max(32, Math.round(pictureWidth * scale)),
+    height: Math.max(32, Math.round(pictureHeight * scale)),
   };
 }
 
@@ -1954,10 +1966,11 @@ export const WINDOW_MASK_INSTRUCTION = [
 /**
  * Ask the image model for the window stencil of a plain library picture, clean it into an alpha
  * mask, and save it. Records "none" when the answer has no usable windows, so it isn't asked again.
+ * Returns the stencil file name, "none" (no windows, recorded), or null when it couldn't be made.
  */
 export async function generateChatBackgroundWindowMask(
   req: ChatBackgroundGenRequest & { baseFilename: string },
-): Promise<string | null> {
+): Promise<string | "none" | null> {
   const source = plainPictureSource(req.baseFilename);
   if (!source || (!source.gallery && isChatBackgroundWeatherVersion(basename(source.path)))) return null;
   const baseFilename = source.gallery?.url ?? basename(source.path);
@@ -1972,6 +1985,13 @@ export async function generateChatBackgroundWindowMask(
     };
     if (!meta.width || !meta.height) return null;
     const size = await weatherVersionSize(basePath, req.size);
+    req.debugLog?.(
+      "[debug/illustrator] Window stencil prompt for %s (%dx%d):\n%s",
+      baseFilename,
+      size.width,
+      size.height,
+      WINDOW_MASK_INSTRUCTION,
+    );
     const result = await generateImage(
       req.imgModel,
       req.imgBaseUrl,
@@ -2000,15 +2020,15 @@ export async function generateChatBackgroundWindowMask(
       meta.height,
     );
     if (!cleaned) {
-      rememberChatBackgroundMask(baseFilename, "none");
       logger.info('[background-weather] No usable windows in "%s"', baseFilename);
-      return null;
+      return rememberChatBackgroundMask(baseFilename, "none") ? "none" : null;
     }
     const { png, coverage } = cleaned;
     if (!existsSync(CHAT_BACKGROUND_MASK_DIR)) mkdirSync(CHAT_BACKGROUND_MASK_DIR, { recursive: true });
-    const maskName = `${source.stem}.png`;
+    // The whole file name (inn.jpg.png), so inn.png and inn.jpg keep stencils of their own.
+    const maskName = source.gallery ? `${source.stem}.png` : `${basename(source.path)}.png`;
     writeFileAtomicSync(join(CHAT_BACKGROUND_MASK_DIR, maskName), png);
-    rememberChatBackgroundMask(baseFilename, maskName);
+    if (!rememberChatBackgroundMask(baseFilename, maskName)) return null;
     logger.info(
       '[background-weather] Made the window stencil of "%s" (%s%% glass)',
       baseFilename,

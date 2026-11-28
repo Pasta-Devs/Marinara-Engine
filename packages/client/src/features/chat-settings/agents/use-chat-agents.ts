@@ -1026,14 +1026,17 @@ export function useChatAgents({
     async (part: WeatherArtPart) => {
       setRemakingWeatherArt(part);
       try {
-        const result = await api.post<{ filename: string; stencil?: "made" | "none" }>(
+        const result = await api.post<{ filename: string; stencil?: "made" | "none"; shown?: boolean }>(
           "/backgrounds/weather-art/remake",
-          { chatId: chat.id, part },
+          { chatId: chat.id, part, debugMode },
         );
-        // A fresh address so the new picture and stencil show instead of the cached ones.
-        useUIStore
-          .getState()
-          .setChatBackground(`/api/backgrounds/file/${encodeURIComponent(result.filename)}?v=${Date.now()}`);
+        // A fresh address so the new picture and stencil show instead of the cached ones. Only while
+        // this chat is still the one on screen.
+        if (result.shown !== false && useChatStore.getState().activeChatId === chat.id) {
+          useUIStore
+            .getState()
+            .setChatBackground(`/api/backgrounds/file/${encodeURIComponent(result.filename)}?v=${Date.now()}`);
+        }
         qc.invalidateQueries({ queryKey: ["chats"] });
         toast.success(
           localizeUi(
@@ -1048,7 +1051,7 @@ export function useChatAgents({
         setRemakingWeatherArt(null);
       }
     },
-    [chat.id, qc, localizeUi],
+    [chat.id, qc, localizeUi, debugMode],
   );
   const toggleIllustratorWeatherBackgrounds = useCallback(() => {
     updateMeta.mutate({
