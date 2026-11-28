@@ -2,9 +2,9 @@ import { ArrowRight, Drama } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
-import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
+import { SettingsChoiceRow, SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { useFeatureModels, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
-import { QUICK_REPLIES_SETTINGS_CONTROL_ID, useUIStore } from "../../../stores/ui.store";
+import { QUICK_REPLIES_SETTINGS_CONTROL_ID, useUIStore, type ImpersonateResult } from "../../../stores/ui.store";
 import { Select } from "../../../components/ui/Select";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { ImpersonatePromptTemplateField } from "./ImpersonatePromptTemplateField";
@@ -29,6 +29,8 @@ export function ImpersonateSection({ presets }: ImpersonateSectionProps) {
   const setBlockAgents = useUIStore((state) => state.setImpersonateBlockAgents);
   const publicFaces = useUIStore((state) => state.impersonatePublicFaces);
   const setPublicFaces = useUIStore((state) => state.setImpersonatePublicFaces);
+  const impersonateResult = useUIStore((state) => state.impersonateResult);
+  const setImpersonateResult = useUIStore((state) => state.setImpersonateResult);
   const openRightPanel = useUIStore((state) => state.openRightPanel);
   const setSettingsTargetControlId = useUIStore((state) => state.setSettingsTargetControlId);
 
@@ -46,7 +48,30 @@ export function ImpersonateSection({ presets }: ImpersonateSectionProps) {
       contentClassName="pt-1.5"
     >
       <div className="space-y-2.5">
-        <ImpersonatePromptTemplateField />
+        <SettingsChoiceRow<ImpersonateResult>
+          anchorId="impersonate-result"
+          label={localizeUi("ui.chatSettings.impersonatesection.resultGoesTo")}
+          help={localizeUi("ui.chatSettings.impersonatesection.resultGoesToHelp")}
+          value={impersonateResult}
+          options={[
+            {
+              value: "post",
+              label: localizeUi("ui.chatSettings.impersonatesection.resultPost"),
+              description: localizeUi("ui.chatSettings.impersonatesection.resultPostDescription"),
+            },
+            {
+              value: "draft",
+              label: localizeUi("ui.chatSettings.impersonatesection.resultDraft"),
+              description: localizeUi("ui.chatSettings.impersonatesection.resultDraftDescription"),
+            },
+          ]}
+          onChange={setImpersonateResult}
+          className="px-0 pt-0"
+        />
+
+        <div className="border-t border-[var(--border)]/60 pt-2.5">
+          <ImpersonatePromptTemplateField />
+        </div>
 
         <div className="border-t border-[var(--border)]/60 pt-2.5">
           <div className="grid gap-3 pb-2.5 @lg:grid-cols-2">

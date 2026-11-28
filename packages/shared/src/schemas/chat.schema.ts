@@ -141,6 +141,11 @@ export const generateRequestSchema = z.object({
   /** #9427: in Roleplay, send each character's Public Face in place of its card. */
   impersonatePublicFaces: z.boolean().optional().default(false),
   impersonatePromptTemplate: z.string().optional(),
+  /**
+   * With impersonate: stream the result back as a message-box draft instead of posting it. Nothing is
+   * saved, and agents, trackers and world-state updates do not run.
+   */
+  impersonateDraft: z.boolean().optional().default(false),
 });
 
 // Auto-summarization entries — shape-only validation (no length caps).

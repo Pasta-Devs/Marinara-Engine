@@ -1477,6 +1477,24 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
     if (requestChatMode === "conversation" && input.impersonate) {
       return rejectGenerationOutput(reply, 400, { error: "Impersonate is not available in Conversation mode" });
     }
+    if (input.impersonateDraft) {
+      // A message-box draft is the user's own words until they send it: nothing is saved, nothing moves the
+      // scene, and no agent runs.
+      if (
+        !input.impersonate ||
+        input.regenerateMessageId ||
+        input.continueMessageId ||
+        input.pendingSpatialTransition
+      ) {
+        return rejectGenerationOutput(reply, 400, {
+          error: "An impersonate draft cannot regenerate, continue or move the scene",
+        });
+      }
+      input.impersonateBlockAgents = true;
+    }
+    // A draft leaves the lorebook's sticky and cooldown timers where they were: it was not a turn yet.
+    const persistLorebookState = (args: Parameters<typeof persistLorebookRuntimeState>[0]) =>
+      input.impersonateDraft ? Promise.resolve({}) : persistLorebookRuntimeState(args);
     const spatialRequestError = validateSpatialGenerationRequest({
       mode: requestChatMode,
       origin: resolveSpatialGenerationOrigin(input),
@@ -4151,7 +4169,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           if (!options.previewOnly) {
             Object.assign(
               chatMeta,
-              await persistLorebookRuntimeState({
+              await persistLorebookState({
                 db: app.db,
                 chats,
                 chatId: input.chatId,
@@ -4439,7 +4457,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           Object.assign(
             chatMeta,
-            await persistLorebookRuntimeState({
+            await persistLorebookState({
               db: app.db,
               chats,
               chatId: input.chatId,
@@ -4957,7 +4975,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           Object.assign(
             chatMeta,
-            await persistLorebookRuntimeState({
+            await persistLorebookState({
               db: app.db,
               chats,
               chatId: input.chatId,
@@ -5718,7 +5736,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
             Object.assign(
               chatMeta,
-              await persistLorebookRuntimeState({
+              await persistLorebookState({
                 db: app.db,
                 chats,
                 chatId: input.chatId,
@@ -11642,6 +11660,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             return null;
           }
 
+          // An impersonate draft goes back to the message box unsaved; the caller ends the turn there.
+          if (input.impersonateDraft) {
+            sendSseEvent(reply, { type: "impersonate_draft", data: { chatId: input.chatId, text: fullResponse } });
+            return null;
+          }
+
           // Save assistant message (or user message for impersonate)
           const savedReply = await saveGeneratedReply(
             {
@@ -13066,6 +13090,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // A merged group generation may voice several characters unless a regen
           // target or a single explicit @mention pins it to exactly one speaker.
           const genResult = await generateForCharacter(targetCharId, sentMessages, true, mergedSpeaksOnlyTarget);
+          if (input.impersonateDraft) {
+            // The draft was sent back unsaved: no reply was written, so nothing after it runs.
+            sendSseEvent(reply, { type: "done", data: "" });
+            return;
+          }
           if (genResult) {
             // A reply split at scene breaks: agents read every part, each with its own whispers.
             for (const part of genResult.earlierParts ?? []) {
