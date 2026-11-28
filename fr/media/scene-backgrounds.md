@@ -78,13 +78,15 @@ La nouvelle image devient la version sélectionnée dans le message. Les résult
 
 ### Versions d'image
 
-Ouvre une image regroupée en pile pour choisir une version. Les flèches gauche/droite, les touches fléchées et les balayages horizontaux permettent de passer d'une vignette de la galerie à l'autre. Les commandes haut/bas, les touches fléchées et les balayages verticaux sur l'image permettent de passer d'une version à l'autre dans la pile actuelle. Dézoome avant de naviguer. Faire défiler le prompt ne change pas de version.
+Ouvre une image regroupée en pile pour choisir une version. Dans une galerie, les flèches gauche/droite, les touches fléchées et les balayages horizontaux permettent de passer d'une vignette à l'autre. Une image ouverte depuis un message du chat reste dans sa propre pile. Les commandes haut/bas, les touches fléchées et les balayages verticaux sur l'image permettent de passer d'une version à l'autre dans la pile actuelle. Dézoome avant de naviguer. Faire défiler le prompt ne change pas de version.
 
 Clique sur l'image, l'en-tête du prompt ou le bouton de repli pour utiliser les touches Haut/Bas pour les versions. Clique sur le texte du prompt ou sur un bouton de copie pour utiliser ces touches pour le défilement à la place. Les commandes de version restent aussi visibles pendant la régénération ou l'édition. Applique ou efface un masque peint avant de changer de version ; les commandes sont désactivées pendant la génération.
 
 La version que tu choisis est enregistrée et affichée dans le chat, même après un rechargement. Régénérer ou modifier une ancienne version ajoute un nouveau résultat à la même pile et conserve aussi les versions suivantes. Une branche du chat a sa propre sélection.
 
-Utilise **Supprimer l'image de la galerie** sur la vignette, ou le bouton de suppression dans la visionneuse, pour choisir ce que tu veux retirer :
+Quand **Automatically save generated images to character galleries** (enregistrer automatiquement les images générées dans les galeries des personnages) est activé, les régénérations et les modifications gardent les galeries de personnage et de persona où l'image d'origine était enregistrée. Ces galeries regroupent elles aussi les versions. Chaque galerie enregistre sa propre version sélectionnée : parcourir une galerie ne change donc pas l'image sélectionnée dans le chat. Les entrées de galerie partagent les fichiers d'images enregistrés et ne créent pas de copies supplémentaires. Ouvrir une galerie restaure aussi les versions manquantes des anciennes piles du chat quand leur entrée de galerie d'origine renvoie toujours au chat source. Les versions supprimées d'une galerie déjà regroupée restent supprimées.
+
+Dans la galerie du chat, utilise **Supprimer l'image de la galerie** sur la vignette, ou le bouton de suppression dans la visionneuse, pour choisir ce que tu veux retirer :
 
 - **Supprimer cette version** supprime la version affichée. Si elle était sélectionnée, la version restante la plus récente s'affiche.
 - **Supprimer les autres versions** conserve la version affichée et supprime les autres.

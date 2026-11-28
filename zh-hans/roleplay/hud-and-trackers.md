@@ -130,7 +130,9 @@ Chat Settings 里的 **Reset View**(重置视图) 会清除保存的排列，再
 
 ### 生成新肖像
 
-Character Tracker 有了图像连接后，角色的大卡片就能生成新肖像。在紧凑卡片上，点击 **Feature character card**(设为重点角色卡片) 打开大卡片。Trackers 窗口始终显示大卡片。把鼠标悬停在肖像上，点眼睛按钮按 **Look** 生成一张，或点衬衫按钮按 **Look** 和 **Outfit** 生成。只有角色有服装时，才会出现衬衫按钮。新肖像生成好之前，旧肖像会一直保留。生成失败时，旧肖像也会保留。用角色卡头像或表情立绘显示的角色没有这些按钮。
+Character Tracker 有了图像连接后，角色的大卡片就能生成新肖像。在紧凑卡片上，点击 **Feature character card**(设为重点角色卡片) 打开大卡片。Trackers 窗口始终显示大卡片。把鼠标悬停在肖像上，点眼睛按钮按 **Look** 生成一张，或点衬衫按钮按 **Look** 和 **Outfit** 生成。只有角色有服装时，才会出现衬衫按钮。也可以用肖像右下角的上传按钮上传一张图片。对于角色卡，这会保存一张当前场景专用的肖像，不会替换角色卡自己的头像；点击肖像右上角的 **Revert to card portrait**(恢复为角色卡肖像) 就能换回角色卡肖像。新肖像生成好之前，旧肖像会一直保留；生成失败时，旧肖像也会保留。当前用表情立绘显示的角色会隐藏这些按钮，直到关闭 **Use expression sprites for tracker portraits**(追踪器肖像使用表情立绘)，或者没有匹配的立绘为止。
+
+在 Character Tracker 智能体设置里开启 **Rewrite portrait prompts with AI**(用 AI 改写肖像提示词)，Illustrator 的模型就会把 **Look**、**Mood** 和上半身的 **Outfit** 合成一条肖像提示词；如果想调整它的指令，还可以编辑一个提示词字段。
 
 ### Tracker Panel 设置
 

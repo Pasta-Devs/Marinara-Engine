@@ -282,6 +282,39 @@ Nicht gesetzte Variablen folgen den Widget-Einstellungen und dem Preset. Damit d
 
 Am Telefon klappt das Drei-Punkte-Menü zu runden Schaltflächen auf. Sein Auslöser ist `[data-chat-tools-menu-button]`, die geöffnete Spalte ist `[data-chat-tools-menu]`, und bei jedem Listeneintrag enthält `data-chat-tools-menu-item` die Fenster-ID. Tool-Schaltflächen nutzen `.mari-window-bubble.mari-chat-tools-button` und `data-chat-tools-menu-tool` mit derselben ID. Die Spalte hat keinen Fensterrahmen. Ihre Schaltflächen folgen den Widget-Farben und der Schaltflächengröße unabhängig von den drei Schaltern für den restlichen Chat und behalten dabei ihre runde Form.
 
+<a id="styling-character-sheets"></a>
+
+## Charakterbögen gestalten
+
+Der Charakterbogen eines Regelsatzes sieht in Roleplay und in Game Mode gleich aus. Mit diesen Klassen und Datenattributen kann ein Theme ihn gestalten.
+
+| Teil | Klasse | Datenattribute |
+| --- | --- | --- |
+| Der ganze Bogen | `.mari-ruleset-sheet` | `data-ruleset` (die ID des Regelsatzes, etwa `local/my-rules`), `data-rank-display` (`value`, `label`, `dots`, `roman` oder `number`), `data-editing="true"`, solange er bearbeitet wird |
+| Der Titel und die Schaltfläche **Edit ruleset sheet** (Regelsatzbogen bearbeiten) | `.mari-ruleset-sheet__header` | |
+| Die Tabs | `.mari-ruleset-sheet__tabs` | jeder Tab hat `data-tab-id` und `aria-selected` |
+| Die Überschrift einer Gruppe | `.mari-ruleset-sheet__heading` | |
+| Ein Feld oben auf dem Bogen | `.mari-ruleset-sheet__field` (in `.mari-ruleset-sheet__fields`) | `data-field`, oder `data-derived` für einen berechneten Wert |
+| Ein Attribut | `.mari-ruleset-sheet__ability` (in `.mari-ruleset-sheet__abilities`); sein Attributswert und sein Probenwert sind `__ability-score` und `__ability-value` | `data-ability`; eine Gruppe von Attributen hat `data-section` |
+| Eine Ressource, etwa Gesundheit | `.mari-ruleset-sheet__pool` (in `.mari-ruleset-sheet__pools`) | `data-pool`; eine Gruppe von Ressourcen hat `data-pool-group` |
+| Eine Leiste | `.mari-ruleset-sheet__track` (in `.mari-ruleset-sheet__tracks`) | `data-track`; eine Wundleiste hat zusätzlich `data-wound="true"` |
+| Zustände | `.mari-ruleset-sheet__conditions` | |
+| Eine ausgebildete Fertigkeit oder ein Rettungswurf | `.mari-ruleset-sheet__rank` (in `.mari-ruleset-sheet__trained`, nach Gruppe in `.mari-ruleset-sheet__rank-group`); ihr Rang – oder ihr Probenwert, wo der Regelsatz Ränge als Probenwerte zeigt (`data-rank-display="value"`) – ist `__rank-value`, der Probenwert, der am Handy daneben steht, `__rank-check`, ihre Übung `__practice` | `data-skill` oder `data-save`, `data-tier` (die ID der Stufe), `data-rank` (`0` ohne Ausbildung, `1` die nächste Stufe und so weiter) |
+| Eine Fertigkeit oder ein Rettungswurf, während der Bogen bearbeitet wird | `.mari-ruleset-sheet-editor__rank` | `data-skill` oder `data-save`, `data-tier`, `data-rank` |
+| Eine Liste, etwa Ausrüstung | `.mari-ruleset-sheet__list`; jede Zeile ist `.mari-ruleset-sheet__list-row` | `data-list`; eine angehakte Zeile hat `data-marked="true"` |
+
+Dieses Beispiel zeigt Rang 2 eines Regelsatzes als zwei Sterne. Füg für jeden Rang, den du ändern willst, ein solches Regelpaar hinzu. Nutze es nur bei einem Regelsatz, der Ränge als Punkte, Namen, römische Zahlen oder Zahlen zeigt: Wo er Probenwerte zeigt, enthält `__rank-value` den Probenwert, und das Beispiel würde ihn ausblenden.
+
+```css
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value {
+  font-size: 0;
+}
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value::after {
+  content: "★★";
+  font-size: 0.6875rem;
+}
+```
+
 ## Verwandte Anleitungen
 
 - [Anleitung zum Card-CSS-Theming](card-css-theming.md)

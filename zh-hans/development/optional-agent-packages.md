@@ -387,6 +387,12 @@ Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人�
 
 发行说明以 `notes.json` 的形式发布在它所描述的 `catalog.json` 旁边，绝不放进目录条目或清单：旧版 Engine 会丢弃带有未知键的目录条目。每个待处理的更新都带有 `releaseNotes`，内容是已安装版本之后、直到所提供版本为止每个版本的说明，最新的在前；只要其中任何一条被标记为用户会注意到的变化，`releaseHighlight` 就为 true。说明是纯文本，绝不会按 Markdown 或 HTML 渲染。
 
+用户指南使用另一个可选的 `docs.json`，放在每条目录通道旁边。包作者编写 Markdown，在 Marinara-Agents 的 `packages/<id>/documentation.json` 里登记概览和主题，然后在那里运行 `node scripts/build-documentation.mjs`。Markdown、作者索引和生成的附属文件要一起提交。这样修改文档就不必重新构建可执行的包归档。编写格式见 [Marinara-Agents 贡献指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/CONTRIBUTING.md#package-user-documentation)。
+
+Engine 通过 `GET /api/capability-packages/:id/documentation?guide=overview` 读取这份索引。响应提供主题列表和一份指南，并附上指南的来源和可用状态。现有的文档弹窗和 Professor Mari 使用的是同一个读取服务。Workspace 模式下，Mari 的 `agent.catalog.get` 包含一份有长度上限的概览；`agent.documentation.get` 读取一个已登记的主题，可选参数为 `heading` 和 `maxChars`(1,000–16,000，默认 8,000)。读取到的文字只是参考资料，既不是给模型的指令，也不能证明用户状态的改动已经保存。
+
+包的 Markdown 最大 256 KiB，并且必须与发布的字节数和 SHA-256 一致。远程索引最大 2 MiB；远程读取的时限为五秒，而且不跟随重定向。指向本地 Engine 文档的引用只能落在规范的英文用户文档范围内。验证过的读取结果在五分钟内视为最新，离线时最多可使用七天，`DATA_DIR/capability-packages/documentation-cache-v1` 下最多缓存 128 份读取结果。缓存键区分目录来源、通道、包和主题；当前运行的包版本必须一致。已知的官方包 README 和 Engine 指南链接提供旧式后备。自定义外部链接保留其来源，缺少帮助文档也不会影响安装。
+
 安装器必须做到：
 
 1. 要求具备本地环回/管理员级别的特权访问；

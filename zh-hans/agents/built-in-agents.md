@@ -79,6 +79,26 @@
 - **主要设置**：安装后在提示时重启，然后打开 **Home → Story Writer**，在侧栏里选择一个文本连接。故事都保存在你的 Marinara 服务器上。可以开始新故事、回到旧故事，也可以把它们下载为 Markdown 或纯文本。
 - **完整指南**：[Story Writer 包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md)。
 
+### Otome Hearth
+
+一款用你的角色打造的单人乙女游戏。攻略对象会记住你的选择，给你发消息，和你约会；用游戏中赚到的 Starlight 可以解锁支线故事和服装，没有真钱付费，也没有体力计时。
+
+- **集成方式**：应用，位于 **Home** 中自己的 **Otome Hearth** 标签页。
+- **适用范围**：Home。
+- **可用性**：需要 Engine **2.5.1+**(低于 4.0.0)。会请求访问网络连接、服务器路由、本地存储和一个 **Home** 标签页界面。
+- **主要设置**：安装后在提示时重启，然后打开 **Home → Otome Hearth**。在应用里配置角色设定资料、**Lines & Veils**(底线与帷幕) 内容限制，以及可选的 **Remind Me**(提醒我) 追踪。
+- **完整指南**：[Otome Hearth 包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/otome-forge/README.md)。
+
+### Saucelings
+
+一只住在 **Home → Saucelings** 和 Home 小组件里的虚拟宠物。从你的角色里选一位当照看者，让角色按自己的作息喂它、陪它玩、抱抱它，角色顾不上的时候由你来补上。
+
+- **集成方式**：应用，位于 **Home** 中自己的 **Saucelings** 标签页，另有 Home 小组件。
+- **适用范围**：Home。
+- **可用性**：需要 Engine **2.5.0+**(低于 4.0.0)。会请求访问聊天提示词上下文、服务器路由、本地存储，以及 **Home** 标签页和小组件界面。
+- **主要设置**：安装后在提示时重启，然后打开 **Home → Saucelings**，在 **Nook**(小窝)、**Journal**(日记)、**Album**(相册)、**Menagerie**(宠物园) 和 **Settings**(设置) 里照料宠物。
+- **完整指南**：[Saucelings 包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/saucelings/README.md)。
+
 ## 写作类智能体
 
 写作类智能体负责塑造故事或文笔。它们在回复之前补充写作指引，或在回复之后做润色。
@@ -421,6 +441,22 @@ Knowledge Retrieval 的省钱替代方案。它读取世界书条目的简短描
 - **集成方式**：Conversation 游戏包。
 - **适用范围**：Conversation。
 - **主要设置**：从游戏选择器启动，或者用 `/rps`，然后选择对手，以及三局两胜、五局三胜还是七局四胜。安装或移除之后需要重启。
+
+### Blackjack
+
+加入一张与庄家对局的二十一点牌桌，供 Conversation 角色游玩。
+
+- **集成方式**：Conversation 游戏包。
+- **适用范围**：Conversation。
+- **主要设置**：用 `/blackjack` 开一桌，或者从角色的提议中开一桌；在 **Chat Settings → Agents → Commands**(聊天设置 → 智能体 → 命令) 下开启 **Blackjack**，角色就能自己发起游戏。安装后需要重启，移除时不需要。
+
+### Wordle
+
+加入每天一局的 Wordle 猜词竞赛，和 Conversation 角色一起比拼。
+
+- **集成方式**：Conversation 游戏包。
+- **适用范围**：Conversation。
+- **主要设置**：用 `/wordle` 开始当天的游戏；在 **Chat Settings → Agents → Commands** 下开启 **Wordle**，角色就能自己发起当天的游戏。安装后需要重启，移除时不需要。
 
 ## 相关指南
 

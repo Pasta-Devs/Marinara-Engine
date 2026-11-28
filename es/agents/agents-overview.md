@@ -91,12 +91,20 @@ Un paquete marcado **Rules** no es un agente. Añade un conjunto de reglas de Ga
 
 Desinstalar un paquete elimina su código y sus ajustes, pero conserva los mensajes y el historial de tu chat. Borrar un agente personalizado lo elimina para siempre.
 
+### Leer las guías de un agente
+
+Abre la página del agente en **Agent Organizer** y haz clic en **Read how this agent works** (Leer cómo funciona este agente). Su descripción general se abre en la ventana de documentación. Elige un tema de la lista para leer más. En un teléfono, usa la flecha atrás para volver a la lista de temas. Cierra la ventana para volver a la página del agente.
+
+**View source** (Ver el original) abre la guía original. Algunos agentes todavía tienen solo un resumen breve o un enlace externo mientras sus autores añaden guías por tema. Si una guía no carga, inténtalo de nuevo cuando tengas conexión. Las guías que abriste antes pueden estar disponibles hasta siete días; una guía guardada puede estar desactualizada.
+
+**Version history** muestra las tres entradas más recientes. Haz clic en **Show older versions** (Mostrar versiones anteriores) para desplegarlo, o en **Show fewer versions** (Mostrar menos versiones) para acortarlo de nuevo. La última versión también aparece en **What's new** (Novedades).
+
 ### Actualizar agentes
 
 Cuando existe una versión compatible más reciente de un paquete instalado, se abre una ventana **Agent updates available** (Actualizaciones de agentes disponibles). Enumera cada actualización con su versión e indica si necesita un reinicio.
 
 1. Desmarca la casilla de cualquier actualización que quieras omitir. Todas las actualizaciones empiezan seleccionadas.
-2. Lee **What's new** (Novedades) si el paquete publicó notas. **More** (Más) muestra completa una nota larga. Un punto marca un cambio que vas a notar.
+2. Lee **What's new** si el paquete publicó notas. **More** (Más) muestra completa una nota larga. Un punto marca un cambio que vas a notar.
 3. Haz clic en **Update all** (o en **Update 2 of 3**, Actualizar 2 de 3, cuando hayas desmarcado algunas). Cada fila muestra **Updated** (Actualizado) o **Failed** (Falló). Una fila fallida muestra el motivo y **Retry** (Reintentar).
 4. Si una actualización necesita un reinicio, haz clic en **Restart now** (Reiniciar ahora), o reinicia Marinara más tarde.
 

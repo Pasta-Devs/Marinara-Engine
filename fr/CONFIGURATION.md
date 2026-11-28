@@ -89,6 +89,8 @@ Sans connexion définie, le serveur n'accepte que les sources de confiance : le 
 
 > **Avertissement :** une large plage publique dans `IP_ALLOWLIST`, comme `0.0.0.0/0`, peut laisser entrer des clients d'internet sans connexion. N'indique que des adresses de confiance.
 
+<a id="storage"></a>
+
 ## Stockage
 
 | Variable | Par défaut | Ce que ça fait |
@@ -107,6 +109,8 @@ openssl rand -hex 32
 ```
 
 Marinara conserve tes données sous forme de simples fichiers JSON : tu peux donc copier et lire tes sauvegardes. Pour savoir ce que contient chaque dossier, consulte [Où Marinara enregistre tes données](data/where-data-is-stored.md).
+
+Pour garder tes données sur un partage réseau, fais pointer `DATA_DIR` vers un dossier de ce partage et vérifie que le partage est connecté avant le démarrage de Marinara. Voir [Impossible d'accéder à un dossier réseau ou externe](TROUBLESHOOTING.md#cannot-access-a-network-or-external-folder).
 
 <a id="logging-levels"></a>
 

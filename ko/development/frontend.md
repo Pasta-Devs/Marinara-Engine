@@ -655,17 +655,24 @@ Narrative Director의 Secret Plot 패널처럼 에이전트의 기억을 다루�
 | `haptic` | post_processing | 햅틱 기기 명령을 보냅니다 |
 | `cyoa` | post_processing | 선택지 프롬프트를 만듭니다 |
 | `storyboard` | post_processing | Game과 Roleplay의 정지 또는 애니메이션 스토리보드를 계획합니다 |
+| `2d-avatars` | feature | 움직이는 2D 스프라이트나 메시 캐릭터 아바타를 렌더링합니다 |
+| `3d-avatars` | feature | 움직이는 VRM, MMD PMX, GLB, FBX 3D 아바타를 렌더링합니다 |
 | `conversation-calls` | feature | Conversation에 음성/영상 통화와 관련 설정을 추가합니다 |
 | `hierarchical-maps` | feature | Roleplay와 Game에 지도, 공간 컨텍스트, 이동을 추가합니다 |
 | `noodle` | feature | Home에 로컬 Noodle 소셜 피드를 추가합니다 |
+| `otome-forge` | feature | 캐릭터로 만드는 오토메 게임인 Otome Hearth를 Home에 추가합니다 |
+| `saucelings` | feature | 캐릭터가 키우는 가상 펫인 Saucelings를 Home에 추가합니다 |
 | `slurp2` | feature | 캐릭터를 위한 비공개 크리에이터 앱인 Slurp를 Home에 추가합니다 |
+| `story-writer` | feature | 함께 책을 쓰는 작업 공간인 Story Writer를 Home에 추가합니다 |
 | `gacha-forge` | feature | Home에 가챠 게임 모드를 추가합니다 |
+| `blackjack` | feature | Conversation에 Blackjack 테이블을 추가합니다 |
 | `uno` | feature | Conversation에 UNO 테이블을 추가합니다 |
 | `chess` | feature | Conversation에 Chess 판을 추가합니다 |
 | `poker` | feature | Conversation에 Texas Hold'em 테이블을 추가합니다 |
 | `eightball` | feature | Conversation에 8-Ball Pool 테이블을 추가합니다 |
 | `tic-tac-toe` | feature | Conversation에 Tic-Tac-Toe 판을 추가합니다 |
 | `rock-paper-scissors` | feature | Conversation에 Rock-Paper-Scissors 대결을 추가합니다 |
+| `wordle` | feature | Conversation에 매일 하는 Wordle 경주를 추가합니다 |
 
 ### 에이전트 결과 종류
 

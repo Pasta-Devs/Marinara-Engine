@@ -89,6 +89,8 @@ Sin inicio de sesión configurado, el servidor acepta solo fuentes de confianza:
 
 > **Advertencia:** un rango público amplio en `IP_ALLOWLIST`, como `0.0.0.0/0`, puede dejar entrar a clientes de internet sin iniciar sesión. Incluye solo direcciones de confianza.
 
+<a id="storage"></a>
+
 ## Almacenamiento
 
 | Variable | Predeterminado | Qué hace |
@@ -107,6 +109,8 @@ openssl rand -hex 32
 ```
 
 Marinara guarda tus datos como archivos JSON simples, así que puedes copiar y leer las copias de seguridad. Para saber qué contiene cada carpeta, consulta [Dónde se guardan tus datos](data/where-data-is-stored.md).
+
+Para guardar tus datos en un recurso compartido de red, apunta `DATA_DIR` a una carpeta de ese recurso y asegúrate de que esté conectado antes de que Marinara arranque. Consulta [No se puede acceder a una carpeta de red o externa](TROUBLESHOOTING.md#cannot-access-a-network-or-external-folder).
 
 <a id="logging-levels"></a>
 

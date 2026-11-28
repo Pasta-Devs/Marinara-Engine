@@ -77,6 +77,26 @@ Ein Buch, das du gemeinsam mit dem Modell schreibst. Richte Geschichte, Besetzun
 - **Wichtige Einstellungen**: Installiere sie, starte neu, wenn du dazu aufgefordert wirst, öffne dann **Home → Story Writer** und wähle in ihrer Seitenleiste eine Textverbindung. Geschichten werden auf deinem Marinara-Server gespeichert. Du kannst neue beginnen, zu alten zurückkehren und sie als Markdown oder Klartext herunterladen.
 - **Vollständige Anleitung**: [Anleitung zum Paket Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 
+### Otome Hearth
+
+Ein Otome-Spiel für eine Person, gebaut aus deinen Charakteren. Love Interests merken sich deine Entscheidungen, schicken dir Nachrichten und gehen mit dir auf Dates. Nebengeschichten und Outfits schaltest du mit Starlight frei, das du beim Spielen verdienst. Es gibt keine Echtgeldzahlungen und keine Ausdauer-Timer.
+
+- **Integration**: App in einem eigenen Tab **Otome Hearth** in **Home**.
+- **Einsatzbereich**: Home.
+- **Verfügbarkeit**: ab Engine **2.5.1+** (unter 4.0.0). Fordert Zugriff auf Netzwerkverbindungen, Server-Routen, den lokalen Speicher und eine Tab-Oberfläche in **Home** an.
+- **Wichtige Einstellungen**: Installiere sie, starte neu, wenn du dazu aufgefordert wirst, und öffne dann **Home → Otome Hearth**. In der App legst du Charakterbibeln, Inhaltsgrenzen über **Lines & Veils** und das optionale Tracking **Remind Me** fest.
+- **Vollständige Anleitung**: [Otome-Hearth-Paketanleitung](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/otome-forge/README.md).
+
+### Saucelings
+
+Ein virtuelles Haustier in **Home → Saucelings** und in Home-Widgets. Wähl einen deiner Charaktere als Betreuer: Er füttert das Haustier nach seinem eigenen Zeitplan, spielt mit ihm und kuschelt es, und du springst ein, wo er etwas auslässt.
+
+- **Integration**: App in einem eigenen Tab **Saucelings** und Home-Widgets in **Home**.
+- **Einsatzbereich**: Home.
+- **Verfügbarkeit**: ab Engine **2.5.0+** (unter 4.0.0). Fordert Zugriff auf den Prompt-Kontext von Chats, Server-Routen, den lokalen Speicher sowie Tab- und Widget-Oberflächen in **Home** an.
+- **Wichtige Einstellungen**: Installiere sie, starte neu, wenn du dazu aufgefordert wirst, und öffne dann **Home → Saucelings**, um das Haustier in den Bereichen **Nook**, **Journal**, **Album**, **Menagerie** und **Settings** (Einstellungen) zu versorgen.
+- **Vollständige Anleitung**: [Saucelings-Paketanleitung](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/saucelings/README.md).
+
 ## Writer-Agenten
 
 Writer-Agenten formen die Geschichte oder den Schreibstil. Sie geben vor der Antwort eine Richtung vor oder räumen die Antwort danach auf.
@@ -419,6 +439,22 @@ Bringt eine Partie Schere-Stein-Papier für zwei, bei der beide Entscheidungen b
 - **Integration**: Conversation-Spielepaket.
 - **Einsatzbereich**: Conversation.
 - **Wichtige Einstellungen**: Starte es über die Spieleauswahl oder mit `/rps` und wähle dann den Gegner sowie ein Match über drei, fünf oder sieben Partien. Installation und Entfernung erfordern einen Neustart.
+
+### Blackjack
+
+Bringt einen Blackjack-Tisch gegen die Bank für Conversation-Charaktere.
+
+- **Integration**: Conversation-Spielepaket.
+- **Einsatzbereich**: Conversation.
+- **Wichtige Einstellungen**: Eröffne einen Tisch mit `/blackjack` oder über die Aufforderung eines Charakters und schalte **Blackjack** unter **Chat Settings → Agents → Commands** ein, damit Charaktere von sich aus ein Spiel beginnen können. Die Installation erfordert einen Neustart, die Entfernung nicht.
+
+### Wordle
+
+Bringt ein tägliches Wordle-Wettraten mit Conversation-Charakteren.
+
+- **Integration**: Conversation-Spielepaket.
+- **Einsatzbereich**: Conversation.
+- **Wichtige Einstellungen**: Starte das heutige Spiel mit `/wordle` und schalte **Wordle** unter **Chat Settings → Agents → Commands** ein, damit Charaktere das heutige Spiel von sich aus beginnen können. Die Installation erfordert einen Neustart, die Entfernung nicht.
 
 ## Verwandte Anleitungen
 

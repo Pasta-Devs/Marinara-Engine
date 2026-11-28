@@ -155,6 +155,20 @@ SwarmUI는 ComfyUI 작업을 자체 대기열로 나눠 처리할 수 있습니�
 
 서비스가 이미지 데이터 대신 URL을 돌려주면, 공개 CDN URL은 Marinara가 평소의 외부 요청 검사를 거쳐 다운로드합니다. 사설 주소나 루프백 주소로 된 결과 URL은 설정된 이미지 서비스와 프로토콜, 호스트 이름, 포트가 정확히 일치할 때만 허용합니다. 그 출처에서 시작된 리디렉션은 다른 로컬 서비스로 넘어갈 수 없습니다. 로컬 프록시가 결과를 다른 사설 출처에 저장한다면, 그 파일을 이미지 API와 같은 출처로 제공하도록 하세요.
 
+## 기존 그림 편집하기
+
+갤러리에서 그림을 열고 **Regenerate image**(이미지 재생성)를 고르세요. 아바타라면 캐릭터나 페르소나 편집기에서 **Edit avatar**(아바타 편집)를 고르세요. 이미지 모델을 선택한 다음 **Edit image**(이미지 편집)를 고르세요. 표시되는 조작 요소는 선택한 서비스에 따라 다릅니다.
+
+| 서비스 | 이미지 전체 편집 | 마스크를 칠한 편집 |
+| --- | --- | --- |
+| NovelAI 자체 서비스 | 예 | 예 |
+| SD Web UI (AUTOMATIC1111 / Forge) | 예 | 예 |
+| Draw Things | 예 | 아니요 |
+
+프롬프트와 **Strength**(강도)를 바꾼 다음 **Apply edit**(편집 적용)을 고르세요. 마스크 도구를 쓸 수 있는 서비스에서는 다시 그릴 영역을 칠하고 **Inpaint image**(이미지 인페인팅)를 고르세요. **Noise**(노이즈)와 **Reuse original seed**(원본 시드 재사용)는 NovelAI 자체 서비스에서만 쓸 수 있습니다. 다른 서비스에서도 프롬프트를 바꿔 일반 재생성은 할 수 있습니다.
+
+편집은 화면에 표시된 그림을 원본 캔버스로 씁니다. 마스크를 지원하지 않는 서비스로 바꾸면 칠한 마스크가 지워집니다. 아바타 편집은 **Use as avatar**(아바타로 사용)를 고르기 전까지 미리보기로 남습니다.
+
 ## ComfyUI 워크플로 JSON과 RunPod
 
 **ComfyUI**, **SwarmUI**, **RunPod Serverless (ComfyUI)**에서는 **ComfyUI workflow (optional)** 또는 **(required)**(필수) 입력란이 나타납니다. ComfyUI 버전에 따라 **Save (API Format)**(API 형식으로 저장), **Export (API)**, **Export to API** 중 하나로 ComfyUI에서 내보낸 워크플로 JSON을 붙여넣으세요. 이 입력란은 ComfyUI와 SwarmUI에서는 선택 사항이고 RunPod에서는 필수입니다. RunPod에는 API 키로 쓸 RunPod API 토큰, **RunPod endpoint ID**(RunPod 엔드포인트 ID), 워크플로가 필요합니다.

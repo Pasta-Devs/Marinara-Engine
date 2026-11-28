@@ -652,17 +652,24 @@ Die schlanke Engine startet mit einer leeren Agenten-Registry zur Laufzeit. Erst
 | `haptic`                 | post_processing | Schickt Befehle an Haptik-Geräte                                  |
 | `cyoa`                   | post_processing | Erzeugt Auswahlmöglichkeiten                                      |
 | `storyboard` | post_processing | Plant unbewegte oder animierte Storyboards in Game und Roleplay |
+| `2d-avatars`             | feature         | Rendert animierte 2D-Avatare für Charaktere aus Sprites oder Meshes |
+| `3d-avatars`             | feature         | Rendert animierte 3D-Avatare aus VRM, MMD PMX, GLB und FBX         |
 | `conversation-calls`     | feature         | Ergänzt Audio- und Videoanrufe in Conversation samt Einstellungen |
 | `hierarchical-maps`      | feature         | Ergänzt Karten, räumlichen Kontext und Bewegung in Roleplay/Game   |
 | `noodle` | feature | Ergänzt den lokalen sozialen Feed Noodle auf Home |
+| `otome-forge`            | feature         | Ergänzt Otome Hearth, ein Otome-Spiel aus Charakteren, auf Home   |
+| `saucelings`             | feature         | Ergänzt Saucelings, ein virtuelles Haustier, das Charaktere aufziehen, auf Home |
 | `slurp2`                 | feature         | Ergänzt Slurp, eine private Creator-App für Charaktere, auf Home  |
+| `story-writer`           | feature         | Ergänzt Story Writer, einen Arbeitsbereich für ein gemeinsam geschriebenes Buch, auf Home |
 | `gacha-forge`            | feature         | Ergänzt ein Gacha-Spiel auf Home                                  |
+| `blackjack`              | feature         | Ergänzt den Blackjack-Tisch in Conversation                       |
 | `uno`                    | feature         | Ergänzt den UNO-Tisch in Conversation                             |
 | `chess`                  | feature         | Ergänzt das Schachbrett in Conversation                           |
 | `poker`                  | feature         | Ergänzt den Texas-Hold'em-Tisch in Conversation                   |
 | `eightball`              | feature         | Ergänzt den 8-Ball-Billardtisch in Conversation                   |
 | `tic-tac-toe`            | feature         | Ergänzt das Tic-Tac-Toe-Feld in Conversation                      |
 | `rock-paper-scissors`    | feature         | Ergänzt Schere-Stein-Papier-Partien in Conversation               |
+| `wordle`                 | feature         | Ergänzt das tägliche Wordle-Wettraten in Conversation             |
 
 ### Ergebnistypen der Agenten
 

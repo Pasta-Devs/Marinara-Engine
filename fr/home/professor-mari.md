@@ -13,7 +13,19 @@ Sa fenêtre s'ouvre. Tu peux aussi la joindre depuis n'importe quel écran : sai
 
 Écris ton message en langage courant et appuie sur <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> ajoute une nouvelle ligne. Si tu désactives **Enter sends to Professor Mari** (Enter envoie à Professor Mari) dans ses réglages, <kbd>Enter</kbd> ajoute une nouvelle ligne et <kbd>Ctrl</kbd>+<kbd>Enter</kbd> ou le bouton d'envoi envoie le message. Le réglage est enregistré par appareil. Tu peux le désactiver sur ton téléphone et le laisser activé sur ton ordinateur. Ton premier message débloque le succès **Hello World**.
 
-Tous ses réglages se trouvent dans **Settings → General → Search and Professor Mari settings → Open** (Paramètres → Général → réglages de Search et de Professor Mari → ouvrir), ou derrière l'engrenage de Search. Sur ordinateur, les curseurs **Height** (hauteur) et **Width** (largeur) sous **Professor Mari window** (fenêtre de Professor Mari) changent la taille de sa fenêtre. Sur téléphone, sa fenêtre occupe tout l'écran.
+Tous ses réglages se trouvent dans **Settings → General → Search and Professor Mari settings → Open** (Paramètres → Général → réglages de Search et de Professor Mari → ouvrir), ou derrière l'engrenage de Search. Sur téléphone, sa fenêtre occupe tout l'écran.
+
+### La faire flotter à côté de ton travail (ordinateur)
+
+Sa fenêtre s'ouvre au milieu de l'écran, par-dessus l'application assombrie. Pour continuer à utiliser l'application pendant qu'elle est ouverte, clique sur **Float Prof. Mari** (faire flotter Prof. Mari) dans son en-tête (le bouton image dans l'image). Le bouton s'affiche quand la fenêtre de l'application fait au moins 1 024 pixels de large.
+
+- Une Mari flottante n'a pas d'arrière-plan assombri, et cliquer ailleurs ne la ferme pas : tu peux donc copier le texte d'un champ dans son chat.
+- Fais glisser son en-tête pour la déplacer. Fais glisser un bord ou un coin pour la redimensionner.
+- Dépose-la sur le bord gauche ou droit de l'écran pour l'y ancrer, comme une barre latérale : l'application lui fait de la place. Fais glisser son bord intérieur pour changer sa largeur. Dépose-la sur le bord supérieur pour qu'elle occupe l'écran sous la barre supérieure. Un contour montre où elle va se placer. Éloigne-la du bord pour lui rendre son ancienne taille.
+- À côté d'un éditeur, la déposer sur le bord gauche l'ancre comme compagne de l'éditeur. Tire fermement sur son en-tête pour la détacher de nouveau dans une fenêtre flottante.
+- Elle se rouvre en mode flottant, là où tu l'as laissée.
+- Appuie sur <kbd>Esc</kbd> dans sa fenêtre, ou clique sur **X**, pour la fermer. Clique sur **Dock Prof. Mari back** (réancrer Prof. Mari), le même bouton, pour revenir à la fenêtre centrée.
+- Ouvrir Search (<kbd>Ctrl</kbd>+<kbd>J</kbd> dans sa fenêtre, ou **Back to Search** (retour à Search)) affiche Search au centre, comme d'habitude. Revenir vers elle la replace là où elle flottait.
 
 ## Créer un personnage avec Mari
 
@@ -38,7 +50,7 @@ Elle lit un élément avant de le modifier, et elle pose des questions quand ta 
 - Écrire l'[accueil interactif](../characters/interactive-onboarding.md) d'un personnage, et remplir une [fiche d'ensemble de règles](../characters/colors-and-stats.md#ruleset-sheets) pour un ensemble de règles de Game Mode installé. Sa modification est refusée, avec la raison, quand une valeur ne respecte pas l'ensemble de règles.
 - Créer ou modifier un thème, un agent, un preset de prompt ou un brouillon de Personal Extension. Un brouillon reste désactivé tant que tu n'as pas lu son code et ne l'as pas approuvé dans **Settings → Addons** (Paramètres → Modules complémentaires).
 - Modifier une seule section d'un preset sur place, au lieu de remplacer le preset entier.
-- Comparer les agents à télécharger et te dire lesquels correspondent à ton objectif. Pour les installer, elle t'oriente vers **Agents → Agent Organizer** (Agents → organisateur d'agents). Voir la [Référence des agents téléchargeables](../agents/built-in-agents.md).
+- Comparer les agents à télécharger et te dire lesquels correspondent à ton objectif. En mode Workspace, elle peut lire la présentation d'un agent et demander ses guides par sujet quand ils existent. Interroge-la sur une tâche précise, comme la configuration d'un avatar. Pour installer des agents, elle t'oriente vers **Agents → Agent Organizer** (Agents → organisateur d'agents). Voir la [Référence des agents téléchargeables](../agents/built-in-agents.md).
 - Générer ou attribuer des images, comme des avatars, des sprites et des arrière-plans. Il te faut d'abord un compte de génération d'images. Elle n'en crée pas à ta place. Clique sur une image qu'elle a créée pour l'ouvrir en taille réelle. Tu peux lire le prompt utilisé, télécharger l'image ou modifier le prompt et régénérer l'image. La nouvelle image remplace l'ancienne dans sa réponse.
 - Consulter les pages publiques des wikis Fandom quand tu te documentes sur un personnage ou un univers.
 

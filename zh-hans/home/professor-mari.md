@@ -13,7 +13,21 @@ Professor Mari 是主页上的内置助手。她能讲解这个应用、帮你�
 
 用日常语言写好消息，按 <kbd>Enter</kbd> 发送。<kbd>Shift</kbd>+<kbd>Enter</kbd> 换行。如果在她的设置里关掉 **Enter sends to Professor Mari**(按 Enter 发送给 Professor Mari)，<kbd>Enter</kbd> 就变成换行，按 <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 才发送。也可以点击发送按钮。这个开关按设备保存，可以在手机上关闭、在电脑上保持开启。你的第一条消息会解锁 **Hello World** 成就。
 
-她的所有设置都在 **Settings → General → Search and Professor Mari settings → Open**(设置 → 常规 → Search 与 Professor Mari 设置 → 打开) 里，也可以点 Search 里的齿轮图标。在电脑上，**Professor Mari window**(Professor Mari 窗口) 下的 **Height**(高度) 和 **Width**(宽度) 滑块可以调整她窗口的大小。在手机上，她的窗口会占满屏幕。
+她的所有设置都在 **Settings → General → Search and Professor Mari settings → Open**(设置 → 常规 → Search 与 Professor Mari 设置 → 打开) 里，也可以点 Search 里的齿轮图标。在手机上，她的窗口会占满屏幕。
+
+<a id="float-her-beside-your-work-computer"></a>
+
+### 让她浮在你的工作旁边（电脑）
+
+她的窗口会在屏幕中央打开，盖在变暗的应用上方。想在她打开时继续使用应用，点击她标题栏里的 **Float Prof. Mari**(让 Professor Mari 浮动)（画中画按钮）。应用窗口至少 1024 像素宽时才会显示这个按钮。
+
+- 浮动的 Mari 没有变暗的背景，点击别处也不会关闭她，所以你可以从某个字段里复制文字到她的聊天里。
+- 拖动她的标题栏可以移动她。拖动边缘或角落可以调整她的大小。
+- 把她拖到屏幕左边缘或右边缘放下，她就会像侧边栏一样停靠在那里：应用会为她让出空间。拖动她的内侧边缘可以调整宽度。把她拖到顶部边缘放下，她会占满顶栏下方的屏幕。一个轮廓会显示她将落在哪里。把她从边缘拖开，就会恢复原来的大小。
+- 在编辑器旁边，把她拖到左边缘放下，她会作为编辑器的伙伴停靠在那里。用力拖动她的标题栏，就能把她重新拉出来，变回浮动窗口。
+- 再次打开时她仍是浮动的，就在你上次留下她的位置。
+- 在她的窗口里按 <kbd>Esc</kbd>，或者点击 **X**，即可关闭她。点击 **Dock Prof. Mari back**(把 Professor Mari 放回去)（同一个按钮）可以回到居中的窗口。
+- 打开 Search 时（在她窗口里按 <kbd>Ctrl</kbd>+<kbd>J</kbd>，或点击 **Back to Search**(返回 Search)），会显示平常那个居中的 Search。回到她那里时，她会回到原来浮动的位置。
 
 ## 和 Mari 一起做一个角色
 
@@ -38,7 +52,7 @@ Professor Mari 是主页上的内置助手。她能讲解这个应用、帮你�
 - 为角色编写[交互式引导](../characters/interactive-onboarding.md)，并为已安装的 Game Mode(游戏模式) 规则集填写[规则集人物卡](../characters/colors-and-stats.md#ruleset-sheets)。数值不符合规则集时，她的改动会被拒绝，并附上原因。
 - 创建或编辑主题、智能体、提示词预设或 Personal Extension(个人扩展) 草稿。在你读过草稿的代码并在 **Settings → Addons**(设置 → 插件) 里批准之前，它一直处于关闭状态。
 - 就地编辑预设的某一部分，而不必替换整份预设。
-- 对比各个可下载的智能体，告诉你哪些适合你的目标。她会让你去 **Agents → Agent Organizer**(智能体 → 智能体管理器) 安装它们。见[可下载智能体参考](../agents/built-in-agents.md)。
+- 对比各个可下载的智能体，告诉你哪些适合你的目标。在 Workspace(工作区) 模式下，她可以阅读智能体的概览，并在有主题指南时调取它们。可以问她某个具体任务，比如怎么设置虚拟形象。她会让你去 **Agents → Agent Organizer**(智能体 → 智能体管理器) 安装智能体。见[可下载智能体参考](../agents/built-in-agents.md)。
 - 生成或指定图像，比如头像、立绘和背景。你需要先有一个图像生成账号，她不会替你创建。点击她生成的图像，可以按原尺寸打开、查看生成用的提示词、下载，或编辑提示词后重新生成。新图像会替换她回复里的旧图像。
 - 你研究某个角色或世界观时，查阅公开的 Fandom wiki 页面。
 

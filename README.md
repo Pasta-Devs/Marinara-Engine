@@ -49,6 +49,8 @@ coverage and the validation for all ten documentation packs and eleven UI packs.
 
 [2.5.2 guide rewrites catch-up](audits/2026-11-05-guide-rewrites-catchup.md) records the rewritten user guides, the Noodle guides' move to `agents/`, the #8829 admin-secret edits and the checks for all ten packs.
 
+[v2.5.3 release catch-up](audits/2026-11-28-v253-catchup.md) records the guides brought up to date since 2026-11-23 in all ten packs and the removed Professor Mari window keys in the UI packs.
+
 ## UI language packs
 
 `ui/<BCP-47>.json` contains community interface translations, separate from documentation folders.

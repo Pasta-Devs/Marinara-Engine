@@ -91,12 +91,20 @@ Pakiet oznaczony **Rules** (zasady) nie jest agentem. Dodaje zestaw zasad trybu 
 
 Odinstalowanie pakietu usuwa jego kod i ustawienia, ale zachowuje wiadomości i historię czatów. Usunięcie własnego agenta jest nieodwracalne.
 
+### Czytanie przewodników agenta
+
+Otwórz stronę agenta w **Agent Organizer** i kliknij **Read how this agent works** (przeczytaj, jak działa ten agent). Jego omówienie otwiera się w oknie dokumentacji. Wybierz temat z listy, żeby przeczytać więcej. Na telefonie wróć do listy tematów strzałką wstecz. Zamknij okno, żeby wrócić do strony agenta.
+
+**View source** (wyświetlenie źródła) otwiera oryginalny przewodnik. Niektórzy agenci mają na razie tylko krótkie podsumowanie albo link zewnętrzny, dopóki ich autorzy nie dodadzą przewodników po tematach. Jeśli przewodnik się nie wczytuje, spróbuj ponownie, gdy będziesz online. Wcześniej otwarte przewodniki mogą być dostępne przez najwyżej siedem dni; zapisany przewodnik może być nieaktualny.
+
+**Version history** pokazuje trzy najnowsze wpisy. Kliknij **Show older versions** (pokazanie starszych wersji), żeby ją rozwinąć, albo **Show fewer versions** (pokazanie mniejszej liczby wersji), żeby znów ją skrócić. Najnowsze wydanie pojawia się też w sekcji **What's new** (co nowego).
+
 ### Aktualizowanie agentów
 
 Gdy jest dostępna nowsza zgodna wersja zainstalowanego pakietu, otwiera się okno **Agent updates available** (dostępne aktualizacje agentów). Wymienia ono każdą aktualizację z jej wersją i informacją, czy wymaga restartu.
 
 1. Odznacz pole przy każdej aktualizacji, którą chcesz pominąć. Na początku wszystkie są zaznaczone.
-2. Przeczytaj **What's new** (co nowego), jeśli pakiet opublikował informacje o zmianach. **More** (więcej) pokazuje długą informację w całości. Kropka oznacza zmianę, którą zauważysz.
+2. Przeczytaj **What's new**, jeśli pakiet opublikował informacje o zmianach. **More** (więcej) pokazuje długą informację w całości. Kropka oznacza zmianę, którą zauważysz.
 3. Kliknij **Update all** (albo **Update 2 of 3** (aktualizacja 2 z 3), gdy część pól odznaczono). Każdy wiersz pokazuje **Updated** (zaktualizowano) albo **Failed** (niepowodzenie). Wiersz nieudanej aktualizacji pokazuje przyczynę i przycisk **Retry** (ponów).
 4. Jeśli aktualizacja wymaga restartu, kliknij **Restart now** (uruchom ponownie teraz) albo uruchom ponownie aplikację Marinara Engine później.
 

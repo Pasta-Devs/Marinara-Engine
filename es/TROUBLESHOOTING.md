@@ -357,6 +357,17 @@ Después de una caída o de mover un volumen de Docker, el inicio puede indicar 
 
 Marinara borra por sí solo la concesión que dejó un proceso caído en Linux, Android, contenedores y Windows cuando la carpeta de datos está en una unidad local. El paso manual es el respaldo para el almacenamiento en red o compartido, las unidades extraíbles y (en Windows) una computadora a la que se le cambió el nombre después de la caída.
 
+<a id="cannot-access-a-network-or-external-folder"></a>
+
+### No se puede acceder a una carpeta de red o externa
+
+Marinara guarda tus datos solo en su carpeta de datos, y la importación de una carpeta de SillyTavern lee solo de las carpetas que el servidor permite. Un recurso compartido de red u otra unidad funciona si lo configuras de una de estas formas:
+
+- **Tus datos están en un recurso compartido de red.** Apunta `DATA_DIR` en `.env` a una carpeta del recurso compartido y luego reinicia Marinara. Consulta [Almacenamiento](CONFIGURATION.md#storage). Mueve toda la carpeta de datos: si enlazas una sola carpeta dentro de ella, como `avatars` o `backgrounds`, a otra unidad, sus imágenes no cargan y Marinara responde **Not found** para ellas.
+- **Importas una carpeta de SillyTavern desde un recurso compartido.** Una ruta escrita debe estar dentro de la carpeta de inicio del usuario que ejecuta el servidor; si no, verás **Marinara can only read folders inside your home folder**. En la propia computadora del servidor, haz clic en **Browse** (Explorar) y elige la carpeta. También puedes añadir la carpeta a `IMPORT_ALLOWED_ROOTS` en `.env`, separada por comas, y reiniciar Marinara. Cuando ese ajuste está configurado, solo se permiten sus carpetas, incluso para una carpeta elegida, así que añade también tu carpeta de inicio si sigues importando desde ella.
+- **El explorador de carpetas de la app abre tu carpeta de inicio.** Solo muestra las carpetas que están dentro de la carpeta de inicio, diga lo que diga `IMPORT_ALLOWED_ROOTS`. Para un recurso compartido fuera de ella, añade su carpeta a `IMPORT_ALLOWED_ROOTS`, reinicia Marinara y luego escribe su ruta en **SillyTavern folder path** (Ruta de la carpeta de SillyTavern).
+- **El recurso compartido está desconectado.** Vuelve a conectarlo antes de iniciar Marinara y luego inténtalo de nuevo.
+
 ### La copia de seguridad o la exportación devuelve 403
 
 Las sesiones desde la misma computadora pueden hacer copias de seguridad sin un secreto de administrador. Las solicitudes desde otro dispositivo, una dirección de red, Docker, o un proxy o un túnel en la misma computadora lo necesitan. Créalo en **Settings → Advanced → Admin Access** en la propia computadora del servidor, o fija `ADMIN_SECRET` en el servidor, y luego guarda el mismo valor en **Admin Access** en el otro dispositivo. Para que loopback también lo requiera, fija `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. Si `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, los visitantes reenviados obtienen la excepción local. Mantén activada esa protección para un proxy o un túnel públicos.

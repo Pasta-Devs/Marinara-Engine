@@ -77,6 +77,26 @@ Un libro que escribes junto con el modelo. Configura la historia, el reparto y l
 - **Ajustes clave**: instálala, reinicia cuando se te pida, abre **Home → Story Writer** y elige una conexión de texto en su barra lateral. Las historias se guardan en tu servidor de Marinara. Puedes empezar otras nuevas, volver a las anteriores y descargarlas como Markdown o texto sin formato.
 - **Guía completa**: [guía del paquete Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 
+### Otome Hearth
+
+Un juego otome para un solo jugador hecho con tus personajes. Los intereses amorosos recuerdan lo que elegiste, te envían mensajes, tienen citas contigo y desbloquean historias secundarias y atuendos con la Starlight que ganas jugando, sin pagos con dinero real ni temporizadores de energía.
+
+- **Integración**: app en su propia pestaña **Otome Hearth** dentro de **Home**.
+- **Dónde funciona**: Home.
+- **Disponibilidad**: necesita Engine **2.5.1+** (por debajo de 4.0.0). Pide acceso a conexiones de red, rutas del servidor, almacenamiento local y una interfaz de pestaña de **Home**.
+- **Ajustes clave**: instálala, reinicia cuando se te pida y luego abre **Home → Otome Hearth**. Dentro de la app configuras las biblias de personajes, los límites de contenido **Lines & Veils** y el seguimiento opcional **Remind Me** (Recuérdamelo).
+- **Guía completa**: [guía del paquete Otome Hearth](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/otome-forge/README.md).
+
+### Saucelings
+
+Una mascota virtual en **Home → Saucelings** y en los widgets de Home. Elige a uno de tus personajes como cuidador para que alimente a la mascota, juegue con ella y la mime según su propio horario, mientras tú cubres lo que se le pase.
+
+- **Integración**: app en su propia pestaña **Saucelings** y widgets de Home dentro de **Home**.
+- **Dónde funciona**: Home.
+- **Disponibilidad**: necesita Engine **2.5.0+** (por debajo de 4.0.0). Pide acceso al contexto del prompt del chat, a rutas del servidor, al almacenamiento local y a interfaces de pestaña y de widget de **Home**.
+- **Ajustes clave**: instálala, reinicia cuando se te pida y luego abre **Home → Saucelings** para cuidar a la mascota desde **Nook**, **Journal**, **Album**, **Menagerie** y **Settings**.
+- **Guía completa**: [guía del paquete Saucelings](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/saucelings/README.md).
+
 ## Writer agents
 
 Los Writer agents dan forma a la historia o a la prosa. Añaden orientación antes de la respuesta o limpian la respuesta después.
@@ -419,6 +439,22 @@ Añade una partida uno contra uno donde ambas elecciones permanecen ocultas hast
 - **Integración**: paquete de juego de Conversation.
 - **Dónde funciona**: Conversation.
 - **Ajustes clave**: inícialo desde el selector de juegos o con `/rps` y luego elige el oponente y una partida al mejor de tres, cinco o siete. Instalarlo o quitarlo requiere reiniciar.
+
+### Blackjack
+
+Añade una mesa de Blackjack contra la banca para los personajes de Conversation.
+
+- **Integración**: paquete de juego de Conversation.
+- **Dónde funciona**: Conversation.
+- **Ajustes clave**: abre una mesa con `/blackjack` o cuando un personaje te invite a jugar, y activa **Blackjack** en **Chat Settings → Agents → Commands** (Ajustes del chat → Agentes → Comandos) para que los personajes puedan empezar una partida por su cuenta. Instalarlo requiere reiniciar. Quitarlo, no.
+
+### Wordle
+
+Añade una carrera diaria de palabras de Wordle con los personajes de Conversation.
+
+- **Integración**: paquete de juego de Conversation.
+- **Dónde funciona**: Conversation.
+- **Ajustes clave**: inicia la partida del día con `/wordle` y activa **Wordle** en **Chat Settings → Agents → Commands** para que los personajes puedan empezar la partida del día por su cuenta. Instalarlo requiere reiniciar. Quitarlo, no.
 
 ## Guías relacionadas
 

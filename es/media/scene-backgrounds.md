@@ -78,13 +78,15 @@ La imagen nueva pasa a ser la versión seleccionada en el mensaje. Los resultado
 
 ### Versiones de imagen
 
-Abre una imagen apilada para elegir una versión. Las flechas de izquierda/derecha, las teclas de flecha y los gestos de deslizamiento horizontal permiten moverte entre las fichas de la Gallery. Los controles de arriba/abajo, las teclas de flecha y los gestos de deslizamiento vertical sobre la imagen permiten moverte entre las versiones de la pila actual. Reduce el zoom antes de navegar. Desplazarte por el prompt no cambia de versión.
+Abre una imagen apilada para elegir una versión. En una Gallery, las flechas de izquierda/derecha, las teclas de flecha y los gestos de deslizamiento horizontal permiten moverte entre las fichas. Si abres una imagen desde un mensaje del chat, te quedas dentro de la pila de esa imagen. Los controles de arriba/abajo, las teclas de flecha y los gestos de deslizamiento vertical sobre la imagen permiten moverte entre las versiones de la pila actual. Reduce el zoom antes de navegar. Desplazarte por el prompt no cambia de versión.
 
 Haz clic en la imagen, el encabezado del prompt o el botón para contraerlo para usar las flechas arriba/abajo con las versiones. Haz clic en el texto del prompt o en un botón de copiar para usar las flechas arriba/abajo para desplazarte por el texto. Los controles de versión también siguen visibles mientras regeneras o editas. Aplica o borra la máscara pintada antes de cambiar de versión; los controles se pausan mientras se genera la imagen.
 
 La versión que elijas se guarda y se muestra en el chat, incluso después de recargar. Regenerar o editar una versión anterior agrega un resultado nuevo a la misma pila y conserva también las versiones posteriores. Una rama del chat tiene su propia selección.
 
-Usa **Delete gallery image** (Eliminar imagen de la galería) en la ficha, o el botón de eliminar del visor, para elegir qué quitar:
+Con **Automatically save generated images to character galleries** (Guardar automáticamente las imágenes generadas en las galerías de personajes) activado, las regeneraciones y las ediciones conservan las galerías de personaje y de persona a las que iba la imagen original. Esas galerías también agrupan las versiones. Cada galería guarda su propia versión seleccionada, así que explorarla no cambia la imagen seleccionada en el chat. Las entradas de las galerías comparten los archivos de imagen guardados; no crean copias adicionales. Al abrir una galería también se recuperan las versiones que faltan de pilas de chat antiguas, cuando su entrada original de la galería sigue enlazada al chat de origen. Las versiones que se eliminan de una galería ya agrupada siguen eliminadas.
+
+En la Gallery del chat, usa **Delete gallery image** (Eliminar imagen de la galería) en la ficha, o el botón de eliminar del visor, para elegir qué quitar:
 
 - **Delete this version** (Eliminar esta versión) elimina la versión mostrada. Si era la seleccionada, se muestra la más reciente de las que quedan.
 - **Delete other versions** (Eliminar las otras versiones) conserva la versión mostrada y elimina las demás.

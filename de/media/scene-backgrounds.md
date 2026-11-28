@@ -78,13 +78,15 @@ Das neue Bild wird zur ausgewählten Version in der Nachricht. Frühere Ergebnis
 
 ### Bildversionen
 
-Öffne ein Bild mit mehreren Versionen, um eine davon auszuwählen. Mit den Pfeilen nach links und rechts, den entsprechenden Pfeiltasten und horizontalen Wischgesten wechselst du zwischen den Gallery-Kacheln. Mit den Bedienelementen nach oben und unten, den entsprechenden Pfeiltasten und vertikalen Wischgesten auf dem Bild wechselst du zwischen den Versionen im aktuellen Stapel. Zoome vor dem Navigieren heraus. Wenn du im Prompt scrollst, wechselt die Version nicht.
+Öffne ein Bild mit mehreren Versionen, um eine davon auszuwählen. In einer Gallery wechselst du mit den Pfeilen nach links und rechts, den entsprechenden Pfeiltasten und horizontalen Wischgesten zwischen den Kacheln. Öffnest du ein Bild aus einer Chat-Nachricht, bleibst du im Stapel dieses Bildes. Mit den Bedienelementen nach oben und unten, den entsprechenden Pfeiltasten und vertikalen Wischgesten auf dem Bild wechselst du zwischen den Versionen im aktuellen Stapel. Zoome vor dem Navigieren heraus. Wenn du im Prompt scrollst, wechselt die Version nicht.
 
 Klick auf das Bild, die Prompt-Kopfzeile oder die Schaltfläche zum Einklappen, um mit den Pfeiltasten nach oben und unten zwischen Versionen zu wechseln. Klick auf den Prompt-Text oder eine Kopierschaltfläche, um mit diesen Tasten stattdessen zu scrollen. Die Bedienelemente für Versionen bleiben auch beim Neugenerieren oder Bearbeiten sichtbar. Übernimm oder entferne eine aufgemalte Maske, bevor du die Version wechselst. Während der Generierung sind die Bedienelemente gesperrt.
 
 Die ausgewählte Version wird gespeichert und im Chat angezeigt, auch nach dem Neuladen. Wenn du eine ältere Version neu generierst oder bearbeitest, wird das neue Ergebnis demselben Stapel hinzugefügt. Auch die späteren Versionen bleiben erhalten. Ein verzweigter Chat hat seine eigene Auswahl.
 
-Klick auf **Galeriebild löschen** auf der Kachel oder auf die Schaltfläche zum Löschen in der Bildansicht, um auszuwählen, was entfernt werden soll:
+Ist **Automatically save generated images to character galleries** (erzeugte Bilder automatisch in Charaktergalerien speichern) eingeschaltet, behalten Neugenerierungen und Bearbeitungen die Charakter- und Persona-Galerien des ursprünglichen Bildes als Ziel. Auch diese Galerien fassen die Versionen zusammen. Jede Galerie speichert ihre eigene ausgewählte Version, das Blättern dort ändert also nicht das im Chat ausgewählte Bild. Galerieeinträge teilen sich die gespeicherten Bilddateien und legen keine zusätzlichen Kopien an. Beim Öffnen einer Galerie werden außerdem fehlende Versionen aus älteren Chat-Stapeln wiederhergestellt, wenn ihr ursprünglicher Galerieeintrag noch auf den Quell-Chat verweist. Versionen, die du aus einer bereits zusammengefassten Galerie gelöscht hast, bleiben gelöscht.
+
+Klick in der Gallery des Chats auf **Galeriebild löschen** auf der Kachel oder auf die Schaltfläche zum Löschen in der Bildansicht, um auszuwählen, was entfernt werden soll:
 
 - **Diese Version löschen** entfernt die angezeigte Version. War sie ausgewählt, wird die neueste verbleibende Version angezeigt.
 - **Andere Versionen löschen** behält die angezeigte Version und entfernt alle anderen.

@@ -280,6 +280,37 @@ Las variables sin definir siguen los ajustes y el preset de los widgets. El inte
 
 En los teléfonos, el menú de tres puntos se despliega en botones redondos. Su activador es `[data-chat-tools-menu-button]`, la columna abierta es `[data-chat-tools-menu]` y cada elemento de la lista tiene `data-chat-tools-menu-item` con el ID de su ventana. Los botones de herramientas usan `.mari-window-bubble.mari-chat-tools-button` y `data-chat-tools-menu-tool` con ese mismo ID. La columna no tiene marco de ventana; sus botones siguen los colores de los widgets y el tamaño de los botones, independientemente de los tres interruptores para el resto del chat, y conservan su forma redonda.
 
+## Dar estilo a las fichas de personaje
+
+La ficha de personaje de un conjunto de reglas se ve igual en Roleplay y en Game. Estas clases y atributos de datos permiten que un tema le dé estilo.
+
+| Parte | Clase | Atributos de datos |
+| --- | --- | --- |
+| La ficha completa | `.mari-ruleset-sheet` | `data-ruleset` (el ID del conjunto de reglas, como `local/my-rules`), `data-rank-display` (`value`, `label`, `dots`, `roman` o `number`), `data-editing="true"` mientras se edita |
+| El título y el botón **Edit ruleset sheet** (Editar ficha del conjunto de reglas) | `.mari-ruleset-sheet__header` | |
+| Las pestañas | `.mari-ruleset-sheet__tabs` | cada pestaña tiene `data-tab-id` y `aria-selected` |
+| El encabezado de un grupo | `.mari-ruleset-sheet__heading` | |
+| Un campo en la parte superior de la ficha | `.mari-ruleset-sheet__field` (en `.mari-ruleset-sheet__fields`) | `data-field`, o `data-derived` para un valor calculado |
+| Un atributo | `.mari-ruleset-sheet__ability` (en `.mari-ruleset-sheet__abilities`); su puntuación y su valor de prueba son `__ability-score` y `__ability-value` | `data-ability`; un grupo de atributos tiene `data-section` |
+| Una reserva, como Salud | `.mari-ruleset-sheet__pool` (en `.mari-ruleset-sheet__pools`) | `data-pool`; un grupo de reservas tiene `data-pool-group` |
+| Un contador | `.mari-ruleset-sheet__track` (en `.mari-ruleset-sheet__tracks`) | `data-track`; un contador de heridas también tiene `data-wound="true"` |
+| Los estados | `.mari-ruleset-sheet__conditions` | |
+| Una habilidad o una salvación entrenada | `.mari-ruleset-sheet__rank` (en `.mari-ruleset-sheet__trained`, por grupo en `.mari-ruleset-sheet__rank-group`); su rango, o su valor de prueba cuando el conjunto de reglas muestra los rangos como valores de prueba (`data-rank-display="value"`), es `__rank-value`; el valor de prueba que se muestra a su lado en un teléfono, `__rank-check`; su práctica, `__practice` | `data-skill` o `data-save`, `data-tier` (el ID del nivel), `data-rank` (`0` sin entrenar, `1` el nivel siguiente, y así sucesivamente) |
+| Una habilidad o una salvación mientras se edita la ficha | `.mari-ruleset-sheet-editor__rank` | `data-skill` o `data-save`, `data-tier`, `data-rank` |
+| Una lista, como Equipo | `.mari-ruleset-sheet__list`; cada fila es `.mari-ruleset-sheet__list-row` | `data-list`; una fila marcada tiene `data-marked="true"` |
+
+Por ejemplo, esto muestra el rango 2 de un conjunto de reglas como dos estrellas. Añade un par de reglas como estas por cada rango que quieras cambiar. Úsalo solo en un conjunto de reglas que muestre los rangos como puntos, nombres, números romanos o números: cuando los muestra como valores de prueba, `__rank-value` contiene el valor de prueba, y esto lo ocultaría.
+
+```css
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value {
+  font-size: 0;
+}
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value::after {
+  content: "★★";
+  font-size: 0.6875rem;
+}
+```
+
 ## Guías relacionadas
 
 - [Card CSS Theming Guide](card-css-theming.md)

@@ -417,6 +417,12 @@ Engine 전투는 일반 적의 행동을 자체 결정합니다. GM 쪽의 보�
 
 릴리스 노트는 설명 대상인 `catalog.json` 옆에 `notes.json`으로 게시하며, 카탈로그 항목이나 매니페스트 안에는 절대 넣지 않습니다. 오래된 엔진은 모르는 키가 있는 카탈로그 항목을 버리기 때문입니다. 대기 중인 각 업데이트에는 설치된 버전 다음부터 제시된 버전까지 모든 버전의 노트가 최신순으로 `releaseNotes`에 담기며, 그중 하나라도 사용자가 알아챌 변경으로 표시되어 있으면 `releaseHighlight`가 true입니다. 노트는 일반 텍스트이며 Markdown이나 HTML로 렌더링하지 않습니다.
 
+사용자 가이드는 카탈로그 채널마다 그 옆에 두는 별도의 선택적 `docs.json`을 씁니다. 패키지 작성자는 Markdown을 쓰고, Marinara-Agents의 `packages/<id>/documentation.json`에 개요와 주제를 등록한 다음, 그 저장소에서 `node scripts/build-documentation.mjs`를 실행합니다. Markdown, 작성자 인덱스, 생성된 사이드카 파일은 함께 커밋하세요. 이렇게 하면 실행 가능한 패키지 아카이브를 다시 빌드하지 않고도 문서를 바꿀 수 있습니다. 작성 형식은 [Marinara-Agents 기여 안내](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/CONTRIBUTING.md#package-user-documentation)를 참고하세요.
+
+엔진은 `GET /api/capability-packages/:id/documentation?guide=overview`로 이 인덱스를 읽습니다. 응답에는 주제 목록과 가이드 하나가 그 원본, 제공 상태와 함께 들어 있습니다. 기존 문서 모달과 Professor Mari도 같은 읽기 서비스를 씁니다. Workspace Mari의 `agent.catalog.get`에는 길이가 제한된 개요가 들어 있고, `agent.documentation.get`은 등록된 주제를 선택적인 `heading`과 `maxChars`(1,000~16,000, 기본값 8,000)로 읽습니다. 가져온 글은 참고 자료일 뿐이며, 모델에 대한 지시도 아니고 저장된 사용자 상태가 바뀌었다는 증거도 아닙니다.
+
+패키지 Markdown은 256 KiB로 제한되며, 게시된 바이트 수와 SHA-256이 일치해야 합니다. 원격 인덱스는 2 MiB로 제한됩니다. 원격 읽기의 기한은 5초이며 리디렉션을 따라가지 않습니다. 로컬 엔진 참조는 정식 영어 사용자 문서의 범위를 따릅니다. 검증된 읽기 결과는 5분 동안 최신으로 취급되고 오프라인에서는 7일 동안 쓸 수 있으며, `DATA_DIR/capability-packages/documentation-cache-v1` 아래에 최대 128개까지 캐시됩니다. 캐시 키는 카탈로그 소스, 채널, 패키지, 주제를 구분하며, 실행 중인 패키지 버전과 일치해야 합니다. 알려진 공식 패키지 README와 엔진 가이드 링크가 예전 방식의 대체 경로가 됩니다. 사용자 지정 외부 링크는 원래 출처를 유지하며, 도움말이 없어도 설치에는 영향이 없습니다.
+
 설치 프로그램은 다음을 지켜야 합니다:
 
 1. 권한 있는 루프백/관리자 접근을 요구합니다;

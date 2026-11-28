@@ -155,6 +155,20 @@ O campo **ComfyUI workflow (optional)** (fluxo de trabalho do ComfyUI, opcional)
 
 Quando um serviço devolve uma URL em vez dos dados da imagem, Marinara baixa as URLs públicas de CDN passando pelas verificações normais de requisições de saída. Uma URL de resultado privada ou de loopback só é aceita quando o esquema, o nome do host e a porta batem exatamente com os do serviço de imagem configurado. Redirecionamentos a partir dessa origem não podem pular para outro serviço local. Se um proxy local armazena os resultados em outra origem privada, faça o proxy servir esses arquivos pela mesma origem da API de imagens dele.
 
+## Editar uma imagem existente
+
+Abra uma imagem em uma galeria e escolha **Regenerate image** (gerar a imagem de novo). Para um avatar, escolha **Edit avatar** (editar avatar) no editor de um personagem ou de uma persona. Selecione um modelo de imagem e depois escolha **Edit image** (editar imagem). Os controles dependem do serviço selecionado:
+
+| Serviço | Edição da imagem inteira | Edição com máscara pintada |
+| --- | --- | --- |
+| NovelAI nativa | Sim | Sim |
+| SD Web UI (AUTOMATIC1111 / Forge) | Sim | Sim |
+| Draw Things | Sim | Não |
+
+Mude o prompt e **Strength** (intensidade) e depois escolha **Apply edit** (aplicar edição). Onde as ferramentas de máscara estão disponíveis, pinte a área que deve ser redesenhada e escolha **Inpaint image** (aplicar inpainting à imagem). **Noise** (ruído) e **Reuse original seed** (reutilizar seed original) só estão disponíveis na NovelAI nativa. Os outros serviços continuam permitindo gerar a imagem de novo da forma comum, com um prompt alterado.
+
+As edições usam a imagem exibida como tela de origem. Trocar para um serviço sem suporte a máscara limpa a máscara pintada. A edição de um avatar continua como pré-visualização até você escolher **Use as avatar** (usar como avatar).
+
 ## JSON de fluxo de trabalho do ComfyUI e RunPod
 
 Para **ComfyUI**, **SwarmUI** e **RunPod Serverless (ComfyUI)**, aparece um campo **ComfyUI workflow (optional)** ou **(required)**. Cole nele um JSON de fluxo de trabalho que você exportou do ComfyUI com **Save (API Format)**, **Export (API)** ou **Export to API**, conforme a versão do seu ComfyUI. Ele é opcional para o ComfyUI e o SwarmUI e obrigatório para o RunPod, que exige o seu token de API do RunPod como chave de API, um **RunPod endpoint ID** (ID do endpoint do RunPod) e o fluxo de trabalho.

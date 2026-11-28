@@ -357,6 +357,17 @@ Depois de uma falha ou de um volume do Docker movido, a inicialização pode inf
 
 Marinara limpa sozinho uma concessão de gravação (lease) deixada por um processo que caiu por falha, no Linux, no Android, em contêineres e no Windows, quando a pasta de dados fica em um disco local. A etapa manual é a opção de reserva para armazenamento em rede ou compartilhado, unidades removíveis e (no Windows) um computador renomeado depois da falha.
 
+<a id="cannot-access-a-network-or-external-folder"></a>
+
+### Não é possível acessar uma pasta de rede ou externa
+
+Marinara guarda os seus dados só na pasta de dados dele, e a importação de uma pasta do SillyTavern só lê pastas que o servidor permite. Um compartilhamento de rede ou outra unidade funciona quando você o configura de uma destas formas:
+
+- **Os seus dados ficam em um compartilhamento de rede.** Aponte `DATA_DIR` no `.env` para uma pasta no compartilhamento e reinicie Marinara. Veja [Armazenamento](CONFIGURATION.md#storage). Mova a pasta de dados inteira: se você criar um link de uma pasta dentro dela, como `avatars` ou `backgrounds`, para outra unidade, as imagens dela não carregam e Marinara responde **Not found** para elas.
+- **Você importa uma pasta do SillyTavern de um compartilhamento.** Um caminho digitado precisa estar dentro da pasta pessoal do usuário que executa o servidor; senão, aparece **Marinara can only read folders inside your home folder**. No próprio computador do servidor, clique em **Browse** (navegar) e escolha a pasta. Ou adicione a pasta a `IMPORT_ALLOWED_ROOTS` no `.env`, separando as pastas por vírgulas, e reinicie Marinara. Quando essa configuração está definida, só as pastas dela são permitidas, mesmo para uma pasta escolhida; por isso, adicione também a sua pasta pessoal se ainda importa a partir dela.
+- **O navegador de pastas do aplicativo abre a sua pasta pessoal.** Ele lista só as pastas dentro da pasta pessoal, seja qual for o valor de `IMPORT_ALLOWED_ROOTS`. Para um compartilhamento fora dela, adicione a pasta do compartilhamento a `IMPORT_ALLOWED_ROOTS` e reinicie Marinara; depois digite o caminho dela em **SillyTavern folder path** (caminho da pasta do SillyTavern).
+- **O compartilhamento está desconectado.** Reconecte-o antes de iniciar Marinara e tente de novo.
+
 ### O backup ou a exportação retorna 403
 
 Sessões no mesmo computador fazem backup sem segredo de administrador. As requisições de outro dispositivo, de um endereço de rede, do Docker ou de um proxy ou túnel no mesmo computador precisam de um. Crie-o em **Settings → Advanced → Admin Access** no próprio computador do servidor, ou defina `ADMIN_SECRET` no servidor, e depois salve o mesmo valor em **Admin Access** no outro dispositivo. Para que o loopback também o exija, defina `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. Com `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, os visitantes encaminhados recebem a dispensa local. Mantenha essa proteção ligada para um proxy ou túnel público.

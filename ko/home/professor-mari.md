@@ -13,7 +13,19 @@ Professor Mari의 창이 열립니다. 어느 화면에서든 부를 수도 있�
 
 평소 쓰는 말로 메시지를 입력하고 <kbd>Enter</kbd>를 누르세요. <kbd>Shift</kbd>+<kbd>Enter</kbd>는 줄바꿈을 넣습니다. Professor Mari 설정에서 **Enter sends to Professor Mari**(Enter로 Professor Mari에게 전송)를 끄면 <kbd>Enter</kbd>는 줄바꿈을 넣고 <kbd>Ctrl</kbd>+<kbd>Enter</kbd>나 보내기 버튼으로 보냅니다. 토글은 기기별로 저장되므로 휴대폰에서는 끄고 컴퓨터에서는 켜 둘 수 있습니다. 첫 메시지를 보내면 **Hello World** 업적이 열립니다.
 
-Professor Mari의 설정은 모두 **Settings → General → Search and Professor Mari settings → Open**(설정 → 일반 → 검색 및 Professor Mari 설정 → 열기)이나 Search의 톱니바퀴에 있습니다. 컴퓨터에서는 **Professor Mari window**(Professor Mari 창) 아래의 **Height**(높이)와 **Width**(너비) 슬라이더로 창 크기를 바꿀 수 있습니다. 휴대폰에서는 창이 화면을 가득 채웁니다.
+Professor Mari의 설정은 모두 **Settings → General → Search and Professor Mari settings → Open**(설정 → 일반 → 검색 및 Professor Mari 설정 → 열기)이나 Search의 톱니바퀴에 있습니다. 휴대폰에서는 창이 화면을 가득 채웁니다.
+
+### 작업 옆에 띄워 두기(컴퓨터)
+
+Professor Mari의 창은 어두워진 앱 위, 화면 가운데에 열립니다. 창을 연 채로 앱을 계속 쓰려면 창 머리글의 **Float Prof. Mari**(화면 속 화면 버튼)를 클릭하세요. 이 버튼은 앱 창의 너비가 1024픽셀 이상일 때 나타납니다.
+
+- 띄워 둔 Mari에는 어두운 배경이 없고, 다른 곳을 클릭해도 닫히지 않습니다. 그래서 필드의 텍스트를 복사해 Mari의 채팅에 붙여 넣을 수 있습니다.
+- 머리글을 끌면 창을 옮길 수 있습니다. 가장자리나 모서리를 끌면 크기가 바뀝니다.
+- 화면의 왼쪽이나 오른쪽 가장자리에 놓으면 사이드바처럼 그곳에 고정되고, 앱은 Mari가 들어갈 자리를 만듭니다. 안쪽 가장자리를 끌면 너비를 바꿀 수 있습니다. 위쪽 가장자리에 놓으면 상단 바 아래의 화면을 가득 채웁니다. 놓일 자리는 윤곽선으로 표시됩니다. 가장자리에서 떼어 내면 원래 크기로 돌아갑니다.
+- 편집기 옆에서 왼쪽 가장자리에 놓으면 편집기 도우미로 고정됩니다. 머리글을 힘껏 끌어당기면 다시 떠 있는 창으로 떼어 낼 수 있습니다.
+- 다시 열면 마지막으로 둔 자리에 떠 있는 상태로 열립니다.
+- 닫으려면 창 안에서 <kbd>Esc</kbd>를 누르거나 **X**를 클릭하세요. 가운데 창으로 돌아가려면 **Dock Prof. Mari back**(같은 버튼)을 클릭하세요.
+- Search를 열면(창 안에서 <kbd>Ctrl</kbd>+<kbd>J</kbd>를 누르거나 **Back to Search**(검색으로 돌아가기) 클릭) 평소처럼 가운데에 Search가 표시됩니다. 다시 Mari로 돌아가면 떠 있던 자리에 나타납니다.
 
 ## Mari와 캐릭터 만들기
 
@@ -38,7 +50,7 @@ Professor Mari는 항목을 편집하기 전에 먼저 읽고, 요청이 모호�
 - 캐릭터의 [대화형 온보딩](../characters/interactive-onboarding.md) 작성하기, 설치된 Game Mode 규칙 집합의 [규칙 집합 시트](../characters/colors-and-stats.md#ruleset-sheets) 채우기. 값이 규칙 집합에 맞지 않으면 이유와 함께 변경이 거부됩니다.
 - 테마, 에이전트, 프롬프트 프리셋, Personal Extension(개인 확장) 초안 만들기와 편집하기. 초안은 코드를 직접 읽고 **Settings → Addons**(설정 → 애드온)에서 승인하기 전까지 꺼져 있습니다.
 - 프리셋 전체를 갈아 끼우지 않고 프리셋의 한 섹션만 그 자리에서 편집하기.
-- 다운로드 가능한 에이전트를 비교하고 목적에 맞는 것을 알려 주기. 설치는 **Agents → Agent Organizer**(에이전트 → Agent Organizer)로 안내합니다. [다운로드 가능한 에이전트 레퍼런스](../agents/built-in-agents.md)를 참고하세요.
+- 다운로드 가능한 에이전트를 비교하고 목적에 맞는 것을 알려 주기. Workspace 모드에서는 에이전트 개요를 읽고, 주제별 가이드가 있으면 요청할 수 있습니다. 아바타 설정처럼 구체적인 작업을 물어보세요. 에이전트 설치는 **Agents → Agent Organizer**(에이전트 → Agent Organizer)로 안내합니다. [다운로드 가능한 에이전트 레퍼런스](../agents/built-in-agents.md)를 참고하세요.
 - 아바타, 스프라이트, 배경 같은 이미지 만들기와 지정하기. 먼저 이미지 생성 계정이 있어야 합니다. 계정을 대신 만들어 주지는 않습니다. 만든 이미지를 클릭하면 원래 크기로 열어 프롬프트를 읽거나 이미지를 다운로드하거나 프롬프트를 수정해 다시 생성할 수 있습니다. 새 이미지가 답변 속 기존 이미지를 대체합니다.
 - 캐릭터나 세계관을 조사할 때 공개된 Fandom 위키 문서 찾아보기.
 

@@ -89,6 +89,8 @@ Marinara는 실행 중에 `.env`를 지켜봅니다. 대부분의 설정은 재�
 
 > **경고:** `0.0.0.0/0` 같은 넓은 공개 `IP_ALLOWLIST` 범위는 인터넷 클라이언트를 로그인 없이 들여보낼 수 있습니다. 신뢰하는 주소만 적으세요.
 
+<a id="storage"></a>
+
 ## 저장 위치
 
 | 변수 | 기본값 | 설명 |
@@ -107,6 +109,8 @@ openssl rand -hex 32
 ```
 
 Marinara는 데이터를 일반 JSON 파일로 보관하므로 백업을 복사하고 읽을 수 있습니다. 각 폴더에 무엇이 들어 있는지는 [Marinara가 데이터를 저장하는 위치](data/where-data-is-stored.md)를 참고하세요.
+
+데이터를 네트워크 공유 폴더에 두려면 `DATA_DIR`을 그 공유 폴더 안의 폴더로 지정하고, Marinara를 시작하기 전에 공유 폴더가 연결되어 있는지 확인하세요. [네트워크 폴더나 외부 폴더에 접근할 수 없을 때](TROUBLESHOOTING.md#cannot-access-a-network-or-external-folder)를 참고하세요.
 
 <a id="logging-levels"></a>
 

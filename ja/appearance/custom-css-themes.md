@@ -282,6 +282,37 @@ Game controls、Session、Volume、Game Assets、接続したチャット、パ�
 
 スマートフォンでは、3点メニューを開くと丸いボタンが展開されます。開閉ボタンは`[data-chat-tools-menu-button]`、開いたボタン列は`[data-chat-tools-menu]`で、各リスト項目の`data-chat-tools-menu-item`には、そのウィンドウのIDが設定されます。ツールのボタンは`.mari-window-bubble.mari-chat-tools-button`を使い、`data-chat-tools-menu-tool`にも同じIDが設定されます。ボタン列にはウィンドウの枠がありません。ボタンは丸い形を保ち、チャットのほかの部分に適用する3つのスイッチとは独立して、ウィジェットの色とボタンのサイズに従います。
 
+## キャラクターシートの外観
+
+ルールセットのキャラクターシートは、RoleplayでもGameでも同じ見た目です。次のクラスとデータ属性を使うと、テーマでシートのスタイルを設定できます。
+
+| 部品 | クラス | データ属性 |
+| --- | --- | --- |
+| シート全体 | `.mari-ruleset-sheet` | `data-ruleset`(`local/my-rules`のようなルールセットのID)、`data-rank-display`(`value`、`label`、`dots`、`roman`、`number`のいずれか)、編集中は`data-editing="true"` |
+| タイトルと**Edit ruleset sheet**(ルールセットのシートを編集)ボタン | `.mari-ruleset-sheet__header` | |
+| タブ | `.mari-ruleset-sheet__tabs` | 各タブに`data-tab-id`と`aria-selected`が付きます |
+| グループの見出し | `.mari-ruleset-sheet__heading` | |
+| シート上部のフィールド | `.mari-ruleset-sheet__field`(`.mari-ruleset-sheet__fields`の中) | `data-field`。計算で求めた値には`data-derived` |
+| 能力値 | `.mari-ruleset-sheet__ability`(`.mari-ruleset-sheet__abilities`の中)。スコアは`__ability-score`、判定値は`__ability-value`です | `data-ability`。能力値のグループには`data-section` |
+| Healthなどのプール | `.mari-ruleset-sheet__pool`(`.mari-ruleset-sheet__pools`の中) | `data-pool`。プールのグループには`data-pool-group` |
+| トラック | `.mari-ruleset-sheet__track`(`.mari-ruleset-sheet__tracks`の中) | `data-track`。負傷トラックには`data-wound="true"`も付きます |
+| 状態 | `.mari-ruleset-sheet__conditions` | |
+| 習熟したスキルやセーヴ | `.mari-ruleset-sheet__rank`(`.mari-ruleset-sheet__trained`の中で、グループごとに`.mari-ruleset-sheet__rank-group`に入ります)。ランクは`__rank-value`です。ルールセットがランクを判定値で表示する場合(`data-rank-display="value"`)は、ここに判定値が入ります。スマートフォンでその横に表示される判定値は`__rank-check`、練習は`__practice`です | `data-skill`または`data-save`、`data-tier`(段階のID)、`data-rank`(`0`は未習熟、`1`は次の段階、以降も同様) |
+| シートの編集中のスキルやセーヴ | `.mari-ruleset-sheet-editor__rank` | `data-skill`または`data-save`、`data-tier`、`data-rank` |
+| Gearなどのリスト | `.mari-ruleset-sheet__list`。各行は`.mari-ruleset-sheet__list-row`です | `data-list`。チェックを入れた行には`data-marked="true"` |
+
+たとえば次の例では、あるルールセットのランク2を2つの星で表示します。変えたいランクごとに、このようなルールを2つ1組で追加してください。使うのは、ランクをドット、名前、ローマ数字、数字のいずれかで表示するルールセットだけにしてください。判定値で表示するルールセットでは`__rank-value`に判定値が入っているため、このルールで判定値が隠れてしまいます。
+
+```css
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value {
+  font-size: 0;
+}
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value::after {
+  content: "★★";
+  font-size: 0.6875rem;
+}
+```
+
 ## 関連ガイド
 
 - [カードCSSテーマ設定ガイド](card-css-theming.md)

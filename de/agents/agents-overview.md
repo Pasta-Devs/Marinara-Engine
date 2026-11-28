@@ -91,12 +91,20 @@ Ein mit **Rules** gekennzeichnetes Paket ist kein Agent. Es liefert einen Game-M
 
 Deinstallierst du ein Paket, verschwinden sein Code und seine Einstellungen, deine Chatnachrichten und dein Verlauf bleiben aber erhalten. Löschst du einen eigenen Agenten, ist er endgültig weg.
 
+### Die Anleitungen eines Agenten lesen
+
+Öffne die Seite des Agenten im **Agent Organizer** und klick auf **Read how this agent works** (lesen, wie dieser Agent funktioniert). Seine Übersicht öffnet sich im Dokumentationsfenster. Wähl in der Liste ein Thema, um mehr zu lesen. Am Handy kommst du mit dem Zurück-Pfeil wieder zur Themenliste. Schließ das Fenster, um zur Seite des Agenten zurückzukehren.
+
+**View source** (Quelle anzeigen) öffnet die Originalanleitung. Manche Agenten haben noch nur eine kurze Zusammenfassung oder einen externen Link, während ihre Autoren Anleitungen zu einzelnen Themen ergänzen. Lädt eine Anleitung nicht, versuch es erneut, sobald du online bist. Bereits geöffnete Anleitungen können bis zu sieben Tage lang verfügbar bleiben; eine gespeicherte Anleitung kann veraltet sein.
+
+**Version history** zeigt die drei neuesten Einträge. Klick auf **Show older versions** (ältere Versionen anzeigen), um ihn aufzuklappen, oder auf **Show fewer versions** (weniger Versionen anzeigen), um ihn wieder zu kürzen. Die neueste Veröffentlichung erscheint außerdem unter **What's new** (Was ist neu).
+
 ### Agenten aktualisieren
 
 Gibt es für ein installiertes Paket eine neuere kompatible Version, öffnet sich das Fenster **Agent updates available**. Es listet jedes Update mit seiner Version auf und zeigt, ob es einen Neustart braucht.
 
 1. Entferne das Häkchen bei jedem Update, das du überspringen willst. Anfangs sind alle Updates ausgewählt.
-2. Lies **What's new** (Was ist neu), falls das Paket Release Notes veröffentlicht hat. **More** (Mehr) zeigt lange Notes vollständig an. Ein Punkt markiert eine Änderung, die dir auffallen wird.
+2. Lies **What's new**, falls das Paket Release Notes veröffentlicht hat. **More** (Mehr) zeigt lange Notes vollständig an. Ein Punkt markiert eine Änderung, die dir auffallen wird.
 3. Klick auf **Update all** – oder auf **Update 2 of 3** (2 von 3 aktualisieren), wenn du einige Häkchen entfernt hast. Jede Zeile zeigt **Updated** oder **Failed**. Eine fehlgeschlagene Zeile nennt den Grund und zeigt **Retry** (wiederholen).
 4. Braucht ein Update einen Neustart, klick auf **Restart now** (Jetzt neu starten) oder starte Marinara später neu.
 

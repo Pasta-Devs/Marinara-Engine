@@ -282,6 +282,37 @@ Marinara में कस्टम CSS जोड़ने के दो तर�
 
 फ़ोन पर तीन बिंदुओं वाला मेन्यू गोल बटन में फैलता है। उसे खोलने वाला बटन `[data-chat-tools-menu-button]` है, खुली बटन कतार `[data-chat-tools-menu]` है, और सूची के हर आइटम में `data-chat-tools-menu-item` का मान उसकी विंडो ID होता है। टूल के बटन `.mari-window-bubble.mari-chat-tools-button` और उसी ID के साथ `data-chat-tools-menu-tool` इस्तेमाल करते हैं। कतार के चारों ओर विंडो का फ़्रेम नहीं होता; उसके बटन विजेट के रंग और बटन साइज़ का पालन करते हैं। यह बाकी चैट के तीन स्विच से अलग काम करता है और बटन गोल ही रहते हैं।
 
+## कैरेक्टर शीट की स्टाइल बदलना
+
+नियमसेट की कैरेक्टर शीट Roleplay और Game में एक जैसी दिखती है। इन क्लास और डेटा एट्रिब्यूट से थीम उसकी स्टाइल बदल सकती है।
+
+| हिस्सा | क्लास | डेटा एट्रिब्यूट |
+| --- | --- | --- |
+| पूरी शीट | `.mari-ruleset-sheet` | `data-ruleset` (नियमसेट की ID, जैसे `local/my-rules`), `data-rank-display` (`value`, `label`, `dots`, `roman` या `number`), एडिट होते समय `data-editing="true"` |
+| शीर्षक और **Edit ruleset sheet** (नियमसेट शीट एडिट करें) बटन | `.mari-ruleset-sheet__header` | |
+| टैब | `.mari-ruleset-sheet__tabs` | हर टैब में `data-tab-id` और `aria-selected` होते हैं |
+| किसी समूह की हेडिंग | `.mari-ruleset-sheet__heading` | |
+| शीट में सबसे ऊपर की कोई फ़ील्ड | `.mari-ruleset-sheet__field` (`.mari-ruleset-sheet__fields` के अंदर) | `data-field`, या निकाले गए मान के लिए `data-derived` |
+| कोई स्टैट | `.mari-ruleset-sheet__ability` (`.mari-ruleset-sheet__abilities` के अंदर); उसका स्कोर और चेक की संख्या `__ability-score` और `__ability-value` हैं | `data-ability`; स्टैट के समूह में `data-section` होता है |
+| कोई पूल, जैसे Health | `.mari-ruleset-sheet__pool` (`.mari-ruleset-sheet__pools` के अंदर) | `data-pool`; पूल के समूह में `data-pool-group` होता है |
+| कोई ट्रैक | `.mari-ruleset-sheet__track` (`.mari-ruleset-sheet__tracks` के अंदर) | `data-track`; घाव ट्रैक में `data-wound="true"` भी होता है |
+| स्थितियाँ | `.mari-ruleset-sheet__conditions` | |
+| कोई प्रशिक्षित स्किल या सेविंग थ्रो | `.mari-ruleset-sheet__rank` (`.mari-ruleset-sheet__trained` के अंदर, समूह के हिसाब से `.mari-ruleset-sheet__rank-group` में); उसकी रैंक, या जहाँ नियमसेट रैंक को चेक की संख्या के रूप में दिखाता है (`data-rank-display="value"`) वहाँ उसकी चेक की संख्या, `__rank-value` है; फ़ोन पर उसके बगल में दिखने वाली चेक की संख्या `__rank-check` है, और उसका अभ्यास `__practice` | `data-skill` या `data-save`, `data-tier` (स्तर की ID), `data-rank` (`0` बिना प्रशिक्षण, `1` अगला स्तर, और इसी तरह आगे) |
+| शीट एडिट होते समय कोई स्किल या सेविंग थ्रो | `.mari-ruleset-sheet-editor__rank` | `data-skill` या `data-save`, `data-tier`, `data-rank` |
+| कोई सूची, जैसे Gear | `.mari-ruleset-sheet__list`; हर पंक्ति `.mari-ruleset-sheet__list-row` है | `data-list`; टिक की गई पंक्ति में `data-marked="true"` होता है |
+
+जैसे, यह किसी एक नियमसेट की रैंक 2 को दो सितारों के रूप में दिखाता है। जिस भी रैंक को बदलना हो, उसके लिए ऐसे नियमों की एक जोड़ी जोड़ें। इसे सिर्फ़ उस नियमसेट पर इस्तेमाल करें जो रैंक को बिंदुओं, नामों, रोमन अंकों या संख्याओं के रूप में दिखाता है: जहाँ वह चेक की संख्या दिखाता है, वहाँ `__rank-value` में चेक की संख्या होती है, और यह नियम उसे छिपा देगा।
+
+```css
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value {
+  font-size: 0;
+}
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value::after {
+  content: "★★";
+  font-size: 0.6875rem;
+}
+```
+
 ## मिलती-जुलती गाइड
 
 - [कार्ड CSS थीमिंग गाइड](card-css-theming.md)

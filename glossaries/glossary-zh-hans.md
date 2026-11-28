@@ -880,3 +880,23 @@ Precedents from the #9063 sync of `characters/colors-and-stats.md`,「三种颜�
 **Connections Jobs page (2026-11-24, #9760):** the old **Jobs** 框/区域 is now the **Jobs** 摘要 at the panel top and the **Jobs** 页面 opened from **All jobs**(全部工作); **Jobs** keeps (分工), also replacing the stray (任务) in `prompts/generation-parameters.md`. Coined (no zh-Hans keys): **Own model**(自有模型), **Follow Agents**(跟随智能体), **Saved**(已保存), **Browse all N models**(浏览全部 N 个模型), **All**(全部), **Sort: Custom**(排序：自定义) etc., **Low balance**(余额不足), **No credit left**(余额已用完); **Set up** reuses (设置).
 
 **NovelAI V5 references and automatic defaults (2026-11-25, #9772, `media/image-providers.md`):** **Steps**(步数) and **Prompt guidance**(提示词引导) are the `ui/zh-Hans.json` strings, and **Automatic**(自动) repeats the file's gloss on the English label (§5) for the empty fields' placeholder *Automatic (23)*, which `ui/zh-Hans.json` renders *自动（23）*; the defaults-table cell is 自动 and the automatic value is 自动值. Prose uses 步 and 提示词引导. **Style fidelity (V4.5 only)** runs bare because the sentence names 风格保真度 (`ui/zh-Hans.json`). NovelAI's currency **Anlas** stays Latin (每张 5 Anlas).
+
+## v2.5.3 catch-up: agent guides, new packages, floating Mari, rank display (2026-11-28)
+
+Precedents from the catch-up of the zh-hans pack from Engine `3e8a0f5687` to `f9fdcdb48d`. Glosses marked coined have no zh-Hans string in `ui/zh-Hans.json`; recheck when the keys ship.
+
+| English label or term | Gloss / rendering | Note |
+| --- | --- | --- |
+| Read how this agent works | **Read how this agent works**(了解此智能体的工作方式) | Equals `ui.agents.agentcatalogview.readHowThisAgentWorks`. The heading is `### 阅读智能体的指南` under `<a id="read-an-agents-guides"></a>`; a topic is 主题, the docs window 文档窗口. |
+| View source / Show older versions / Show fewer versions | (查看来源) / (显示较早版本) / (显示较少版本) | Coined. **What's new**(更新内容) moved its one gloss to the new first use in `agents/agents-overview.md` (§5.2.a). |
+| Float Prof. Mari / Dock Prof. Mari back / Back to Search | (让 Professor Mari 浮动) / (把 Professor Mari 放回去) / (返回 Search) | The first two are coined; the third keeps Latin Search (2026-10-11) instead of the app's 返回搜索. Float is 浮动, dock is 停靠, the picture-in-picture button is 画中画按钮. |
+| Workspace (Mari's mode) | Workspace(工作区) 模式 | 工作区 is `ui.chat.homeprofessormarichat.workspaceStatus`. |
+| Otome Hearth terms | 乙女游戏 / 攻略对象 / Starlight / 支线故事 / **Lines & Veils**(底线与帷幕) / **Remind Me**(提醒我) | Starlight stays Latin, like Anlas. A character bible is 角色设定资料, never 设定集 (§3). |
+| Saucelings tabs | **Nook**(小窝)、**Journal**(日记)、**Album**(相册)、**Menagerie**(宠物园) | Coined; the caretaker is 照看者, a Home widget is Home 小组件. |
+| Blackjack / Wordle | 二十一点 / Wordle 猜词竞赛 | The house is 庄家. **Chat Settings → Agents → Commands** is glossed as a whole (聊天设置 → 智能体 → 命令). |
+| Show ranks on the sheet as, and its options | (人物卡上的等级显示方式); **Check value (+2)**(检定值)、**Rank name**(等级名称)、**Dots (●●○)**(圆点)、**Roman numerals (II)**(罗马数字)、**Rank number (2)**(等级序号) | Coined except 等级名称 (`rulesetBuilder.rankName`). A check value is 检定值, a proficiency tier 熟练档位, untrained 未受训练. |
+| Revert to card portrait / Rewrite portrait prompts with AI | (恢复为角色卡肖像) / (用 AI 改写肖像提示词) | Coined. A per-scene portrait is 当前场景专用的肖像. |
+| network share / another drive / home folder | 网络共享 / 其他驱动器 / 主文件夹 | 主文件夹 as in `data/importing-from-sillytavern.md`. The heading `### 无法访问网络文件夹或外部文件夹` sits under `<a id="cannot-access-a-network-or-external-folder"></a>`; `<a id="storage"></a>` now sits above `## 存储` for the new `CONFIGURATION.md#storage` link. |
+| Edit an existing picture | `## 编辑已有图片`; whole-image edit 整图编辑, painted-mask edit 涂抹蒙版编辑, source canvas 源画布 | The labels take their `ui/zh-Hans.json` strings: **Edit image**(编辑图片), **Apply edit**(应用编辑), **Inpaint image**(局部重绘图片), **Strength**(强度), **Noise**(噪声), **Reuse original seed**(复用原始种子), **Edit avatar**(编辑头像), **Use as avatar**(用作头像). Native NovelAI is 原生 NovelAI. |
+
+These are translation choices, not a new native-reader review.

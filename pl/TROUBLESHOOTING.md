@@ -357,6 +357,17 @@ Po awarii albo przeniesieniu wolumenu Docker uruchamianie może zgłosić **The 
 
 Marinara samodzielnie usuwa dzierżawę pozostawioną przez proces, który uległ awarii, w systemach Linux i Android, w kontenerach oraz w systemie Windows, gdy folder z danymi leży na lokalnym dysku. Ręczny krok to rozwiązanie awaryjne dla sieciowej lub współdzielonej pamięci masowej, dysków wymiennych oraz (w systemie Windows) komputera, którego nazwę zmieniono po awarii.
 
+<a id="cannot-access-a-network-or-external-folder"></a>
+
+### Brak dostępu do folderu sieciowego lub zewnętrznego
+
+Marinara trzyma twoje dane wyłącznie w swoim folderze z danymi, a import folderu SillyTavern czyta tylko z folderów, na które pozwala serwer. Udział sieciowy (folder udostępniony w sieci) albo inny dysk działa, jeśli skonfigurujesz go na jeden z tych sposobów:
+
+- **Twoje dane są w udziale sieciowym.** Ustaw `DATA_DIR` w pliku `.env` na folder w tym udziale, a potem uruchom aplikację Marinara ponownie. Zobacz [Przechowywanie danych](CONFIGURATION.md#storage). Przenieś cały folder z danymi: jeśli tylko jeden folder w jego wnętrzu, na przykład `avatars` albo `backgrounds`, zastąpisz dowiązaniem do innego dysku, jego obrazy się nie wczytają, a Marinara odpowie na nie komunikatem **Not found**.
+- **Importujesz folder SillyTavern z udziału sieciowego.** Wpisana ścieżka musi leżeć wewnątrz folderu domowego użytkownika, który uruchamia serwer, inaczej pojawi się komunikat **Marinara can only read folders inside your home folder**. Na komputerze, na którym działa serwer, kliknij zamiast tego **Browse** (przeglądaj) i wskaż folder. Możesz też dodać folder do `IMPORT_ALLOWED_ROOTS` w pliku `.env`, oddzielając kolejne foldery przecinkami, i uruchomić aplikację Marinara ponownie. Gdy to ustawienie jest ustawione, dozwolone są tylko jego foldery, nawet dla folderu wskazanego w oknie, więc jeśli nadal importujesz z folderu domowego, dodaj także jego.
+- **Przeglądarka folderów w aplikacji otwiera twój folder domowy.** Pokazuje tylko foldery wewnątrz folderu domowego, niezależnie od `IMPORT_ALLOWED_ROOTS`. Jeśli udział leży poza nim, dodaj jego folder do `IMPORT_ALLOWED_ROOTS`, uruchom aplikację Marinara ponownie, a potem wpisz jego ścieżkę w polu **SillyTavern folder path** (ścieżka folderu SillyTavern).
+- **Udział sieciowy jest odłączony.** Podłącz go ponownie, zanim uruchomisz aplikację Marinara, a potem spróbuj jeszcze raz.
+
 ### Kopia zapasowa lub eksport zwraca błąd 403
 
 Sesje na tym samym komputerze mogą tworzyć kopie zapasowe bez sekretu administratora. Żądania z innego urządzenia, spod adresu sieciowego, z kontenera Docker albo przez proxy lub tunel na tym samym komputerze go wymagają. Utwórz go w **Settings → Advanced → Admin Access** na komputerze, na którym działa serwer, albo ustaw `ADMIN_SECRET` na serwerze, a potem zapisz tę samą wartość w **Admin Access** na drugim urządzeniu. Jeśli sekret ma być wymagany także na pętli zwrotnej, ustaw `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. Przy `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false` przekazywani goście korzystają z lokalnego pominięcia. Przy publicznym proxy lub tunelu zostaw to zabezpieczenie włączone.

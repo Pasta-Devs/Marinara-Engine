@@ -77,6 +77,26 @@ Un livre que tu écris avec le modèle. Prépare l'histoire, les personnages et 
 - **Réglages clés** : installe-le, redémarre lorsque cela t'est demandé, puis ouvre **Home → Story Writer** et choisis une connexion de texte dans sa barre latérale. Les histoires sont enregistrées sur ton serveur Marinara. Tu peux en commencer de nouvelles, reprendre les anciennes et les télécharger en Markdown ou en texte brut.
 - **Guide complet** : [guide du package Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 
+### Otome Hearth
+
+Un jeu otome solo construit à partir de tes personnages. Les prétendants se souviennent de tes choix, t'envoient des messages et t'emmènent en rendez-vous ; tu débloques des histoires annexes et des tenues avec la monnaie Starlight, que tu gagnes en jouant, sans paiement en argent réel ni minuteur d'endurance.
+
+- **Intégration** : App dans son propre onglet **Otome Hearth**, dans **Home**.
+- **Où ça marche** : Home.
+- **Disponibilité** : nécessite Engine **2.5.1+** (avant 4.0.0). Demande l'accès aux connexions réseau, aux routes du serveur, au stockage local et à une interface d'onglet **Home**.
+- **Réglages clés** : installe-le, redémarre lorsque cela t'est demandé, puis ouvre **Home → Otome Hearth**. Dans l'application, configure les bibles de personnages, les limites de contenu **Lines & Veils** (lignes et voiles) et le suivi facultatif **Remind Me** (rappelle-moi).
+- **Guide complet** : [guide du package Otome Hearth](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/otome-forge/README.md).
+
+### Saucelings
+
+Un animal virtuel dans **Home → Saucelings** et sur les widgets Home. Choisis l'un de tes personnages comme gardien : il nourrit l'animal, joue avec lui et le câline selon son propre emploi du temps, pendant que tu t'occupes de ce qu'il laisse passer.
+
+- **Intégration** : App dans son propre onglet **Saucelings** et widgets Home, dans **Home**.
+- **Où ça marche** : Home.
+- **Disponibilité** : nécessite Engine **2.5.0+** (avant 4.0.0). Demande l'accès au contexte du prompt des chats, aux routes du serveur, au stockage local, ainsi qu'aux interfaces d'onglet et de widgets **Home**.
+- **Réglages clés** : installe-le, redémarre lorsque cela t'est demandé, puis ouvre **Home → Saucelings** pour t'occuper de l'animal dans **Nook** (coin douillet), **Journal**, **Album**, **Menagerie** (ménagerie) et **Settings** (réglages).
+- **Guide complet** : [guide du package Saucelings](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/saucelings/README.md).
+
 ## Writer Agents
 
 Les Writer Agents façonnent l'histoire ou le style. Ils ajoutent des consignes avant la réponse ou nettoient la réponse après coup.
@@ -419,6 +439,22 @@ Ajoute un match en tête-à-tête où les deux choix restent cachés jusqu'à la
 - **Intégration** : package de jeu pour Conversation.
 - **Où ça marche** : Conversation.
 - **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/rps`, puis choisis l'adversaire et un match au meilleur des trois, cinq ou sept manches. L'installer ou le retirer demande un redémarrage.
+
+### Blackjack
+
+Ajoute une table de blackjack contre la banque pour les personnages de Conversation.
+
+- **Intégration** : package de jeu pour Conversation.
+- **Où ça marche** : Conversation.
+- **Réglages clés** : lance une table avec `/blackjack` ou depuis le prompt d'un personnage, et active **Blackjack** sous **Chat Settings → Agents → Commands** (réglages du chat → Agents → commandes) pour que les personnages puissent lancer une partie d'eux-mêmes. Son installation demande un redémarrage, pas sa désinstallation.
+
+### Wordle
+
+Ajoute une course quotidienne au mot Wordle avec les personnages de Conversation.
+
+- **Intégration** : package de jeu pour Conversation.
+- **Où ça marche** : Conversation.
+- **Réglages clés** : lance la partie du jour avec `/wordle`, et active **Wordle** sous **Chat Settings → Agents → Commands** pour que les personnages puissent lancer d'eux-mêmes la partie du jour. Son installation demande un redémarrage, pas sa désinstallation.
 
 ## Guides associés
 

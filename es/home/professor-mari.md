@@ -13,7 +13,19 @@ Se abre su ventana. También puedes llegar a ella desde cualquier pantalla: escr
 
 Escribe tu mensaje en lenguaje sencillo y pulsa <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> añade una línea nueva. Si desactivas **Enter sends to Professor Mari** (Enter envía a Professor Mari) en sus ajustes, <kbd>Enter</kbd> añade una línea nueva y <kbd>Ctrl</kbd>+<kbd>Enter</kbd> o el botón de envío envía el mensaje. El ajuste se guarda por dispositivo, así que puedes desactivarlo en el teléfono y mantenerlo activado en la computadora. Tu primer mensaje desbloquea el logro **Hello World**.
 
-Todos sus ajustes están en **Settings → General → Search and Professor Mari settings → Open** (Configuración → General → Ajustes de Search y Professor Mari → Abrir), o en el engranaje de Search. En una computadora, los controles deslizantes **Height** (Alto) y **Width** (Ancho) de **Professor Mari window** (Ventana de Professor Mari) cambian el tamaño de su ventana. En un teléfono, su ventana ocupa toda la pantalla.
+Todos sus ajustes están en **Settings → General → Search and Professor Mari settings → Open** (Configuración → General → Ajustes de Search y Professor Mari → Abrir), o en el engranaje de Search. En un teléfono, su ventana ocupa toda la pantalla.
+
+### Hacerla flotar junto a tu trabajo (computadora)
+
+Su ventana se abre en el centro de la pantalla, sobre la app atenuada. Para seguir usando la app mientras está abierta, haz clic en **Float Prof. Mari** (Hacer flotar a Professor Mari), el botón de imagen en imagen de su cabecera. El botón aparece cuando la ventana de la app mide al menos 1.024 píxeles de ancho.
+
+- Una Mari flotante no tiene el fondo atenuado y no se cierra al hacer clic en otro lugar, así que puedes copiar texto de un campo a su chat.
+- Arrastra su cabecera para moverla. Arrastra un borde o una esquina para cambiar su tamaño.
+- Suéltala en el borde izquierdo o derecho de la pantalla para acoplarla ahí, como una barra lateral: la app le hace sitio. Arrastra su borde interior para cambiar su ancho. Suéltala en el borde superior para que ocupe la pantalla por debajo de la barra superior. Un contorno muestra dónde va a quedar. Arrástrala lejos del borde para recuperar su tamaño anterior.
+- Junto a un editor, si la sueltas en el borde izquierdo, se acopla como acompañante del editor. Tira con firmeza de su cabecera para sacarla de nuevo a una ventana flotante.
+- Vuelve a abrirse flotando, donde la dejaste.
+- Pulsa <kbd>Esc</kbd> dentro de su ventana, o haz clic en **X**, para cerrarla. Haz clic en **Dock Prof. Mari back** (Volver a acoplar a Professor Mari), el mismo botón, para volver a la ventana centrada.
+- Abrir Search con <kbd>Ctrl</kbd>+<kbd>J</kbd> dentro de ella o con **Back to Search** (Volver a la búsqueda) muestra la Search centrada de siempre. Al volver con ella, aparece donde flotaba.
 
 ## Crear un personaje con Mari
 
@@ -38,7 +50,7 @@ Lee un elemento antes de editarlo, y pregunta cuando tu solicitud es vaga.
 - Escribir el [onboarding interactivo](../characters/interactive-onboarding.md) de un personaje y rellenar una [ficha de conjunto de reglas](../characters/colors-and-stats.md#ruleset-sheets) para un conjunto de reglas de Game Mode instalado. Su cambio se rechaza, con un motivo, cuando un valor no encaja con el conjunto de reglas.
 - Crear o editar un tema, un agente, un preset de prompt o un borrador de Personal Extension (Extensión personal). Un borrador permanece desactivado hasta que lees su código y lo apruebas en **Settings → Addons** (Configuración → Complementos).
 - Editar una sección de un preset directamente, en lugar de reemplazar el preset entero.
-- Comparar los agentes descargables y decirte cuáles encajan con tu objetivo. Te envía a **Agents → Agent Organizer** (Agentes → Organizador de agentes) para instalarlos. Consulta [Referencia de agentes descargables](../agents/built-in-agents.md).
+- Comparar los agentes descargables y decirte cuáles encajan con tu objetivo. En el modo Workspace, puede leer la descripción general de un agente y pedir sus guías por tema cuando las hay. Pregúntale por una tarea concreta, como configurar un avatar. Te envía a **Agents → Agent Organizer** (Agentes → Organizador de agentes) para instalar agentes. Consulta [Referencia de agentes descargables](../agents/built-in-agents.md).
 - Crear o asignar imágenes, como avatares, sprites y fondos. Primero necesitas una cuenta de generación de imágenes. Ella no crea una. Haz clic en una imagen que haya creado para abrirla a tamaño completo. Desde ahí puedes leer el prompt, descargar la imagen o editar el prompt y volver a generarla. La imagen nueva reemplaza a la anterior en su respuesta.
 - Consultar páginas públicas de wikis de Fandom cuando investigas un personaje o un mundo.
 

@@ -130,7 +130,9 @@ Les agents mettent à jour les valeurs de tes champs personnalisés. Ils ne supp
 
 ### Créer un nouveau portrait
 
-La grande carte d'un personnage peut créer un nouveau portrait dès que Character Tracker dispose d'une connexion d'images. Sur une carte compacte, clique sur **Feature character card** (mettre en avant la carte du personnage) pour ouvrir la grande carte. La fenêtre Trackers affiche toujours de grandes cartes. Survole le portrait et clique sur le bouton en forme d'œil pour en créer un à partir de **Look**, ou sur le bouton en forme de chemise pour **Look** et **Outfit**. Le bouton en forme de chemise n'apparaît que si le personnage a une tenue. L'ancien portrait reste en place jusqu'à ce que le nouveau soit prêt. Si la création échoue, tu gardes l'ancien. Les personnages affichés avec l'avatar de leur fiche ou un sprite d'expression n'ont pas ces boutons.
+La grande carte d'un personnage peut créer un nouveau portrait dès que Character Tracker dispose d'une connexion d'images. Sur une carte compacte, clique sur **Feature character card** (mettre en avant la carte du personnage) pour ouvrir la grande carte. La fenêtre Trackers affiche toujours de grandes cartes. Survole le portrait et clique sur le bouton en forme d'œil pour en créer un à partir de **Look**, ou sur le bouton en forme de chemise pour **Look** et **Outfit**. Le bouton en forme de chemise n'apparaît que si le personnage a une tenue. Tu peux aussi téléverser une image avec le bouton de téléversement, dans le coin inférieur droit du portrait. Pour les fiches de personnage, cela enregistre un portrait propre à la scène sans remplacer l'avatar de la fiche, et tu peux cliquer sur **Revert to card portrait** (revenir au portrait de la fiche), dans le coin supérieur droit, pour revenir au portrait de la fiche. L'ancien portrait reste en place jusqu'à ce que le nouveau soit prêt ; si la création échoue, tu gardes l'ancien. Les personnages actuellement affichés avec un sprite d'expression masquent ces boutons jusqu'à ce que tu désactives **Use expression sprites for tracker portraits** (utiliser les sprites d'expression pour les portraits des trackers) ou qu'aucun sprite correspondant n'existe.
+
+Active **Rewrite portrait prompts with AI** (réécrire les prompts de portrait avec l'IA) dans les réglages de l'agent Character Tracker pour que le modèle de l'Illustrator combine **Look**, **Mood** et la partie de **Outfit** qui couvre le haut du corps en un seul prompt de portrait, avec un champ de prompt modifiable si tu veux ajuster ses instructions.
 
 ### Réglages du Tracker Panel
 
@@ -140,7 +142,7 @@ Ouvre **Settings → Appearance** (Paramètres → Apparence), ouvre le groupe *
 | --- | --- |
 | **Tracker Panel** | L'interrupteur, le même que celui que le dé actionne. Activé par défaut. Quand il est activé, l'étiquette indique "Shown in the Roleplay HUD". |
 | **Dock Tracker Panel to edge** (ancrer le Tracker Panel au bord) | Place le panneau contre le bord de l'écran et empêche les contrôles du chat voisins de le chevaucher. |
-| **Use expression sprites for tracker portraits** (utiliser les sprites d'expression pour les portraits des trackers) | Utilise le sprite d'expression actuel d'un personnage au lieu du simple avatar, quand il en existe un. Voir [Sprites de personnage](../characters/sprites.md). |
+| **Use expression sprites for tracker portraits** | Utilise le sprite d'expression actuel d'un personnage au lieu du simple avatar, quand il en existe un. Voir [Sprites de personnage](../characters/sprites.md). |
 | **Panel background** (arrière-plan du panneau) | Une couleur ou un dégradé pour le panneau. |
 | **Desktop size** | La largeur du panneau : **Compact**, **Standard** ou **Expanded**. |
 | **Thought display mode** (mode d'affichage des pensées) | **Docked** ouvre les pensées dans la carte du personnage. **Floating** les ouvre dans une bulle à côté du portrait. |

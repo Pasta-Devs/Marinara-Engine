@@ -357,6 +357,17 @@ Nach einem Absturz oder einem verschobenen Docker-Volume kann der Start **The st
 
 Unter Linux, Android, in Containern und unter Windows räumt Marinara eine Lease, die ein abgestürzter Prozess hinterlassen hat, von selbst ab, wenn der Datenordner auf einem lokalen Laufwerk liegt. Der manuelle Schritt ist die Notlösung für Netzwerk- oder gemeinsam genutzten Speicher, Wechsellaufwerke und (unter Windows) einen Computer, der nach dem Absturz umbenannt wurde.
 
+<a id="cannot-access-a-network-or-external-folder"></a>
+
+### Kein Zugriff auf einen Netzwerk- oder externen Ordner
+
+Marinara speichert deine Daten nur in seinem Datenordner, und ein Import aus einem SillyTavern-Ordner liest nur aus Ordnern, die der Server erlaubt. Eine Netzwerkfreigabe oder ein anderes Laufwerk funktioniert, wenn du es auf eine dieser Arten einrichtest:
+
+- **Deine Daten liegen auf einer Netzwerkfreigabe.** Richte `DATA_DIR` in der `.env` auf einen Ordner auf der Freigabe und starte Marinara neu. Siehe [Speicherung](CONFIGURATION.md#storage). Verschieb den ganzen Datenordner: Verlinkst du nur einen Ordner darin, etwa `avatars` oder `backgrounds`, auf ein anderes Laufwerk, laden seine Bilder nicht, und Marinara antwortet für sie mit **Not found**.
+- **Du importierst einen SillyTavern-Ordner von einer Netzwerkfreigabe.** Ein eingegebener Pfad muss im Home-Ordner des Benutzers liegen, der den Server ausführt, sonst erscheint **Marinara can only read folders inside your home folder**. Auf dem Server-Rechner selbst klickst du stattdessen auf **Browse** (Durchsuchen) und wählst den Ordner aus. Oder du trägst den Ordner in `IMPORT_ALLOWED_ROOTS` in der `.env` ein, mehrere durch Kommas getrennt, und startest Marinara neu. Sobald diese Einstellung gesetzt ist, sind nur ihre Ordner erlaubt, auch für einen ausgewählten Ordner. Importierst du weiterhin aus deinem Home-Ordner, trag ihn also ebenfalls ein.
+- **Der Ordnerbrowser in der App öffnet deinen Home-Ordner.** Er listet nur Ordner innerhalb des Home-Ordners auf, egal, was in `IMPORT_ALLOWED_ROOTS` steht. Liegt die Freigabe außerhalb davon, trag ihren Ordner in `IMPORT_ALLOWED_ROOTS` ein, starte Marinara neu und gib dann ihren Pfad in **SillyTavern folder path** (Pfad zum SillyTavern-Ordner) ein.
+- **Die Netzwerkfreigabe ist getrennt.** Verbinde sie wieder, bevor du Marinara startest, und versuch es dann erneut.
+
 ### Backup oder Export liefert 403
 
 Sitzungen auf demselben Computer können ohne Admin-Secret Backups anlegen. Anfragen von einem anderen Gerät, über eine Netzwerkadresse, aus Docker oder über einen Proxy oder Tunnel auf demselben Computer brauchen eines. Erstelle es auf dem Server-Rechner selbst unter **Settings → Advanced → Admin Access** oder setz `ADMIN_SECRET` auf dem Server, und speichere denselben Wert dann auf dem anderen Gerät unter **Admin Access**. Soll auch Loopback das Geheimnis verlangen, setz `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. Ist `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false` gesetzt, bekommen weitergeleitete Besucher die lokale Ausnahme. Lass diese Option bei einem öffentlichen Proxy oder Tunnel eingeschaltet.

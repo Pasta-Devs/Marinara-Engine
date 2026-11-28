@@ -78,13 +78,15 @@ A imagem nova passa a ser a versão selecionada na mensagem. Os resultados anter
 
 ### Versões de imagens
 
-Abra uma imagem com versões empilhadas para escolher uma versão. As setas para a esquerda e a direita, as teclas de seta e os gestos de deslizar na horizontal alternam entre os blocos da galeria. Os controles para cima e para baixo, as teclas de seta e os gestos de deslizar na vertical sobre a imagem alternam entre as versões da pilha atual. Reduza o zoom antes de navegar. Rolar o prompt não muda a versão.
+Abra uma imagem com versões empilhadas para escolher uma versão. Em uma galeria, as setas para a esquerda e a direita, as teclas de seta e os gestos de deslizar na horizontal alternam entre os blocos. Uma imagem aberta a partir de uma mensagem do chat fica dentro da pilha dessa imagem. Os controles para cima e para baixo, as teclas de seta e os gestos de deslizar na vertical sobre a imagem alternam entre as versões da pilha atual. Reduza o zoom antes de navegar. Rolar o prompt não muda a versão.
 
 Clique na imagem, no cabeçalho do prompt ou no botão de recolher para usar as teclas de seta para cima e para baixo para alternar entre versões. Clique no texto do prompt ou em um botão de copiar para usar essas teclas para rolar o texto. Os controles de versão também continuam visíveis durante a geração de uma nova imagem ou a edição. Aplique ou limpe uma máscara pintada antes de trocar de versão; os controles ficam pausados enquanto a geração está em andamento.
 
 A versão que você escolhe é salva e exibida no chat, inclusive depois de recarregar a página. Gerar de novo ou editar uma versão mais antiga acrescenta um novo resultado à mesma pilha e também mantém as versões posteriores. Um chat ramificado tem sua própria seleção.
 
-Use **Excluir a imagem da galeria** no bloco, ou o botão de excluir no visualizador, para escolher o que remover:
+Com **Automatically save generated images to character galleries** (salvar automaticamente imagens geradas nas galerias dos personagens) ativado, as novas gerações e as edições mantêm as galerias de personagem e de persona em que a imagem original foi salva. Essas galerias também agrupam as versões. Cada galeria salva a própria versão selecionada, então navegar nela não muda a imagem selecionada no chat. As entradas da galeria compartilham os arquivos de imagem salvos; elas não fazem cópias extras. Abrir uma galeria também recupera as versões que faltam de pilhas de chat mais antigas, quando a entrada original da galeria ainda aponta para o chat de origem. As versões excluídas de uma galeria que já está agrupada continuam excluídas.
+
+Na **Gallery** do chat, use **Excluir a imagem da galeria** no bloco, ou o botão de excluir no visualizador, para escolher o que remover:
 
 - **Excluir esta versão** remove a versão exibida. Se ela estava selecionada, a versão mais recente entre as restantes é exibida.
 - **Excluir as outras versões** mantém a versão exibida e remove as demais.

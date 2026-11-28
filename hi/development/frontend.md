@@ -652,17 +652,24 @@ Personal Extensions सर्वर पर सेव, हैश से हूब
 | `haptic`                 | post_processing | Haptic डिवाइस को कमांड भेजता है                                     |
 | `cyoa`                   | post_processing | विकल्पों वाले प्रॉम्प्ट बनाता है                                    |
 | `storyboard` | post_processing | Game और Roleplay के स्थिर या एनिमेटेड स्टोरीबोर्ड की योजना बनाता है |
+| `2d-avatars` | feature | एनिमेटेड 2D स्प्राइट या मेश कैरेक्टर अवतार रेंडर करता है |
+| `3d-avatars` | feature | एनिमेटेड VRM, MMD PMX, GLB और FBX 3D अवतार रेंडर करता है |
 | `conversation-calls`     | feature         | Conversation में ऑडियो/वीडियो कॉल और उनकी सेटिंग्स जोड़ता है         |
 | `hierarchical-maps`      | feature         | Roleplay/Game के मैप, जगह का कॉन्टेक्स्ट और आवाजाही जोड़ता है         |
 | `noodle` | feature | Home में स्थानीय Noodle सोशल फ़ीड जोड़ता है |
+| `otome-forge` | feature | Home में Otome Hearth जोड़ता है, जो कैरेक्टर से बना एक ओटोमे गेम है |
+| `saucelings` | feature | Home में Saucelings जोड़ता है, जो कैरेक्टर का पाला हुआ एक वर्चुअल पालतू है |
 | `slurp2` | feature | Home में Slurp जोड़ता है, जो कैरेक्टर के लिए एक निजी क्रिएटर ऐप है |
+| `story-writer` | feature | Home में Story Writer जोड़ता है, जो साथ मिलकर किताब लिखने की एक जगह है |
 | `gacha-forge` | feature | Home में एक गाचा गेम मोड जोड़ता है |
+| `blackjack` | feature | Conversation में Blackjack की टेबल जोड़ता है |
 | `uno`                    | feature         | Conversation में UNO की टेबल जोड़ता है                              |
 | `chess`                  | feature         | Conversation में शतरंज का बोर्ड जोड़ता है                            |
 | `poker`                  | feature         | Conversation में Texas Hold'em की टेबल जोड़ता है                     |
 | `eightball`              | feature         | Conversation में 8-Ball Pool की टेबल जोड़ता है                       |
 | `tic-tac-toe`            | feature         | Conversation में Tic-Tac-Toe का बोर्ड जोड़ता है                      |
 | `rock-paper-scissors`    | feature         | Conversation में Rock-Paper-Scissors के मैच जोड़ता है                |
+| `wordle` | feature | Conversation में रोज़ की Wordle रेस जोड़ता है |
 
 ### एजेंट रिज़ल्ट टाइप
 
