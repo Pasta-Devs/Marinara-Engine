@@ -351,7 +351,12 @@ import {
 import { DirectionEngine } from "./DirectionEngine";
 import { GameWidgetPanel, GameWidgetSessionPrepModal, MobileWidgetPanel } from "./GameWidgetPanel";
 import { WeatherEffects } from "../chat/WeatherEffects";
-import { useSceneShelter } from "../../hooks/use-scene-shelter";
+import {
+  backgroundFileName,
+  backgroundShowsTimeOfDay,
+  backgroundShowsWeather,
+  useSceneShelter,
+} from "../../hooks/use-scene-shelter";
 import { GameInventory } from "./GameInventory";
 import type { StartingGearTaken } from "./StartingGearPicker";
 import { GameReadableDisplay } from "./GameReadableDisplay";
@@ -12797,6 +12802,22 @@ function GameSurfaceComponent({
     return undefined;
   }, [chatBackground, effectiveBackgroundTag, replayActive, sceneAnalysisEnabled, scopedAssetMap]);
 
+  // A weather or time of day version of a library background already shows the weather or the sky,
+  // so the drawn weather steps back (indoors: falls only on the window stencil), as in Roleplay.
+  const gameShownLibraryFile =
+    typeof resolvedBackground === "string" && resolvedBackground.startsWith("/api/backgrounds/file/")
+      ? backgroundFileName(resolvedBackground)
+      : null;
+  const gamePaintedWeather = backgroundShowsWeather(gameShownLibraryFile, gameSnapshot?.weather);
+  const gamePaintedTime = backgroundShowsTimeOfDay(gameShownLibraryFile, gameSnapshot?.time ?? metaTime);
+  const gameWindowMask = useMemo(
+    () =>
+      gamePaintedWeather && gameShownLibraryFile
+        ? { url: `/api/backgrounds/weather-mask/${encodeURIComponent(gameShownLibraryFile)}` }
+        : null,
+    [gamePaintedWeather, gameShownLibraryFile],
+  );
+
   const lastResolvedBackgroundRef = useRef<{ scopeKey: string; url?: string }>({ scopeKey: sceneRuntimeScopeKey });
   useEffect(() => {
     if (lastResolvedBackgroundRef.current.scopeKey !== sceneRuntimeScopeKey) {
@@ -14147,6 +14168,9 @@ function GameSurfaceComponent({
                           timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
                           showCelestial={false}
                           shelter={gameSceneShelter}
+                          paintedWeather={gamePaintedWeather}
+                          paintedTime={gamePaintedTime}
+                          windowMask={gameWindowMask}
                           paused={isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing}
                         />
                       </div>

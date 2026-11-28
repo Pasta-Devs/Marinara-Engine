@@ -108,14 +108,14 @@ export function WeatherEffects({
     const resolved = resolveWeatherRenderConfig(weather, timeOfDay);
     // Only the windows show (often a sixth of the screen), so three times the falling weather keeps
     // the glass as busy as the open screen would be.
-    if (masked) {
-      return paintedSkyStill(resolved)
+    const shown = masked
+      ? paintedSkyStill(resolved)
         ? stillPaintedSky(resolved)
-        : { ...resolved, count: Math.min(400, resolved.count * 3) };
-    }
-    const shown = paintedWeather
-      ? paintedWeatherRenderConfig(resolved, shelter)
-      : shelterWeatherRenderConfig(resolved, shelter);
+        : { ...resolved, count: Math.min(400, resolved.count * 3) }
+      : paintedWeather
+        ? paintedWeatherRenderConfig(resolved, shelter)
+        : shelterWeatherRenderConfig(resolved, shelter);
+    // A time of day version already has its own sky, masked or not.
     return paintedTime
       ? { ...shown, tint: "", celestial: "none" as const, addStars: false, sunRays: false, sunsetGlow: false }
       : shown;
@@ -390,6 +390,7 @@ export function WeatherEffects({
     return () => {
       running = false;
       if (frameRef.current !== 0) cancelAnimationFrame(frameRef.current);
+      frameRef.current = 0;
       if (resumeFallbackRef.current === ensureFallbackRunning) resumeFallbackRef.current = null;
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -419,7 +420,7 @@ export function WeatherEffects({
 
   return (
     <canvas
-      key={`${weather ?? ""}:${timeOfDay ?? ""}:${masked ? "masked:" : ""}${showCelestial ? "celestial" : "particles"}:${workerFailed ? "fallback" : "worker"}`}
+      key={`${weather ?? ""}:${timeOfDay ?? ""}:${shelter}:${paintedWeather ? "pw:" : ""}${paintedTime ? "pt:" : ""}${masked ? "masked:" : ""}${showCelestial ? "celestial" : "particles"}:${workerFailed ? "fallback" : "worker"}`}
       ref={canvasRef}
       className="pointer-events-none absolute inset-0 z-0 h-full w-full [contain:strict]"
       style={canvasStyle}

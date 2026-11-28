@@ -270,7 +270,8 @@ const DECISION_CHECK_LABEL_KEYS: Record<string, string> = {
  */
 export function IllustratorDecisionChecksSelect({ chat, state }: { chat: Chat; state: BackgroundVersionState }) {
   const { t: localizeUi } = useUiTranslation();
-  const updateMeta = useUpdateChatMetadata();
+  // Serialized: two quick picks must not land out of order.
+  const updateMeta = useUpdateChatMetadata({ serialize: true });
   const parts = [
     ...(state.illustratorAutoBackgroundsEnabled ? (["location"] as const) : []),
     ...(state.illustratorWeatherBackgroundsEnabled ? (["weather"] as const) : []),
@@ -284,8 +285,13 @@ export function IllustratorDecisionChecksSelect({ chat, state }: { chat: Chat; s
     time: state.illustratorDecisionTimeCheck,
   };
   const value = (["location", "weather", "time"] as const).filter((part) => on[part]).join("+") || "off";
-  const every = parts.join("+");
-  const options = Array.from(new Set(["off", ...parts, ...(parts.length > 1 ? [every] : []), value]));
+  // Every mix of the checks that are on: single checks, then pairs, then all of them.
+  const subsets: string[] = [];
+  for (let mask = 1; mask < 1 << parts.length; mask++) {
+    subsets.push(parts.filter((_, index) => mask & (1 << index)).join("+"));
+  }
+  subsets.sort((a, b) => a.split("+").length - b.split("+").length);
+  const options = Array.from(new Set(["off", ...subsets, value]));
   return (
     <div className="flex flex-col gap-1">
       <span className="text-[0.625rem] font-medium text-[var(--foreground)]">

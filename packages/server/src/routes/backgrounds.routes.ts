@@ -44,6 +44,7 @@ import {
   resolveConnectionImageQuality,
 } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
+import { imageConnectionTakesReferencePicture } from "../services/image/image-generation.js";
 import { resolveImagePromptReviewSize } from "../services/image/image-prompt-review.js";
 import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
@@ -599,6 +600,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
   const remakeWeatherArtSchema = z.object({
     chatId: z.string().min(1).max(200),
     part: z.enum(["picture", "stencil", "no-stencil"]),
+    debugMode: z.boolean().optional().default(false),
   });
   app.post("/weather-art/remake", async (req, reply) => {
     const input = remakeWeatherArtSchema.parse(req.body);
@@ -612,7 +614,9 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "This chat's background isn't a picture from your library." });
     }
     if (input.part === "no-stencil") {
-      turnOffChatBackgroundWindowMask(plain);
+      if (!turnOffChatBackgroundWindowMask(plain)) {
+        return reply.status(500).send({ error: "The window stencil couldn't be turned off." });
+      }
       return { success: true, filename: background };
     }
     const { version, time } = parseBackgroundWeatherVersionName(background);
@@ -634,6 +638,20 @@ export async function backgroundsRoutes(app: FastifyInstance) {
         error: "Choose an image connection for the Illustrator agent, or mark one as the default image connection.",
       });
     }
+    if (
+      !imageConnectionTakesReferencePicture({
+        source: (imgConn as any).imageGenerationSource || imgConn.model || "",
+        baseUrl: imgConn.baseUrl || "https://image.pollinations.ai",
+        serviceHint: imgConn.imageService || (imgConn as any).imageGenerationSource || "",
+        model: imgConn.model || "",
+        comfyWorkflow: imgConn.comfyuiWorkflow || undefined,
+      })
+    ) {
+      return reply.status(400).send({
+        error: "The Illustrator image connection can't start from a picture, so it can't remake this one.",
+      });
+    }
+    const debugOverrideEnabled = input.debugMode === true || isDebugAgentsEnabled();
     const gameState = await createGameStateStorage(app.db)
       .getLatest(input.chatId)
       .catch(() => null);
@@ -656,10 +674,16 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       styleProfiles: imageSettings.styleProfiles,
       size: imageSettings.background,
       providerReadyPrompt: true,
+      debugLog: (message: string, ...args: any[]) => logDebugOverride(debugOverrideEnabled, message, ...args),
     };
     if (input.part === "stencil") {
       const mask = await generateChatBackgroundWindowMask({ ...request, baseFilename: plain });
-      return { success: true, filename: background, stencil: mask ? "made" : "none" };
+      if (!mask) {
+        return reply
+          .status(500)
+          .send({ error: "The window stencil couldn't be made. Check the Illustrator image connection." });
+      }
+      return { success: true, filename: background, stencil: mask === "none" ? "none" : "made" };
     }
     const filename = await generateChatBackgroundWeatherVersion({
       ...request,
@@ -672,8 +696,11 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     if (!filename) {
       return reply.status(500).send({ error: "The picture couldn't be made. Check the Illustrator image connection." });
     }
-    if (filename !== background) await chats.patchMetadata(input.chatId, { background: filename });
-    return { success: true, filename };
+    // Only when the chat still shows the picture that was remade: a background picked meanwhile stays.
+    const latest = await chats.getById(input.chatId);
+    const stillShown = readTrimmedString(parseJsonRecord(latest?.metadata).background) === background;
+    if (filename !== background && stillShown) await chats.patchMetadata(input.chatId, { background: filename });
+    return { success: true, filename, shown: stillShown };
   });
 
   // Set tags for a background
