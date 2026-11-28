@@ -24,6 +24,7 @@ import {
   type ChatListBackgroundMode,
   type RoleplayAvatarStyle,
   type RoleplayChatPosition,
+  type ChatBackgroundOverlays,
   type TrackerDataPanelSection,
   type TrackerPanelSizeProfile,
   type TrackerStatDisplayMode,
@@ -599,6 +600,7 @@ function formatStorageBytes(bytes: number): string {
 }
 
 const ROLEPLAY_CHAT_POSITIONS: RoleplayChatPosition[] = ["left", "center", "right"];
+const CHAT_BACKGROUND_OVERLAY_CHOICES: ChatBackgroundOverlays[] = ["full", "light", "off"];
 
 const ROLEPLAY_AVATAR_STYLE_OPTIONS: Array<{ id: RoleplayAvatarStyle; label: string; desc: string }> = [
   {
@@ -3663,6 +3665,8 @@ function AppearanceSettings({
   const chatArtBehindPanels = useUIStore((s) => s.chatArtBehindPanels);
   const setChatArtBehindPanels = useUIStore((s) => s.setChatArtBehindPanels);
   const setChatBackgroundBlur = useUIStore((s) => s.setChatBackgroundBlur);
+  const chatBackgroundOverlays = useUIStore((s) => s.chatBackgroundOverlays);
+  const setChatBackgroundOverlays = useUIStore((s) => s.setChatBackgroundOverlays);
   const conversationBackgroundImageOpacity = useUIStore((s) => s.conversationBackgroundImageOpacity);
   const setConversationBackgroundImageOpacity = useUIStore((s) => s.setConversationBackgroundImageOpacity);
   const resetAppearanceSettings = useUIStore((s) => s.resetAppearanceSettings);
@@ -4692,6 +4696,43 @@ function AppearanceSettings({
                     </span>
                   </div>
                 </label>
+                {overhaulLook ? (
+                  <SettingsChoiceRow
+                    anchorId={getSettingsControlAnchorId("chat-background-overlays")}
+                    label={localizeUi("settings.controls.chatBackgroundOverlays.label")}
+                    help={localizeUi("settings.controls.chatBackgroundOverlays.help")}
+                    value={chatBackgroundOverlays}
+                    onChange={setChatBackgroundOverlays}
+                    options={CHAT_BACKGROUND_OVERLAY_CHOICES.map((choice) => ({
+                      value: choice,
+                      label: localizeUi(`settings.controls.chatBackgroundOverlays.${choice}`),
+                    }))}
+                  />
+                ) : (
+                  <div id={getSettingsControlAnchorId("chat-background-overlays")} className="grid scroll-mt-3 gap-1.5">
+                    <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
+                      {localizeUi("settings.controls.chatBackgroundOverlays.label")}
+                      <HelpTooltip text={localizeUi("settings.controls.chatBackgroundOverlays.help")} />
+                    </span>
+                    <div
+                      role="group"
+                      aria-label={localizeUi("settings.controls.chatBackgroundOverlays.label")}
+                      className="grid grid-cols-3 gap-1"
+                    >
+                      {CHAT_BACKGROUND_OVERLAY_CHOICES.map((choice) => (
+                        <button
+                          key={choice}
+                          type="button"
+                          onClick={() => setChatBackgroundOverlays(choice)}
+                          aria-pressed={chatBackgroundOverlays === choice}
+                          className={SETTINGS_BUTTON_CLASS}
+                        >
+                          {localizeUi(`settings.controls.chatBackgroundOverlays.${choice}`)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <label className="mari-settings-boxed-slider flex flex-col gap-1 rounded-lg bg-[var(--secondary)]/45 p-3 ring-1 ring-[var(--border)]/70">
                   <span className="text-[0.6875rem] font-medium">
                     {localizeUi("settings.controls.conversationBackgroundImageOpacity.label")}

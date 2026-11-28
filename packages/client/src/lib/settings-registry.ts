@@ -1688,6 +1688,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Slider",
   },
   {
+    id: "chat-background-overlays",
+    sectionId: "chat-backgrounds",
+    labelKey: "settings.controls.chatBackgroundOverlays.label",
+    label: "Theme overlays",
+    description: "Turn down or off the tint, grid and edge shading a theme lays over the chat background picture.",
+    descriptionKey: "settings.search.chatBackgroundOverlays.description",
+    aliases: ["background", "tint", "dim", "dark", "grid", "vignette", "overlay", "wash", "darken", "theme"],
+    keywords: ["see background", "background too dark", "remove overlay"],
+    kind: "Button group",
+  },
+  {
     id: "chat-list-backgrounds",
     sectionId: "chat-backgrounds",
     labelKey: "settings.search.chatListBackgrounds.label",
