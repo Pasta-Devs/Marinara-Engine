@@ -138,3 +138,34 @@ assert(diffLines("", "").length === 0, "empty to empty has nothing to show");
 }
 
 console.log("word-diff: ok");
+
+// A small edit inside a long field stays a word diff (shared start and end are kept, not one big replace).
+{
+  const filler = "the swamp is quiet at dawn and the onions grow ".repeat(200);
+  const longBefore = `${filler}Shrek counts onions. ${filler}`;
+  const longAfter = `${filler}Shrek counts his onions twice. ${filler}`;
+  const segments = diffWords(longBefore, longAfter);
+  const removed = segments
+    .filter((s) => s.type === "removed")
+    .map((s) => s.value)
+    .join("");
+  const added = segments
+    .filter((s) => s.type === "added")
+    .map((s) => s.value)
+    .join("");
+  assert(removed.length < 20 && added.length < 30, `only the edit is marked in a long text (${removed} / ${added})`);
+  assert(
+    segments
+      .filter((s) => s.type !== "added")
+      .map((s) => s.value)
+      .join("") === longBefore,
+    "kept + removed spell the old text",
+  );
+  assert(
+    segments
+      .filter((s) => s.type !== "removed")
+      .map((s) => s.value)
+      .join("") === longAfter,
+    "kept + added spell the new text",
+  );
+}

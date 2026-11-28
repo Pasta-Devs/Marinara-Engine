@@ -79,6 +79,8 @@ function startProject(name, clientPort, serverPort) {
       MARINARA_ENV_FILE: resolve(dataDir, ".env"),
       PORT: String(serverPort),
       VITE_PORT: String(clientPort),
+      // Each pair's own Vite cache: Vite 8.4.0 refuses a second dev server on a shared one.
+      VITE_CACHE_DIR: resolve(repoRoot, "packages/client/node_modules", `.vite-e2e-${name}`),
     },
     playwrightProjectStdio,
   );

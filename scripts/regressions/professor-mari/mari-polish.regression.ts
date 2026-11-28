@@ -150,7 +150,8 @@ assert.ok(
 const headerDestinationIds = [
   ...(mariHeaderChrome.match(/const headerDestinations = \[[\s\S]*?\] as const/u)?.[0] ?? "").matchAll(/id: "(\w+)"/gu),
 ].map((match) => match[1]);
-assert.deepEqual(headerDestinationIds, ["skills", "memories", "context", "chats"]);
+// Changes (her open changes, with Undo and Keep) sits before Chats, so Chats still closes the row.
+assert.deepEqual(headerDestinationIds, ["skills", "memories", "context", "approvals", "chats"]);
 
 // ── #5742: the chip row is reachable by mouse and shows its overflow ────────
 const chipsComponent = readSource("packages/client/src/components/chat/MariSuggestionChips.tsx");

@@ -11,6 +11,7 @@ import {
   MARI_AUTHORIZATION_ACCEPT_CHIP,
 } from "@marinara-engine/shared";
 import { useChats } from "../../../hooks/use-chats";
+import { usePresets } from "../../../hooks/use-presets";
 import { type CharacterPreviewModel } from "../../../lib/character-preview";
 import { type LorebookPreviewModel } from "../../../lib/lorebook-preview";
 import { type MariStoryState } from "../../../lib/mari-work-animations";
@@ -410,9 +411,14 @@ export function MariWorkTimelineOutcome({
   const whyPoints = splitMariAnswerWhy(stripProfessorMariSpeakerPrefix(content)).why;
   // Slice 74: the receipt's Why is her reason, else her first Why point (which then leaves the list).
   const receiptWhy = receiptResults.some((result) => result.reason) ? undefined : whyPoints[0];
+  // A section-only edit carries no preset row, so its record has no label: the preset list names it.
+  const presets = usePresets().data;
   const receiptName = (result: MariWorkspaceActionResult) =>
     (result.resource.kind === "character" ? characterPreviews.get(result.resource.id)?.name : undefined) ??
     (result.resource.kind === "lorebook" ? lorebookPreviews.get(result.resource.id)?.name : undefined) ??
+    (result.resource.kind === "preset" && !result.resource.label
+      ? presets?.find((preset) => preset.id === result.resource.id)?.name
+      : undefined) ??
     result.resource.label ??
     result.summary;
   return (

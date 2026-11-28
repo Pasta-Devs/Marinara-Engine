@@ -32,11 +32,39 @@ function wholeValueReplace(before: string, after: string): DiffSegment[] {
  */
 export function diffWords(before: string, after: string): DiffSegment[] {
   if (before === after) return before ? [{ type: "equal", value: before }] : [];
-  const a = tokenize(before);
-  const b = tokenize(after);
+  const allA = tokenize(before);
+  const allB = tokenize(after);
+  // The tokens both texts start and end with are kept text: only the middle needs the LCS table, so an
+  // edit inside a long field (a whole preset description, a prompt section) stays a word diff.
+  let start = 0;
+  while (start < allA.length && start < allB.length && allA[start] === allB[start]) start++;
+  let end = 0;
+  while (
+    end < allA.length - start &&
+    end < allB.length - start &&
+    allA[allA.length - 1 - end] === allB[allB.length - 1 - end]
+  )
+    end++;
+  const head = allA.slice(0, start).join("");
+  const tail = end ? allA.slice(allA.length - end).join("") : "";
+  const a = allA.slice(start, allA.length - end);
+  const b = allB.slice(start, allB.length - end);
   const m = a.length;
   const n = b.length;
-  if (m === 0 || n === 0 || m * n > MAX_DIFF_CELLS) return wholeValueReplace(before, after);
+  const wrap = (middle: DiffSegment[]): DiffSegment[] => {
+    const out = middle.map((segment) => ({ ...segment }));
+    if (head) {
+      if (out[0]?.type === "equal") out[0].value = head + out[0].value;
+      else out.unshift({ type: "equal", value: head });
+    }
+    if (tail) {
+      const last = out[out.length - 1];
+      if (last?.type === "equal") last.value += tail;
+      else out.push({ type: "equal", value: tail });
+    }
+    return out;
+  };
+  if (m === 0 || n === 0 || m * n > MAX_DIFF_CELLS) return wrap(wholeValueReplace(a.join(""), b.join("")));
 
   // dp[i][j] = LCS length of a[i:] and b[j:].
   const dp: number[][] = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
@@ -70,7 +98,7 @@ export function diffWords(before: string, after: string): DiffSegment[] {
   }
   while (i < m) push("removed", a[i++]);
   while (j < n) push("added", b[j++]);
-  return segments;
+  return wrap(segments);
 }
 
 /**
