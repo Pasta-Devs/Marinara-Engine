@@ -1980,9 +1980,12 @@ export function HomeProfessorMariChat({
       : null;
   }, []);
 
+  const lastTranscriptScrollTopRef = useRef(0);
   const handleTranscriptScroll = useCallback(() => {
     const node = scrollRef.current;
     if (!node) return;
+    const movedDown = node.scrollTop > lastTranscriptScrollTopRef.current;
+    lastTranscriptScrollTopRef.current = node.scrollTop;
     if (suppressNextScrollEventRef.current) {
       suppressNextScrollEventRef.current = false;
       return;
@@ -1993,6 +1996,7 @@ export function HomeProfessorMariChat({
       event: "user-scroll",
       nearBottom: isProfessorMariTranscriptNearBottom(node),
       following: transcriptFollowOutputRef.current,
+      movedDown,
     });
     transcriptFollowOutputRef.current = decision.following;
     setShowJumpToLatest(!transcriptFollowOutputRef.current);

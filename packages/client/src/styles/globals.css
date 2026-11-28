@@ -3329,12 +3329,13 @@ html[data-mari-ios-webkit] :is(.mari-modal, .mari-right-panel-content) [class*="
 }
 
 /* Resolve the app background before the panel remaps its neutral-surface tokens.
-   An opaque backing keeps covered settings from showing through without blur. */
+   An opaque backing keeps covered settings from showing through without blur.
+   An editor shell (the connection window, a character's sprite window) keeps its editor surface, as in other browsers. */
 html[data-mari-ios-webkit] .mari-modal {
   --mari-modal-opaque-bg: var(--marinara-app-background-color, var(--background));
 }
 
-html[data-mari-ios-webkit] .mari-modal .mari-modal-panel {
+html[data-mari-ios-webkit] .mari-modal .mari-modal-panel:not(.mari-editor-shell) {
   background-color: var(--mari-modal-opaque-bg);
   background-image: linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg));
 }

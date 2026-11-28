@@ -6,6 +6,7 @@ import {
   isProfessorMariTranscriptNearBottom,
   landProfessorMariTranscript,
   scrollProfessorMariTranscriptToBottom,
+  transcriptScrollAction,
 } from "../../../packages/client/src/lib/professor-mari-transcript-scroll.js";
 
 const professorMariTranscript = { clientHeight: 240, scrollHeight: 720, scrollTop: 0 };
@@ -202,3 +203,16 @@ assert.equal(
     globalThis.requestAnimationFrame = realRequestAnimationFrame;
   }
 }
+// #9842: a picture above the view and one below it load in the same frame. The browser's scroll anchoring moves the
+// position down by the first, so the scroll event finds a following reader the second picture's height above the new
+// bottom, before the follow pins them.
+assert.equal(
+  transcriptScrollAction({ event: "user-scroll", nearBottom: false, following: true, movedDown: true }).following,
+  true,
+  "scroll anchoring that moves a following reader down does not stop the follow",
+);
+assert.equal(
+  transcriptScrollAction({ event: "user-scroll", nearBottom: false, following: false, movedDown: true }).following,
+  false,
+  "a reader who scrolled away and moves down short of the bottom still does not follow",
+);

@@ -16,6 +16,9 @@ const PWA_DISABLED = Boolean(process.env.SKIP_PWA);
 const DEV_SERVER_PORT = Number.parseInt(process.env.VITE_PORT ?? "5173", 10);
 const DEV_SERVER_HOST = process.env.VITE_HOST?.trim() || undefined;
 const DEV_SERVER_OPEN = process.env.VITE_OPEN_BROWSER !== "false" && process.env.AUTO_OPEN_BROWSER !== "false";
+// Vite 8.4.0 keeps a process lock in its cache directory and refuses a second server on the same one. Test harnesses
+// that run two Engines from one checkout give each its own; unset keeps Vite's default (node_modules/.vite).
+const CACHE_DIR = process.env.VITE_CACHE_DIR?.trim() || undefined;
 const DEV_PROXY_DEFAULT_PORT = 7860;
 
 /**
@@ -252,6 +255,7 @@ function pwaStub(): Plugin {
 }
 
 export default defineConfig({
+  cacheDir: CACHE_DIR,
   define: {
     __MARINARA_BUILD_COMMIT__: JSON.stringify(BUILD_COMMIT),
   },
