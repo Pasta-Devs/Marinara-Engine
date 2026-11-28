@@ -9,6 +9,7 @@
 // ──────────────────────────────────────────────
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
+import { isBackgroundWeatherVersionName } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 
 const LIBRARY_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
@@ -111,7 +112,7 @@ export function libraryBackgroundCandidatesForLocation(
     .map((entry) => entry.filename);
 }
 
-/** The chat background library (data/backgrounds) with each picture's tags. */
+/** The chat background library (data/backgrounds) with each picture's tags; versions left out. */
 export function readBackgroundLibrary(dir = join(DATA_DIR, "backgrounds")): BackgroundLibraryItem[] {
   if (!existsSync(dir)) return [];
   // A missing or malformed meta.json only drops the tags, never the pictures.
@@ -123,14 +124,17 @@ export function readBackgroundLibrary(dir = join(DATA_DIR, "backgrounds")): Back
     /* no tags */
   }
   try {
-    return readdirSync(dir)
-      .filter((file) => LIBRARY_EXTS.has(extname(file).toLowerCase()))
-      .map((filename) => ({
-        filename,
-        tags: Array.isArray(meta[filename]?.tags)
-          ? (meta[filename]?.tags as unknown[]).filter((tag): tag is string => typeof tag === "string")
-          : [],
-      }));
+    return (
+      readdirSync(dir)
+        // Weather and time of day versions belong to their plain picture, never serve a place themselves.
+        .filter((file) => LIBRARY_EXTS.has(extname(file).toLowerCase()) && !isBackgroundWeatherVersionName(file))
+        .map((filename) => ({
+          filename,
+          tags: Array.isArray(meta[filename]?.tags)
+            ? (meta[filename]?.tags as unknown[]).filter((tag): tag is string => typeof tag === "string")
+            : [],
+        }))
+    );
   } catch {
     return [];
   }

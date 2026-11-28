@@ -15,6 +15,7 @@ import { type AvatarLayoutControls } from "../../../components/chat/AvatarLayout
 import { useCharacters, usePersonas, type SpriteInfo } from "../../../hooks/use-characters";
 import { lorebookKeys, useLorebooks } from "../../../hooks/use-lorebooks";
 import { useGenerate } from "../../../hooks/use-generate";
+import { useHasDecisionModel } from "../../../hooks/use-decision-model";
 import {
   useCapabilityAgentRegistry,
   useInstalledCapabilityPackages,
@@ -42,6 +43,7 @@ import {
   normalizeIllustratorRunInterval,
   normalizeSpotifySourceType,
   parseAgentSettingsRecord,
+  parseBackgroundWeatherVersionName,
 } from "@marinara-engine/shared";
 import { useCreateAgent, useUpdateAgent, type AgentConfigRow } from "../../../hooks/use-agents";
 import { useAgentStore } from "../../../stores/agent.store";
@@ -243,6 +245,18 @@ export type ChatAgents = ReturnType<typeof useChatAgents>;
  * Agents' state, effects and handlers for Chat Settings. The drawer calls it once, before its guarded close, and
  * draws the faces of Agents (Conversation, Roleplay, Game) from the result.
  */
+export type WeatherArtPart = "picture" | "stencil" | "no-stencil";
+export const WEATHER_ART_LABELS = {
+  picture: "ui.chat.chatsettingsdrawer.weatherArtRemakePicture",
+  stencil: "ui.chat.chatsettingsdrawer.weatherArtRemakeStencil",
+  "no-stencil": "ui.chat.chatsettingsdrawer.weatherArtNoStencil",
+} as const;
+const WEATHER_ART_DONE = {
+  picture: "ui.chat.chatsettingsdrawer.weatherArtDonePicture",
+  stencil: "ui.chat.chatsettingsdrawer.weatherArtDoneStencil",
+  "no-stencil": "ui.chat.chatsettingsdrawer.weatherArtDoneNoStencil",
+} as const;
+
 export function useChatAgents({
   chat,
   onResetSpritePlacements,
@@ -866,6 +880,10 @@ export function useChatAgents({
   const illustratorVideoRunInterval =
     illustratorChatVideoRunInterval ?? normalizeIllustratorRunInterval(illustratorDefaults.videoRunInterval) ?? 5;
   const illustratorAutoBackgroundsEnabled = metadata.illustratorAutoBackgroundsEnabled === true;
+  const illustratorWeatherBackgroundsEnabled = metadata.illustratorWeatherBackgroundsEnabled === true;
+  const illustratorTimeBackgroundsEnabled = metadata.illustratorTimeBackgroundsEnabled === true;
+  // The Illustrator's optional Decision checks need a Decision model.
+  const hasDecisionModel = useHasDecisionModel();
   const selfieUseAvatarReferences = metadata.selfieUseAvatarReferences === true;
   const selfieIncludeCharacterAppearance = metadata.selfieIncludeCharacterAppearance === true;
   const gameImageUseAvatarReferences = metadata.gameImageUseAvatarReferences !== false;
@@ -928,6 +946,75 @@ export function useChatAgents({
       illustratorAutoBackgroundsEnabled: !illustratorAutoBackgroundsEnabled,
     });
   }, [chat.id, illustratorAutoBackgroundsEnabled, updateMeta]);
+  // The version the chat shows now, for the remake buttons: `inn--wx-rain.png` -> "rain",
+  // `inn--tod-night.png` -> "night", `inn--wx-rain--tod-sunset.png` -> "rain at sunset".
+  const shownVersionParts =
+    typeof metadata.background === "string"
+      ? parseBackgroundWeatherVersionName(metadata.background)
+      : { version: "", time: "" as const };
+  const shownWeatherVersion = illustratorWeatherBackgroundsEnabled ? shownVersionParts.version : "";
+  const shownTimeVersion = illustratorTimeBackgroundsEnabled ? shownVersionParts.time : "";
+  const shownVersionLabel = [
+    shownVersionParts.version.replace(/-/gu, " "),
+    shownVersionParts.time
+      ? shownVersionParts.version
+        ? shownVersionParts.time === "day"
+          ? "by day"
+          : `at ${shownVersionParts.time}`
+        : shownVersionParts.time === "day"
+          ? "daytime"
+          : shownVersionParts.time
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const [remakingWeatherArt, setRemakingWeatherArt] = useState<WeatherArtPart | null>(null);
+  const remakeWeatherArt = useCallback(
+    async (part: WeatherArtPart) => {
+      setRemakingWeatherArt(part);
+      try {
+        const result = await api.post<{ filename: string; stencil?: "made" | "none" }>(
+          "/backgrounds/weather-art/remake",
+          { chatId: chat.id, part },
+        );
+        // A fresh address so the new picture and stencil show instead of the cached ones.
+        useUIStore
+          .getState()
+          .setChatBackground(`/api/backgrounds/file/${encodeURIComponent(result.filename)}?v=${Date.now()}`);
+        qc.invalidateQueries({ queryKey: ["chats"] });
+        toast.success(
+          localizeUi(
+            part === "stencil" && result.stencil === "none"
+              ? "ui.chat.chatsettingsdrawer.weatherArtNoWindows"
+              : WEATHER_ART_DONE[part],
+          ),
+        );
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err));
+      } finally {
+        setRemakingWeatherArt(null);
+      }
+    },
+    [chat.id, qc, localizeUi],
+  );
+  const toggleIllustratorWeatherBackgrounds = useCallback(() => {
+    updateMeta.mutate({
+      id: chat.id,
+      illustratorWeatherBackgroundsEnabled: !illustratorWeatherBackgroundsEnabled,
+    });
+  }, [chat.id, illustratorWeatherBackgroundsEnabled, updateMeta]);
+  const toggleIllustratorTimeBackgrounds = useCallback(() => {
+    updateMeta.mutate({
+      id: chat.id,
+      illustratorTimeBackgroundsEnabled: !illustratorTimeBackgroundsEnabled,
+    });
+  }, [chat.id, illustratorTimeBackgroundsEnabled, updateMeta]);
+  const illustratorDecisionLocationCheck =
+    illustratorAutoBackgroundsEnabled && metadata.illustratorDecisionLocationCheck === true;
+  const illustratorDecisionWeatherCheck =
+    illustratorWeatherBackgroundsEnabled && metadata.illustratorDecisionWeatherCheck === true;
+  const illustratorDecisionTimeCheck =
+    illustratorTimeBackgroundsEnabled && metadata.illustratorDecisionTimeCheck === true;
   const proseGuardianBannedWords =
     typeof metadata.proseGuardianBannedWords === "string"
       ? metadata.proseGuardianBannedWords
@@ -2363,6 +2450,19 @@ export function useChatAgents({
     illustratorChatVideoRunInterval,
     illustratorVideoRunInterval,
     illustratorAutoBackgroundsEnabled,
+    illustratorWeatherBackgroundsEnabled,
+    hasDecisionModel,
+    illustratorDecisionLocationCheck,
+    illustratorDecisionWeatherCheck,
+    illustratorTimeBackgroundsEnabled,
+    illustratorDecisionTimeCheck,
+    shownWeatherVersion,
+    shownTimeVersion,
+    shownVersionLabel,
+    remakingWeatherArt,
+    remakeWeatherArt,
+    toggleIllustratorWeatherBackgrounds,
+    toggleIllustratorTimeBackgrounds,
     selfieUseAvatarReferences,
     selfieIncludeCharacterAppearance,
     gameImageUseAvatarReferences,

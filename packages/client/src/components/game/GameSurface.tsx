@@ -351,6 +351,7 @@ import {
 import { DirectionEngine } from "./DirectionEngine";
 import { GameWidgetPanel, GameWidgetSessionPrepModal, MobileWidgetPanel } from "./GameWidgetPanel";
 import { WeatherEffects } from "../chat/WeatherEffects";
+import { useSceneShelter } from "../../hooks/use-scene-shelter";
 import { GameInventory } from "./GameInventory";
 import type { StartingGearTaken } from "./StartingGearPicker";
 import { GameReadableDisplay } from "./GameReadableDisplay";
@@ -2615,6 +2616,8 @@ function GameSurfaceComponent({
   const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
   const generationPhase = useChatStore((s) => s.generationPhase);
   const gameSnapshot = useGameStateStore((s) => (s.current?.chatId === activeChatId ? s.current : null));
+  // Indoors the weather stays outside: no rain or snow across the room.
+  const gameSceneShelter = useSceneShelter(activeChatId, chatMeta, gameSnapshot?.location ?? null);
   const chatCharacterIds = useMemo(
     () => getChatCharacterIds(chat.characterIds).filter((id) => id !== PROFESSOR_MARI_ID),
     [chat.characterIds],
@@ -14143,6 +14146,7 @@ function GameSurfaceComponent({
                           weather={gameSnapshot?.weather ?? null}
                           timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
                           showCelestial={false}
+                          shelter={gameSceneShelter}
                           paused={isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing}
                         />
                       </div>

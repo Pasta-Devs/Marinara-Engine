@@ -53,6 +53,7 @@ import type { MusicProvider } from "../../../components/chat/AgentAddSetupFields
 import { NeedsModelChip } from "../../../components/connections/NeedsModelChip";
 import { RoleplayCommandsSettings } from "./RoleplayCommandsSettings";
 import { PictureCheckFields } from "../PictureCheckFields";
+import { IllustratorBackgroundVersionRemake, IllustratorDecisionChecksSelect } from "./IllustratorControls";
 import { ChatSettingsSection as Section } from "../ChatSettingsSection";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { cn } from "../../../lib/utils";
@@ -743,6 +744,20 @@ export function RoleplayAgentsSection({
                   enabled={illustratorAutoBackgroundsEnabled}
                   onToggle={toggleIllustratorAutoBackgrounds}
                 />
+                <AgentSettingsToggle
+                  label={localizeUi("ui.chat.chatsettingsdrawer.weatherVersionsOfBackgrounds")}
+                  description={localizeUi("ui.chat.chatsettingsdrawer.weatherVersionsOfBackgroundsHelp")}
+                  enabled={agents.illustratorWeatherBackgroundsEnabled}
+                  onToggle={agents.toggleIllustratorWeatherBackgrounds}
+                />
+                <AgentSettingsToggle
+                  label={localizeUi("ui.chat.chatsettingsdrawer.timeVersionsOfBackgrounds")}
+                  description={localizeUi("ui.chat.chatsettingsdrawer.timeVersionsOfBackgroundsHelp")}
+                  enabled={agents.illustratorTimeBackgroundsEnabled}
+                  onToggle={agents.toggleIllustratorTimeBackgrounds}
+                />
+                <IllustratorBackgroundVersionRemake state={agents} />
+                <IllustratorDecisionChecksSelect chat={chat} state={agents} />
                 <PictureCheckFields chatId={chat.id} metadata={metadata} illustrator />
                 <div className="flex flex-col gap-1">
                   <span className="text-[0.625rem] font-medium text-[var(--foreground)]">

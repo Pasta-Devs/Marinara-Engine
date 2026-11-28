@@ -10,6 +10,7 @@ import {
   FolderInput,
   FolderPlus,
   Image,
+  Layers,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -23,7 +24,11 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH } from "@marinara-engine/shared";
+import {
+  BACKGROUND_THUMBNAIL_WIDTH,
+  CHAT_IMAGE_PREVIEW_WIDTH,
+  parseBackgroundWeatherVersionName,
+} from "@marinara-engine/shared";
 import { api } from "../../../lib/api-client";
 import { saveExportUrl } from "../../../lib/file-download";
 import { cn, getAvatarCropStyle } from "../../../lib/utils";
@@ -81,7 +86,27 @@ type BackgroundLibraryItem = {
   createdAt: string;
   folderId: string | null;
   favorite?: boolean;
+  /** A weather or time of day version names its plain picture (a library file or a gallery address). */
+  versionOf?: string | null;
 };
+
+/** "Night", "Rain at night", "Snow by day": what a weather or time of day version shows. */
+function backgroundVersionLabel(filename: string): string {
+  const { version, time } = parseBackgroundWeatherVersionName(filename);
+  const weather = version.replace(/-/gu, " ");
+  const label = weather && time ? `${weather} ${time === "day" ? "by day" : `at ${time}`}` : weather || time;
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : filename;
+}
+
+const SHOW_VERSIONS_KEY = "marinara.backgrounds.showVersions";
+
+function readShowVersions(): boolean {
+  try {
+    return localStorage.getItem(SHOW_VERSIONS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 type BackgroundLibraryFolder = {
   id: string;
@@ -281,6 +306,16 @@ export function BackgroundPicker({
   const [renamingFile, setRenamingFile] = useState<string | null>(null);
   const [cardMenu, setCardMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  // Weather and time of day versions sit under their plain picture unless asked for (remembered on this device).
+  const [showVersions, setShowVersionsState] = useState(readShowVersions);
+  const setShowVersions = useCallback((on: boolean) => {
+    setShowVersionsState(on);
+    try {
+      localStorage.setItem(SHOW_VERSIONS_KEY, on ? "1" : "0");
+    } catch {
+      /* only a convenience */
+    }
+  }, []);
   const [sort, setSort] = useState<BackgroundLibrarySort>("name-asc");
   const [sourceFilter, setSourceFilter] = useState<"all" | "user" | "game_asset" | "characters">("all");
   const [characterScope, setCharacterScope] = useState<"chat" | "all">("chat");
@@ -441,10 +476,20 @@ export function BackgroundPicker({
     return [...values].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
   }, [backgrounds]);
 
+  // Each plain picture's versions, by its file name (gallery pictures' versions by their address).
+  const versionCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const background of backgrounds) {
+      if (background.versionOf) counts.set(background.versionOf, (counts.get(background.versionOf) ?? 0) + 1);
+    }
+    return counts;
+  }, [backgrounds]);
+  const hasVersions = versionCounts.size > 0;
   const visibleBackgrounds = useMemo(() => {
     const filtered = filterAndSortBackgrounds(backgrounds, { search: searchQuery, includedTags, sort });
     return orderLibraryItems(
       filtered.filter((background) => {
+        if (!showVersions && background.versionOf) return false;
         if (sourceFilter !== "all" && background.source !== sourceFilter) return false;
         if (folderFilter === "favorites") return Boolean(background.favorite);
         if (folderFilter === "unfiled") return !background.folderId;
@@ -452,7 +497,7 @@ export function BackgroundPicker({
         return true;
       }),
     );
-  }, [backgrounds, folderFilter, includedTags, searchQuery, sort, sourceFilter, orderLibraryItems]);
+  }, [backgrounds, folderFilter, includedTags, searchQuery, showVersions, sort, sourceFilter, orderLibraryItems]);
   const activeFolder = folders.find((folder) => folder.id === folderFilter) ?? null;
   const previewUrl =
     selected ?? (sceneBackgroundTag ? gameAssetFileUrl(assetManifest?.assets[sceneBackgroundTag]?.path) : null);
@@ -788,6 +833,8 @@ export function BackgroundPicker({
     const isRenaming = renamingFile === background.id;
     const title = getBackgroundLibraryTitle(background);
     const isFloatingActions = !isEditingTags && !isRenaming;
+    const versionLabel = background.versionOf ? backgroundVersionLabel(background.filename) : null;
+    const versionCount = versionLabel ? 0 : (versionCounts.get(background.filename) ?? 0);
     const datalistId = `background-tag-suggestions-${background.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
     return (
@@ -877,6 +924,16 @@ export function BackgroundPicker({
                   : "ui.panels.backgroundpicker.myUpload",
               )}
             </span>
+            {(versionLabel || versionCount > 0) && (
+              <span
+                data-background-version
+                className="absolute right-2 top-2 inline-flex max-w-[calc(100%-4rem)] items-center gap-1 truncate rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5625rem] max-sm:!text-[13px] font-medium text-white/90 backdrop-blur-sm"
+                title={versionLabel ?? localizeUi("ui.panels.backgroundpicker.versionCount", { count: versionCount })}
+              >
+                <Layers size="0.625rem" className="shrink-0" />
+                <span className="truncate">{versionLabel ?? versionCount}</span>
+              </span>
+            )}
             {showRoleplayDefault && isDefaultRoleplay && (
               <span
                 data-background-default-indicator
@@ -1600,9 +1657,23 @@ export function BackgroundPicker({
               )}
 
               <div className="flex min-h-7 flex-wrap items-center justify-between gap-2 text-[0.625rem] max-sm:!text-[13px] text-[var(--muted-foreground)]">
-                <span>
-                  {visibleBackgrounds.length} {localizeUi("ui.noodle.noodlehome.of")} {backgrounds.length}{" "}
-                  {localizeUi("ui.panels.backgroundpicker.backgrounds")}
+                <span className="flex flex-wrap items-center gap-2">
+                  <span>
+                    {visibleBackgrounds.length} {localizeUi("ui.noodle.noodlehome.of")} {backgrounds.length}{" "}
+                    {localizeUi("ui.panels.backgroundpicker.backgrounds")}
+                  </span>
+                  {hasVersions && (
+                    <button
+                      type="button"
+                      onClick={() => setShowVersions(!showVersions)}
+                      className={cn(SETTINGS_BUTTON_CLASS, "max-sm:!min-h-11 max-sm:!text-[13px]")}
+                      aria-pressed={showVersions}
+                      title={localizeUi("ui.panels.backgroundpicker.showVersionsHelp")}
+                    >
+                      <Layers size="0.75rem" />
+                      <span>{localizeUi("ui.panels.backgroundpicker.showVersions")}</span>
+                    </button>
+                  )}
                 </span>
                 {showRoleplayDefault && (
                   <button
