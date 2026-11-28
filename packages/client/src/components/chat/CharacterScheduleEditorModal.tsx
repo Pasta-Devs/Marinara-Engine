@@ -1604,11 +1604,7 @@ function OvWeekCalendar({
               return parts.map(([start, end], part) => (
                 <div
                   key={`${index}-${part}`}
-                  className={cn(
-                    "ov-week__blk",
-                    `is-${status}`,
-                    end! - start! < OV_WEEK_ONE_LINE_MINUTES && "is-short",
-                  )}
+                  className={cn("ov-week__blk", `is-${status}`, end! - start! < OV_WEEK_ONE_LINE_MINUTES && "is-short")}
                   style={{ top: `${(start! / 1440) * 100}%`, height: `${((end! - start!) / 1440) * 100}%` }}
                   title={localizeUi("ui.chat.homeprofessormarichat.actingOnModeOutcomeValue1Value2", {
                     value1: block.time,

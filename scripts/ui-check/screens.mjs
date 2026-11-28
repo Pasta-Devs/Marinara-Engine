@@ -489,6 +489,44 @@ export function screenList(ids) {
     { id: "persona-editor", run: open.detail("openPersonaDetail", ids.persona) },
     { id: "lorebook-editor", group: "core", run: open.detail("openLorebookDetail", ids.lorebook) },
     {
+      // Library › Character schedules with a busy week: half-hour and 15-minute blocks must keep a readable name
+      // (Nov 27: the week was 26rem tall and short blocks were unreadable slivers).
+      id: "character-schedules",
+      run: needsData(
+        hook(async (id) => {
+          const block = (time, activity, status) => ({ time, activity, status });
+          const day = [
+            block("00:00-06:30", "sleeping", "offline"),
+            block("06:30-07:30", "morning run along the harbour wall", "dnd"),
+            block("07:30-08:00", "showering and getting dressed", "idle"),
+            block("08:00-12:00", "attending morning lectures", "dnd"),
+            block("12:00-12:30", "eating lunch at the canteen", "online"),
+            block("12:30-12:45", "coffee", "online"),
+            block("12:45-13:00", "resting", "idle"),
+            block("13:00-18:00", "studying alone in the library", "dnd"),
+            block("18:00-18:30", "cooking dinner", "idle"),
+            block("18:30-23:00", "relaxing alone in his room", "online"),
+            block("23:00-00:00", "sleeping", "offline"),
+          ];
+          const days = Object.fromEntries(
+            ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((d) => [d, day]),
+          );
+          await fetch(`/api/characters/${id}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              data: {
+                extensions: { conversationSchedule: { weekStart: "2026-11-23", days, inactivityThresholdMinutes: 0 } },
+              },
+            }),
+          });
+          const h = window.__marinaraUiCheck;
+          h.overhaul.getState().openSchedules(id);
+          if (!h.overhaul.getState().desktop) h.overhaul.getState().setMobileSidePageOpen(false);
+        }, ids.character2),
+      ),
+    },
+    {
       // One entry open: on a 375px phone its Normal / Constant / Selective row once ran 8px past the screen.
       id: "lorebook-entry",
       run: open.detail("openLorebookDetail", ids.lorebook),
