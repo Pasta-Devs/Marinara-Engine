@@ -11,7 +11,14 @@ const DRAFTS = ["I wave at Alice from the doorway.", "I knock twice and wait for
 async function startModel(): Promise<{ server: Server; baseUrl: string; calls: () => number }> {
   let calls = 0;
   const server = createServer(async (req, res) => {
-    for await (const _chunk of req) void _chunk;
+    let body = "";
+    for await (const chunk of req) body += String(chunk);
+    // A direction with this word fails before any text is written.
+    if (body.includes("FAILNOW")) {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: { message: "mock failure" } }));
+      return;
+    }
     if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
       res.writeHead(404);
       res.end();
@@ -103,6 +110,13 @@ test("Impersonate writes a message draft that is not posted until sent", async (
     await strip.getByRole("button", { name: "Undo" }).click();
     await expect(strip).toHaveCount(0);
     await expect(box).toHaveValue("/impersonate wave at Alice");
+    expect(await messageCount()).toBe(1);
+
+    // A draft that fails before writing anything gives the box back what it had.
+    await box.fill("/impd FAILNOW");
+    await page.locator("button.mari-chat-send-btn").click();
+    await expect(strip).toHaveCount(0);
+    await expect(box).toHaveValue("/impd FAILNOW");
     expect(await messageCount()).toBe(1);
 
     // /impersonate_draft drafts again; the edited draft is what Send posts.
