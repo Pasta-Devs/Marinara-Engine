@@ -15,7 +15,7 @@ Image generation is not required for any of this. Without an image model, you pi
 | New pictures painted for new places, weather and time of day | The **Illustrator** agent | [Backgrounds Made by Illustrator](../media/scene-backgrounds.md) |
 | To upload, tag and sort your pictures, or blur them | The Background Library | [Background Library](../appearance/chat-backgrounds.md) |
 
-When the story arrives somewhere, Marinara decides in this order: a pin for that place in this chat, then a gallery background that names the place, then the Background agent's pick. Pins and gallery places are matched against the **World State** location, so they switch the picture on their own only while the World State agent tracks where the story is. Without it, the Background agent still sees gallery backgrounds by their places. Illustrator paints a new picture only when none of these fits. Whichever picture wins, its weather or time of day version is shown when the library has one for the story's weather and time.
+When the story arrives somewhere, Marinara decides in this order: a pin for that place in this chat, then a gallery background that names the place, then the Background agent's pick. Pins and gallery places switch the picture on their own only when Marinara knows where the story is: from the **World State** agent's location, or from **World Maps**. Without either, the Background agent still sees gallery backgrounds by their places. Illustrator paints a new picture only when none of these fits. Whichever picture wins, its weather or time of day version is shown when the library has one for the story's weather and time.
 
 ## Set a background for one chat
 

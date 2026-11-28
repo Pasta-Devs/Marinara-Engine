@@ -4266,6 +4266,8 @@ export function useGenerate() {
                   const bg = result.data as { chosen?: string | null; generated?: boolean };
                   if (bg.chosen) {
                     applyAgentBackgroundChoice(bg.chosen);
+                    // The retry route saved the pick and its "why" note without a metadata_patch event.
+                    void qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
                   }
                   if (bg.generated) {
                     qc.invalidateQueries({ queryKey: ["backgrounds"] });

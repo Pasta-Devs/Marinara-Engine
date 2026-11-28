@@ -5902,10 +5902,17 @@ export async function registerRetryAgentsRoute(
       // The Background agent answers with a handle: send what the chat stores (file name or gallery URL), or nothing.
       for (const result of results) {
         if (!result.success || result.type !== "background_change") continue;
+        // A custom agent without the background permission never changes the background.
+        if (!customAgentCanEmitRetryResult(result, resolvedAgents)) continue;
         if (!result.data || typeof result.data !== "object") continue;
         const bgData = result.data as { chosen?: unknown; reason?: unknown };
         const candidates = agentContext.memory._availableBackgrounds as BackgroundAgentCandidate[] | undefined;
-        if (typeof bgData.chosen !== "string" || !candidates) continue;
+        if (typeof bgData.chosen !== "string") continue;
+        if (!candidates) {
+          // No list to check the answer against: keep the current background.
+          bgData.chosen = null;
+          continue;
+        }
         const handle = bgData.chosen;
         bgData.chosen = backgroundAgentStoredValues(candidates).has(handle)
           ? handle
