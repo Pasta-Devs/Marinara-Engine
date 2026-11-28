@@ -8338,7 +8338,7 @@
   "shortcuts.composer.editLast": "Edit your latest message from an empty input (Up Arrow edits last message)",
   "shortcuts.composer.newline": "New line when Enter sends",
   "shortcuts.composer.send": "Send (when Send on Enter is on for the mode)",
-  "shortcuts.composer.sendModifier": "Send when Send on Enter is off (Conversation, Game, Professor Mari)",
+  "shortcuts.composer.sendModifier": "Send when Send on Enter is off (Roleplay, Conversation, Game, Professor Mari)",
   "shortcuts.editors.clearAssetSelection": "Clear the Game Assets selection",
   "shortcuts.editors.indent": "Indent or outdent in prompt and file editors",
   "shortcuts.editors.resizeSidebar": "Resize a focused sidebar handle",
