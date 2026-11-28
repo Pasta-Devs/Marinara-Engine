@@ -54,7 +54,9 @@ const NATIVE_PACKAGE_UPLOAD_LIMIT_BYTES = 1024 * 1024 * 1024;
 const MAX_BATCH_IMPORT_FILES = 128;
 const NATIVE_PACKAGE_ENTRY_LIMIT_BYTES = 256 * 1024 * 1024;
 
-const folderTokens = new Map<string, { path: string; expiresAt: number }>();
+/** "picker": chosen in this computer's own folder window. "browse": reached through /list-directory. */
+type FolderTokenSource = "picker" | "browse";
+const folderTokens = new Map<string, { path: string; expiresAt: number; source: FolderTokenSource }>();
 
 function cleanupFolderTokens() {
   const now = Date.now();
@@ -63,11 +65,11 @@ function cleanupFolderTokens() {
   }
 }
 
-function issueFolderToken(pathValue: string) {
+function issueFolderToken(pathValue: string, source: FolderTokenSource) {
   cleanupFolderTokens();
-  const resolved = pathResolve(pathValue);
+  const resolved = realPathOrSelf(pathResolve(pathValue));
   const token = tokenForPath(`${resolved}:${Date.now()}:${Math.random()}`);
-  folderTokens.set(token, { path: resolved, expiresAt: Date.now() + FOLDER_TOKEN_TTL_MS });
+  folderTokens.set(token, { path: resolved, expiresAt: Date.now() + FOLDER_TOKEN_TTL_MS, source });
   return token;
 }
 
@@ -80,17 +82,15 @@ function isUnderRoot(pathValue: string, root: string): boolean {
   }
 }
 
+/** Whether a folder is inside IMPORT_ALLOWED_ROOTS once links are followed. */
 function isAllowedImportRoot(pathValue: string) {
-  return getImportAllowedRoots().some((root) => isUnderRoot(pathValue, root));
+  const real = realPathOrSelf(pathResolve(pathValue));
+  return getImportAllowedRoots().some((root) => isUnderRoot(real, realPathOrSelf(pathResolve(root))));
 }
 
+/** Whether a folder is inside the home folder once links are followed (Browse's limit). */
 function isHomeContained(pathValue: string) {
-  try {
-    assertInsideDir(homedir(), pathResolve(pathValue));
-    return true;
-  } catch {
-    return false;
-  }
+  return isUnderRoot(realPathOrSelf(pathResolve(pathValue)), realPathOrSelf(homedir()));
 }
 
 function resolveImportFolder(body: {
@@ -104,13 +104,18 @@ function resolveImportFolder(body: {
   if (token) {
     const entry = folderTokens.get(token);
     if (!entry) return { ok: false, error: "Folder token is missing or expired" };
-    if (rawPath && !safeCompareString(pathResolve(rawPath), entry.path)) {
+    if (rawPath && !safeCompareString(realPathOrSelf(pathResolve(rawPath)), entry.path)) {
       return { ok: false, error: "Folder token does not match folderPath" };
     }
-    if (getImportAllowedRoots().length > 0 && !isAllowedImportRoot(entry.path)) {
+    // Follow links again at use: the folder may have been swapped for a link since its token was issued.
+    const real = realPathOrSelf(entry.path);
+    if (
+      (getImportAllowedRoots().length > 0 && !isAllowedImportRoot(real)) ||
+      (entry.source === "browse" && !isHomeContained(real))
+    ) {
       return { ok: false, error: describeImportFolderLimit() };
     }
-    return { ok: true, path: entry.path };
+    return { ok: true, path: real };
   }
 
   if (!rawPath) return { ok: false, error: "folderPath or folderToken is required" };
@@ -1355,7 +1360,7 @@ export async function importRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Folder picker" })) return;
     const selected = await pickFolder();
     if (!selected) return { success: false, error: "No folder selected" };
-    return { success: true, path: selected, folderToken: issueFolderToken(selected) };
+    return { success: true, path: selected, folderToken: issueFolderToken(selected, "picker") };
   });
 
   /** List directories at a given path (for remote/headless folder browsing).
@@ -1368,7 +1373,7 @@ export async function importRoutes(app: FastifyInstance) {
     const dirPath = requestedPath || home;
     const resolved = pathResolve(dirPath);
 
-    // Restrict browsing to the home directory tree
+    // Restrict browsing to the home directory tree, after following links.
     if (!isHomeContained(resolved)) {
       return { success: false, error: "Access denied: path outside home directory" };
     }
@@ -1383,7 +1388,7 @@ export async function importRoutes(app: FastifyInstance) {
         .map((e) => e.name)
         .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
-      return { success: true, path: resolved, folderToken: issueFolderToken(resolved), folders };
+      return { success: true, path: resolved, folderToken: issueFolderToken(resolved, "browse"), folders };
     } catch {
       return { success: false, error: "Cannot read directory" };
     }
