@@ -19,7 +19,7 @@ Está en **Settings → General → Input & Editing** (Configuración → Genera
 
 | Modo de chat | Predeterminado | Cuando está desactivado |
 | --- | --- | --- |
-| Roleplay | Desactivado | <kbd>Enter</kbd> añade una línea nueva. Haz clic en **Send**. |
+| Roleplay | Desactivado | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> en Mac) envía. |
 | Conversations | Activado | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> en Mac) envía. |
 | Game | Activado | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> en Mac) envía. |
 

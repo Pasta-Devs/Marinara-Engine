@@ -19,7 +19,7 @@
 
 | 聊天模式 | 默认 | 关闭时 |
 | --- | --- | --- |
-| Roleplay | 关闭 | 按 <kbd>Enter</kbd> 会换行，需要点击 **Send** 发送。 |
+| Roleplay | 关闭 | 按 <kbd>Ctrl</kbd>+<kbd>Enter</kbd>(Mac 上是 <kbd>Cmd</kbd>+<kbd>Enter</kbd>) 发送。 |
 | Conversations | 开启 | 按 <kbd>Ctrl</kbd>+<kbd>Enter</kbd>(Mac 上是 <kbd>Cmd</kbd>+<kbd>Enter</kbd>) 发送。 |
 | Game | 开启 | 按 <kbd>Ctrl</kbd>+<kbd>Enter</kbd>(Mac 上是 <kbd>Cmd</kbd>+<kbd>Enter</kbd>) 发送。 |
 

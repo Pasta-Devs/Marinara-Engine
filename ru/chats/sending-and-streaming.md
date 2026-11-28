@@ -21,7 +21,7 @@
 
 | Режим чата | По умолчанию | Когда выключен |
 | --- | --- | --- |
-| Roleplay | выключено | <kbd>Enter</kbd> вставляет новую строку. Нажмите **Send**. |
+| Roleplay | выключено | Сообщение отправляет <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> на Mac). |
 | Conversations | включено | Сообщение отправляет <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> на Mac). |
 | Game | включено | Сообщение отправляет <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> на Mac). |
 

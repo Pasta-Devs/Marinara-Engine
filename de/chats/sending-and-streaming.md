@@ -19,7 +19,7 @@ Du findest die Einstellung unter **Settings → General → Input & Editing**. P
 
 | Chat-Modus | Standard | Wenn aus |
 | --- | --- | --- |
-| Roleplay | Aus | <kbd>Enter</kbd> fügt einen Zeilenumbruch ein. Klick auf **Send**. |
+| Roleplay | Aus | <kbd>Strg</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> auf dem Mac) sendet. |
 | Conversations | An | <kbd>Strg</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> auf dem Mac) sendet. |
 | Game | An | <kbd>Strg</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> auf dem Mac) sendet. |
 
