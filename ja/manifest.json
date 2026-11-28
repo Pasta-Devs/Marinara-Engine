@@ -24,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "0eb1aec973bc38121585bf5974727ad8e346d64f4885bbf8592eef9299e11a93",
-      "bytes": 69863
+      "sha256": "a29440fc9b1e91fd6f2404c00c85e57e30b45c6ae473f079cea5f156241dabd8",
+      "bytes": 69992
     },
     {
       "path": "UPGRADING.md",
@@ -204,8 +204,8 @@
     },
     {
       "path": "chats/sending-and-streaming.md",
-      "sha256": "52e3932aad2eab9127492a6fd1cfc611d326713655d52d0a94275af61c6f0bf5",
-      "bytes": 10103
+      "sha256": "8aeed3ec2e0152e1eb5a544b845fad4b9012025c196beb9337f2ad07f36b8dde",
+      "bytes": 10108
     },
     {
       "path": "chats/settings-profiles.md",

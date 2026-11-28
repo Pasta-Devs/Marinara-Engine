@@ -365,7 +365,7 @@ Marinara는 데이터를 데이터 폴더에만 보관하며, SillyTavern 폴더
 
 - **데이터가 네트워크 공유 폴더에 있음.** `.env`의 `DATA_DIR`을 공유 폴더 안의 폴더로 지정한 다음 Marinara를 다시 시작하세요. [저장 위치](CONFIGURATION.md#storage)를 참고하세요. 데이터 폴더는 통째로 옮기세요. 그 안의 폴더 하나(`avatars`나 `backgrounds` 등)만 다른 드라이브로 링크하면 그 폴더의 이미지를 불러오지 못하고, Marinara는 그 이미지에 **Not found**로 응답합니다.
 - **공유 폴더에서 SillyTavern 폴더를 가져오는 경우.** 직접 입력한 경로는 서버를 실행하는 사용자의 홈 폴더 안에 있어야 합니다. 그렇지 않으면 **Marinara can only read folders inside your home folder**가 표시됩니다. 서버가 실행 중인 컴퓨터에서는 대신 **Browse**(찾기)를 클릭해 폴더를 고르세요. 또는 `.env`의 `IMPORT_ALLOWED_ROOTS`에 폴더를 쉼표로 구분해 추가하고 Marinara를 다시 시작하세요. 이 설정을 지정하면 직접 고른 폴더라도 이 설정에 있는 폴더만 허용되므로, 홈 폴더에서도 계속 가져오려면 홈 폴더도 추가하세요.
-- **앱 안의 폴더 브라우저에 홈 폴더가 열림.** 이 브라우저는 `IMPORT_ALLOWED_ROOTS` 설정과 관계없이 홈 폴더 안의 폴더만 보여 줍니다. 홈 폴더 밖에 있는 공유 폴더라면 그 폴더를 `IMPORT_ALLOWED_ROOTS`에 추가하고 Marinara를 다시 시작한 다음, **SillyTavern folder path**(SillyTavern 폴더 경로)에 경로를 입력하세요.
+- **앱 안의 폴더 브라우저에 홈 폴더가 열림.** 이 브라우저는 `IMPORT_ALLOWED_ROOTS` 설정과 관계없이 홈 폴더 안의 폴더만 보여 줍니다. 홈 폴더 안에 있더라도 홈 폴더 밖을 가리키는 링크는 밖에 있는 것으로 취급됩니다. 홈 폴더 밖에 있는 공유 폴더라면 그 폴더를 `IMPORT_ALLOWED_ROOTS`에 추가하고 Marinara를 다시 시작한 다음, **SillyTavern folder path**(SillyTavern 폴더 경로)에 경로를 입력하세요.
 - **공유 폴더의 연결이 끊어짐.** Marinara를 시작하기 전에 공유 폴더를 다시 연결한 다음 다시 시도하세요.
 
 ### 백업이나 내보내기에서 403이 반환될 때

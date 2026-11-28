@@ -19,7 +19,7 @@
 
 | 채팅 모드 | 기본값 | 꺼져 있을 때 |
 | --- | --- | --- |
-| Roleplay | 꺼짐 | <kbd>Enter</kbd>를 누르면 줄이 바뀝니다. **Send**를 클릭하세요. |
+| Roleplay | 꺼짐 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd>(Mac에서는 <kbd>Cmd</kbd>+<kbd>Enter</kbd>)로 보냅니다. |
 | Conversations | 켜짐 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd>(Mac에서는 <kbd>Cmd</kbd>+<kbd>Enter</kbd>)로 보냅니다. |
 | Game | 켜짐 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd>(Mac에서는 <kbd>Cmd</kbd>+<kbd>Enter</kbd>)로 보냅니다. |
 

@@ -21,7 +21,7 @@ Znajdziesz je w **Settings → General → Input & Editing** (ustawienia, ogóln
 
 | Tryb czatu | Domyślnie | Gdy wyłączone |
 | --- | --- | --- |
-| Roleplay | Wyłączone | <kbd>Enter</kbd> dodaje nową linię. Kliknij **Send**. |
+| Roleplay | Wyłączone | Wiadomość wysyła <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (na komputerze Mac <kbd>Cmd</kbd>+<kbd>Enter</kbd>). |
 | Conversations | Włączone | Wiadomość wysyła <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (na komputerze Mac <kbd>Cmd</kbd>+<kbd>Enter</kbd>). |
 | Game | Włączone | Wiadomość wysyła <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (na komputerze Mac <kbd>Cmd</kbd>+<kbd>Enter</kbd>). |
 
