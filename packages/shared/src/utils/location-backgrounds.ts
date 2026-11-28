@@ -13,6 +13,35 @@ export const LOCATION_BACKGROUND_PINS_KEY = "locationBackgroundPins";
 /** Chat metadata key holding the id of the pin last shown, so a manual pick stays until the place changes. */
 export const LOCATION_BACKGROUND_PIN_SHOWN_KEY = "locationBackgroundPinShown";
 
+/** Chat metadata key: why the shown background was picked automatically (Background agent or a pinned place). */
+export const BACKGROUND_CHOICE_NOTE_KEY = "backgroundChoiceNote";
+
+export type BackgroundChoiceNote = {
+  /** The background the note is about; a later pick by hand makes the note stale (it no longer matches). */
+  background: string;
+  by: "background-agent" | "pinned-place";
+  /** The agent's few words, or the pinned place's name. */
+  reason: string;
+  at?: string;
+};
+
+/** The note, when it still describes `background` (what the chat shows now). */
+export function readBackgroundChoiceNote(
+  value: unknown,
+  background: string | null | undefined,
+): BackgroundChoiceNote | null {
+  if (!value || typeof value !== "object" || !background) return null;
+  const note = value as Partial<BackgroundChoiceNote>;
+  if (typeof note.background !== "string" || note.background !== background) return null;
+  if (note.by !== "background-agent" && note.by !== "pinned-place") return null;
+  return {
+    background: note.background,
+    by: note.by,
+    reason: typeof note.reason === "string" ? note.reason.slice(0, 200) : "",
+    ...(typeof note.at === "string" ? { at: note.at } : {}),
+  };
+}
+
 export const LOCATION_BACKGROUND_PIN_LIMIT = 100;
 export const LOCATION_BACKGROUND_NAME_LIMIT = 12;
 const NAME_MAX_LENGTH = 80;

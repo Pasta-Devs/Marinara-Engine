@@ -11,6 +11,7 @@ import {
   runWithLocalModelPriority,
 } from "../services/sidecar/local-model-priority.js";
 import {
+  BACKGROUND_CHOICE_NOTE_KEY,
   applyClockCommandTags,
   findImageStyleProfile,
   rulesetChargesStart,
@@ -609,6 +610,14 @@ import {
   pinnedBackgroundMetadataPatch,
   pinnedSceneBackground,
 } from "../services/generation/location-background-pins.js";
+import {
+  backgroundAgentStoredValues,
+  backgroundAgentHandleFor,
+  buildBackgroundAgentCandidates,
+  loadGalleryBackgroundAgentCandidates,
+  resolveBackgroundAgentChoice,
+  type BackgroundAgentCandidate,
+} from "../services/generation/background-agent-candidates.js";
 import { parseDirectMessageCommands, type CharacterCommand } from "../services/conversation/character-commands.js";
 import {
   buildIllustratorPromptSources,
@@ -7182,6 +7191,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         if (backgroundAgent) {
           agentContext.memory._availableBackgrounds = [];
           agentContext.memory._currentBackground = currentBackground;
+          let library: Array<{ filename: string; tags: string[] }> = [];
           try {
             const { readdirSync, readFileSync, existsSync } = await import("fs");
             const { join, extname } = await import("path");
@@ -7201,13 +7211,39 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               }
 
-              agentContext.memory._availableBackgrounds = files.map((f: string) => ({
-                filename: f,
-                tags: meta[f]?.tags ?? [],
-              }));
+              library = files.map((f: string) => ({ filename: f, tags: meta[f]?.tags ?? [] }));
             }
           } catch {
             /* non-critical */
+          }
+          // Gallery backgrounds (labelled with places) and pinned places are candidates too; library
+          // files with no tags and a random file name are left out (nothing says what they show).
+          const galleryCandidates =
+            chatMode === "roleplay"
+              ? await loadGalleryBackgroundAgentCandidates({
+                  characters: charInfo.map((character) => ({ id: character.id, name: character.name })),
+                  persona: personaId ? { id: personaId, name: personaName } : null,
+                  characterGallery,
+                  personaGallery,
+                }).catch(() => [])
+              : [];
+          const { candidates, leftOut } = buildBackgroundAgentCandidates({
+            library,
+            gallery: galleryCandidates,
+            chatMetadata: chatMeta,
+          });
+          agentContext.memory._availableBackgrounds = candidates;
+          agentContext.memory._unlabelledBackgroundsLeftOut = leftOut.length;
+          agentContext.memory._currentBackground = backgroundAgentHandleFor(
+            agentContext.memory._currentBackground as string | null | undefined,
+            candidates,
+          );
+          if (leftOut.length > 0) {
+            logger.info(
+              "[background-agent] %d library background(s) left out: no tags and a file name that says nothing (%s)",
+              leftOut.length,
+              leftOut.slice(0, 5).join(", "),
+            );
           }
         }
 
@@ -7592,12 +7628,29 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               };
             },
           });
+        // The Background agent answers with a handle; the chat stores a file name or a gallery URL.
+        // Resolved in place before the result goes out, so the client shows what the server keeps.
+        const resolveBackgroundAgentResult = (result: AgentResult) => {
+          if (!result.success || result.type !== "background_change") return;
+          if (!result.data || typeof result.data !== "object") return;
+          const candidates = agentContext.memory._availableBackgrounds as BackgroundAgentCandidate[] | undefined;
+          if (!candidates) return;
+          const data = result.data as { chosen?: unknown; reason?: unknown };
+          if (typeof data.chosen !== "string" || !data.chosen.trim()) return;
+          if (backgroundAgentStoredValues(candidates).has(data.chosen)) return;
+          const handle = data.chosen;
+          data.chosen = resolveBackgroundAgentChoice(handle, candidates);
+          if (!data.chosen)
+            logger.warn('[background-agent] "%s" is not one of the listed backgrounds; ignored', handle);
+        };
         const sendAgentEvent = (result: AgentResult, options?: { finalized?: boolean }) => {
+          resolveBackgroundAgentResult(result);
           const nextResult = markLorebookResultForApproval(result);
           if (!customAgentCanEmitResult(nextResult, resolvedAgents, builtInAgentTypes)) return;
           sendRawAgentEvent(nextResult, options);
         };
         const sendAgentResultEvent = (result: AgentResult) => {
+          resolveBackgroundAgentResult(result);
           const nextResult = markLorebookResultForApproval(result);
           if (!customAgentCanEmitResult(nextResult, resolvedAgents, builtInAgentTypes)) return;
           sendRawAgentResultEvent(nextResult);
@@ -14019,9 +14072,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 // Same pinned place as before: a picture the user picked by hand here stays.
                 if (shownPinId === pinned.match.pin.id) return;
                 backgroundsShownThisTurn.add(pinned.filename);
+                // A literal patch (pinnedBackgroundMetadataPatch's keys) so the metadata sweep can read it.
                 await chats.patchMetadata(input.chatId, {
                   background: pinned.filename,
                   [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: pinned.match.pin.id,
+                  [BACKGROUND_CHOICE_NOTE_KEY]: {
+                    background: pinned.filename,
+                    by: "pinned-place",
+                    reason: pinned.match.matched,
+                    at: new Date().toISOString(),
+                  },
                 });
                 sendSseEvent(reply, {
                   type: "agent_result",
@@ -14217,13 +14277,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               }
               if (bgData.chosen) {
                 const availableBgs = agentContext.memory._availableBackgrounds as
-                  Array<{ filename: string }> | undefined;
+                  BackgroundAgentCandidate[] | undefined;
                 if (availableBgs) {
-                  const valid = availableBgs.some((b) => b.filename === bgData.chosen);
-                  if (!valid) {
+                  // Already resolved when the result went out (a gallery handle is its URL by now).
+                  const stored = backgroundAgentStoredValues(availableBgs);
+                  const resolved = stored.has(bgData.chosen)
+                    ? bgData.chosen
+                    : resolveBackgroundAgentChoice(bgData.chosen, availableBgs);
+                  if (!resolved) {
                     logger.warn(`[generate] Background agent chose "${bgData.chosen}" which doesn't exist — rejecting`);
-                    bgData.chosen = null;
                   }
+                  bgData.chosen = resolved;
                 }
               }
 
@@ -14272,8 +14336,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               // Persist the validated background to chat metadata so it restores on reload
               if (bgData.chosen && !pinnedPatch) {
                 backgroundsShownThisTurn.add(bgData.chosen);
+                const reason =
+                  typeof (bgData as { reason?: unknown }).reason === "string"
+                    ? ((bgData as { reason: string }).reason.replace(/\s+/gu, " ").trim().slice(0, 200) ?? "")
+                    : "";
+                logger.info('[background-agent] Showing "%s"%s', bgData.chosen, reason ? ` (${reason})` : "");
                 try {
-                  await updateChatMetadataForTools({ background: bgData.chosen });
+                  await updateChatMetadataForTools({
+                    background: bgData.chosen,
+                    [BACKGROUND_CHOICE_NOTE_KEY]: {
+                      background: bgData.chosen,
+                      by: "background-agent",
+                      reason,
+                      at: new Date().toISOString(),
+                    },
+                  });
                 } catch {
                   /* non-critical */
                 }

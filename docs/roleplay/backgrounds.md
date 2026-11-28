@@ -4,6 +4,8 @@ A Roleplay chat shows a full-scene image behind your messages. You can let the *
 
 Image generation is not required. Without an image generation account, the backdrop is a solid color and the chat works as text.
 
+Pins and gallery places are matched against the **World State** location, so they switch the picture on their own only while the World State agent tracks where the story is. Without it, the Background agent still sees gallery backgrounds by their places.
+
 ## Set a background for one chat
 
 Use this to keep one image behind the chat you have open, instead of letting the agent choose. It changes only that chat.
@@ -26,7 +28,17 @@ The **Background** agent is a helper that runs alongside replies. After each rep
 
 The backdrop now changes on its own as the story moves between places.
 
-If it did not work: with only one or two backgrounds, the agent keeps picking those. Add more to your library. See [Chat Backgrounds](../appearance/chat-backgrounds.md).
+The agent reads text, not pictures, so it chooses by what each picture is called:
+
+- **Library pictures** by their file name and tags, including ones in folders.
+- **Gallery backgrounds** of the chat's characters and persona by the places they are labelled with (such as `dorm kitchen`) and their description.
+- **Pinned places** in this chat, as names of the picture they pin.
+
+A library picture whose file name is only random letters and numbers (such as `70c60b32-6b8c-….jpg`) and that has no tags is left out, because nothing says which place it shows. Give it a place tag or a clear name to make it pickable. When nothing listed shows the scene's place, the agent keeps the current picture instead of guessing.
+
+**Chat Settings → Background** shows why the current picture was picked, under its preview. The line goes away when you pick a picture yourself.
+
+If it did not work: with only one or two backgrounds, the agent keeps picking those. Add more to your library. If it is slow, check the agent's connection: it waits for other agents (such as Lorebook Keeper) when that connection runs one request at a time.
 
 ## Reuse pictures you already have
 
