@@ -1,0 +1,47 @@
+/* ──────────────────────────────────────────────
+   Settings > Appearance > Chat backgrounds > Theme overlays
+
+   App.tsx puts the choice on <html> as data-mari-chat-overlays ("light" or "off"; "full" sets
+   nothing, so the stock look and every theme stay exactly as drawn).
+
+   What counts as an overlay: the layers laid over the chat's background picture, not the picture
+   and not the chat itself.
+     .rpg-overlay      the Roleplay tint (--mari-chat-wash; a theme's grid or dark wash lives here)
+     .rpg-vignette     the Roleplay edge shading (and any frame a theme hangs on it)
+     [data-conversation-background-gradient-veil]   the colour veil over a Conversation picture
+     a filter or mask a theme puts on a picked picture (greyscale, darkening, showing it only
+     through a window): Off shows the picture whole, as it is. The user's own Background blur stays.
+
+   Never touched: the top bar, tabs, icons, the composer, message panels (they keep the theme's
+   paint, so text stays on its own surface), the theme's own app art and weather.
+
+   It is the user's choice, so it sits in mari-protected with !important: a theme can't undo it.
+   ────────────────────────────────────────────── */
+
+@layer mari-protected {
+  :root[data-mari-chat-overlays="light"] .rpg-overlay {
+    opacity: 0.4 !important;
+  }
+  :root[data-mari-chat-overlays="light"] .rpg-vignette {
+    opacity: 0.4 !important;
+  }
+  :root[data-mari-chat-overlays="light"] [data-conversation-background-gradient-veil] {
+    opacity: 0.15 !important;
+  }
+
+  :root[data-mari-chat-overlays="off"] :is(.rpg-overlay, .rpg-vignette, [data-conversation-background-gradient-veil]) {
+    opacity: 0 !important;
+  }
+  :root[data-mari-chat-overlays="off"] img[data-mari-part="backdrop"]:not([data-default-background]) {
+    /* the user's own Background blur rides in on --mari-backdrop-blur (set inline next to it) */
+    filter: var(--mari-backdrop-blur, none) !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  /* A see-through message panel (Roleplay messages background opacity at 0) leans on the tint for
+     its text. With the tint gone it gets a soft panel, so a bright picture can't swallow the words. */
+  :root[data-mari-chat-overlays="off"] [data-roleplay-bubble-transparent="true"] {
+    --mari-rp-bubble-bg: color-mix(in srgb, var(--background) 55%, transparent) !important;
+  }
+}

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
+import { translate } from "../localization/i18n";
 import { useChatStore } from "./chat.store";
 import { useUIStore } from "./ui.store";
 
@@ -76,7 +77,7 @@ export async function startImpersonateDraft(input: {
   const direction = input.direction.trim();
   if (controllers.has(chatId)) return false;
   if (useChatStore.getState().abortControllers.has(chatId)) {
-    toast.info("Wait for the current reply to finish first.");
+    toast.info(translate("ui.chat.impersonateDraft.busy"));
     return false;
   }
   const controller = new AbortController();
@@ -127,7 +128,8 @@ export async function startImpersonateDraft(input: {
         const finished = (event.data as { text?: unknown } | null)?.text;
         if (typeof finished === "string") text = finished;
       } else if (event.type === "error") {
-        failure = typeof event.data === "string" && event.data ? event.data : "Impersonate failed";
+        failure =
+          typeof event.data === "string" && event.data ? event.data : translate("ui.chat.impersonateDraft.failed");
         break;
       } else if (event.type === "done") {
         break;
@@ -138,7 +140,8 @@ export async function startImpersonateDraft(input: {
         setDraft(chatId, { status: "writing", text, direction, before });
     }
   } catch (error) {
-    if (!controller.signal.aborted) failure = error instanceof Error ? error.message : "Impersonate failed";
+    if (!controller.signal.aborted)
+      failure = error instanceof Error ? error.message : translate("ui.chat.impersonateDraft.failed");
   } finally {
     controllers.delete(chatId);
   }

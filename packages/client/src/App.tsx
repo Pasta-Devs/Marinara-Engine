@@ -1,3 +1,4 @@
+import "./styles/chat-background-overlays.css";
 import { useRefreshLocalContext } from "./hooks/use-connections";
 import { useMigrateFeatureModels } from "./hooks/use-connection-accounts";
 // ──────────────────────────────────────────────
@@ -682,6 +683,14 @@ export function App() {
     if (hideMessageNameRule) root.dataset.mariHideNameRule = "";
     else delete root.dataset.mariHideNameRule;
   }, [hideMessageNameRule]);
+
+  // Settings > Appearance > Chat backgrounds > Theme overlays: styles/chat-background-overlays.css reads it.
+  const chatBackgroundOverlays = useUIStore((s) => s.chatBackgroundOverlays);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (chatBackgroundOverlays === "full") delete root.dataset.mariChatOverlays;
+    else root.dataset.mariChatOverlays = chatBackgroundOverlays;
+  }, [chatBackgroundOverlays]);
 
   // Settings > Appearance > Accessibility (theming panel batch 6): styles/accessibility.css reads these.
   const a11yLineHeight = useUIStore((s) => s.a11yLineHeight);

@@ -2168,7 +2168,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         advancedMemorySettings.autoMessageVisibility &&
         groupGenerationMode === "individual" &&
         parseJsonField<string[]>(chat.characterIds, []).length > 1;
-      if (decidesMessageVisibility) {
+      // A message-box draft changes nothing until it is sent, so it reads the visibility already saved.
+      if (decidesMessageVisibility && !input.impersonateDraft) {
         await advancedMemory.settleMessageVisibility(input.chatId, {
           signal: generationSignal,
           debugMode: requestDebug,
@@ -3851,6 +3852,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         let savedDecisionTimers = JSON.stringify(readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]));
         const saveDecisionTimers = async () => {
           if (!decisionTiming) return;
+          // A message-box draft is not a turn yet: its timer changes stay in this request.
+          if (input.impersonateDraft) return;
           const next = JSON.stringify(decisionTiming.state);
           if (next === savedDecisionTimers) return;
           // The turn count only matters while a timer runs, so a chat without one is not written.
@@ -7863,7 +7866,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           finalizeLorebookWrites,
         } = await resolveGenerationTools({
           requestBody: input as Record<string, unknown>,
-          nativeToolsAvailable: supportsNativeToolCalls((gameToolConnection ?? conn).provider),
+          // A message-box draft runs no tools, so nothing changes before it is sent.
+          nativeToolsAvailable:
+            !input.impersonateDraft && supportsNativeToolCalls((gameToolConnection ?? conn).provider),
           lorebookEmbeddingOptions: { embeddingSource: memoryRecallEmbeddingSource, signal: generationSignal },
           chatId: input.chatId,
           chatMetadata: chatMeta,

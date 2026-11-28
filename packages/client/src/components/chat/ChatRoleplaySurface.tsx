@@ -314,12 +314,15 @@ function WeatherEffectsConnected({ paused, backgroundBlurPx }: { paused: boolean
   );
 }
 
-function getBackgroundBlurStyle(blurPx: number): Pick<CSSProperties, "filter" | "transform"> {
+function getBackgroundBlurStyle(blurPx: number): CSSProperties {
   if (blurPx <= 0) return {};
   return {
     filter: `blur(${blurPx}px)`,
+    // Theme overlays Off clears a theme's filter on the picture but keeps this blur
+    // (styles/chat-background-overlays.css).
+    "--mari-backdrop-blur": `blur(${blurPx}px)`,
     transform: `scale(${Math.min(1.08, 1 + blurPx * 0.0025)})`,
-  };
+  } as CSSProperties;
 }
 
 function CrossfadeBackground({
