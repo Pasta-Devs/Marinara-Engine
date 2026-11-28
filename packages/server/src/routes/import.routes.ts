@@ -1384,6 +1384,10 @@ export async function importRoutes(app: FastifyInstance) {
       if (!info.isDirectory()) return { success: false, error: "Not a directory" };
 
       const entries = await readdir(resolved, { withFileTypes: true });
+      // ponytail: Node can't read a directory through a held handle, so a folder swapped for a link
+      // during the read is caught by resolving it again here. A swap and swap back inside the read
+      // stays possible; its token is still checked again when used.
+      if (realPathOrSelf(resolved) !== resolved) return { success: false, error: "Cannot read directory" };
       const folders = entries
         .filter((e) => e.isDirectory() && !e.name.startsWith("."))
         .map((e) => e.name)
