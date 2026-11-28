@@ -314,6 +314,11 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "illustratorVideoIncludeCharacterAppearance", // Illustrator: add card appearance to video prompts
   "illustratorVideoUseAvatarReferences", // Illustrator: a Prompt only clip starts from the avatar
   "illustratorAutoBackgroundsEnabled", // Illustrator: make a background when the scene moves
+  "illustratorWeatherBackgroundsEnabled", // Illustrator: weather versions of the background
+  "illustratorDecisionLocationCheck", // Illustrator: Decision model checks for a new place
+  "illustratorDecisionWeatherCheck", // Illustrator: Decision model checks for a weather change
+  "illustratorTimeBackgroundsEnabled", // Illustrator: time of day versions of the background
+  "illustratorDecisionTimeCheck", // Illustrator: Decision model checks for a time of day change
   "pictureCheck", // Illustrator and selfies: a decision model that reads pictures checks each one
   "pictureCheckLines", // Illustrator and selfies: what else the picture check asks
   "illustratorSkipShownScene", // Illustrator: skip a picture the newest one already shows

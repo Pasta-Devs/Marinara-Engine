@@ -204,6 +204,36 @@ for (const mode of ["roleplay", "conversation"] as const) {
       await request.delete(`/api/chats/${chat.id}`);
     }
   });
+
+  test(`With Send on Enter off, Enter adds a line and Ctrl/Cmd+Enter sends in ${mode}`, async ({ page, request }) => {
+    const response = await request.post("/api/chats", { data: { name: "Send keys", mode } });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    const chat = (await response.json()) as { id: string };
+    try {
+      await openChat(page, chat.id, {
+        chatHelpSeenModes: ["roleplay", "conversation"],
+        enterToSendRP: false,
+        enterToSendConvo: false,
+      });
+      const stored = async () =>
+        ((await (await request.get(`/api/chats/${chat.id}/messages`)).json()) as any[])
+          .filter((message) => message.role === "user")
+          .map((message) => message.content as string);
+      const composer = page.locator("textarea[data-chat-composer]");
+      await composer.fill("/send By Ctrl.");
+      await composer.press("Enter");
+      await expect(composer).toHaveValue("/send By Ctrl.\n");
+      await composer.fill("/send By Ctrl.");
+      await composer.press("Control+Enter");
+      await expect.poll(stored).toEqual(["By Ctrl."]);
+      await expect(composer).toHaveValue("");
+      await composer.fill("/send By Cmd.");
+      await composer.press("Meta+Enter");
+      await expect.poll(stored).toEqual(["By Ctrl.", "By Cmd."]);
+    } finally {
+      await request.delete(`/api/chats/${chat.id}`);
+    }
+  });
 }
 
 test("Roleplay interruptions trim the latest message and restore its original safely", async ({

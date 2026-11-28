@@ -1,3 +1,4 @@
+import { sceneWeatherCategory, type SceneShelter, type SceneWeatherCategory } from "@marinara-engine/shared";
 // ── Particle types ──
 export interface WeatherParticle {
   x: number;
@@ -42,6 +43,8 @@ export interface WeatherRenderConfig {
   sunRays: boolean;
   sunsetGlow: boolean;
   isClearSky: boolean;
+  /** The story weather as one word (never the story's own text), shared with weather versions of backgrounds. */
+  category: SceneWeatherCategory | "";
 }
 
 // ── Map weather string → effect config ──
@@ -261,7 +264,50 @@ export function resolveWeatherRenderConfig(weather?: string | null, timeOfDay?: 
     !weather ||
     /clear|sunny|bright/i.test(weather) ||
     !/(rain|storm|snow|blizzard|fog|mist|haze|hail|sand|ash|smoke|overcast|cloud|grey|gray)/i.test(weather);
-  return { ...weatherConfig, ...timeConfig, isClearSky };
+  return { ...weatherConfig, ...timeConfig, isClearSky, category: sceneWeatherCategory(weather) };
+}
+
+/**
+ * Indoors the weather is outside: no particles, stars, fireflies, sun or moon across the room, only
+ * the colour cast and lightning light through the windows. A weather version of the chat background
+ * shows the weather itself in the windows.
+ */
+export function shelterWeatherRenderConfig(config: WeatherRenderConfig, shelter: SceneShelter): WeatherRenderConfig {
+  if (shelter !== "indoors") return config;
+  return {
+    ...config,
+    type: "dust",
+    count: 0,
+    addFireflies: false,
+    addStars: false,
+    celestial: "none",
+    sunRays: false,
+  };
+}
+
+const STILL_SKY = { count: 0, addStars: false, addFireflies: false } as const;
+
+/** Weather with nothing falling (an aurora, a clear or cloudy sky such as a meteor shower): the painted picture says it all. */
+export function paintedSkyStill(config: WeatherRenderConfig): boolean {
+  return config.category === "aurora" || config.category === "clear" || config.category === "cloudy";
+}
+
+/** Nothing drawn over a painted still sky. */
+export function stillPaintedSky(config: WeatherRenderConfig): WeatherRenderConfig {
+  return { ...config, ...STILL_SKY, celestial: "none", sunRays: false };
+}
+
+/**
+ * The chat background is a weather version of this weather: the picture already shows it, so the
+ * drawn weather steps back. Indoors (or unknown) as shelterWeatherRenderConfig; outdoors a third of
+ * the falling weather and no drawn sun or moon over the painted sky.
+ */
+export function paintedWeatherRenderConfig(config: WeatherRenderConfig, shelter: SceneShelter): WeatherRenderConfig {
+  if (shelter !== "outdoors") return shelterWeatherRenderConfig(config, "indoors");
+  const sky = { celestial: "none" as const, sunRays: false };
+  if (config.type === "fog") return { ...config, ...sky, type: "dust", count: 0 };
+  if (paintedSkyStill(config)) return { ...config, ...sky, ...STILL_SKY };
+  return { ...config, ...sky, count: Math.round(config.count / 3) };
 }
 
 // ── Create particle ──

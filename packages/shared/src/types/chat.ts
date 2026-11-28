@@ -456,6 +456,20 @@ export interface ChatMetadata {
   illustratorVideoMode?: IllustratorVideoMode | null;
   /** Whether Roleplay Illustrator may generate and activate a reusable background after a scene-location change. */
   illustratorAutoBackgroundsEnabled?: boolean;
+  /** Whether Illustrator repaints the active library background in the story's weather (made once per picture and weather, then reused). */
+  illustratorWeatherBackgroundsEnabled?: boolean;
+  /** Decision model reads every Roleplay reply for "the scene moves to a new place" (needs auto backgrounds). */
+  illustratorDecisionLocationCheck?: boolean;
+  /** Decision model reads every Roleplay reply for "the weather changes" (needs weather versions). */
+  illustratorDecisionWeatherCheck?: boolean;
+  /** The weather the Decision model last picked, for chats without a World State weather. */
+  illustratorDecisionWeather?: string | null;
+  /** Whether Illustrator repaints the active library background for the story's time of day (dawn, day, sunset, night; made once per picture and time, then reused). */
+  illustratorTimeBackgroundsEnabled?: boolean;
+  /** Decision model reads every Roleplay reply for "the time of day changes" (needs time of day versions). */
+  illustratorDecisionTimeCheck?: boolean;
+  /** The time of day the Decision model last picked, for chats without a World State time. */
+  illustratorDecisionTime?: string | null;
   /**
    * A decision model that reads pictures checks each Illustrator picture, selfie and weather version:
    * "retry" makes another when it does not match, "best_of_two" always makes two and keeps the better.

@@ -21,6 +21,7 @@ import {
 } from "@marinara-engine/shared";
 import { extname } from "node:path";
 import { logger } from "../../lib/logger.js";
+import { isChatBackgroundWeatherVersion } from "../game/game-asset-generation.js";
 
 export type BackgroundAgentCandidate = {
   /** What the agent copies into "chosen": a library file name, or "gallery:<image id>". */
@@ -86,8 +87,6 @@ function cleanText(value: unknown, max = DESCRIPTION_MAX): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }
 
-const BACKGROUND_VERSION_NAME = /--(?:wx|tod)-[a-z]+/i;
-
 /** Library backgrounds the agent can tell apart, plus how many were left out for having nothing to go on. */
 export function libraryBackgroundAgentCandidates(
   library: ReadonlyArray<{ filename: string; tags?: readonly string[]; source?: "user" | "game_asset" }>,
@@ -95,8 +94,8 @@ export function libraryBackgroundAgentCandidates(
   const candidates: BackgroundAgentCandidate[] = [];
   const leftOut: string[] = [];
   for (const item of library) {
-    // Weather and time of day versions ("stem--wx-rain") follow their plain picture; the agent picks plain pictures.
-    if (BACKGROUND_VERSION_NAME.test(item.filename)) continue;
+    // Weather and time of day versions follow their plain picture; the agent picks among plain pictures.
+    if (isChatBackgroundWeatherVersion(item.filename)) continue;
     const tags = (item.tags ?? []).map((tag) => cleanText(tag, 60)).filter(Boolean);
     if (item.source !== "game_asset" && tags.length === 0 && isUntellingBackgroundName(item.filename)) {
       leftOut.push(item.filename);

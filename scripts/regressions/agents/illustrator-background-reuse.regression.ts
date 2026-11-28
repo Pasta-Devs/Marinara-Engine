@@ -66,6 +66,22 @@ try {
     );
   }
 
+  // Versions follow their plain picture; an upload merely named like a version still serves its place.
+  writeFileSync(join(dir, "john-bedroom--wx-rain.png"), "x");
+  writeFileSync(join(dir, "cabin--tod-night.png"), "x");
+  writeFileSync(join(dir, "gallery-abc123--tod-night.png"), "x");
+  writeFileSync(
+    join(dir, "meta.json"),
+    JSON.stringify({ "gallery-abc123--tod-night.png": { tags: ["time version", "night"] } }),
+  );
+  assert.deepEqual(
+    readBackgroundLibrary(dir)
+      .map((item) => item.filename)
+      .sort(),
+    ["cabin--tod-night.png", "john-bedroom.png"],
+    "versions with a plain picture or a version record are left out; a standalone upload stays",
+  );
+
   console.log("illustrator background reuse regression passed");
 } finally {
   rmSync(dataDir, { recursive: true, force: true });
