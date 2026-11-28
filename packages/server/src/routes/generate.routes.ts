@@ -19,6 +19,7 @@ import {
   LOCATION_BACKGROUND_PIN_SHOWN_KEY,
   type LocationBackgroundPin,
   applyClockCommandTags,
+  backgroundTimeOfDay,
   findImageStyleProfile,
   rulesetChargesStart,
   normalizeVideoGenerationUserSettings,
@@ -629,6 +630,7 @@ import {
   illustratorRequestedBackground,
   illustratorTrackerLocationChanged,
   illustratorWeatherVersionsEnabled,
+  illustratorTimeVersionsEnabled,
   generateIllustratorBackgroundWeatherVersion,
   resolveIllustratorImageConnectionId,
   resolveIllustratorCharacterPromptInstruction,
@@ -650,7 +652,7 @@ import {
 import {
   chatBackgroundPlainPicture,
   isChatBackgroundWeatherVersion,
-  planChatBackgroundWeather,
+  planChatBackgroundVersion,
 } from "../services/game/game-asset-generation.js";
 import { parseDirectMessageCommands, type CharacterCommand } from "../services/conversation/character-commands.js";
 import {
@@ -13130,13 +13132,22 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         // on a reply the Illustrator skipped. Runs after "done", once the trackers have saved.
         const illustratorAutomaticBackgrounds = illustratorBackgroundGenerationEnabled(chatMode, chatMeta);
         const illustratorWeatherVersions = illustratorWeatherVersionsEnabled(chatMode, chatMeta);
+        const illustratorTimeVersions = illustratorTimeVersionsEnabled(chatMode, chatMeta);
         const illustratorChecks = illustratorDecisionChecks(chatMeta, {
           automaticBackgrounds: illustratorAutomaticBackgrounds,
           weatherVersions: illustratorWeatherVersions,
+          timeVersions: illustratorTimeVersions,
         });
-        const askIllustratorBackgroundDecisions = async (pickWeather: boolean) => {
-          if (!illustratorChecks.location && !illustratorChecks.weather) {
-            return { locationChanged: null, weatherChanged: null, weather: null };
+        const noIllustratorDecisions = {
+          locationChanged: null,
+          weatherChanged: null,
+          weather: null,
+          timeChanged: null,
+          time: null,
+        };
+        const askIllustratorBackgroundDecisions = async (pickWeather: boolean, pickTime: boolean) => {
+          if (!illustratorChecks.location && !illustratorChecks.weather && !illustratorChecks.time) {
+            return noIllustratorDecisions;
           }
           const backend = await resolveDecisionBackend(
             {
@@ -13149,11 +13160,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             },
             agentSignal,
           ).catch(() => null);
-          if (!backend) return { locationChanged: null, weatherChanged: null, weather: null };
+          if (!backend) return noIllustratorDecisions;
           return askIllustratorDecisionChecks({
             backend,
             checks: illustratorChecks,
             pickWeather,
+            pickTime,
             messages: [
               ...agentContext.recentMessages
                 .slice(-4)
@@ -13204,6 +13216,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             speakerName: replySpeakerName(),
             weather: state?.weather ?? null,
             weatherVersions: illustratorWeatherVersionsEnabled(chatMode, chatMeta),
+            time: state?.time ?? null,
+            timeVersions: illustratorTimeVersionsEnabled(chatMode, chatMeta),
             galleryPins: await galleryPinsForChat(),
           });
         };
@@ -13218,9 +13232,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         }) => {
           const automaticBackgroundsEnabled = illustratorAutomaticBackgrounds;
           const weatherVersionsEnabled = illustratorWeatherVersions;
+          const timeVersionsEnabled = illustratorTimeVersions;
           const backgroundAtDecision =
             typeof chatMeta.background === "string" && chatMeta.background.trim() ? chatMeta.background.trim() : null;
           const trackedLocationAtDecision = gameState?.location ?? null;
+          const trackedTimeOfDayAtDecision = backgroundTimeOfDay(gameState?.time);
           return async () => {
             try {
               const freshChat = await chats.getById(input.chatId);
@@ -13256,32 +13272,64 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               );
               // Optional Decision model checks (off by default): they read every reply and only add reasons to act.
               const trackedWeather = latestGameState?.weather?.trim() ?? "";
-              const decided = await askIllustratorBackgroundDecisions(trackedWeather.length === 0);
-              if (decided.weather) {
+              const trackedTime = latestGameState?.time?.trim() ?? "";
+              const decided = await askIllustratorBackgroundDecisions(
+                trackedWeather.length === 0,
+                backgroundTimeOfDay(trackedTime) === "",
+              );
+              if (decided.weather || decided.time) {
                 try {
-                  await chats.patchMetadata(input.chatId, { illustratorDecisionWeather: decided.weather });
+                  await chats.patchMetadata(input.chatId, {
+                    ...(decided.weather ? { illustratorDecisionWeather: decided.weather } : {}),
+                    ...(decided.time ? { illustratorDecisionTime: decided.time } : {}),
+                  });
                 } catch {
                   /* only a fallback for later replies */
                 }
               }
               const decidedNewPlace = decided.locationChanged === true;
+              // The World State clock moved to another part of the day (night -> dawn) on this reply.
+              const trackedTimeOfDay = backgroundTimeOfDay(trackedTime);
+              const trackerTimeOfDayChanged =
+                !!trackedTimeOfDay && !!trackedTimeOfDayAtDecision && trackedTimeOfDay !== trackedTimeOfDayAtDecision;
+              // A reply the Illustrator skipped that only has a time change to show never paints a new place.
+              const mayPaintNewPlace = tail.illustratorRan || illustratorChecks.location || illustratorChecks.weather;
+              if (trackerLocationChanged && !mayPaintNewPlace && !pinnedHere) return;
               if (
                 !automaticBackgroundsEnabled ||
                 pinnedHere ||
                 (!tail.requestedBackground && !trackerLocationChanged && !decidedNewPlace)
               ) {
-                // Same place: show it in the story's weather (a version made once, then reused).
-                // Without a World State weather, the Decision model's last pick stands in for it.
-                const weatherNow =
-                  trackedWeather ||
-                  decided.weather ||
-                  (illustratorChecks.weather && typeof freshMeta.illustratorDecisionWeather === "string"
-                    ? freshMeta.illustratorDecisionWeather
-                    : "");
-                if (!weatherVersionsEnabled || !weatherNow) return;
-                // A reply the Illustrator skipped is only looked at when the Decision model saw the weather change.
-                if (!tail.illustratorRan && decided.weatherChanged !== true) return;
-                const weatherPlan = planChatBackgroundWeather(backgroundBeforeGeneration, weatherNow);
+                // Same place: show it in the story's weather and time of day (each version made once, then reused).
+                // Without a World State weather or time, the Decision model's last pick stands in for it.
+                const weatherNow = weatherVersionsEnabled
+                  ? trackedWeather ||
+                    decided.weather ||
+                    (illustratorChecks.weather && typeof freshMeta.illustratorDecisionWeather === "string"
+                      ? freshMeta.illustratorDecisionWeather
+                      : "")
+                  : "";
+                const timeNow = timeVersionsEnabled
+                  ? (trackedTimeOfDay ? trackedTime : "") ||
+                    decided.time ||
+                    (illustratorChecks.time && typeof freshMeta.illustratorDecisionTime === "string"
+                      ? freshMeta.illustratorDecisionTime
+                      : "")
+                  : "";
+                if (!weatherNow && !timeNow) return;
+                // A reply the Illustrator skipped is only looked at when the weather or the time of day changed.
+                if (
+                  !tail.illustratorRan &&
+                  decided.weatherChanged !== true &&
+                  decided.timeChanged !== true &&
+                  !(timeNow && trackerTimeOfDayChanged)
+                ) {
+                  return;
+                }
+                const weatherPlan = planChatBackgroundVersion(backgroundBeforeGeneration, {
+                  weather: weatherNow || null,
+                  time: timeNow || null,
+                });
                 if (weatherPlan.kind === "keep") return;
                 let weatherFilename: string | null = null;
                 let weatherGenerated = false;
@@ -13303,6 +13351,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     debugLog,
                     baseFilename: weatherPlan.baseFilename,
                     version: weatherPlan.version,
+                    time: weatherPlan.time,
                     scenePrompt: weatherPlan.scenePrompt,
                   });
                   if (!made) return;
@@ -13327,13 +13376,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       chosen: weatherFilename,
                       generated: weatherGenerated,
                       weatherVersion: true,
-                      reason: `Weather: ${weatherNow}`,
+                      reason: [weatherNow ? `Weather: ${weatherNow}` : "", timeNow ? `Time: ${timeNow}` : ""]
+                        .filter(Boolean)
+                        .join(". "),
                     },
                     success: true,
                     error: null,
                   },
                 });
-                logger.info('[background-weather] Showing "%s" for weather "%s"', weatherFilename, weatherNow);
+                logger.info(
+                  '[background-weather] Showing "%s" for weather "%s", time "%s"',
+                  weatherFilename,
+                  weatherNow || "-",
+                  timeNow || "-",
+                );
                 return;
               }
               const backgroundDecisionReason = tail.requestedBackground
@@ -13349,7 +13405,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 );
               }
               // A place the chat already has a picture of (pin, then library by name/tags) is shown, not painted again.
-              const weatherForReuse = trackedWeather || decided.weather || "";
+              const weatherForReuse = weatherVersionsEnabled ? trackedWeather || decided.weather || "" : "";
+              const timeForReuse = timeVersionsEnabled
+                ? (trackedTimeOfDay ? trackedTime : "") || decided.time || ""
+                : "";
               const existingHere = findExistingSceneBackground({
                 chatMode,
                 chatMetadata: freshMeta,
@@ -13362,6 +13421,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 speakerName: replySpeakerName(),
                 weather: weatherForReuse,
                 weatherVersions: weatherVersionsEnabled,
+                time: timeForReuse,
+                timeVersions: timeVersionsEnabled,
                 galleryPins: await galleryPinsForChat(),
               });
               const reuseFromPlan = async (plan: { locationName: string }) => {
@@ -13375,8 +13436,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     ? await reuseLibraryBackgroundByLooking(app.db, plan.locationName, library, agentSignal)
                     : null);
                 if (!found) return null;
-                if (!weatherVersionsEnabled || !weatherForReuse) return found;
-                const weatherPlan = planChatBackgroundWeather(found, weatherForReuse);
+                if (!weatherForReuse && !timeForReuse) return found;
+                const weatherPlan = planChatBackgroundVersion(found, {
+                  weather: weatherForReuse || null,
+                  time: timeForReuse || null,
+                });
                 return weatherPlan.kind === "switch" ? weatherPlan.filename : found;
               };
               const picked = existingHere
@@ -13403,10 +13467,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     debugLog,
                     reuseExisting: chatMode === "roleplay" ? reuseFromPlan : undefined,
                   });
-              // A picture the chat already had arrives in today's weather: its version, made once when missing.
+              // A picture the chat already had arrives in today's weather and time: its version, made once when missing.
               let generated = picked;
-              if (picked.reused === true && weatherVersionsEnabled && weatherForReuse) {
-                const reuseWeather = planChatBackgroundWeather(picked.filename, weatherForReuse);
+              if (picked.reused === true && (weatherForReuse || timeForReuse)) {
+                const reuseWeather = planChatBackgroundVersion(picked.filename, {
+                  weather: weatherForReuse || null,
+                  time: timeForReuse || null,
+                });
                 if (reuseWeather.kind === "switch") {
                   generated = { ...picked, filename: reuseWeather.filename };
                 } else if (reuseWeather.kind === "generate") {
@@ -13425,13 +13492,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     debugLog,
                     baseFilename: reuseWeather.baseFilename,
                     version: reuseWeather.version,
+                    time: reuseWeather.time,
                     scenePrompt: reuseWeather.scenePrompt,
                   });
                   if (made) {
                     generated = {
                       ...picked,
                       filename: made.filename,
-                      reason: `${picked.reason} Weather: ${weatherForReuse}`,
+                      reason: [
+                        picked.reason,
+                        weatherForReuse ? `Weather: ${weatherForReuse}.` : "",
+                        timeForReuse ? `Time: ${timeForReuse}.` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" "),
                     };
                   }
                 }
@@ -14845,19 +14919,27 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               }
 
-              // Show the pick in the story's weather when that version already exists (never made here).
-              if (
-                bgData.chosen &&
-                illustratorWeatherVersionsEnabled(chatMode, chatMeta) &&
-                (gameState?.weather?.trim() ||
+              // Show the pick in the story's weather and time of day when that version already exists (never made here).
+              // Without a World State weather or time, the Decision model's last pick (when its check is on).
+              const pickWeather = illustratorWeatherVersionsEnabled(chatMode, chatMeta)
+                ? gameState?.weather?.trim() ||
                   (chatMeta.illustratorDecisionWeatherCheck === true &&
-                    typeof chatMeta.illustratorDecisionWeather === "string"))
-              ) {
-                // Without a World State weather, the Decision model's last pick (when its weather check is on).
-                const weatherPlan = planChatBackgroundWeather(
-                  bgData.chosen,
-                  gameState?.weather?.trim() || (chatMeta.illustratorDecisionWeather as string),
-                );
+                  typeof chatMeta.illustratorDecisionWeather === "string"
+                    ? chatMeta.illustratorDecisionWeather
+                    : "")
+                : "";
+              const pickTime = illustratorTimeVersionsEnabled(chatMode, chatMeta)
+                ? (backgroundTimeOfDay(gameState?.time) ? (gameState?.time ?? "") : "") ||
+                  (chatMeta.illustratorDecisionTimeCheck === true &&
+                  typeof chatMeta.illustratorDecisionTime === "string"
+                    ? chatMeta.illustratorDecisionTime
+                    : "")
+                : "";
+              if (bgData.chosen && (pickWeather || pickTime)) {
+                const weatherPlan = planChatBackgroundVersion(bgData.chosen, {
+                  weather: pickWeather || null,
+                  time: pickTime || null,
+                });
                 if (weatherPlan.kind === "switch") bgData.chosen = weatherPlan.filename;
               }
 
@@ -15337,9 +15419,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               );
 
               const weatherVersionsEnabled = illustratorWeatherVersionsEnabled(chatMode, chatMeta);
+              const timeVersionsEnabled = illustratorTimeVersionsEnabled(chatMode, chatMeta);
               if (
                 !commandTarget &&
-                (automaticBackgroundsEnabled || weatherVersionsEnabled) &&
+                (automaticBackgroundsEnabled || weatherVersionsEnabled || timeVersionsEnabled) &&
                 illustratorBackgroundAgent
               ) {
                 pendingIllustratorBackground = makeIllustratorBackgroundTail({
@@ -16250,10 +16333,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           }
         }
 
-        // Optional Decision model checks also look at replies the Illustrator skipped (its run interval).
+        // Optional Decision model checks also look at replies the Illustrator skipped (its run interval),
+        // and so do time of day versions: the World State clock reaching night shows the night picture.
         if (
           !pendingIllustratorBackground &&
-          (illustratorChecks.location || illustratorChecks.weather) &&
+          (illustratorChecks.location ||
+            illustratorChecks.weather ||
+            illustratorChecks.time ||
+            illustratorTimeVersions) &&
           chatEnableAgents &&
           !input.impersonate &&
           !recoveredAlreadyAppliedOwnerTurn &&

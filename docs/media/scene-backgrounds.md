@@ -1,6 +1,6 @@
 # Backgrounds Made by Illustrator
 
-The **Illustrator** agent can paint backgrounds for your story: one when you ask, one each time the story reaches a new place, and rain, snow or fog versions of a background when the weather changes. This guide covers all three, and how Illustrator reuses pictures you already have instead of painting new ones.
+The **Illustrator** agent can paint backgrounds for your story: one when you ask, one each time the story reaches a new place, rain, snow or fog versions of a background when the weather changes, and dawn, day, sunset or night versions when the time of day changes. This guide covers all of them, and how Illustrator reuses pictures you already have instead of painting new ones.
 
 For the pictures you upload and pick by hand, see [Background Library](../appearance/chat-backgrounds.md). For how a chat chooses which picture to show (the Background agent, pinned places and gallery pictures), see [Backgrounds That Follow the Story](../roleplay/backgrounds.md).
 
@@ -81,19 +81,43 @@ While the chat shows a weather version, **Chat Settings → Agents → Illustrat
 
 If it did not work: check that the chat's World State shows a **Weather** (or that the weather check below is on), and that **Illustrator** is added to the chat with an image model.
 
+## Time of day versions of backgrounds
+
+With this on, the background follows the story's clock. When night falls at the inn, Illustrator repaints the inn's background at night: a dark sky outside, the lamps and candles lit. The place, the layout and the camera stay the same; only the light changes.
+
+1. Open **Chat Settings → Agents → Illustrator**.
+2. Turn on **Time of Day Versions of Backgrounds**.
+
+Like weather versions, it needs an image model that can start from a picture.
+
+What happens:
+
+- There are four times: **dawn**, **day**, **sunset** and **night**. The World State time decides which: a clock (`7:40 PM`, `21:15`) wins, else words such as "dusk", "midnight" or "early morning". Before 5 AM and from 8 PM is night, 5 to 7 AM dawn, 7 AM to 5 PM day, 5 to 8 PM sunset.
+- A picture is taken to show the time it was painted at. Illustrator remembers that for the pictures it paints. For other pictures, a time word in the file name or a tag counts (`tavern-night.png`, `#sunset`); anything else counts as day. So a daytime picture gets a night version, and a picture painted at night gets a day version, never a second night one.
+- Each picture and time is painted **once** and shown again for free. Versions are saved next to the original as `name--tod-night.png` (also `--tod-dawn`, `--tod-day` and `--tod-sunset`).
+- With weather versions also on, one picture covers both: rain at night is `name--wx-rain--tod-night.png`, painted once from the plain picture. When only the weather changes the time stays, and the other way round.
+- The time is checked after every reply, not only on Illustrator's run interval, so the night picture shows as soon as the World State clock reaches night. Only the time does this: a new place still waits for Illustrator's run (or the new-place check below).
+- The drawn sky tint, sun, moon and stars step back over a time of day version, since the picture already has its own sky.
+- Without a World State time, a Decision model check can tell (below).
+
+While the chat shows a time of day version, the same row as weather pictures appears, such as **This night picture**, with **Remake picture**.
+
+In your Background Library, versions sit under their plain picture: its card shows how many there are, and opening it lists them under **Weather and time of day versions**.
+
 ## Check every reply with a Decision model
 
 Illustrator normally looks at the scene only on its run interval, so a new place can wait a few replies for its background. A [Decision model](../connections/decision-models.md), a small yes-or-no model, can check every reply instead.
 
-Before you start: pick a Decision model in the **Defaults** box on the Connections page, and turn on **Generate Scene Backgrounds**, **Weather Versions of Backgrounds**, or both.
+Before you start: pick a Decision model in the **Defaults** box on the Connections page, and turn on **Generate Scene Backgrounds**, **Weather Versions of Backgrounds**, **Time of Day Versions of Backgrounds**, or any mix.
 
 1. Open **Chat Settings → Agents → Illustrator**.
-2. Under **Decision Model Checks**, pick **The scene moved to a new place**, **The weather changed**, or **New place and weather changes**. It is **Off** by default.
+2. Under **Decision Model Checks**, pick one check, such as **The scene moved to a new place**, **The weather changed** or **The time of day changed**, or all of the ones that are on, such as **New place, weather and time of day changes**. Only checks for settings that are on are listed. It is **Off** by default.
 
 After each reply:
 
 - The new-place check asks whether the latest message moves the scene to a new place. A yes gets the place a background, reusing one you have when it can. The prompt model only writes a new background after a yes.
 - The weather check asks whether the weather changes in the latest message. A yes shows or paints the weather version of the current background. Without a World State weather, the Decision model also picks the kind of weather.
+- The time of day check asks whether the time of day changes in the latest message. A yes shows or paints the time of day version of the current background. Without a World State time, the Decision model also picks dawn, day, sunset or night.
 - The checks only add chances to act. Illustrator's own run and World State location changes still count.
 - With no answer (no model, a timeout or an error), the check is skipped.
 

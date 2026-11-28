@@ -38,6 +38,8 @@ export type BackgroundLibraryItem = {
   createdAt: string;
   folderId: string | null;
   favorite?: boolean;
+  /** A weather or time of day version's plain picture: a library file name or a gallery address. */
+  versionOf?: string | null;
 };
 
 export type BackgroundLibraryFolder = {

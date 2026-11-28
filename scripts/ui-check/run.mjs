@@ -87,6 +87,18 @@ async function startServer() {
   const dataDir = join(out, "data");
   rmSync(dataDir, { recursive: true, force: true });
   mkdirSync(dataDir, { recursive: true });
+  // A background with weather and time of day versions, so Library › Backgrounds shows the versions badge and the
+  // versions row of the picture's strip (Nov 27).
+  const backgroundDir = join(dataDir, "backgrounds");
+  mkdirSync(backgroundDir, { recursive: true });
+  const art = readFileSync(join(repoRoot, "packages/client/public/home/kitchen-orbit.png"));
+  for (const name of [
+    "harbour-inn",
+    "harbour-inn--tod-night",
+    "harbour-inn--tod-sunset",
+    "harbour-inn--wx-rain--tod-night",
+  ])
+    writeFileSync(join(backgroundDir, `${name}.png`), art);
   const clientPort = Number(process.env.UI_CHECK_CLIENT_PORT ?? 5188);
   const serverPort = Number(process.env.UI_CHECK_SERVER_PORT ?? 7981);
   if (!flag("skip-shared-build")) {

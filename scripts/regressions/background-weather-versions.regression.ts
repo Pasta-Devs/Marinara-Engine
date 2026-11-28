@@ -1,5 +1,6 @@
-// Weather versions of chat backgrounds (Nov 2026): the same room repainted in the story's weather, made once
-// per picture and weather, and no full-screen weather while the story is indoors.
+// Weather and time of day versions of chat backgrounds (Nov 2026): the same room repainted in the story's
+// weather and/or at its time of day, made once per picture, weather and time, and no full-screen weather while
+// the story is indoors.
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -16,6 +17,7 @@ const { paintedWeatherRenderConfig, resolveWeatherRenderConfig, shelterWeatherRe
   await import("../../packages/client/src/lib/weather-renderer.js");
 const {
   planChatBackgroundWeather,
+  planChatBackgroundVersion,
   chatBackgroundPlainPicture,
   isChatBackgroundWeatherVersion,
   windowMaskFromRepaint,
@@ -114,8 +116,26 @@ assert.deepEqual(shared.parseBackgroundWeatherVersionName("generated-old-inn--wx
   baseStem: "generated-old-inn",
   ext: "png",
   version: "rain",
+  time: "",
 });
 assert.equal(shared.parseBackgroundWeatherVersionName("my-inn.webp").version, "");
+assert.deepEqual(shared.parseBackgroundWeatherVersionName("inn--wx-rain--tod-night.png"), {
+  baseStem: "inn",
+  ext: "png",
+  version: "rain",
+  time: "night",
+});
+assert.deepEqual(shared.parseBackgroundWeatherVersionName("inn--tod-sunset.webp"), {
+  baseStem: "inn",
+  ext: "webp",
+  version: "",
+  time: "sunset",
+});
+assert.equal(shared.parseBackgroundWeatherVersionName("inn--tod-noon.png").time, "", "only the four times");
+assert.equal(shared.parseBackgroundWeatherVersionName("inn--wx-meteor-shower--tod-dawn.png").version, "meteor-shower");
+assert.equal(shared.backgroundVersionStem("inn", "rain", "night"), "inn--wx-rain--tod-night");
+assert.equal(shared.backgroundVersionStem("inn", "", "dawn"), "inn--tod-dawn");
+assert.equal(isChatBackgroundWeatherVersion("a--tod-night.png"), true, "a time version follows its plain picture too");
 assert.equal(isChatBackgroundWeatherVersion("a--wx-snow.png"), true);
 assert.equal(isChatBackgroundWeatherVersion("a--wx-2.png"), false, "slugs are letters only");
 assert.equal(isChatBackgroundWeatherVersion("a--wx-meteor-shower.png"), true);
@@ -130,6 +150,7 @@ assert.deepEqual(planChatBackgroundWeather("inn.png", "pouring rain"), {
   kind: "generate",
   baseFilename: "inn.png",
   version: "rain",
+  time: "",
   scenePrompt: "",
 });
 writeFileSync(join(bgDir, "inn--wx-rain.png"), png);
@@ -149,6 +170,7 @@ assert.deepEqual(planChatBackgroundWeather("dock.png", "sunny"), {
   kind: "generate",
   baseFilename: "dock.png",
   version: "clear",
+  time: "",
   scenePrompt: "a rainy dock",
 });
 // Only real library files take part.
@@ -158,6 +180,90 @@ assert.deepEqual(planChatBackgroundWeather("missing.png", "rain"), { kind: "keep
 
 assert.equal(planChatBackgroundWeather("inn.png", "aurora borealis").kind, "generate");
 assert.equal((planChatBackgroundWeather("inn.png", "meteor shower") as { version?: string }).version, "meteor-shower");
+
+// ── Time of day ──
+assert.equal(shared.backgroundTimeOfDay("7:40 PM"), "sunset");
+assert.equal(shared.backgroundTimeOfDay("11 p.m."), "night");
+assert.equal(shared.backgroundTimeOfDay("12 AM"), "night");
+assert.equal(shared.backgroundTimeOfDay("12:15 pm"), "day");
+assert.equal(shared.backgroundTimeOfDay("05:30"), "dawn");
+assert.equal(shared.backgroundTimeOfDay("21:15"), "night");
+assert.equal(shared.backgroundTimeOfDay("Late afternoon"), "day");
+assert.equal(shared.backgroundTimeOfDay("Dusk"), "sunset");
+assert.equal(shared.backgroundTimeOfDay("Early morning, just after sunrise"), "dawn");
+assert.equal(shared.backgroundTimeOfDay("midnight"), "night");
+assert.equal(shared.backgroundTimeOfDay("Evening, 8:30 PM"), "night", "a clock reading wins over words");
+assert.equal(shared.backgroundTimeOfDay(""), "");
+assert.equal(shared.backgroundTimeOfDay("unknown"), "");
+assert.equal(shared.backgroundTimeOfDayFromWords(["tavern-night", "cozy"]), "night");
+assert.equal(shared.backgroundTimeOfDayFromWords(["tavern"]), "");
+// A picture with no time on record is taken as day: daytime keeps it, night gets a version.
+writeFileSync(join(bgDir, "hall.png"), png);
+assert.deepEqual(planChatBackgroundVersion("hall.png", { time: "2 PM" }), { kind: "keep" });
+assert.deepEqual(planChatBackgroundVersion("hall.png", { time: "11 PM" }), {
+  kind: "generate",
+  baseFilename: "hall.png",
+  version: "",
+  time: "night",
+  scenePrompt: "",
+});
+writeFileSync(join(bgDir, "hall--tod-night.png"), png);
+assert.deepEqual(planChatBackgroundVersion("hall.png", { time: "midnight" }), {
+  kind: "switch",
+  filename: "hall--tod-night.png",
+});
+assert.deepEqual(planChatBackgroundVersion("hall--tod-night.png", { time: "noon" }), {
+  kind: "switch",
+  filename: "hall.png",
+});
+assert.equal(chatBackgroundPlainPicture("hall--tod-night.png"), "hall.png");
+// Weather and time together: one picture for both, and each part keeps what is shown when only the other changes.
+assert.deepEqual(planChatBackgroundVersion("hall--tod-night.png", { weather: "rain", time: "night" }), {
+  kind: "generate",
+  baseFilename: "hall.png",
+  version: "rain",
+  time: "night",
+  scenePrompt: "",
+});
+writeFileSync(join(bgDir, "hall--wx-rain--tod-night.png"), png);
+assert.deepEqual(planChatBackgroundWeather("hall--tod-night.png", "rain"), {
+  kind: "switch",
+  filename: "hall--wx-rain--tod-night.png",
+});
+assert.deepEqual(planChatBackgroundVersion("hall--wx-rain--tod-night.png", { time: "midnight" }), { kind: "keep" });
+assert.deepEqual(planChatBackgroundWeather("hall--wx-rain--tod-night.png", "clear"), {
+  kind: "switch",
+  filename: "hall--tod-night.png",
+});
+assert.deepEqual(planChatBackgroundVersion("hall--wx-rain--tod-night.png", { time: "1 PM" }), {
+  kind: "generate",
+  baseFilename: "hall.png",
+  version: "rain",
+  time: "",
+  scenePrompt: "",
+});
+// A picture painted at night (on record, or by its name) needs no night version, and gets a day one.
+writeFileSync(join(bgDir, "alley.png"), png);
+writeFileSync(join(bgDir, "alley-at-night.png"), png);
+writeFileSync(
+  join(bgDir, "scenes.json"),
+  JSON.stringify({
+    "dock.png": { prompt: "a rainy dock", weather: "rain" },
+    "alley.png": { prompt: "a dark alley", weather: "", time: "night" },
+  }),
+);
+assert.deepEqual(planChatBackgroundVersion("alley.png", { time: "10 PM" }), { kind: "keep" });
+assert.equal((planChatBackgroundVersion("alley.png", { time: "9 AM" }) as { time?: string }).time, "day");
+assert.deepEqual(planChatBackgroundVersion("alley-at-night.png", { time: "23:00" }), { kind: "keep" });
+// The repaint keeps the place and changes the light.
+const nightPrompt = shared.backgroundVersionInstruction("", "night", "indoors");
+assert.match(nightPrompt, /different time of day/);
+assert.match(nightPrompt, /lamps, candles or fire/);
+assert.doesNotMatch(nightPrompt, /weather/);
+const both = shared.backgroundVersionInstruction("rain", "sunset", "outdoors");
+assert.match(both, /different weather and at a different time of day/);
+assert.match(both, /rain falling across the whole scene/);
+assert.match(both, /sunset/);
 
 // ── Gallery pictures (pinned places from a character's or persona's gallery) ──
 {
