@@ -8,6 +8,7 @@
 // ──────────────────────────────────────────────
 
 import {
+  BACKGROUND_CHOICE_NOTE_KEY,
   galleryBackgroundPins,
   galleryBackgroundUrl,
   LOCATION_BACKGROUND_PINS_KEY,
@@ -119,7 +120,16 @@ export function pinnedSceneBackground(args: {
 
 /** Metadata patch that shows a pin and remembers it was shown (a manual pick then lasts until the place changes). */
 export function pinnedBackgroundMetadataPatch(pinned: PinnedSceneBackground): Record<string, unknown> {
-  return { background: pinned.filename, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: pinned.match.pin.id };
+  return {
+    background: pinned.filename,
+    [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: pinned.match.pin.id,
+    [BACKGROUND_CHOICE_NOTE_KEY]: {
+      background: pinned.filename,
+      by: "pinned-place",
+      reason: pinned.match.matched,
+      at: new Date().toISOString(),
+    },
+  };
 }
 
 /** The picture's weather and/or time of day version when the library already has it, else the picture. */
