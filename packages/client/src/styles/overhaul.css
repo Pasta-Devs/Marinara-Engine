@@ -6441,7 +6441,7 @@ input.ov-edhead__title:focus {
 }
 .ov-week__hrs {
   position: relative;
-  margin-top: 2rem;
+  flex: none;
   height: calc(var(--ov-week-hour) * 24);
   color: var(--ov-dim);
   font-size: 0.65rem;
@@ -6481,6 +6481,9 @@ input.ov-edhead__title:focus {
   .ov-week__dh:hover {
     background: color-mix(in srgb, var(--ov-hover), var(--background));
   }
+}
+.ov-week__dh.is-corner {
+  pointer-events: none;
 }
 .ov-week__dh.is-today {
   color: var(--ov-accent-text);
@@ -6536,22 +6539,17 @@ input.ov-edhead__title:focus {
   color: var(--ov-dim);
   white-space: nowrap;
 }
-/* Under an hour: the name on one line, the time after it when it fits. */
+/* Under an hour: the name on one line, the time after it only when the whole time fits.
+   A time that does not fit wraps, and the tall row gap pushes it out of the block. */
 .ov-week__blk.is-short {
-  flex-direction: row;
-  align-items: baseline;
-  gap: 0.375rem;
+  flex-flow: row wrap;
+  align-content: flex-start;
+  gap: 4rem 0.375rem;
   padding-top: 0.0625rem;
   padding-bottom: 0;
 }
 .ov-week__blk.is-short b {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-.ov-week__blk.is-short span {
-  flex: 0 100 auto;
-  min-width: 0;
-  text-overflow: clip;
+  max-width: 100%;
 }
 .ov-week__blk.is-online {
   background: color-mix(in srgb, #3fbf6f 18%, transparent);

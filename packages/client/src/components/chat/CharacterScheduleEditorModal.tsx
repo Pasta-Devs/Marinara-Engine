@@ -1568,12 +1568,16 @@ function OvWeekCalendar({
   }, [hasBlocks]);
   return (
     <div ref={scrollRef} className="ov-week" role="grid" aria-label={localizeUi("ui.chat.ovweekcalendar.weekSchedule")}>
-      <div className="ov-week__hrs" aria-hidden="true">
-        {Array.from({ length: 12 }, (_, index) => index * 2).map((hour) => (
-          <span key={hour} style={{ top: `${(hour / 24) * 100}%` }}>
-            {hour}:00
-          </span>
-        ))}
+      <div className="ov-week__col" aria-hidden="true">
+        {/* Covers the hour labels as they scroll under the pinned day names. */}
+        <div className="ov-week__dh is-corner" />
+        <div className="ov-week__hrs">
+          {Array.from({ length: 12 }, (_, index) => index * 2).map((hour) => (
+            <span key={hour} style={{ top: `${(hour / 24) * 100}%` }}>
+              {hour}:00
+            </span>
+          ))}
+        </div>
       </div>
       {CONVERSATION_SCHEDULE_DAYS.map((day) => (
         <div key={day} className="ov-week__col" role="row">
