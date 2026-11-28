@@ -1371,7 +1371,8 @@ export async function importRoutes(app: FastifyInstance) {
     const home = homedir();
     const requestedPath = (req.body?.path || "").trim();
     const dirPath = requestedPath || home;
-    const resolved = pathResolve(dirPath);
+    // Follow links once: the check, the read and the token all use this same folder.
+    const resolved = realPathOrSelf(pathResolve(dirPath));
 
     // Restrict browsing to the home directory tree, after following links.
     if (!isHomeContained(resolved)) {
