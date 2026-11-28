@@ -79,6 +79,26 @@ Książka, którą piszesz wspólnie z modelem. Ustaw fabułę, obsadę i lorebo
 - **Najważniejsze ustawienia**: zainstaluj ją, uruchom aplikację ponownie, gdy pojawi się prośba, a potem otwórz **Home → Story Writer** i wybierz połączenie tekstowe na pasku bocznym. Historie są zapisywane na twoim serwerze Marinara. Możesz zaczynać nowe, wracać do starych i pobierać je jako Markdown albo zwykły tekst.
 - **Pełny przewodnik**: [Przewodnik pakietu Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 
+### Otome Hearth
+
+Jednoosobowa gra otome zbudowana z twoich postaci. Obiekty westchnień (love interests) pamiętają twoje wybory, wysyłają ci wiadomości i chodzą z tobą na randki, a za Starlight zdobywany w grze odblokowujesz poboczne historie i stroje. Nie ma tu płatności prawdziwymi pieniędzmi ani liczników wytrzymałości.
+
+- **Integracja**: aplikacja we własnej zakładce **Otome Hearth** w **Home**.
+- **Gdzie działa**: Home.
+- **Dostępność**: wymaga aplikacji Marinara Engine w wersji **2.5.1+** (poniżej 4.0.0). Prosi o dostęp do połączeń sieciowych, tras serwera, pamięci lokalnej i interfejsu zakładki **Home**.
+- **Najważniejsze ustawienia**: zainstaluj ją, uruchom aplikację ponownie, gdy pojawi się prośba, a potem otwórz **Home → Otome Hearth**. W samej aplikacji ustawiasz biblie postaci, limity treści **Lines & Veils** (granice i zasłony) oraz opcjonalne śledzenie **Remind Me** (przypomnij mi).
+- **Pełny przewodnik**: [Przewodnik pakietu Otome Hearth](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/otome-forge/README.md).
+
+### Saucelings
+
+Wirtualne zwierzątko w **Home → Saucelings** i w widgetach Home. Wybierz jedną ze swoich postaci na opiekuna: karmi zwierzątko, bawi się z nim i je przytula według własnego harmonogramu, a ty uzupełniasz to, czego nie zdąży.
+
+- **Integracja**: aplikacja we własnej zakładce **Saucelings** i widgety Home w **Home**.
+- **Gdzie działa**: Home.
+- **Dostępność**: wymaga aplikacji Marinara Engine w wersji **2.5.0+** (poniżej 4.0.0). Prosi o dostęp do kontekstu promptu czatu, tras serwera, pamięci lokalnej oraz interfejsów zakładki i widgetów **Home**.
+- **Najważniejsze ustawienia**: zainstaluj ją, uruchom aplikację ponownie, gdy pojawi się prośba, a potem otwórz **Home → Saucelings**, żeby opiekować się zwierzątkiem w sekcjach **Nook** (kącik), **Journal** (dziennik), **Album**, **Menagerie** (menażeria) i **Settings** (Ustawienia).
+- **Pełny przewodnik**: [Przewodnik pakietu Saucelings](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/saucelings/README.md).
+
 ## Agenci piszący
 
 Agenci piszący kształtują fabułę albo sam tekst. Dodają wskazówki przed odpowiedzią lub porządkują odpowiedź po jej wygenerowaniu.
@@ -421,6 +441,22 @@ Dodaje pojedynek we dwoje, w którym oba wybory pozostają ukryte aż do odsłon
 - **Integracja**: pakiet gry w trybie Conversation.
 - **Gdzie działa**: Conversation.
 - **Najważniejsze ustawienia**: uruchom grę z listy gier albo komendą `/rps`, a potem wybierz przeciwnika oraz pojedynek w wersji do trzech, pięciu albo siedmiu partii. Instalacja i usunięcie wymagają ponownego uruchomienia.
+
+### Blackjack
+
+Dodaje stół do gry w blackjacka przeciwko kasynu dla postaci w trybie Conversation.
+
+- **Integracja**: pakiet gry w trybie Conversation.
+- **Gdzie działa**: Conversation.
+- **Najważniejsze ustawienia**: rozpocznij grę komendą `/blackjack` albo po zaproszeniu od postaci i włącz **Blackjack** w **Chat Settings → Agents → Commands**, żeby postacie mogły same rozpoczynać grę. Instalacja wymaga ponownego uruchomienia, a usunięcie nie.
+
+### Wordle
+
+Dodaje codzienny wyścig w zgadywaniu słowa Wordle z postaciami w trybie Conversation.
+
+- **Integracja**: pakiet gry w trybie Conversation.
+- **Gdzie działa**: Conversation.
+- **Najważniejsze ustawienia**: rozpocznij dzisiejszą grę komendą `/wordle` i włącz **Wordle** w **Chat Settings → Agents → Commands**, żeby postacie mogły same rozpoczynać dzisiejszą grę. Instalacja wymaga ponownego uruchomienia, a usunięcie nie.
 
 ## Powiązane przewodniki
 

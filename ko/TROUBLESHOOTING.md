@@ -357,6 +357,17 @@ Music DJ 에이전트의 Spotify 모드는 OAuth를 씁니다. OAuth는 Spotify�
 
 데이터 폴더가 로컬 드라이브에 있으면 Linux, Android, 컨테이너, Windows에서 크래시한 프로세스가 남긴 리스를 Marinara가 알아서 정리합니다. 수동 단계는 네트워크 저장소나 공유 저장소, 이동식 드라이브, (Windows에서) 크래시 후 이름을 바꾼 컴퓨터를 위한 대체 수단입니다.
 
+<a id="cannot-access-a-network-or-external-folder"></a>
+
+### 네트워크 폴더나 외부 폴더에 접근할 수 없을 때
+
+Marinara는 데이터를 데이터 폴더에만 보관하며, SillyTavern 폴더 가져오기는 서버가 허용한 폴더에서만 읽습니다. 네트워크 공유 폴더나 다른 드라이브는 다음 방법 중 하나로 설정하면 쓸 수 있습니다.
+
+- **데이터가 네트워크 공유 폴더에 있음.** `.env`의 `DATA_DIR`을 공유 폴더 안의 폴더로 지정한 다음 Marinara를 다시 시작하세요. [저장 위치](CONFIGURATION.md#storage)를 참고하세요. 데이터 폴더는 통째로 옮기세요. 그 안의 폴더 하나(`avatars`나 `backgrounds` 등)만 다른 드라이브로 링크하면 그 폴더의 이미지를 불러오지 못하고, Marinara는 그 이미지에 **Not found**로 응답합니다.
+- **공유 폴더에서 SillyTavern 폴더를 가져오는 경우.** 직접 입력한 경로는 서버를 실행하는 사용자의 홈 폴더 안에 있어야 합니다. 그렇지 않으면 **Marinara can only read folders inside your home folder**가 표시됩니다. 서버가 실행 중인 컴퓨터에서는 대신 **Browse**(찾기)를 클릭해 폴더를 고르세요. 또는 `.env`의 `IMPORT_ALLOWED_ROOTS`에 폴더를 쉼표로 구분해 추가하고 Marinara를 다시 시작하세요. 이 설정을 지정하면 직접 고른 폴더라도 이 설정에 있는 폴더만 허용되므로, 홈 폴더에서도 계속 가져오려면 홈 폴더도 추가하세요.
+- **앱 안의 폴더 브라우저에 홈 폴더가 열림.** 이 브라우저는 `IMPORT_ALLOWED_ROOTS` 설정과 관계없이 홈 폴더 안의 폴더만 보여 줍니다. 홈 폴더 밖에 있는 공유 폴더라면 그 폴더를 `IMPORT_ALLOWED_ROOTS`에 추가하고 Marinara를 다시 시작한 다음, **SillyTavern folder path**(SillyTavern 폴더 경로)에 경로를 입력하세요.
+- **공유 폴더의 연결이 끊어짐.** Marinara를 시작하기 전에 공유 폴더를 다시 연결한 다음 다시 시도하세요.
+
 ### 백업이나 내보내기에서 403이 반환될 때
 
 같은 컴퓨터의 세션은 관리자 시크릿 없이 백업할 수 있습니다. 다른 기기, 네트워크 주소, Docker, 같은 컴퓨터의 프록시나 터널에서 오는 요청에는 시크릿이 필요합니다. 서버가 실행 중인 컴퓨터의 **Settings → Advanced → Admin Access**에서 시크릿을 만들거나 서버에 `ADMIN_SECRET`을 설정한 다음, 다른 기기의 **Admin Access**에 같은 값을 저장하세요. 루프백에서도 시크릿을 요구하려면 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`를 설정하세요. `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`이면 전달된 방문자도 로컬 면제를 받습니다. 공개 프록시나 터널을 쓴다면 이 보호를 켜 두세요.

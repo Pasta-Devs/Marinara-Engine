@@ -89,6 +89,8 @@ Marinaraは実行中も`.env`を監視しています。ほとんどの設定は
 
 > **Warning:** `0.0.0.0/0`のような広い公開範囲を`IP_ALLOWLIST`に指定すると、インターネット上のクライアントがログインなしで入れてしまうことがあります。信頼できるアドレスだけを記載してください。
 
+<a id="storage"></a>
+
 ## ストレージ
 
 | 変数 | デフォルト | 説明 |
@@ -107,6 +109,8 @@ openssl rand -hex 32
 ```
 
 Marinaraはデータをそのままの形のJSONファイルとして保存するため、バックアップをコピーしたり、中身を読んだりできます。各フォルダーの中身については[Marinaraがデータを保存する場所](data/where-data-is-stored.md)を参照してください。
+
+データをネットワーク共有に置くには、`DATA_DIR`を共有上のフォルダーに向け、Marinaraを起動する前に共有が接続されていることを確認してください。[ネットワーク上や外部のフォルダーにアクセスできない](TROUBLESHOOTING.md#cannot-access-a-network-or-external-folder)を参照してください。
 
 <a id="logging-levels"></a>
 

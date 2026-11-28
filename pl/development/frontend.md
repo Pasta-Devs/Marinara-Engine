@@ -652,17 +652,24 @@ Lekka wersja Engine startuje z pustym rejestrem agentów. Pakiety zainstalowane 
 | `haptic`                 | post_processing | Wysyła komendy do urządzenia haptycznego                          |
 | `cyoa`                   | post_processing | Generuje prompty z wyborami                                       |
 | `storyboard` | post_processing | Planuje nieruchome i animowane storyboardy Game i Roleplay |
+| `2d-avatars`             | feature         | Renderuje animowane awatary postaci 2D ze sprite'ów lub siatek     |
+| `3d-avatars`             | feature         | Renderuje animowane awatary 3D w formatach VRM, MMD PMX, GLB i FBX |
 | `conversation-calls`     | feature         | Dodaje rozmowy audio/wideo w trybie Conversation i powiązane ustawienia |
 | `hierarchical-maps`      | feature         | Dodaje mapy, kontekst przestrzenny i ruch w trybach Roleplay i Game Mode |
 | `noodle` | feature | Dodaje lokalny kanał społecznościowy Noodle do Home |
+| `otome-forge`            | feature         | Dodaje do Home Otome Hearth, grę otome zbudowaną z postaci        |
+| `saucelings`             | feature         | Dodaje do Home Saucelings, wirtualne zwierzątko wychowywane przez postacie |
 | `slurp2` | feature | Dodaje do Home Slurp, prywatną aplikację do tworzenia postaci |
+| `story-writer`           | feature         | Dodaje do Home Story Writer, przestrzeń do wspólnego pisania książki |
 | `gacha-forge` | feature | Dodaje do Home tryb gry gacha |
+| `blackjack`              | feature         | Dodaje stolik do blackjacka w trybie Conversation                 |
 | `uno`                    | feature         | Dodaje stolik UNO w trybie Conversation                           |
 | `chess`                  | feature         | Dodaje szachownicę w trybie Conversation                          |
 | `poker`                  | feature         | Dodaje stolik Texas Hold'em w trybie Conversation                 |
 | `eightball`              | feature         | Dodaje stół do bilarda 8-Ball w trybie Conversation               |
 | `tic-tac-toe`            | feature         | Dodaje planszę do kółka i krzyżyka w trybie Conversation          |
 | `rock-paper-scissors`    | feature         | Dodaje partie w kamień, papier, nożyce w trybie Conversation      |
+| `wordle`                 | feature         | Dodaje codzienny wyścig Wordle w trybie Conversation              |
 
 ### Typy wyników agentów
 

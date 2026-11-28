@@ -13,7 +13,19 @@ Otworzy się jej okno. Możesz do niej dotrzeć też z każdego ekranu: wpisz co
 
 Wpisz wiadomość zwykłym językiem i naciśnij <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> dodaje nową linię. Jeśli w jej ustawieniach wyłączysz **Enter sends to Professor Mari** (wysyłanie do Professor Mari klawiszem Enter), <kbd>Enter</kbd> doda nową linię, a wiadomość wyśle <kbd>Ctrl</kbd>+<kbd>Enter</kbd>. Wiadomość wyślesz też przyciskiem wysyłania. Stan przełącznika zapisuje się osobno na każdym urządzeniu, więc możesz go wyłączyć na telefonie i pozostawić włączony na komputerze. Pierwsza wiadomość odblokowuje osiągnięcie **Hello World**.
 
-Wszystkie jej ustawienia są w **Settings → General → Search and Professor Mari settings → Open** (ustawienia, ogólne, ustawienia wyszukiwarki i asystentki Professor Mari, otwarcie) albo pod ikoną zębatki w wyszukiwarce Search. Na komputerze rozmiar jej okna zmieniają suwaki **Height** (wysokość) i **Width** (szerokość) w sekcji **Professor Mari window** (okno Professor Mari). Na telefonie jej okno wypełnia cały ekran.
+Wszystkie jej ustawienia są w **Settings → General → Search and Professor Mari settings → Open** (ustawienia, ogólne, ustawienia wyszukiwarki i asystentki Professor Mari, otwarcie) albo pod ikoną zębatki w wyszukiwarce Search. Na telefonie jej okno wypełnia cały ekran.
+
+### Pływające okno obok twojej pracy (komputer)
+
+Jej okno otwiera się na środku ekranu, nad przyciemnioną aplikacją. Żeby dalej korzystać z aplikacji, gdy asystentka jest otwarta, kliknij w jej nagłówku **Float Prof. Mari** (pływające okno Professor Mari), czyli przycisk obrazu w obrazie. Przycisk pojawia się, gdy okno aplikacji ma co najmniej 1024 piksele szerokości.
+
+- Pływające okno Professor Mari nie ma przyciemnionego tła, a kliknięcie poza nim go nie zamyka, więc możesz kopiować tekst z pola do jej czatu.
+- Przeciągnij jej nagłówek, żeby przesunąć okno. Przeciągnij krawędź albo róg, żeby zmienić jego rozmiar.
+- Upuść okno przy lewej albo prawej krawędzi ekranu, żeby zadokować je tam jak pasek boczny: aplikacja zrobi dla niego miejsce. Przeciągnij jego wewnętrzną krawędź, żeby zmienić szerokość. Upuść je przy górnej krawędzi, żeby wypełniło ekran pod górnym paskiem. Obrys pokazuje, gdzie okno wyląduje. Odciągnij je od krawędzi, żeby przywrócić poprzedni rozmiar.
+- Gdy obok jest edytor, upuszczenie okna przy lewej krawędzi dokuje asystentkę jako towarzyszkę edytora. Pociągnij mocno za jej nagłówek, żeby z powrotem wyciągnąć ją do pływającego okna.
+- Asystentka otwiera się ponownie w pływającym oknie, w miejscu, w którym ją zostawiono.
+- Naciśnij <kbd>Esc</kbd> w jej oknie albo kliknij **X**, żeby ją zamknąć. Kliknij **Dock Prof. Mari back** (powrót Professor Mari na środek ekranu; ten sam przycisk), żeby wrócić do okna na środku ekranu.
+- Gdy otworzysz wyszukiwarkę Search klawiszami <kbd>Ctrl</kbd>+<kbd>J</kbd> w jej oknie albo przyciskiem **Back to Search** (powrót do wyszukiwarki), pojawi się zwykła wyszukiwarka Search na środku ekranu. Po powrocie do asystentki jej okno wraca tam, gdzie się unosiło.
 
 ## Tworzenie postaci z Mari
 
@@ -38,7 +50,7 @@ Zanim coś edytuje, najpierw to czyta, a gdy prośba jest niejasna, dopytuje.
 - Napisanie onboardingu postaci (zobacz [Interaktywny onboarding](../characters/interactive-onboarding.md)) i wypełnienie [arkusza zestawu zasad](../characters/colors-and-stats.md#ruleset-sheets) dla zainstalowanego zestawu zasad Game Mode. Gdy wartość nie pasuje do zestawu zasad, zmiana asystentki zostaje odrzucona z podaniem przyczyny.
 - Utworzenie lub edycja motywu, agenta, presetu promptu albo szkicu rozszerzenia Personal Extension. Szkic pozostaje wyłączony, dopóki nie przeczytasz jego kodu i nie zatwierdzisz go w **Settings → Addons** (ustawienia, dodatki).
 - Edycja jednej sekcji presetu na miejscu, bez podmieniania całego presetu.
-- Porównanie agentów do pobrania i podpowiedź, które pasują do twojego celu. Do instalacji asystentka kieruje cię do **Agents → Agent Organizer** (agenci, organizowanie agentów). Zobacz [Agenci do pobrania: przegląd pakietów](../agents/built-in-agents.md).
+- Porównanie agentów do pobrania i podpowiedź, które pasują do twojego celu. W trybie Workspace asystentka może przeczytać omówienie agenta i, jeśli są dostępne, pobrać jego przewodniki po tematach. Zapytaj o konkretne zadanie, na przykład o konfigurację awatara. Do instalacji agentów asystentka kieruje cię do **Agents → Agent Organizer** (agenci, organizowanie agentów). Zobacz [Agenci do pobrania: przegląd pakietów](../agents/built-in-agents.md).
 - Tworzenie lub przypisywanie obrazów, takich jak awatary, sprite'y i tła. Najpierw potrzebne jest konto do generowania obrazów. Asystentka sama go nie utworzy. Kliknij utworzony przez nią obraz, aby otworzyć go w pełnym rozmiarze, przeczytać prompt, pobrać obraz albo zmienić prompt i wygenerować obraz ponownie. Nowy obraz zastąpi poprzedni w jej odpowiedzi.
 - Wyszukiwanie publicznych stron wiki Fandom, gdy zbierasz informacje o postaci albo świecie.
 

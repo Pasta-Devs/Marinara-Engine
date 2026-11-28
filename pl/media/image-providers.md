@@ -155,6 +155,20 @@ Pole **ComfyUI workflow (optional)** (workflow ComfyUI, opcjonalny) może zosta�
 
 Gdy usługa zwraca adres URL zamiast danych obrazu, Marinara pobiera publiczne adresy sieci CDN przez zwykłe kontrole ruchu wychodzącego. Adres wyniku z sieci prywatnej lub z pętli zwrotnej jest przyjmowany tylko wtedy, gdy protokół, nazwa hosta i port zgadzają się dokładnie z ustawioną usługą obrazów. Przekierowania z takiego pochodzenia nie mogą prowadzić do innej usługi lokalnej. Jeśli lokalne proxy trzyma wyniki pod innym prywatnym pochodzeniem, ustaw je tak, żeby udostępniało te pliki spod tego samego pochodzenia co jego API do obrazów.
 
+## Edycja istniejącego obrazu
+
+Otwórz obraz w galerii i wybierz **Regenerate image** (ponowne wygenerowanie obrazu). W przypadku awatara wybierz **Edit avatar** (edycja awatara) w edytorze postaci lub persony. Wybierz model obrazów, a potem **Edit image** (edycja obrazu). Dostępne kontrolki zależą od wybranej usługi:
+
+| Usługa | Edycja całego obrazu | Edycja z namalowaną maską |
+| --- | --- | --- |
+| Natywny NovelAI | Tak | Tak |
+| SD Web UI (AUTOMATIC1111 / Forge) | Tak | Tak |
+| Draw Things | Tak | Nie |
+
+Zmień prompt i **Strength** (siła), a potem wybierz **Apply edit** (zastosowanie edycji). Jeśli narzędzia maski są dostępne, zamaluj obszar do przerysowania i wybierz **Inpaint image** (przerysowanie zamalowanego obszaru). **Noise** (szum) i **Reuse original seed** (ponowne użycie pierwotnego ziarna) są dostępne tylko w natywnej usłudze NovelAI. Pozostałe usługi nadal obsługują zwykłe ponowne generowanie ze zmienionym promptem.
+
+Edycja używa wyświetlanego obrazu jako płótna źródłowego. Przejście na usługę bez obsługi masek czyści namalowaną maskę. Edycja awatara pozostaje podglądem, dopóki nie wybierzesz **Use as avatar** (użycie jako awatara).
+
 ## Plik JSON z workflow ComfyUI a RunPod
 
 Przy usługach **ComfyUI**, **SwarmUI** i **RunPod Serverless (ComfyUI)** pojawia się pole **ComfyUI workflow (optional)** albo **(required)**. Wklej do niego plik JSON z workflow wyeksportowany z ComfyUI opcją **Save (API Format)**, **Export (API)** albo **Export to API**, zależnie od wersji ComfyUI. Pole jest opcjonalne przy ComfyUI i SwarmUI, a wymagane przy RunPod. RunPod potrzebuje tokena API do usługi RunPod jako klucza API, wartości **RunPod endpoint ID** (identyfikator punktu końcowego RunPod) oraz workflow.

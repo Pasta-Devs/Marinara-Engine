@@ -653,17 +653,24 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | `haptic` | post_processing | 发送触觉设备指令 |
 | `cyoa` | post_processing | 生成选项提示 |
 | `storyboard` | post_processing | 规划 Game 和 Roleplay 的静态或动画分镜 |
+| `2d-avatars` | feature | 渲染带动画的 2D 立绘或网格角色虚拟形象 |
+| `3d-avatars` | feature | 渲染带动画的 VRM、MMD PMX、GLB 和 FBX 3D 虚拟形象 |
 | `conversation-calls` | feature | 添加 Conversation 语音/视频通话及相关设置 |
 | `hierarchical-maps` | feature | 添加 Roleplay/Game 地图、空间上下文和移动 |
 | `noodle` | feature | 在 Home 中添加本地 Noodle 社交动态 |
+| `otome-forge` | feature | 在 Home 中添加 Otome Hearth，一款用角色打造的乙女游戏 |
+| `saucelings` | feature | 在 Home 中添加 Saucelings，一只由角色照看的虚拟宠物 |
 | `slurp2` | feature | 在 Home 中添加 Slurp，一个面向角色的私人创作者应用 |
+| `story-writer` | feature | 在 Home 中添加 Story Writer，一个共同写书的工作区 |
 | `gacha-forge` | feature | 在 Home 中添加扭蛋游戏模式 |
+| `blackjack` | feature | 添加 Conversation 的二十一点牌桌 |
 | `uno` | feature | 添加 Conversation 的 UNO 牌桌 |
 | `chess` | feature | 添加 Conversation 的国际象棋棋盘 |
 | `poker` | feature | 添加 Conversation 的德州扑克牌桌 |
 | `eightball` | feature | 添加 Conversation 的八球台球桌 |
 | `tic-tac-toe` | feature | 添加 Conversation 的井字棋棋盘 |
 | `rock-paper-scissors` | feature | 添加 Conversation 的石头剪刀布对局 |
+| `wordle` | feature | 添加 Conversation 的每日 Wordle 竞赛 |
 
 ### 智能体结果类型
 

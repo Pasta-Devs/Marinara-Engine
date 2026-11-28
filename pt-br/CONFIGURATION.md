@@ -89,6 +89,8 @@ Sem nenhum login definido, o servidor aceita só origens confiáveis: o loopback
 
 > **Aviso:** uma faixa pública ampla em `IP_ALLOWLIST`, como `0.0.0.0/0`, pode deixar clientes da internet entrarem sem login. Liste apenas endereços em que você confia.
 
+<a id="storage"></a>
+
 ## Armazenamento
 
 | Variável | Padrão | O que faz |
@@ -107,6 +109,8 @@ openssl rand -hex 32
 ```
 
 Marinara guarda os seus dados como arquivos JSON simples, então você pode copiar e ler os backups. Para saber o que cada pasta guarda, veja [Onde o Marinara guarda os seus dados](data/where-data-is-stored.md).
+
+Para manter os seus dados em um compartilhamento de rede, aponte `DATA_DIR` para uma pasta nele e confira se o compartilhamento está conectado antes que Marinara inicie. Veja [Não é possível acessar uma pasta de rede ou externa](TROUBLESHOOTING.md#cannot-access-a-network-or-external-folder).
 
 <a id="logging-levels"></a>
 

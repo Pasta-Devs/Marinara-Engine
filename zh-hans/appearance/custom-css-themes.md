@@ -282,6 +282,39 @@ Marinara 用到的任何 CSS 变量，主题都可以设置，不限于这些。
 
 手机上，三点菜单会展开成圆形按钮。开关按钮为 `[data-chat-tools-menu-button]`，展开的按钮列为 `[data-chat-tools-menu]`，每个列表项的 `data-chat-tools-menu-item` 都设为对应窗口的 ID。工具按钮使用 `.mari-window-bubble.mari-chat-tools-button`，`data-chat-tools-menu-tool` 也设为同一个 ID。按钮列没有窗口边框；按钮保持圆形，并沿用组件颜色和按钮大小，不受聊天其他区域的三个开关影响。
 
+<a id="styling-character-sheets"></a>
+
+## 设置人物卡的样式
+
+规则集的人物卡在 Roleplay 和 Game 里看起来一样。主题可以用下面这些类名和数据属性为它设置样式。
+
+| 部分 | 类名 | 数据属性 |
+| --- | --- | --- |
+| 整张人物卡 | `.mari-ruleset-sheet` | `data-ruleset`(规则集的 ID，例如 `local/my-rules`)、`data-rank-display`(`value`、`label`、`dots`、`roman` 或 `number`)，编辑时还有 `data-editing="true"` |
+| 标题和 **Edit ruleset sheet**(编辑规则集人物卡) 按钮 | `.mari-ruleset-sheet__header` | |
+| 选项卡 | `.mari-ruleset-sheet__tabs` | 每个选项卡都带有 `data-tab-id` 和 `aria-selected` |
+| 分组标题 | `.mari-ruleset-sheet__heading` | |
+| 人物卡顶部的字段 | `.mari-ruleset-sheet__field`(位于 `.mari-ruleset-sheet__fields` 内) | `data-field`；计算出的值则是 `data-derived` |
+| 属性 | `.mari-ruleset-sheet__ability`(位于 `.mari-ruleset-sheet__abilities` 内)；它的分值和检定值分别是 `__ability-score` 和 `__ability-value` | `data-ability`；一组属性带有 `data-section` |
+| 资源池，例如生命值 | `.mari-ruleset-sheet__pool`(位于 `.mari-ruleset-sheet__pools` 内) | `data-pool`；一组资源池带有 `data-pool-group` |
+| 轨道 | `.mari-ruleset-sheet__track`(位于 `.mari-ruleset-sheet__tracks` 内) | `data-track`；伤势轨道还带有 `data-wound="true"` |
+| 状态 | `.mari-ruleset-sheet__conditions` | |
+| 受过训练的技能或豁免 | `.mari-ruleset-sheet__rank`(位于 `.mari-ruleset-sheet__trained` 内，并按分组位于 `.mari-ruleset-sheet__rank-group` 内)；它的等级是 `__rank-value`，规则集把等级显示为检定值时（`data-rank-display="value"`），`__rank-value` 则是它的检定值；手机上显示在旁边的检定值是 `__rank-check`；练习进度是 `__practice` | `data-skill` 或 `data-save`、`data-tier`(档位的 ID)、`data-rank`(`0` 表示未受训练，`1` 表示下一档，依此类推) |
+| 编辑人物卡时的技能或豁免 | `.mari-ruleset-sheet-editor__rank` | `data-skill` 或 `data-save`、`data-tier`、`data-rank` |
+| 列表，例如装备 | `.mari-ruleset-sheet__list`；每一行是 `.mari-ruleset-sheet__list-row` | `data-list`；勾选的行带有 `data-marked="true"` |
+
+例如，下面的规则把某个规则集的第 2 级显示成两颗星。想改哪个等级，就为它加一对这样的规则。只在把等级显示为圆点、名称、罗马数字或数字的规则集上使用：如果规则集显示的是检定值，`__rank-value` 里就是检定值，这段规则会把它隐藏掉。
+
+```css
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value {
+  font-size: 0;
+}
+.mari-ruleset-sheet[data-ruleset="local/my-rules"] .mari-ruleset-sheet__rank[data-rank="2"] .mari-ruleset-sheet__rank-value::after {
+  content: "★★";
+  font-size: 0.6875rem;
+}
+```
+
 ## 相关指南
 
 - [角色卡 CSS 主题指南](card-css-theming.md)

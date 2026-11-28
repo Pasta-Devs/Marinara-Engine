@@ -91,12 +91,20 @@ Un package marqué **Rules** (règles) n'est pas un agent. Il ajoute un ensemble
 
 Désinstaller un package retire son code et ses réglages, mais garde les messages et l'historique de tes chats. Supprimer un agent personnalisé le supprime définitivement.
 
+### Lire les guides d'un agent
+
+Ouvre la page de l'agent dans **Agent Organizer** et clique sur **Read how this agent works** (lire le fonctionnement de cet agent). Sa présentation s'ouvre dans la fenêtre de documentation. Choisis un sujet dans la liste pour en lire plus. Sur un téléphone, utilise la flèche de retour pour revenir à la liste des sujets. Ferme la fenêtre pour revenir à la page de l'agent.
+
+**View source** (voir la source) ouvre le guide d'origine. Certains agents n'ont encore qu'un court résumé ou un lien externe, le temps que leurs auteurs ajoutent des guides par sujet. Si un guide ne se charge pas, réessaie quand tu es en ligne. Les guides déjà ouverts peuvent rester disponibles jusqu'à sept jours ; un guide enregistré peut être périmé.
+
+**Version history** affiche les trois entrées les plus récentes. Clique sur **Show older versions** (afficher les versions plus anciennes) pour le déplier, ou sur **Show fewer versions** (afficher moins de versions) pour le raccourcir à nouveau. La dernière version publiée apparaît aussi sous **What's new** (nouveautés).
+
 ### Mettre à jour des agents
 
 Quand une version compatible plus récente d'un package installé existe, une fenêtre **Agent updates available** (mises à jour d'agents disponibles) s'ouvre. Elle liste chaque mise à jour avec sa version et indique si elle demande un redémarrage.
 
 1. Décoche la case de chaque mise à jour que tu veux ignorer. Toutes les mises à jour sont sélectionnées au départ.
-2. Lis **What's new** (nouveautés) si le package a publié des notes. **More** (plus) affiche une note longue en entier. Un point signale un changement que tu remarqueras.
+2. Lis **What's new** si le package a publié des notes. **More** (plus) affiche une note longue en entier. Un point signale un changement que tu remarqueras.
 3. Clique sur **Update all** (ou **Update 2 of 3** si tu en as décoché certaines). Chaque ligne affiche **Updated** ou **Failed**. Une ligne en échec affiche la raison et **Retry** (réessayer).
 4. Si une mise à jour demande un redémarrage, clique sur **Restart now** (redémarrer maintenant), ou redémarre Marinara plus tard.
 

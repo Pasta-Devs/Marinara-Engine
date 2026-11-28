@@ -89,6 +89,8 @@ Ohne gesetzte Anmeldung nimmt der Server nur Verbindungen aus vertrauenswürdige
 
 > **Warnung:** Ein breiter öffentlicher `IP_ALLOWLIST`-Bereich wie `0.0.0.0/0` kann Internet-Clients ohne Anmeldung hereinlassen. Trag nur Adressen ein, denen du vertraust.
 
+<a id="storage"></a>
+
 ## Speicherung
 
 | Variable | Standard | Wirkung |
@@ -107,6 +109,8 @@ openssl rand -hex 32
 ```
 
 Marinara legt deine Daten als einfache JSON-Dateien ab, sodass du Backups kopieren und lesen kannst. Was in welchem Ordner steckt, erklärt [Wo Marinara deine Daten speichert](data/where-data-is-stored.md).
+
+Willst du deine Daten auf einer Netzwerkfreigabe ablegen, richte `DATA_DIR` auf einen Ordner darauf und sorg dafür, dass die Freigabe verbunden ist, bevor Marinara startet. Siehe [Kein Zugriff auf einen Netzwerk- oder externen Ordner](TROUBLESHOOTING.md#cannot-access-a-network-or-external-folder).
 
 <a id="logging-levels"></a>
 

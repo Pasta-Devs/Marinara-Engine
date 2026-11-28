@@ -652,17 +652,24 @@ Personal Extensions – это изолированный код, который
 | `haptic`                 | post_processing | Отправляет команды тактильным устройствам                              |
 | `cyoa`                   | post_processing | Создает варианты выбора                                          |
 | `storyboard` | post_processing | Планирует статичные и анимированные раскадровки Game и Roleplay |
+| `2d-avatars` | feature | Показывает анимированные 2D-аватары персонажей из спрайтов или mesh-аватаров |
+| `3d-avatars` | feature | Показывает анимированные 3D-аватары VRM, MMD PMX, GLB и FBX |
 | `conversation-calls`     | feature         | Добавляет аудио- и видеозвонки в режиме Conversation и связанные настройки          |
 | `hierarchical-maps`      | feature         | Добавляет карты, пространственный контекст и перемещение в Roleplay и Game Mode             |
 | `noodle` | feature | Добавляет локальную социальную ленту Noodle на Home |
+| `otome-forge` | feature | Добавляет на Home Otome Hearth – отомэ-игру по персонажам |
+| `saucelings` | feature | Добавляет на Home Saucelings – виртуального питомца, которого растят персонажи |
 | `slurp2` | feature | Добавляет на Home Slurp – закрытое приложение-конструктор для персонажей |
+| `story-writer` | feature | Добавляет на Home Story Writer – пространство для совместного написания книги |
 | `gacha-forge` | feature | Добавляет на Home игровой режим гачи |
+| `blackjack` | feature | Добавляет стол Blackjack в режиме Conversation |
 | `uno`                    | feature         | Добавляет стол UNO в режиме Conversation                              |
 | `chess`                  | feature         | Добавляет шахматную доску в режиме Conversation                             |
 | `poker`                  | feature         | Добавляет стол Texas Hold'em в режиме Conversation                         |
 | `eightball`              | feature         | Добавляет бильярдный стол 8-Ball в режиме Conversation                     |
 | `tic-tac-toe`            | feature         | Добавляет поле для крестиков-ноликов в режиме Conversation                       |
 | `rock-paper-scissors`    | feature         | Добавляет игру в камень-ножницы-бумагу в режиме Conversation                     |
+| `wordle` | feature | Добавляет ежедневную гонку Wordle в режиме Conversation |
 
 ### Типы результатов агентов
 

@@ -91,12 +91,20 @@ Um pacote marcado **Rules** não é um agente. Ele acrescenta um conjunto de reg
 
 Desinstalar um pacote remove o código e as configurações dele, mas preserva as mensagens e o histórico do chat. Excluir um agente personalizado é definitivo.
 
+### Ler os guias de um agente
+
+Abra a página do agente no **Agent Organizer** e clique em **Read how this agent works** (ler como este agente funciona). A visão geral dele se abre na janela de documentação. Escolha um tópico na lista para ler mais. No celular, use a seta de voltar para retornar à lista de tópicos. Feche a janela para voltar à página do agente.
+
+**View source** (ver a fonte) abre o guia original. Alguns agentes ainda têm só um resumo curto ou um link externo enquanto os autores acrescentam guias por tópico. Se um guia não carregar, tente de novo quando estiver online. Os guias abertos antes podem ficar disponíveis por até sete dias; um guia salvo pode estar desatualizado.
+
+**Version history** mostra as três entradas mais recentes. Clique em **Show older versions** (mostrar versões mais antigas) para expandi-lo, ou em **Show fewer versions** (mostrar menos versões) para encurtá-lo de novo. A versão mais recente também aparece em **What's new** (novidades).
+
 ### Atualizar agentes
 
 Quando existe uma versão compatível mais nova de um pacote instalado, a janela **Agent updates available** (atualizações de agentes disponíveis) se abre. Ela lista cada atualização com a versão e informa se é preciso reiniciar.
 
 1. Desmarque a caixa de qualquer atualização que você queira pular. Todas as atualizações começam selecionadas.
-2. Leia **What's new** (novidades), se o pacote publicou notas. **More** (mais) mostra uma nota longa por inteiro. Um ponto marca uma mudança que você vai perceber.
+2. Leia **What's new**, se o pacote publicou notas. **More** (mais) mostra uma nota longa por inteiro. Um ponto marca uma mudança que você vai perceber.
 3. Clique em **Update all** (ou **Update 2 of 3**, quando você desmarcou algumas). Cada linha mostra **Updated** (atualizado) ou **Failed** (falhou). Uma linha com falha mostra o motivo e **Retry** (tentar novamente).
 4. Se uma atualização precisa de reinício, clique em **Restart now** (reiniciar agora) ou reinicie o Marinara depois.
 

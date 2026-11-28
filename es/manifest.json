@@ -1,11 +1,11 @@
 {
   "language": "es",
-  "sourceCommit": "3e8a0f56874e58ac18af836d95ac268b3a4eb14b",
+  "sourceCommit": "f9fdcdb48dd1fc11f9971e1ad7a27d9a891afa70",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "25282f72543c05fe9511a7fdabb13aa9b715520ca233c1565b2e1e5c5fd440f1",
-      "bytes": 51289
+      "sha256": "e818011ae72a335f97025f7292f4022e75fc265a6297b4b1f127a4cbcfc125d2",
+      "bytes": 51609
     },
     {
       "path": "FAQ.md",
@@ -24,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "3824b722cc9c321a416b2f502623e1d6635920fb8ff133b027046ed54b81df81",
-      "bytes": 51468
+      "sha256": "74465f63419a5576b8700809f62e40aecd85f2e4d16926ae8a69e580c5474eec",
+      "bytes": 53349
     },
     {
       "path": "UPGRADING.md",
@@ -34,8 +34,8 @@
     },
     {
       "path": "agents/agents-overview.md",
-      "sha256": "01931afd01eb4af09029274cdbb71a04808647942f76a45f6af1b94d65357acd",
-      "bytes": 11592
+      "sha256": "999477cd47a4e2a2a19a698eb037f74f545ab6dcce801891354956e42a36c0fe",
+      "bytes": 12640
     },
     {
       "path": "agents/approvals-and-agent-suite.md",
@@ -49,8 +49,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "249dc7cf448d5ff6193fa2b258fb20de56a52070d761554cec9c2f08a5c5672f",
-      "bytes": 38645
+      "sha256": "2d7ce1563b54381314ae4789afa46cc70c9ad0a540cda43bd01fc84c7b6ea2cf",
+      "bytes": 41532
     },
     {
       "path": "agents/custom-agents.md",
@@ -99,8 +99,8 @@
     },
     {
       "path": "appearance/custom-css-themes.md",
-      "sha256": "dce50827be5cc5eff65bfa0a19f6a78f0d4612ccff36f49844db88af9ba339e5",
-      "bytes": 23463
+      "sha256": "27a253facce5d7d4a92995529a6e8cb8169690a47adefc3f6a324475676418c2",
+      "bytes": 26570
     },
     {
       "path": "appearance/fonts.md",
@@ -344,8 +344,8 @@
     },
     {
       "path": "development/frontend.md",
-      "sha256": "06191dc71e01cbcc93d11b9bec84fce53185eb53ca15729b0bc76fd9cdc09be3",
-      "bytes": 62284
+      "sha256": "e56d0908e442cfac1a5e05048bf59966f15044bfb1961a9a3e2113b0b6a615c0",
+      "bytes": 63108
     },
     {
       "path": "development/game-combat-ai.md",
@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "2f6f0d620afc6214f800d30cfc66116cce34e0e109a3de99147a870a25a5bd1d",
-      "bytes": 205228
+      "sha256": "9aecc12ba247277a393f30fad6281ed46d3d4810a482c07f32c329f27ff3614b",
+      "bytes": 207484
     },
     {
       "path": "development/overworld-games.md",
@@ -469,8 +469,8 @@
     },
     {
       "path": "extending/ruleset-sheets.md",
-      "sha256": "78a6d5dcbac6047571cbbea32ca554b43b7118bbc4c56f6d2f0a1de93bac66dc",
-      "bytes": 41954
+      "sha256": "98b93e2c7a956246e59a73da8ba5dbc3cd7d1933436ef9238772a1e581577364",
+      "bytes": 43092
     },
     {
       "path": "extending/writing-creature-packs.md",
@@ -559,8 +559,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "6026bcb0c745ab8c75857918f66a2a01484b966d1bc7182b9df0cbaa971214db",
-      "bytes": 29735
+      "sha256": "43967d1caebf51d7623db834ecfb9209b7036e02a6c6dd59f0702c4bc1cb5bec",
+      "bytes": 31347
     },
     {
       "path": "home/tutorial.md",
@@ -664,8 +664,8 @@
     },
     {
       "path": "media/image-providers.md",
-      "sha256": "421c260ffc05cf894c3638901728af2d745935ec8fb2f54e5e39164c0bf15af2",
-      "bytes": 24979
+      "sha256": "b78925e3e47fae62c710c56385d2ae1b00ae804a512f113a057e0daf77c87d01",
+      "bytes": 26220
     },
     {
       "path": "media/music.md",
@@ -674,8 +674,8 @@
     },
     {
       "path": "media/scene-backgrounds.md",
-      "sha256": "e8c5fcb7bce9534536ee8467d18f64e96e09c45d4d5f290d0ce1e2ebb2c690fc",
-      "bytes": 10987
+      "sha256": "8b04fc866ee8c188231e2b2ae59c49b70bdbdde516e9a6d05612a5b1ef2917d4",
+      "bytes": 11900
     },
     {
       "path": "media/scene-video.md",
@@ -739,8 +739,8 @@
     },
     {
       "path": "roleplay/hud-and-trackers.md",
-      "sha256": "c48cebeb7b8f3a3c0eb5a801c3758f6272a66fb69c1779fa2c08d0d0570c9a05",
-      "bytes": 17722
+      "sha256": "2d71138cc89f429cf628e0acc1048911b9017cbf6f2f9479d02ed25e186a3e19",
+      "bytes": 18587
     },
     {
       "path": "roleplay/narrative-director.md",
@@ -749,8 +749,8 @@
     },
     {
       "path": "roleplay/rulesets.md",
-      "sha256": "7dbb2b0ad78cf6573d50b420b6cc023d43b2eae74de808bceb65d5ac8d660db0",
-      "bytes": 12456
+      "sha256": "af4f71d991b1f7a5c173836612286662ee5ec49b195523bbd386c76f511b664b",
+      "bytes": 12886
     },
     {
       "path": "roleplay/scenes.md",

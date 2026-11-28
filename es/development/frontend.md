@@ -652,17 +652,24 @@ El Engine ligero se envía con un registro de agentes en tiempo de ejecución va
 | `haptic`                 | post_processing | Envía comandos a dispositivos hápticos                            |
 | `cyoa`                   | post_processing | Genera prompts de elección                                        |
 | `storyboard` | post_processing | Planifica storyboards fijos o animados de Game y Roleplay |
+| `2d-avatars`             | feature         | Representa avatares de personaje animados 2D, de sprites o de malla |
+| `3d-avatars`             | feature         | Representa avatares 3D animados VRM, MMD PMX, GLB y FBX           |
 | `conversation-calls`     | feature         | Añade llamadas de audio/video de Conversation y ajustes relacionados |
 | `hierarchical-maps`      | feature         | Añade mapas de Roleplay/Game, contexto espacial y movimiento      |
 | `noodle` | feature | Añade el feed social local Noodle a Home |
+| `otome-forge`            | feature         | Añade Otome Hearth, un juego otome hecho con personajes, a Home   |
+| `saucelings`             | feature         | Añade Saucelings, una mascota virtual criada por personajes, a Home |
 | `slurp2`                 | feature         | Añade Slurp, una app privada de creación de personajes, a Home    |
+| `story-writer`           | feature         | Añade Story Writer, un espacio para escribir un libro en coautoría, a Home |
 | `gacha-forge`            | feature         | Añade un modo de juego gacha a Home                               |
+| `blackjack`              | feature         | Añade la mesa de Blackjack de Conversation                        |
 | `uno`                    | feature         | Añade la mesa de UNO de Conversation                              |
 | `chess`                  | feature         | Añade el tablero de Chess de Conversation                         |
 | `poker`                  | feature         | Añade la mesa de Texas Hold'em de Conversation                    |
 | `eightball`              | feature         | Añade la mesa de 8-Ball Pool de Conversation                      |
 | `tic-tac-toe`            | feature         | Añade el tablero de Tic-Tac-Toe de Conversation                   |
 | `rock-paper-scissors`    | feature         | Añade las partidas de Rock-Paper-Scissors de Conversation         |
+| `wordle`                 | feature         | Añade la carrera diaria de Wordle de Conversation                 |
 
 ### Tipos de resultado de los agentes
 

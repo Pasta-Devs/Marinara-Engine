@@ -357,6 +357,17 @@ Après un plantage ou le déplacement d'un volume Docker, le démarrage peut sig
 
 Marinara libère de lui-même un bail d'écriture laissé par un processus planté sous Linux, sous Android, dans les conteneurs et sous Windows quand le dossier de données se trouve sur un disque local. L'étape manuelle est le repli pour le stockage réseau ou partagé, les lecteurs amovibles et (sous Windows) un ordinateur renommé après le plantage.
 
+<a id="cannot-access-a-network-or-external-folder"></a>
+
+### Impossible d'accéder à un dossier réseau ou externe
+
+Marinara conserve tes données uniquement dans son dossier de données, et l'import d'un dossier SillyTavern ne lit que les dossiers que le serveur autorise. Un partage réseau ou un autre disque fonctionne si tu le configures de l'une de ces façons :
+
+- **Tes données se trouvent sur un partage réseau.** Fais pointer `DATA_DIR` dans `.env` vers un dossier du partage, puis redémarre Marinara. Voir [Stockage](CONFIGURATION.md#storage). Déplace le dossier de données en entier : si tu relies à un autre disque un seul des dossiers qu'il contient, comme `avatars` ou `backgrounds`, ses images ne se chargent pas et Marinara répond **Not found** pour elles.
+- **Tu importes un dossier SillyTavern depuis un partage.** Un chemin saisi doit se trouver dans le dossier personnel de l'utilisateur qui exécute le serveur, sinon tu vois **Marinara can only read folders inside your home folder**. Sur l'ordinateur du serveur lui-même, clique plutôt sur **Browse** (parcourir) et choisis le dossier. Tu peux aussi ajouter le dossier à `IMPORT_ALLOWED_ROOTS` dans `.env`, en séparant les dossiers par des virgules, puis redémarrer Marinara. Dès que ce réglage est défini, seuls ses dossiers sont autorisés, même pour un dossier choisi : ajoute donc aussi ton dossier personnel si tu continues d'importer depuis celui-ci.
+- **Le navigateur de dossiers intégré s'ouvre sur ton dossier personnel.** Il ne liste que les dossiers situés dans le dossier personnel, quelle que soit la valeur de `IMPORT_ALLOWED_ROOTS`. Pour un partage situé hors de celui-ci, ajoute le dossier du partage à `IMPORT_ALLOWED_ROOTS` et redémarre Marinara, puis saisis son chemin dans **SillyTavern folder path** (chemin du dossier SillyTavern).
+- **Le partage est déconnecté.** Reconnecte-le avant de démarrer Marinara, puis réessaie.
+
 ### Backup ou Export renvoie une erreur 403
 
 Les sessions sur le même ordinateur peuvent faire des sauvegardes sans secret d'administration. Les requêtes venant d'un autre appareil, d'une adresse réseau, de Docker, ou d'un proxy ou d'un tunnel sur le même ordinateur en exigent un. Crée-le dans **Settings → Advanced → Admin Access** sur l'ordinateur du serveur lui-même, ou définis `ADMIN_SECRET` sur le serveur, puis enregistre la même valeur dans **Admin Access** sur l'autre appareil. Pour que la boucle locale l'exige aussi, définis `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. Si `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, les visiteurs transmis profitent du contournement local. Garde cette protection activée pour un proxy ou un tunnel public.

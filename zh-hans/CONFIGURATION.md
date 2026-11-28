@@ -89,6 +89,8 @@ Marinara 运行期间会监视 `.env`。大部分设置几乎立即生效，无�
 
 > **警告：** 在 `IP_ALLOWLIST` 里写 `0.0.0.0/0` 这样的大范围公网地址段，可能让公网客户端不用登录就进来。只列出你信任的地址。
 
+<a id="storage"></a>
+
 ## 存储
 
 | 变量 | 默认值 | 作用 |
@@ -107,6 +109,8 @@ openssl rand -hex 32
 ```
 
 Marinara 把数据保存为普通的 JSON 文件，所以备份可以直接复制和查看。每个文件夹装了什么，见[数据保存在哪里](data/where-data-is-stored.md)。
+
+要把数据放在网络共享上，就把 `DATA_DIR` 指向共享里的某个文件夹，并确保 Marinara 启动前共享已经连接好。见[无法访问网络文件夹或外部文件夹](TROUBLESHOOTING.md#cannot-access-a-network-or-external-folder)。
 
 <a id="logging-levels"></a>
 

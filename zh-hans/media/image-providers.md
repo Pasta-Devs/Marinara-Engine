@@ -155,6 +155,22 @@ SwarmUI 可以把 ComfyUI 任务分配到自己的队列中处理。没有账号
 
 如果服务返回的不是图像数据而是一个 URL，Marinara 会按照常规的出站请求检查来下载公开 CDN 地址。指向私有地址或环回地址的结果 URL，只有在协议、主机名和端口与已配置的图像服务完全一致时才会被接受。从该源发出的跳转也不能转到另一个本地服务。如果某个本地代理把结果存放在另一个私有源上，请让它用与其图像 API 相同的源来提供这些文件。
 
+<a id="edit-an-existing-picture"></a>
+
+## 编辑已有图片
+
+在图库里打开一张图片，选择 **Regenerate image**(重新生成图片)。如果是头像，就在角色或用户角色编辑器里选择 **Edit avatar**(编辑头像)。选择一个图像模型，然后选择 **Edit image**(编辑图片)。可用的控件取决于所选服务：
+
+| 服务 | 整图编辑 | 涂抹蒙版编辑 |
+| --- | --- | --- |
+| 原生 NovelAI | 是 | 是 |
+| SD Web UI (AUTOMATIC1111 / Forge) | 是 | 是 |
+| Draw Things | 是 | 否 |
+
+修改提示词和 **Strength**(强度)，然后选择 **Apply edit**(应用编辑)。有蒙版工具时，涂抹要重画的区域，然后选择 **Inpaint image**(局部重绘图片)。**Noise**(噪声) 和 **Reuse original seed**(复用原始种子) 只适用于原生 NovelAI。其他服务仍支持改了提示词后照常重新生成。
+
+编辑以当前显示的图片作为源画布。换成不支持蒙版的服务会清除已涂抹的蒙版。头像编辑在你选择 **Use as avatar**(用作头像) 之前一直只是预览。
+
 ## ComfyUI 工作流 JSON 与 RunPod
 
 选择 **ComfyUI**、**SwarmUI** 或 **RunPod Serverless (ComfyUI)** 时，会出现 **ComfyUI workflow (optional)** 或 **(required)**(必填) 输入框。把从 ComfyUI 导出的工作流 JSON 粘贴进去；导出用的菜单项因 ComfyUI 版本而异，可能叫 **Save (API Format)**、**Export (API)** 或 **Export to API**。它对 ComfyUI 和 SwarmUI 是可选的，对 RunPod 是必填的。RunPod 需要把 RunPod API Token 填作 API 密钥，还需要一个 **RunPod endpoint ID**(RunPod 端点 ID) 和这份工作流。

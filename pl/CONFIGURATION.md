@@ -89,6 +89,8 @@ Gdy logowanie nie jest ustawione, serwer przyjmuje połączenia tylko ze źróde
 
 > **Ostrzeżenie:** Szeroki publiczny zakres w `IP_ALLOWLIST`, na przykład `0.0.0.0/0`, może wpuścić klientów z internetu bez logowania. Wpisuj tylko adresy, którym ufasz.
 
+<a id="storage"></a>
+
 ## Przechowywanie danych
 
 | Zmienna | Domyślnie | Do czego służy |
@@ -107,6 +109,8 @@ openssl rand -hex 32
 ```
 
 Marinara trzyma dane w zwykłych plikach JSON, więc kopie zapasowe można kopiować i czytać. Co zawiera każdy folder, wyjaśnia przewodnik [Gdzie Marinara przechowuje dane](data/where-data-is-stored.md).
+
+Żeby trzymać dane w udziale sieciowym (folderze udostępnionym w sieci), ustaw `DATA_DIR` na folder w tym udziale i dopilnuj, żeby udział był podłączony, zanim Marinara się uruchomi. Zobacz [Brak dostępu do folderu sieciowego lub zewnętrznego](TROUBLESHOOTING.md#cannot-access-a-network-or-external-folder).
 
 <a id="logging-levels"></a>
 

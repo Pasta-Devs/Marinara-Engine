@@ -77,6 +77,26 @@ Apps는 **Home**에 전용 탭이 있습니다. 채팅에 추가하지 않고 �
 - **주요 설정**: 설치하고 안내가 나오면 다시 시작한 다음, **Home → Story Writer**를 열고 사이드바에서 텍스트 연결을 고르세요. 이야기는 Marinara 서버에 저장됩니다. 새 이야기를 시작하고, 이전 이야기로 돌아가고, Markdown이나 일반 텍스트로 다운로드할 수 있습니다.
 - **전체 가이드**: [Story Writer 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 
+### Otome Hearth
+
+내 캐릭터들로 만드는 1인용 오토메 게임입니다. 공략 대상은 내가 고른 선택을 기억하고, 메시지를 보내고, 데이트를 합니다. 플레이하며 얻은 Starlight로 사이드 스토리와 의상을 해금할 수 있으며, 현금 결제나 스태미나 타이머는 없습니다.
+
+- **연동 방식**: **Home**의 전용 **Otome Hearth** 탭에서 열리는 앱입니다.
+- **사용 가능한 곳**: Home.
+- **제공 범위**: Engine **2.5.1+**(4.0.0 미만)가 필요합니다. 네트워크 연결, 서버 라우트, 로컬 저장소, **Home** 탭 인터페이스에 대한 접근을 요청합니다.
+- **주요 설정**: 설치하고 안내가 나오면 다시 시작한 다음 **Home → Otome Hearth**를 여세요. 캐릭터 바이블, **Lines & Veils** 콘텐츠 제한, 선택 사항인 **Remind Me** 추적은 앱 안에서 설정합니다.
+- **전체 가이드**: [Otome Hearth 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/otome-forge/README.md).
+
+### Saucelings
+
+**Home → Saucelings**와 Home 위젯에서 키우는 가상 펫입니다. 내 캐릭터 한 명을 돌보미로 정하면 그 캐릭터가 자기 일정에 맞춰 펫에게 먹이를 주고, 놀아 주고, 안아 줍니다. 캐릭터가 놓친 빈틈은 내가 채웁니다.
+
+- **연동 방식**: **Home**의 전용 **Saucelings** 탭과 Home 위젯으로 제공되는 앱입니다.
+- **사용 가능한 곳**: Home.
+- **제공 범위**: Engine **2.5.0+**(4.0.0 미만)가 필요합니다. 채팅 프롬프트 컨텍스트, 서버 라우트, 로컬 저장소, **Home** 탭과 위젯 인터페이스에 대한 접근을 요청합니다.
+- **주요 설정**: 설치하고 안내가 나오면 다시 시작한 다음 **Home → Saucelings**를 열어 **Nook**, **Journal**, **Album**, **Menagerie**, **Settings**에서 펫을 관리하세요.
+- **전체 가이드**: [Saucelings 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/saucelings/README.md).
+
 ## Writer 에이전트
 
 Writer 에이전트는 이야기나 문장을 다듬습니다. 답변 전에 방향을 잡아 주거나 답변 뒤에 답변을 손봅니다.
@@ -419,6 +439,22 @@ Conversation 캐릭터와 실시간 음성 통화와 영상 통화를 할 수 �
 - **연동 방식**: Conversation 게임 패키지.
 - **사용 가능한 곳**: Conversation.
 - **주요 설정**: 게임 선택기에서 시작하거나 `/rps`로 시작한 뒤 상대와 3판 2선승, 5판 3선승, 7판 4선승 중 하나를 고르세요. 설치하거나 제거하면 재시작해야 합니다.
+
+### Blackjack
+
+Conversation 캐릭터와 함께 딜러(하우스)를 상대로 하는 Blackjack 테이블을 더합니다.
+
+- **연동 방식**: Conversation 게임 패키지.
+- **사용 가능한 곳**: Conversation.
+- **주요 설정**: `/blackjack`이나 캐릭터 프롬프트로 테이블을 시작하세요. 캐릭터가 스스로 게임을 시작하게 하려면 **Chat Settings → Agents → Commands**에서 **Blackjack**을 켜세요. 설치하면 재시작해야 하지만, 제거할 때는 재시작하지 않아도 됩니다.
+
+### Wordle
+
+Conversation 캐릭터와 함께 매일 Wordle 단어 맞히기 경주를 펼칩니다.
+
+- **연동 방식**: Conversation 게임 패키지.
+- **사용 가능한 곳**: Conversation.
+- **주요 설정**: `/wordle`로 오늘의 게임을 시작하세요. 캐릭터가 스스로 오늘의 게임을 시작하게 하려면 **Chat Settings → Agents → Commands**에서 **Wordle**을 켜세요. 설치하면 재시작해야 하지만, 제거할 때는 재시작하지 않아도 됩니다.
 
 ## 관련 가이드
 

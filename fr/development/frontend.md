@@ -654,17 +654,24 @@ Le moteur, volontairement léger, est livré avec un registre d'agents vide à l
 | `haptic`                 | post_processing | Envoie des commandes aux appareils haptiques |
 | `cyoa`                   | post_processing | Génère les prompts de choix |
 | `storyboard` | post_processing | Planifie des storyboards fixes ou animés de Game et Roleplay |
+| `2d-avatars`             | feature         | Affiche des avatars de personnage 2D animés, en sprite ou en maillage |
+| `3d-avatars`             | feature         | Affiche des avatars 3D animés VRM, MMD PMX, GLB et FBX |
 | `conversation-calls`     | feature         | Ajoute les appels audio/vidéo en Conversation et leurs réglages |
 | `hierarchical-maps`      | feature         | Ajoute les cartes Roleplay/Game, le contexte spatial et le déplacement |
 | `noodle` | feature | Ajoute le fil social local Noodle à Home |
+| `otome-forge`            | feature         | Ajoute à Home Otome Hearth, un jeu otome construit à partir des personnages |
+| `saucelings`             | feature         | Ajoute à Home Saucelings, un animal virtuel élevé par les personnages |
 | `slurp2` | feature | Ajoute Slurp, une application de création privée pour les personnages, à Home |
+| `story-writer`           | feature         | Ajoute à Home Story Writer, un espace d'écriture de livre à quatre mains |
 | `gacha-forge` | feature | Ajoute un mode de jeu gacha à Home |
+| `blackjack`              | feature         | Ajoute la table de blackjack en Conversation |
 | `uno`                    | feature         | Ajoute la table d'UNO en Conversation |
 | `chess`                  | feature         | Ajoute l'échiquier en Conversation |
 | `poker`                  | feature         | Ajoute la table de Texas Hold'em en Conversation |
 | `eightball`              | feature         | Ajoute la table de billard 8-Ball en Conversation |
 | `tic-tac-toe`            | feature         | Ajoute le morpion en Conversation |
 | `rock-paper-scissors`    | feature         | Ajoute les parties de pierre-feuille-ciseaux en Conversation |
+| `wordle`                 | feature         | Ajoute la course quotidienne Wordle en Conversation |
 
 ### Types de résultat des agents
 

@@ -357,6 +357,17 @@ Music DJ 智能体的 Spotify 模式使用 OAuth。这是一种登录交接方�
 
 数据文件夹位于本地磁盘上时，Marinara 会在 Linux、Android、容器和 Windows 上自行清除崩溃进程遗留的租约。手动步骤是以下情况的后备方案：网络存储或共享存储、可移动驱动器，以及（在 Windows 上）崩溃后改过名的电脑。
 
+<a id="cannot-access-a-network-or-external-folder"></a>
+
+### 无法访问网络文件夹或外部文件夹
+
+Marinara 只把数据保存在它的数据文件夹里，SillyTavern 文件夹导入也只读取服务器允许的文件夹。按下面任一方式设置，网络共享或其他驱动器就能用：
+
+- **数据放在网络共享上。** 把 `.env` 里的 `DATA_DIR` 指向共享里的某个文件夹，然后重启 Marinara。见[存储](CONFIGURATION.md#storage)。要移动就移动整个数据文件夹：如果只把其中某个文件夹（例如 `avatars` 或 `backgrounds`）链接到另一个驱动器，里面的图片会加载不出来，Marinara 对这些图片的回应是 **Not found**。
+- **从共享导入 SillyTavern 文件夹。** 手动输入的路径必须位于运行服务器的用户的主文件夹内，否则会看到 **Marinara can only read folders inside your home folder**。在服务器所在的电脑上，可以改为点击 **Browse**(浏览) 选取该文件夹。也可以把该文件夹加入 `.env` 里的 `IMPORT_ALLOWED_ROOTS`，多个文件夹用逗号分隔，然后重启 Marinara。设置了这个变量后，就只允许其中列出的文件夹，选取的文件夹也不例外；如果仍要从主文件夹导入，记得把主文件夹也加进去。
+- **应用内的文件夹浏览器打开的是主文件夹。** 无论 `IMPORT_ALLOWED_ROOTS` 怎么设置，它都只列出主文件夹内的文件夹。如果共享在主文件夹之外，就把共享的文件夹加入 `IMPORT_ALLOWED_ROOTS` 并重启 Marinara，然后在 **SillyTavern folder path**(SillyTavern 文件夹路径) 中输入它的路径。
+- **共享已断开。** 启动 Marinara 之前先重新连接它，然后重试。
+
 ### 备份或导出返回 403
 
 同一台电脑上的会话不需要管理员密钥就能备份。来自其他设备、网络地址、Docker，或者同一台电脑上的代理或隧道的请求则需要。在服务器所在的电脑上到 **Settings → Advanced → Admin Access** 里生成它，或者在服务器上设置 `ADMIN_SECRET`，然后在另一台设备的 **Admin Access** 里保存同一个值。要让环回访问也必须提供密钥，设置 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`。如果设置了 `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`，被转发的访客也会走本地放行。面向公网的代理或隧道请让它保持开启。

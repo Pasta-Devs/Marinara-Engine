@@ -652,17 +652,24 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 | `haptic`                 | post_processing | ハプティックデバイスへコマンドを送る                                |
 | `cyoa`                   | post_processing | 選択肢のプロンプトを生成する                                    |
 | `storyboard` | post_processing | 静止画またはアニメーションのGame・Roleplayストーリーボードを計画します |
+| `2d-avatars` | feature | アニメーションする2Dのスプライトやメッシュのキャラクターアバターを表示します |
+| `3d-avatars` | feature | アニメーションするVRM、MMD PMX、GLB、FBXの3Dアバターを表示します |
 | `conversation-calls`     | feature         | Conversationに音声/動画通話と関連設定を追加する          |
 | `hierarchical-maps`      | feature         | RoleplayとGame Modeにマップ、空間的なコンテキスト、移動を追加する             |
 | `noodle` | feature | ローカルのNoodleのソーシャルフィードをHomeに追加します |
+| `otome-forge` | feature | キャラクターから作る乙女ゲームOtome HearthをHomeに追加します |
+| `saucelings` | feature | キャラクターが育てるバーチャルペットSaucelingsをHomeに追加します |
 | `slurp2` | feature | キャラクター向けの非公開のクリエイターアプリSlurpをHomeに追加します |
+| `story-writer` | feature | 共同で本を書くワークスペースStory WriterをHomeに追加します |
 | `gacha-forge` | feature | ガチャのゲームモードをHomeに追加します |
+| `blackjack` | feature | ConversationにBlackjackのテーブルを追加する |
 | `uno`                    | feature         | ConversationにUNOのテーブルを追加する                               |
 | `chess`                  | feature         | ConversationにChessの盤面を追加する                              |
 | `poker`                  | feature         | ConversationにTexas Hold'emのテーブルを追加する                         |
 | `eightball`              | feature         | Conversationに8-Ball Poolのテーブルを追加する                       |
 | `tic-tac-toe`            | feature         | ConversationにTic-Tac-Toeの盤面を追加する                        |
 | `rock-paper-scissors`    | feature         | ConversationにRock-Paper-Scissorsの対戦を追加する                     |
+| `wordle` | feature | Conversationに毎日のWordleのレースを追加する |
 
 ### エージェントの結果の種別
 

@@ -155,6 +155,20 @@ Le champ **ComfyUI workflow (optional)** peut rester vide. Laisse-le vide pour u
 
 Quand un service renvoie une URL au lieu des données de l'image, Marinara télécharge les URL de CDN publiques en appliquant ses contrôles habituels sur les requêtes sortantes. Une URL de résultat privée ou en loopback n'est acceptée que si son schéma, son nom d'hôte et son port correspondent exactement à ceux du service d'images configuré. Depuis cette origine, les redirections ne peuvent pas basculer vers un autre service local. Si un proxy local range les résultats sur une autre origine privée, règle-le pour qu'il serve ces fichiers depuis la même origine que son API d'images.
 
+## Modifier une image existante
+
+Ouvre une image dans une galerie et choisis **Regenerate image** (régénérer l'image). Pour un avatar, choisis **Edit avatar** (modifier l'avatar) dans l'éditeur d'un personnage ou d'un persona. Sélectionne un modèle d'image, puis choisis **Edit image** (modifier l'image). Les contrôles dépendent du service sélectionné :
+
+| Service | Modification de toute l'image | Modification par masque peint |
+| --- | --- | --- |
+| NovelAI natif | Oui | Oui |
+| SD Web UI (AUTOMATIC1111 / Forge) | Oui | Oui |
+| Draw Things | Oui | Non |
+
+Modifie le prompt et la valeur **Strength** (intensité), puis choisis **Apply edit** (appliquer la modification). Quand les outils de masque sont disponibles, peins la zone à redessiner et choisis **Inpaint image** (retoucher par inpainting). **Noise** (bruit) et **Reuse original seed** (réutiliser la graine d'origine) ne sont disponibles qu'avec NovelAI natif. Les autres services permettent toujours une régénération ordinaire avec un prompt modifié.
+
+Les modifications partent de l'image affichée, qui leur sert de toile. Passer à un service qui ne prend pas en charge les masques efface le masque peint. La modification d'un avatar reste un aperçu tant que tu ne choisis pas **Use as avatar** (utiliser comme avatar).
+
 ## JSON de workflow ComfyUI et RunPod
 
 Pour **ComfyUI**, **SwarmUI** et **RunPod Serverless (ComfyUI)**, un champ **ComfyUI workflow (optional)** ou **(required)** apparaît. Colles-y un JSON de workflow exporté depuis ComfyUI avec **Save (API Format)**, **Export (API)** ou **Export to API**, selon ta version de ComfyUI. Il est facultatif pour ComfyUI et SwarmUI, et obligatoire pour RunPod, qui demande ton jeton d'API RunPod comme clé API, un **RunPod endpoint ID** (identifiant du point d'accès RunPod) et le workflow.
