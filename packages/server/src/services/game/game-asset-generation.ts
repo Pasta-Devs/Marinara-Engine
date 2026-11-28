@@ -15,7 +15,17 @@ import {
   type PictureCheckMode,
 } from "../decision/picture-decisions.js";
 import type { DecisionBackend } from "../decision/decision-default.js";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, statSync, unlinkSync } from "fs";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  statSync,
+  unlinkSync,
+} from "fs";
 import { createHash } from "crypto";
 import { logger } from "../../lib/logger.js";
 import { basename, extname, join } from "path";
@@ -1374,8 +1384,8 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
   const slug = `generated-${baseSlug}`;
   if (!existsSync(CHAT_BACKGROUND_DIR)) mkdirSync(CHAT_BACKGROUND_DIR, { recursive: true });
 
-  const existingPath = !req.force ? existingGeneratedBackgroundPath(CHAT_BACKGROUND_DIR, slug) : null;
-  if (existingPath) return basename(existingPath);
+  const previousPath = existingGeneratedBackgroundPath(CHAT_BACKGROUND_DIR, slug);
+  if (previousPath && !req.force) return basename(previousPath);
 
   const compiled = await buildBackgroundProviderPrompt(req);
   const prompt = compiled.prompt;
@@ -1418,6 +1428,8 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
     writeFileAtomicSync(join(CHAT_BACKGROUND_DIR, filename), image.buffer);
 
     const replaced = removeOtherGeneratedBackgroundFormats(CHAT_BACKGROUND_DIR, slug, image.ext);
+    // A remade picture has a new layout: versions and the stencil of the old one no longer fit it.
+    if (previousPath) removeChatBackgroundVersionsOf(slug);
     const meta = readChatBackgroundMeta();
     for (const removed of replaced) delete meta[removed];
     meta[filename] = {
@@ -1432,7 +1444,7 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
       req.sceneDescription,
       promptSetsConditions ? weatherNamedInPrompt(prompt) : backgroundWeatherVersion(req.currentWeather),
       replaced,
-      promptSetsConditions ? backgroundTimeOfDayFromWords([prompt]) : backgroundTimeOfDay(req.currentTimeOfDay),
+      promptSetsConditions ? backgroundTimeOfDay(prompt) : backgroundTimeOfDay(req.currentTimeOfDay),
     );
     if (replaced.length > 0) {
       // The new file takes over the replaced file's folder and star, as a rename does.
@@ -1479,10 +1491,20 @@ function readChatBackgroundScenes(): ChatBackgroundScenes {
   }
 }
 
+/**
+ * Weather words in a written prompt. Only words that name weather: a fireplace, a dusty shelf or an
+ * ashtray in the scene is not weather.
+ */
+const PROMPT_WEATHER_WORDS =
+  /\b(thunderstorms?|thunder|lightning|blizzards?|snowstorms?|snow(?:ing|y|fall)?|sleet|hail(?:storms?|ing)?|fog(?:gy)?|mist(?:y)?|sandstorms?|dust storms?|ash ?fall|falling ash|volcanic ash|falling embers|drifting embers|ember storms?|cherry blossoms?|falling petals|petals falling|auroras?|northern lights|rain(?:ing|y|fall|storms?)?|drizzl(?:e|ing)|downpour|storm(?:s|y)?)\b/giu;
+
 /** The weather a written prompt names (only the main kinds; a long prompt is no weather slug), or "". */
 function weatherNamedInPrompt(prompt: string): BackgroundWeatherVersionKey | "" {
-  const category = sceneWeatherCategory(prompt);
-  return (BACKGROUND_WEATHER_VERSIONS as readonly string[]).includes(category) ? category : "";
+  for (const match of prompt.matchAll(PROMPT_WEATHER_WORDS)) {
+    const category = sceneWeatherCategory(match[0].replace(/drizzl\w*/iu, "rain"));
+    if ((BACKGROUND_WEATHER_VERSIONS as readonly string[]).includes(category)) return category;
+  }
+  return "";
 }
 
 function rememberChatBackgroundScene(
@@ -1865,6 +1887,45 @@ function readChatBackgroundMasks(): ChatBackgroundMasks {
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as ChatBackgroundMasks) : {};
   } catch {
     return {};
+  }
+}
+
+/**
+ * Delete the weather and time of day versions and the window stencil of a plain picture that was
+ * just replaced, so none made from the old picture is shown for the new one.
+ */
+function removeChatBackgroundVersionsOf(stem: string): void {
+  try {
+    const versions = readdirSync(CHAT_BACKGROUND_DIR).filter((file) => {
+      const parsed = parseBackgroundWeatherVersionName(file);
+      return (parsed.version || parsed.time) && parsed.baseStem === stem && GAME_BACKGROUND_EXT_SET.has(parsed.ext);
+    });
+    for (const file of versions) unlinkSync(join(CHAT_BACKGROUND_DIR, file));
+    const meta = readChatBackgroundMeta();
+    const scenes = readChatBackgroundScenes();
+    for (const file of versions) {
+      delete meta[file];
+      delete scenes[file];
+    }
+    if (versions.length > 0) {
+      writeChatBackgroundMeta(meta);
+      writeFileAtomicSync(CHAT_BACKGROUND_SCENES_PATH, JSON.stringify(scenes, null, 2));
+    }
+    const masks = readChatBackgroundMasks();
+    let masksChanged = false;
+    for (const [plain, mask] of Object.entries(masks)) {
+      if (basename(plain, extname(plain)) !== stem) continue;
+      if (mask !== "none" && mask === basename(mask) && existsSync(join(CHAT_BACKGROUND_MASK_DIR, mask))) {
+        unlinkSync(join(CHAT_BACKGROUND_MASK_DIR, mask));
+      }
+      delete masks[plain];
+      masksChanged = true;
+    }
+    if (masksChanged) writeFileAtomicSync(CHAT_BACKGROUND_MASKS_PATH, JSON.stringify(masks, null, 2));
+    if (versions.length > 0)
+      logger.info('[background-weather] Removed %d versions of the remade "%s"', versions.length, stem);
+  } catch (err) {
+    logger.warn(err, '[background-weather] Could not remove the versions of "%s"', stem);
   }
 }
 

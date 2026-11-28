@@ -13016,8 +13016,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             typeof chatMeta.background === "string" && chatMeta.background.trim() ? chatMeta.background.trim() : null;
           const trackedLocationAtDecision = gameState?.location ?? null;
           const trackedTimeOfDayAtDecision = backgroundTimeOfDay(gameState?.time);
-          /** Shows a picture only while the chat still shows the one this tail started from, in one queued write. */
+          /**
+           * Shows a picture only while the chat still shows the one this tail started from and this reply is
+           * still the newest one (a newer reply's conditions win), in one queued write.
+           */
           const showIfUnchanged = async (filename: string, before: string | null) => {
+            const [newest] = await chats.listMessagesPaginated(input.chatId, 1).catch(() => []);
+            if (newest && (newest.id !== tail.messageId || (newest.activeSwipeIndex ?? 0) !== tail.swipeIndex)) {
+              return false;
+            }
             let shown = false;
             await chats.patchMetadata(input.chatId, (current) => {
               const now =
