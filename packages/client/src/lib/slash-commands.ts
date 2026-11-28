@@ -4,6 +4,7 @@
 import { api } from "./api-client";
 import { useChatStore } from "../stores/chat.store";
 import { useUIStore } from "../stores/ui.store";
+import { impersonateResultsGoToDraft } from "../stores/impersonate-draft.store";
 import { useConversationGamesStore } from "../stores/conversation-games.store";
 import { useGalleryStore } from "../stores/gallery.store";
 import { toast } from "sonner";
@@ -62,6 +63,11 @@ export interface SlashCommandContext {
     impersonatePublicFaces?: boolean;
     impersonatePromptTemplate?: string;
   }) => Promise<boolean | void>;
+  /**
+   * Writes an impersonate into the message box as a draft instead of posting it. Absent where drafts are not
+   * offered; the command then posts.
+   */
+  impersonateDraft?: (direction: string) => Promise<boolean> | boolean;
   /** Insert a message directly into the chat (no LLM) */
   createMessage: (data: {
     role: string;
@@ -384,6 +390,33 @@ async function buildSlashHelpText(availability: SlashCommandAvailability): Promi
     "",
     ...availableCommands.map((command) => `${getSlashCommandUsage(command, translate)} - ${command.description}`),
   ].join("\n");
+}
+
+/** Impersonate, posted as your message or written into the message box as a draft. */
+async function runImpersonate(
+  args: string,
+  ctx: SlashCommandContext,
+  result: "post" | "draft",
+): Promise<SlashCommandResult> {
+  const direction = args.trim();
+  if (result === "draft" && ctx.impersonateDraft) {
+    await ctx.impersonateDraft(direction);
+    return { handled: true };
+  }
+  const { impersonatePresetId, impersonateBlockAgents, impersonatePublicFaces, impersonatePromptTemplate } =
+    useUIStore.getState();
+  const trimmedPromptTemplate = impersonatePromptTemplate.trim();
+  await ctx.generate({
+    chatId: ctx.chatId,
+    connectionId: null,
+    impersonate: true,
+    ...(direction ? { userMessage: direction } : {}),
+    ...(impersonatePresetId ? { impersonatePresetId } : {}),
+    ...(impersonateBlockAgents !== undefined ? { impersonateBlockAgents } : {}),
+    ...(impersonatePublicFaces ? { impersonatePublicFaces: true } : {}),
+    ...(trimmedPromptTemplate ? { impersonatePromptTemplate: trimmedPromptTemplate } : {}),
+  });
+  return { handled: true };
 }
 
 function parseImpersonatePromptArg(args: string): string {
@@ -1182,21 +1215,27 @@ const COMMANDS: SlashCommand[] = [
     description: "Generate a response as your character ({{user}}), optionally with a direction",
     usage: "/impersonate [direction (optional)]",
     async execute(args, ctx) {
-      const direction = args.trim();
-      const { impersonatePresetId, impersonateBlockAgents, impersonatePublicFaces, impersonatePromptTemplate } =
-        useUIStore.getState();
-      const trimmedPromptTemplate = impersonatePromptTemplate.trim();
-      await ctx.generate({
-        chatId: ctx.chatId,
-        connectionId: null,
-        impersonate: true,
-        ...(direction ? { userMessage: direction } : {}),
-        ...(impersonatePresetId ? { impersonatePresetId } : {}),
-        ...(impersonateBlockAgents !== undefined ? { impersonateBlockAgents } : {}),
-        ...(impersonatePublicFaces ? { impersonatePublicFaces: true } : {}),
-        ...(trimmedPromptTemplate ? { impersonatePromptTemplate: trimmedPromptTemplate } : {}),
-      });
-      return { handled: true };
+      return runImpersonate(args, ctx, impersonateResultsGoToDraft() ? "draft" : "post");
+    },
+  },
+  {
+    name: "impersonate_draft",
+    aliases: ["imp_draft", "impd"],
+    description: "Write your character's ({{user}}) next message into the message box to edit before sending",
+    usage: "/impersonate_draft [direction (optional)]",
+    modes: ["roleplay"],
+    async execute(args, ctx) {
+      return runImpersonate(args, ctx, "draft");
+    },
+  },
+  {
+    name: "impersonate_post",
+    aliases: ["imp_post", "impp"],
+    description: "Generate and post your character's ({{user}}) next message right away",
+    usage: "/impersonate_post [direction (optional)]",
+    modes: ["roleplay"],
+    async execute(args, ctx) {
+      return runImpersonate(args, ctx, "post");
     },
   },
   {
