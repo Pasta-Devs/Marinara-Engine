@@ -2,7 +2,7 @@
 // weather and/or at its time of day, made once per picture, weather and time, and no full-screen weather while
 // the story is indoors.
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -395,20 +395,81 @@ assert.equal(
 assert.equal(weatherNamedInPrompt("A dusty shelf by the fire, drizzle on the glass"), "rain");
 assert.equal(weatherNamedInPrompt("A sunny market square"), "");
 
-// ── Saved Decision picks come only from the newest reply ──
-const generateRouteSource = readFileSync(
-  new URL("../../../packages/server/src/routes/generate.routes.ts", import.meta.url),
-  "utf8",
-);
-assert.match(
-  generateRouteSource,
-  /chats\.patchMetadata\(input\.chatId, async \(\) =>\s*\(await replyIsNewest\(\)\)\s*\?\s*\{\s*\.\.\.\(decided\.weather/u,
-  "an older reply finishing late can't overwrite a newer reply's saved weather or time",
-);
-assert.match(
-  generateRouteSource,
-  /const showIfUnchanged = async[^]*?if \(now !== before \|\| agentSignal\.aborted \|\| !\(await replyIsNewest\(\)\)\) return \{\};/u,
-  "the picture guard checks the newest reply inside the queued write",
-);
+// ── Background writes belong to the newest reply ──
+{
+  const { showBackgroundIfUnchanged, saveDecisionPicksIfNewest } =
+    await import("../../../packages/server/src/services/generation/illustrator-background-reply-guard.js");
+  // A chat whose metadata writes run one at a time, like the real queue.
+  const fakeChat = (newest: { id: string; activeSwipeIndex: number }) => {
+    let metadata: Record<string, unknown> = { background: "inn.png" };
+    let queue = Promise.resolve();
+    return {
+      newest,
+      get metadata() {
+        return metadata;
+      },
+      async listMessagesPaginated() {
+        return [this.newest];
+      },
+      patchMetadata(_chatId: string, updater: (current: Record<string, unknown>) => unknown) {
+        const run = queue.then(async () => {
+          metadata = { ...metadata, ...((await updater({ ...metadata })) as Record<string, unknown>) };
+        });
+        queue = run;
+        return run;
+      },
+    };
+  };
+  const older = { chatId: "c1", messageId: "m1", swipeIndex: 0 };
+  const chat = fakeChat({ id: "m1", activeSwipeIndex: 0 });
+  assert.equal(await showBackgroundIfUnchanged(chat, older, "inn--tod-night.png", "inn.png", () => false), true);
+  assert.equal(chat.metadata.background, "inn--tod-night.png", "the newest reply shows its version");
+
+  chat.newest = { id: "m2", activeSwipeIndex: 0 };
+  assert.equal(
+    await showBackgroundIfUnchanged(chat, older, "inn--wx-rain.png", "inn--tod-night.png", () => false),
+    false,
+    "an older reply finishing late can't replace the newer reply's picture",
+  );
+  assert.equal(chat.metadata.background, "inn--tod-night.png");
+  await saveDecisionPicksIfNewest(chat, older, { weather: "rain", time: "night" });
+  assert.equal(chat.metadata.illustratorDecisionWeather, undefined, "an older reply's picks aren't saved");
+
+  const newer = { chatId: "c1", messageId: "m2", swipeIndex: 0 };
+  await saveDecisionPicksIfNewest(chat, newer, { time: "dawn" });
+  assert.equal(chat.metadata.illustratorDecisionTime, "dawn", "the newest reply's picks are saved");
+  assert.equal(
+    await showBackgroundIfUnchanged(chat, newer, "inn--tod-dawn.png", "inn.png", () => false),
+    false,
+    "a picture changed meanwhile stays",
+  );
+  assert.equal(
+    await showBackgroundIfUnchanged(chat, newer, "inn--tod-dawn.png", "inn--tod-night.png", () => true),
+    false,
+    "a stopped run shows nothing",
+  );
+  chat.newest = { id: "m2", activeSwipeIndex: 1 };
+  assert.equal(
+    await showBackgroundIfUnchanged(chat, newer, "inn--tod-dawn.png", "inn--tod-night.png", () => false),
+    false,
+    "another swipe of the reply is a newer reply",
+  );
+
+  // The newest-reply check runs inside the queued write: a newer reply saved while an older write
+  // waits in the queue still wins.
+  const queued = fakeChat({ id: "m1", activeSwipeIndex: 0 });
+  let release!: () => void;
+  const held = queued.patchMetadata(
+    "c1",
+    () => new Promise<Record<string, unknown>>((done) => (release = () => done({}))),
+  );
+  const late = showBackgroundIfUnchanged(queued, older, "inn--wx-rain.png", "inn.png", () => false);
+  queued.newest = { id: "m2", activeSwipeIndex: 0 };
+  await new Promise((done) => setTimeout(done, 0));
+  release();
+  await held;
+  assert.equal(await late, false);
+  assert.equal(queued.metadata.background, "inn.png");
+}
 
 console.log("background weather versions: ok");
