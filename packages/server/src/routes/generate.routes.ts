@@ -13025,13 +13025,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
            * Shows a picture only while the chat still shows the one this tail started from and this reply is
            * still the newest one (a newer reply's conditions win), in one queued write.
            */
+          // The newest-reply check runs inside the queued metadata write. A new reply or swipe saved after that
+          // write still can't be seen by it; the next reply's own tail then sets the picture.
           const showIfUnchanged = async (filename: string, before: string | null) => {
-            if (!(await replyIsNewest())) return false;
             let shown = false;
-            await chats.patchMetadata(input.chatId, (current) => {
+            await chats.patchMetadata(input.chatId, async (current) => {
               const now =
                 typeof current.background === "string" && current.background.trim() ? current.background.trim() : null;
-              if (now !== before || agentSignal.aborted) return {};
+              if (now !== before || agentSignal.aborted || !(await replyIsNewest())) return {};
               shown = true;
               return { background: filename };
             });
@@ -13087,12 +13088,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 backgroundTimeOfDay(trackedTime) === "",
               );
               // Saved only from the newest reply, so an older reply finishing late can't overwrite a newer pick.
-              if ((decided.weather || decided.time) && (await replyIsNewest())) {
+              if (decided.weather || decided.time) {
                 try {
-                  await chats.patchMetadata(input.chatId, {
-                    ...(decided.weather ? { illustratorDecisionWeather: decided.weather } : {}),
-                    ...(decided.time ? { illustratorDecisionTime: decided.time } : {}),
-                  });
+                  await chats.patchMetadata(input.chatId, async () =>
+                    (await replyIsNewest())
+                      ? {
+                          ...(decided.weather ? { illustratorDecisionWeather: decided.weather } : {}),
+                          ...(decided.time ? { illustratorDecisionTime: decided.time } : {}),
+                        }
+                      : {},
+                  );
                 } catch {
                   /* only a fallback for later replies */
                 }

@@ -402,12 +402,13 @@ const generateRouteSource = readFileSync(
 );
 assert.match(
   generateRouteSource,
-  /if \(\(decided\.weather \|\| decided\.time\) && \(await replyIsNewest\(\)\)\)/u,
+  /chats\.patchMetadata\(input\.chatId, async \(\) =>\s*\(await replyIsNewest\(\)\)\s*\?\s*\{\s*\.\.\.\(decided\.weather/u,
   "an older reply finishing late can't overwrite a newer reply's saved weather or time",
 );
 assert.match(
   generateRouteSource,
-  /const showIfUnchanged = async[^]*?if \(!\(await replyIsNewest\(\)\)\) return false;/u,
+  /const showIfUnchanged = async[^]*?if \(now !== before \|\| agentSignal\.aborted \|\| !\(await replyIsNewest\(\)\)\) return \{\};/u,
+  "the picture guard checks the newest reply inside the queued write",
 );
 
 console.log("background weather versions: ok");
