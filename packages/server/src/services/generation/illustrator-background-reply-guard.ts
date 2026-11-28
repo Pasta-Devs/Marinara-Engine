@@ -61,12 +61,11 @@ export async function saveDecisionPicksIfNewest(
   picks: { weather?: string | null; time?: string | null },
 ): Promise<void> {
   if (!picks.weather && !picks.time) return;
-  await chats.patchMetadata(reply.chatId, async () =>
-    (await backgroundReplyIsNewest(chats, reply))
-      ? {
-          ...(picks.weather ? { illustratorDecisionWeather: picks.weather } : {}),
-          ...(picks.time ? { illustratorDecisionTime: picks.time } : {}),
-        }
-      : {},
-  );
+  await chats.patchMetadata(reply.chatId, async (current) => {
+    if (!(await backgroundReplyIsNewest(chats, reply))) return {};
+    return {
+      illustratorDecisionWeather: picks.weather || current.illustratorDecisionWeather,
+      illustratorDecisionTime: picks.time || current.illustratorDecisionTime,
+    };
+  });
 }
