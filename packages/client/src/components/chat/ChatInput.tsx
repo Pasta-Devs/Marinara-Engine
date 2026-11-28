@@ -567,7 +567,18 @@ export const ChatInput = memo(function ChatInput({
   useEffect(() => {
     if (!activeChatId) return;
     if (!impersonateDraftStatus || impersonateDraftText === null) {
+      const wasWriting = appliedImpersonateDrafts.get(activeChatId)?.startsWith("writing\u0000") ?? false;
       appliedImpersonateDrafts.delete(activeChatId);
+      // It ended with nothing written (a failure before the first word): the box gets back what it had.
+      const el = textareaRef.current;
+      if (wasWriting && el) {
+        const restored = useChatStore.getState().inputDrafts.get(activeChatId) ?? "";
+        if (el.value !== restored) {
+          el.value = restored;
+          resizeChatInputTextarea(el);
+          syncInputState(restored);
+        }
+      }
       return;
     }
     const key = `${impersonateDraftStatus}\u0000${impersonateDraftText}`;
@@ -1389,6 +1400,8 @@ export const ChatInput = memo(function ChatInput({
           extra: { attachments: pendingAttachments },
         });
       }
+      // A posted impersonate draft is done; a failed post keeps its Redo and Undo.
+      forgetImpersonateDraft(submittingChatId);
     } catch (error) {
       if (replyDraft && !useChatStore.getState().replyDrafts.has(submittingChatId))
         setReplyDraft(submittingChatId, replyDraft);
@@ -1949,6 +1962,12 @@ export const ChatInput = memo(function ChatInput({
           onStop={() => stopImpersonateDraft(activeChatId)}
           onRedo={() => redoImpersonateDraft(activeChatId)}
           onUndo={() => {
+            // An edit still waiting to be saved would put the thrown-away draft back.
+            if (draftTimerRef.current) {
+              clearTimeout(draftTimerRef.current);
+              draftTimerRef.current = null;
+            }
+            heldDeleteDraftRef.current = null;
             const before = undoImpersonateDraft(activeChatId);
             const el = textareaRef.current;
             if (!el) return;

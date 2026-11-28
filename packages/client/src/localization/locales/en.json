@@ -11872,6 +11872,8 @@
   "ui.chat.imageregeneratepanel.revising": "Revising prompt…",
   "ui.chat.imageregeneratepanel.strength": "Strength",
   "ui.chat.imageregeneratepanel.strengthHelpLabel": "Help for Strength",
+  "ui.chat.impersonateDraft.busy": "Wait for the current reply to finish first.",
+  "ui.chat.impersonateDraft.failed": "Impersonate failed",
   "ui.chat.impersonateDraft.quickDraft": "Impersonate as draft",
   "ui.chat.impersonateDraft.quickDraftDescription": "Write your message into the box to edit first",
   "ui.chat.impersonateDraft.quickPost": "Impersonate and post",
