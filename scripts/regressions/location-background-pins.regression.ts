@@ -156,10 +156,15 @@ const snowy = pinnedSceneBackground({
   weatherVersions: true,
 });
 assert.equal(snowy?.filename, "john.png", "no snow version yet: the plain picture (the Illustrator may make one)");
-assert.deepEqual(pinnedBackgroundMetadataPatch(wet!), {
-  background: "john--wx-rain.png",
-  [shared.LOCATION_BACKGROUND_PIN_SHOWN_KEY]: "john",
-});
+const wetPatch = pinnedBackgroundMetadataPatch(wet!);
+assert.deepEqual(
+  {
+    background: wetPatch.background,
+    [shared.LOCATION_BACKGROUND_PIN_SHOWN_KEY]: wetPatch[shared.LOCATION_BACKGROUND_PIN_SHOWN_KEY],
+  },
+  { background: "john--wx-rain.png", [shared.LOCATION_BACKGROUND_PIN_SHOWN_KEY]: "john" },
+);
+assert.equal((wetPatch[shared.BACKGROUND_CHOICE_NOTE_KEY] as { background?: string }).background, "john--wx-rain.png");
 assert.equal(
   pinnedSceneBackground({
     chatMode: "roleplay",

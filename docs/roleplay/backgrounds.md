@@ -15,7 +15,7 @@ Image generation is not required for any of this. Without an image model, you pi
 | New pictures painted for new places, weather and time of day | The **Illustrator** agent | [Backgrounds Made by Illustrator](../media/scene-backgrounds.md) |
 | To upload, tag and sort your pictures, or blur them | The Background Library | [Background Library](../appearance/chat-backgrounds.md) |
 
-When the story arrives somewhere, Marinara decides in this order: a pin for that place in this chat, then a gallery background that names the place, then the Background agent's pick. Illustrator paints a new picture only when none of these fits. Whichever picture wins, its weather or time of day version is shown when the library has one for the story's weather and time.
+When the story arrives somewhere, Marinara decides in this order: a pin for that place in this chat, then a gallery background that names the place, then the Background agent's pick. Pins and gallery places are matched against the **World State** location, so they switch the picture on their own only while the World State agent tracks where the story is. Without it, the Background agent still sees gallery backgrounds by their places. Illustrator paints a new picture only when none of these fits. Whichever picture wins, its weather or time of day version is shown when the library has one for the story's weather and time.
 
 ## Set a background for one chat
 
@@ -32,9 +32,17 @@ The **Background** agent runs after each reply. It reads the scene and picks the
 2. Open **Agents** and turn on **Enable Agents**.
 3. Add the **Background** agent.
 
-The backdrop now changes on its own as the story moves between places. It sees every picture in your library, including ones in folders, and uses their names and tags to choose, so clear names and place tags help.
+The backdrop now changes on its own as the story moves between places. The agent reads text, not pictures, so it chooses by what each picture is called:
 
-If it did not work: with only one or two backgrounds, the agent keeps picking those. Add more to your library.
+- **Library pictures** by their file name and tags, including ones in folders.
+- **Gallery backgrounds** of the chat's characters and persona by the places they are labelled with (such as `dorm kitchen`) and their description.
+- **Pinned places** in this chat, as names of the picture they pin.
+
+A library picture whose file name is only random letters and numbers (such as `70c60b32-6b8c-….jpg`) and that has no tags is left out, because nothing says which place it shows. Give it a place tag or a clear name to make it pickable. When nothing listed shows the scene's place, the agent keeps the current picture instead of guessing.
+
+**Chat Settings → Background** shows why the current picture was picked, under its preview. The line goes away when you pick a picture yourself.
+
+If it did not work: with only one or two backgrounds, the agent keeps picking those. Add more to your library. If it is slow, check the agent's connection: it waits for other agents (such as Lorebook Keeper) when that connection runs one request at a time.
 
 ## Pin a background to a place
 

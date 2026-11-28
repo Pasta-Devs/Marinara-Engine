@@ -126,10 +126,34 @@ const shown = pinnedSceneBackground({
   ...who,
 });
 assert.equal(shown?.filename, "john.png");
-assert.deepEqual(pinnedBackgroundMetadataPatch(shown!), {
-  background: "john.png",
-  [shared.LOCATION_BACKGROUND_PIN_SHOWN_KEY]: "john",
-});
+const shownPatch = pinnedBackgroundMetadataPatch(shown!);
+assert.equal(typeof (shownPatch[shared.BACKGROUND_CHOICE_NOTE_KEY] as { at?: unknown }).at, "string");
+assert.deepEqual(
+  {
+    ...shownPatch,
+    [shared.BACKGROUND_CHOICE_NOTE_KEY]: { ...(shownPatch[shared.BACKGROUND_CHOICE_NOTE_KEY] as object), at: "x" },
+  },
+  {
+    background: "john.png",
+    [shared.LOCATION_BACKGROUND_PIN_SHOWN_KEY]: "john",
+    // Chat settings shows why: "Shown for the pinned place "John's bedroom"."
+    [shared.BACKGROUND_CHOICE_NOTE_KEY]: {
+      background: "john.png",
+      by: "pinned-place",
+      reason: "John's bedroom",
+      at: "x",
+    },
+  },
+);
+assert.equal(
+  shared.readBackgroundChoiceNote(shownPatch[shared.BACKGROUND_CHOICE_NOTE_KEY], "john.png")?.reason,
+  "John's bedroom",
+);
+assert.equal(
+  shared.readBackgroundChoiceNote(shownPatch[shared.BACKGROUND_CHOICE_NOTE_KEY], "other.png"),
+  null,
+  "a pick by hand hides it",
+);
 assert.equal(
   pinnedSceneBackground({
     chatMode: "roleplay",

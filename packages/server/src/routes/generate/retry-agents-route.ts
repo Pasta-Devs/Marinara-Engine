@@ -116,6 +116,14 @@ import type {
   IllustratorPersonaReference,
 } from "../../services/image/illustrator-references.js";
 import { createCharacterGalleryStorage } from "../../services/storage/character-gallery.storage.js";
+import {
+  backgroundAgentHandleFor,
+  backgroundAgentStoredValues,
+  buildBackgroundAgentCandidates,
+  loadGalleryBackgroundAgentCandidates,
+  resolveBackgroundAgentChoice,
+  type BackgroundAgentCandidate,
+} from "../../services/generation/background-agent-candidates.js";
 import { createPersonaGalleryStorage } from "../../services/storage/persona-gallery.storage.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
 import { findLastUserMessageIdBefore } from "../../services/generation/message-history.js";
@@ -200,7 +208,7 @@ import {
   resolveLorebookGenerationTriggers,
   resolveLorebookTokenBudget,
 } from "../../services/generation/lorebook-generation-runtime.js";
-import type { Lorebook, LorebookEntry } from "@marinara-engine/shared";
+import { BACKGROUND_CHOICE_NOTE_KEY, type Lorebook, type LorebookEntry } from "@marinara-engine/shared";
 import type { GameStateForScanning } from "../../services/lorebook/keyword-scanner.js";
 import { filterRelevantLorebooks } from "../../services/lorebook/index.js";
 import { storedContentForTextlessScanEntries } from "../../services/lorebook/lorebook-scan-compaction.js";
@@ -1727,8 +1735,26 @@ async function buildRetryAgentContext(args: {
             source: "game_asset" as const,
           })),
       );
-      agentContext.memory._availableBackgrounds = availableBackgrounds;
-      agentContext.memory._currentBackground = currentBackground;
+      // Same list as on generation: gallery backgrounds by their places, no unreadable unlabelled files.
+      const galleryCandidates =
+        (chat as { mode?: unknown }).mode === "roleplay"
+          ? await loadGalleryBackgroundAgentCandidates({
+              characters: agentContext.characters.map((character) => ({ id: character.id, name: character.name })),
+              persona: personaContext.personaId
+                ? { id: personaContext.personaId, name: personaContext.personaName }
+                : null,
+              characterGallery: createCharacterGalleryStorage(db),
+              personaGallery: createPersonaGalleryStorage(db),
+            }).catch(() => [])
+          : [];
+      const { candidates, leftOut } = buildBackgroundAgentCandidates({
+        library: availableBackgrounds,
+        gallery: galleryCandidates,
+        chatMetadata: chatMeta,
+      });
+      agentContext.memory._availableBackgrounds = candidates;
+      agentContext.memory._unlabelledBackgroundsLeftOut = leftOut.length;
+      agentContext.memory._currentBackground = backgroundAgentHandleFor(currentBackground, candidates);
     } catch (err) {
       logger.warn(err, "[retry-agents] Failed to load available backgrounds for retry");
     }
@@ -5870,6 +5896,38 @@ export async function registerRetryAgentsRoute(
             // No sprite catalog loaded — drop expressions entirely so unvalidated data is never forwarded
             spriteData.expressions = [];
           }
+        }
+      }
+
+      // The Background agent answers with a handle: send what the chat stores (file name or gallery URL), or nothing.
+      for (const result of results) {
+        if (!result.success || result.type !== "background_change") continue;
+        if (!result.data || typeof result.data !== "object") continue;
+        const bgData = result.data as { chosen?: unknown; reason?: unknown };
+        const candidates = agentContext.memory._availableBackgrounds as BackgroundAgentCandidate[] | undefined;
+        if (typeof bgData.chosen !== "string" || !candidates) continue;
+        const handle = bgData.chosen;
+        bgData.chosen = backgroundAgentStoredValues(candidates).has(handle)
+          ? handle
+          : resolveBackgroundAgentChoice(handle, candidates);
+        if (!bgData.chosen) {
+          logger.warn('[retry-agents] Background agent chose "%s", which is not listed; ignored', handle);
+          continue;
+        }
+        const reason =
+          typeof bgData.reason === "string" ? bgData.reason.replace(/\s+/gu, " ").trim().slice(0, 200) : "";
+        try {
+          await chats.patchMetadata(chatId, {
+            background: bgData.chosen,
+            [BACKGROUND_CHOICE_NOTE_KEY]: {
+              background: bgData.chosen,
+              by: "background-agent",
+              reason,
+              at: new Date().toISOString(),
+            },
+          });
+        } catch {
+          /* the client still shows and saves the pick */
         }
       }
 

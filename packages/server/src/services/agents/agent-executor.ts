@@ -3397,19 +3397,48 @@ function buildAgentExtras(
     const bgs = context.memory._availableBackgrounds as Array<{
       filename: string;
       tags: string[];
-      source?: "user" | "game_asset";
+      source?: "user" | "game_asset" | "gallery";
+      places?: string[];
+      owner?: string;
+      description?: string;
     }>;
     parts.push(`<available_backgrounds>`);
     for (const bg of bgs) {
       const label = escapeXml(bg.filename);
-      const source = bg.source === "game_asset" ? " [source: game asset]" : "";
+      const source =
+        bg.source === "game_asset"
+          ? " [source: game asset]"
+          : bg.source === "gallery"
+            ? ` [source: ${escapeXml(bg.owner ?? "a character")}'s gallery]`
+            : "";
+      const places = bg.places?.length ? ` [shows the place: ${escapeXml(bg.places.join("; "))}]` : "";
       const tagStr = bg.tags.length > 0 ? ` [tags: ${escapeXml(bg.tags.join(", "))}]` : "";
-      parts.push(`- ${label}${source}${tagStr}`);
+      const description = bg.description ? ` [looks like: ${escapeXml(bg.description)}]` : "";
+      parts.push(`- ${label}${source}${places}${tagStr}${description}`);
     }
     parts.push(`</available_backgrounds>`);
     if (context.memory._currentBackground) {
-      parts.push(`<current_background>${context.memory._currentBackground}</current_background>`);
+      parts.push(`<current_background>${escapeXml(String(context.memory._currentBackground))}</current_background>`);
     }
+    // Host rules: they override any "closest match" wording in the agent's own prompt.
+    parts.push(`<background_selection_rules>`);
+    parts.push(
+      `Read each picture by its "shows the place" names, tags, "looks like" description and file name. A file name made of random letters and numbers says nothing.`,
+    );
+    parts.push(
+      `When the scene is in a place a listed picture shows (same place, or the same kind of room or spot, such as a kitchen for a kitchen), choose that picture over any other.`,
+    );
+    parts.push(
+      `If no listed picture shows the scene's place, return {"chosen": null}: keeping the current background is better than showing the wrong place. This overrides any instruction to pick the closest match.`,
+    );
+    const leftOut = Number(context.memory._unlabelledBackgroundsLeftOut ?? 0);
+    if (leftOut > 0) {
+      parts.push(`${leftOut} library picture(s) with no tags and an unreadable file name are not listed.`);
+    }
+    parts.push(
+      `Also give "reason": a few words saying which place in the scene the picture matches (or why nothing fits).`,
+    );
+    parts.push(`</background_selection_rules>`);
   }
 
   if (agentTypes.includes("spotify") && context.memory._spotifyDjConstraints) {
