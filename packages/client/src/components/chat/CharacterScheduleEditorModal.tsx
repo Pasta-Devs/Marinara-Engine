@@ -1518,7 +1518,28 @@ function SideWrap({ embedded, children }: { embedded: boolean; children: React.R
   return embedded ? <div className="ov-schedEd__side">{children}</div> : <>{children}</>;
 }
 
-/** UI overhaul: the week as seven columns, each block placed by its time. Click a day to edit its blocks below. */
+/** Blocks shorter than this many minutes put their name and time on one line. */
+const OV_WEEK_ONE_LINE_MINUTES = 50;
+
+/** The first hour worth showing when the calendar opens: an hour before the earliest block that is not offline. */
+function firstAwakeHour(days: Record<string, ScheduleBlock[]>): number {
+  let first = 1440;
+  for (const blocks of Object.values(days)) {
+    for (const block of blocks ?? []) {
+      if ((block.status ?? "online") === "offline") continue;
+      const range = parseTimeRange(block.time);
+      if (!range) continue;
+      first = Math.min(first, range.start > range.end ? 0 : range.start);
+    }
+  }
+  return first === 1440 ? 7 : Math.max(0, Math.floor(first / 60) - 1);
+}
+
+/**
+ * UI overhaul: the week as seven columns, each block placed by its time. Click a day to edit its blocks below.
+ * Each hour gets enough height that a half-hour block shows its name; the week scrolls inside its own box,
+ * with the day names pinned, and opens at the start of the character's day.
+ */
 function OvWeekCalendar({
   days,
   expandedDay,
@@ -1532,14 +1553,31 @@ function OvWeekCalendar({
   const now = new Date();
   const todayName = CONVERSATION_SCHEDULE_DAYS[(now.getDay() + 6) % 7];
   const nowTop = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 100;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrolledRef = useRef(false);
+  const hasBlocks = Object.values(days).some((blocks) => (blocks ?? []).length > 0);
+  useLayoutEffect(() => {
+    const box = scrollRef.current;
+    if (!box || scrolledRef.current || !hasBlocks) return;
+    scrolledRef.current = true;
+    const grid = box.querySelector<HTMLElement>(".ov-week__day");
+    if (!grid) return;
+    box.scrollTop = (grid.offsetHeight / 24) * firstAwakeHour(days);
+    // Only the first paint with blocks picks the starting hour; edits keep the place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasBlocks]);
   return (
-    <div className="ov-week" role="grid" aria-label={localizeUi("ui.chat.ovweekcalendar.weekSchedule")}>
-      <div className="ov-week__hrs" aria-hidden="true">
-        {[0, 4, 8, 12, 16, 20].map((hour) => (
-          <span key={hour} style={{ top: `${(hour / 24) * 100}%` }}>
-            {hour}:00
-          </span>
-        ))}
+    <div ref={scrollRef} className="ov-week" role="grid" aria-label={localizeUi("ui.chat.ovweekcalendar.weekSchedule")}>
+      <div className="ov-week__col" aria-hidden="true">
+        {/* Covers the hour labels as they scroll under the pinned day names. */}
+        <div className="ov-week__dh is-corner" />
+        <div className="ov-week__hrs">
+          {Array.from({ length: 12 }, (_, index) => index * 2).map((hour) => (
+            <span key={hour} style={{ top: `${(hour / 24) * 100}%` }}>
+              {hour}:00
+            </span>
+          ))}
+        </div>
       </div>
       {CONVERSATION_SCHEDULE_DAYS.map((day) => (
         <div key={day} className="ov-week__col" role="row">
@@ -1566,7 +1604,7 @@ function OvWeekCalendar({
               return parts.map(([start, end], part) => (
                 <div
                   key={`${index}-${part}`}
-                  className={cn("ov-week__blk", `is-${status}`)}
+                  className={cn("ov-week__blk", `is-${status}`, end! - start! < OV_WEEK_ONE_LINE_MINUTES && "is-short")}
                   style={{ top: `${(start! / 1440) * 100}%`, height: `${((end! - start!) / 1440) * 100}%` }}
                   title={localizeUi("ui.chat.homeprofessormarichat.actingOnModeOutcomeValue1Value2", {
                     value1: block.time,
