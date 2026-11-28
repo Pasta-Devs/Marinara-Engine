@@ -976,8 +976,6 @@ export const ChatInput = memo(function ChatInput({
   const handleSend = useCallback(async () => {
     const raw = getValue();
     if (!activeChatId || isInputBusy) return;
-    // A sent impersonate draft is the user's own message now.
-    forgetImpersonateDraft(activeChatId);
     if (isReadingAttachments) {
       toast.info(localizeUi("ui.chat.chatinput.stillReadingAttachedFilesSendWillBeReadyIn"));
       return;
@@ -1046,6 +1044,8 @@ export const ChatInput = memo(function ChatInput({
     if (match) {
       const ctx = buildContext();
       if (!ctx) return;
+      // A command typed over a draft replaces it.
+      forgetImpersonateDraft(activeChatId);
 
       const submittedDraft = textareaRef.current?.value ?? "";
       slashSubmittedTextRef.current = submittedDraft;
@@ -1118,6 +1118,8 @@ export const ChatInput = memo(function ChatInput({
       toast.error(localizeUi("ui.chat.chatinput.itLooksLikeYouHavenTConnectedAnyModel"));
       return;
     }
+    // A sent impersonate draft is the user's own message now; a Send stopped before here keeps Redo and Undo.
+    forgetImpersonateDraft(activeChatId);
 
     const message = await prepareUserMessage(normalized, () =>
       toast.error(localizeUi("ui.chat.chatinput.failedToTranslateMessageSendingOriginal")),
