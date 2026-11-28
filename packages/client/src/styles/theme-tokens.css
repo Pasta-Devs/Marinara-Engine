@@ -529,9 +529,15 @@
 :root[data-mari-min-ui-text] .ovm-trk-strip__face--more {
   font-size: max(0.625rem, var(--mari-min-ui-text));
 }
-:root[data-mari-min-ui-text] .ov-week__hrs,
-:root[data-mari-min-ui-text] .ov-week__blk {
+:root[data-mari-min-ui-text] .ov-week__hrs {
   font-size: max(0.65rem, var(--mari-min-ui-text));
+}
+:root[data-mari-min-ui-text] .ov-week__blk {
+  font-size: max(0.7rem, var(--mari-min-ui-text));
+}
+/* Bigger minimum text: taller hours, so a half-hour block still holds one line. */
+:root[data-mari-min-ui-text] .ov-week {
+  --ov-week-hour: max(2.75rem, calc(var(--mari-min-ui-text) * 3.6));
 }
 :root[data-mari-min-ui-text] .ov-mode-count,
 :root[data-mari-min-ui-text] [data-component="ChatSidebar"] .mari-chrome-segmented__button,
